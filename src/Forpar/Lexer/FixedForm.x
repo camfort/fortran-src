@@ -114,25 +114,27 @@ tokens :-
 -- Lexer helpers
 --------------------------------------------------------------------------------
 
+type FixedLex a b = Lex AlexInput a b
+
 atFirstCol :: user -> AlexInput -> Int -> AlexInput -> Bool
 atFirstCol _ ai _ _ = (column . position $ ai) == 1
 
-getMatch :: Lex AlexInput a String
+getMatch :: FixedLex a String
 getMatch = do
   ai <- getAlexL
   return $ match ai
 
-putMatch :: String -> Lex AlexInput a AlexInput
+putMatch :: String -> FixedLex a AlexInput
 putMatch newMatch = do
   ai <- getAlexL
   putAlexL $ ai { match = newMatch }
 
-lexComment :: Lex AlexInput a Token
+lexComment :: FixedLex a Token
 lexComment = do
   match' <- getMatch
   return (TComment $ (take (fromIntegral . length $ match') . tail) match')
 
-lexHollerith :: Lex AlexInput a Token
+lexHollerith :: FixedLex a Token
 lexHollerith = do
   match' <- getMatch
   let len = read $ take (length match' - 1) match' -- Get n of "nH" from string
@@ -141,7 +143,7 @@ lexHollerith = do
     Just hollerith -> return $ THollerith hollerith
     Nothing -> fail $ "Unrecognisable token"
 
-lexN :: Int -> Lex AlexInput a (Maybe String)
+lexN :: Int -> FixedLex a (Maybe String)
 lexN n = do
   alex <- getAlexL
   match' <- getMatch
@@ -354,7 +356,7 @@ utf8Encode = map fromIntegral . go . ord
 lexer :: (Token -> Parse AlexInput Token) -> Parse AlexInput Token
 lexer = runContT lexer'
             
-lexer' :: Lex AlexInput Token Token
+lexer' :: FixedLex Token Token
 lexer' = do
   putMatch ""
   alexInput <- getAlexL
