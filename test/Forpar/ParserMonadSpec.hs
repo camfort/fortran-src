@@ -3,9 +3,10 @@ module Forpar.ParserMonadSpec where
 import Forpar.ParserMonad
 import Control.Monad.State.Lazy
 import Test.Hspec
+import Helper
 
 vanillaParseState :: ParseState String
-vanillaParseState = ParseState { alexInput = "", version = Fortran66 }
+vanillaParseState = ParseState { rAlexInput = "", rVersion = Fortran66 }
 
 spec :: Spec
 spec =
@@ -20,12 +21,12 @@ spec =
 
     describe "Lex" $ do
       it "reads the state correctly" $ do
-        runLex vanillaParseState getAlexL `shouldBe` ""
+        runLex getAlexL vanillaParseState `shouldBe` ""
 
       it "overrides the state correctly" $ do
-        let ai = runLex vanillaParseState (putAlexL "c'est") in
+        let ai = runLex (putAlexL "c'est") vanillaParseState in
             ai `shouldBe` "c'est"
 
       it "mixes operations correctly" $ do
-       let ai = runLex vanillaParseState (putAlexL "hello" >>= \s -> putAlexL $ take 4 s) in
+       let ai = runLex (putAlexL "hello" >>= \s -> putAlexL $ take 4 s) vanillaParseState in
              ai `shouldBe` "hell"

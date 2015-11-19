@@ -15,8 +15,8 @@ data FortranVersion = Fortran66
                     deriving (Ord, Eq, Show)
 
 data ParseState a = ParseState {
-  alexInput :: a,
-  version :: FortranVersion 
+  rAlexInput :: a,
+  rVersion :: FortranVersion 
 }
 
 -------------------------------------------------------------------------------
@@ -45,11 +45,6 @@ putAlexL ai = do
     lift (putAlexP ai)
     return ai
 
-{-
-runLex :: ParseState s -> Lex a s -> s
-runLex s = alexInput . flip execState s . evalContT 
--}
-
 -------------------------------------------------------------------------------
 -- Parser helper functions
 -------------------------------------------------------------------------------
@@ -57,14 +52,14 @@ runLex s = alexInput . flip execState s . evalContT
 getVersionP :: Parse a FortranVersion
 getVersionP = do
   s <- get
-  return (version s)
+  return (rVersion s)
 
 putAlexP :: a -> Parse a ()
 putAlexP ai = do
   s <- get
-  put (s { alexInput = ai })
+  put (s { rAlexInput = ai })
 
 getAlexP :: Parse a a
 getAlexP = do
     s <- get
-    return (alexInput s)
+    return (rAlexInput s)
