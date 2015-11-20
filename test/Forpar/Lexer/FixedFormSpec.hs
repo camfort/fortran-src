@@ -48,7 +48,9 @@ spec =
         collectFixedFormTokens example1 `shouldBe` example1Expectation
 
       it "shouldn't lex anything apart from numbers/comments in the first 6 columns" $ do
-        pending
+
+      it "should lex continuation lines properly" $ do
+        collectFixedFormTokens continuationExample `shouldBe` [ TType "integer", TId "ix", TId "ix", TOpAssign, TNum "42", TEnd, TEOF ]
 
     describe "lexN" $ do
       it "`lexN 5` parses lexes next five characters" $ do
@@ -64,6 +66,14 @@ example1 = unlines [
   " 200    ix =IX* ix",
   " 10   wrITe (*,*), ix",
   "        EnD" ]
+
+continuationExample = unlines [
+  "      inte",
+  "     .ger i",
+  "     .x",
+  "      ix = 4",
+  "     .2",
+  "      end"]
 
 example1Expectation = [
   TType "integer", TId "ix",
