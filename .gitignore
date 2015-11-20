@@ -4,5 +4,6 @@
 /Gemfile
 /Gemfile.lock
 /Guardfile
+/forpar
 .*.swp
 .*.swo
