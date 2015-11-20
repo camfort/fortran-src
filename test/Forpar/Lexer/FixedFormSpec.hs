@@ -69,12 +69,12 @@ spec =
       it "lexes Hollerith '7hmistral'" $ do
         singleLexer'App "      7hmistral" `shouldBe` THollerith "mistral"
 
-example1 = unwords [
-  "      integer ix\n",
-  "1     ix = 42\n",
-  " 200  ix = ix * ix\n",
-  " 10   write (*,*), ix\n",
-  "      end" ]
+example1 = unlines [
+  "      intEGerix",
+  "1         iX= 42",
+  " 200    ix =IX* ix",
+  " 10   wrITe (*,*), ix",
+  "        EnD" ]
 
 example1Expectation = [
   TType "integer", TId "ix",
