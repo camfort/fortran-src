@@ -18,7 +18,7 @@ $alphanumeric = [$letter $letter]
 $special = [\ \=\+\-\*\/\(\)\,\.\$]
 
 @id = $letter $alphanumeric{0,5}
-@label = [1-9] $digit{0,4} -- Questionable necessity
+@label = [1-9] $digit{0,4}
 
 @datatype = "integer" | "real" | "doubleprecision" | "complex" | "logical"
 
@@ -26,90 +26,99 @@ $special = [\ \=\+\-\*\/\(\)\,\.\$]
 @integerConst = $digit+ -- Integer constant
 
 tokens :-
-  $white                      ;
- "("                          { return TLeftPar }
-  ")"                         { return TRightPar }
-  ","                         { return TComma }
-  "."                         { return TDot }
+
+  <0> "c".* / { commentP }              { lexComment }
+  <0> @label / { withinLabelColsP }     { getMatch >>= \s -> return $ TLabel s }
+  <0> . / { \_ ai _ _ -> atColP 6 ai }  { toStartCode st }
+  <0> " "                               ;
+  <0> \n                                { toStartCode 0 }
+  <0> \r                                ;
+
+  <st> \n                               { toStartCode 0 }
+  <st> \r                               ;
+
+  <st> "("                              { return TLeftPar }
+  <st> ")"                              { return TRightPar }
+  <st> ","                              { return TComma }
+  <st> "."                              { return TDot }
 
   -- Tokens related to procedures and subprograms
-  "function"                  { return TFunction }
-  "subroutine"                { return TSubroutine }
-  "blockdata"                 { return TBlockData }
-  "end"                       { return TEnd }
+  <st> "function"                       { return TFunction }
+  <st> "subroutine"                     { return TSubroutine }
+  <st> "blockdata"                      { return TBlockData }
+  <st> "end"                            { return TEnd }
 
   -- Tokens related to assignment statements
-  "assign"                    { return TAssign }
-  "="                         { return TOpAssign }
-  "to"                        { return TTo }
+  <st> "assign"                         { return TAssign }
+  <st> "="                              { return TOpAssign }
+  <st> "to"                             { return TTo }
 
   -- Tokens related to control statements
-  "goto"                      { return TGoto }
-  "if"                        { return TIf }
-  "call"                      { return TCall }
-  "return"                    { return TReturn }
-  "continue"                  { return TContinue }
-  "stop"                      { return TStop }
-  "pause"                     { return TPause }
-  "do"                        { return TDo }
+  <st> "goto"                           { return TGoto }
+  <st> "if"                             { return TIf }
+  <st> "call"                           { return TCall }
+  <st> "return"                         { return TReturn }
+  <st> "continue"                       { return TContinue }
+  <st> "stop"                           { return TStop }
+  <st> "pause"                          { return TPause }
+  <st> "do"                             { return TDo }
 
   -- Tokens related to I/O statements
-  "read"                      { return TRead }
-  "write"                     { return TWrite }
-  "rewind"                    { return TRewind }
-  "backspace"                 { return TBackspace }
-  "endfile"                   { return TEndfile }
+  <st> "read"                           { return TRead }
+  <st> "write"                          { return TWrite }
+  <st> "rewind"                         { return TRewind }
+  <st> "backspace"                      { return TBackspace }
+  <st> "endfile"                        { return TEndfile }
 
   -- Tokens related to non-executable statements
 
   -- Tokens related to speification statements
-  "dimension"                 { return TDimension }
-  "common"                    { return TCommon }
-  "equivalence"               { return TEquivalence }
-  "external"                  { return TExternal }
-  @datatype                   { getMatch >>= \s -> return $ TType s }
+  <st> "dimension"                      { return TDimension }
+  <st> "common"                         { return TCommon }
+  <st> "equivalence"                    { return TEquivalence }
+  <st> "external"                       { return TExternal }
+  <st> @datatype                        { getMatch >>= \s -> return $ TType s }
 
   -- Tokens related to data initalization statement
-  "data"                      { return TData }
+  <st> "data"                           { return TData }
 
   -- Tokens related to format statement
-  "format"                    { return TFormat }
+  <st> "format"                         { return TFormat }
 
   -- Tokens needed to parse integers, reals, double precision and complex 
   -- constants
-  @integerConst               { getMatch >>= \s -> return $ TNum s }
-  "e"                         { return TRealExp }
-  "d"                         { return TDoubleExp }
+  <st> @integerConst                    { getMatch >>= \s -> return $ TNum s }
+  <st> "e"                              { return TRealExp }
+  <st> "d"                              { return TDoubleExp }
 
   -- Logicals
-  ".true."                    { return TTrue }
-  ".false."                   { return TFalse }
+  <st> ".true."                         { return TTrue }
+  <st> ".false."                        { return TFalse }
 
   -- Arithmetic operators
-  "+"                         { return TOpPlus }
-  "-"                         { return TOpMinus }
-  "**"                        { return TOpExp }
-  "*"                         { return TStar }
-  "/"                         { return TOpDiv }
+  <st> "+"                              { return TOpPlus }
+  <st> "-"                              { return TOpMinus }
+  <st> "**"                             { return TOpExp }
+  <st> "*"                              { return TStar }
+  <st> "/"                              { return TOpDiv }
 
   -- Logical operators
-  ".or."                      { return TOpOr }
-  ".and."                     { return TOpAnd }
-  ".not."                     { return TOpNot }
+  <st> ".or."                           { return TOpOr }
+  <st> ".and."                          { return TOpAnd }
+  <st> ".not."                          { return TOpNot }
 
   -- Relational operators
-  ".lt."                      { return TOpLT }
-  ".le."                      { return TOpLE }
-  ".eq."                      { return TOpEQ }
-  ".ne."                      { return TOpNE }
-  ".gt."                      { return TOpGT }
-  ".ge."                      { return TOpGE }
+  <st> ".lt."                           { return TOpLT }
+  <st> ".le."                           { return TOpLE }
+  <st> ".eq."                           { return TOpEQ }
+  <st> ".ne."                           { return TOpNE }
+  <st> ".gt."                           { return TOpGT }
+  <st> ".ge."                           { return TOpGE }
 
-  "c".* / { commentP }        { lexComment }
-  @id / { isNotPrefixOfKeywordP } { getMatch >>= \s -> return $ TId s }
+  <st> @id / { isNotPrefixOfKeywordP }  { getMatch >>= \s -> return $ TId s }
 
   -- Strings
-  @integerConst "h"           { lexHollerith }
+  <st> @integerConst "h"                { lexHollerith }
 
 {
 
@@ -133,10 +142,17 @@ isNotPrefixOfKeywordP _ _ _ ai =
       "real" ]
 
 commentP :: user -> AlexInput -> Int -> AlexInput -> Bool
-commentP _ aiOld _ aiNew = _atCol1P && _endsWithLine
+commentP _ aiOld _ aiNew = atColP 1 aiOld && _endsWithLine
   where
-    _atCol1P = (rColumn . rPosition) aiOld == 1
     _endsWithLine = (rColumn . rPosition) aiNew /= 1
+
+withinLabelColsP :: user -> AlexInput -> Int -> AlexInput -> Bool
+withinLabelColsP _ aiOld _ aiNew = getCol aiOld >= 1 && getCol aiNew <= 6
+  where
+    getCol = rColumn . rPosition
+
+atColP :: Integer -> AlexInput -> Bool
+atColP n ai = (rColumn . rPosition) ai == n
 
 --------------------------------------------------------------------------------
 -- Lexer helpers
@@ -167,7 +183,7 @@ lexComment = do
   let _src =  rSourceInput ai
   let _nToTake = fromIntegral (_col - 2)
   let _nToDrop = fromIntegral (_absl - _col + 2)
-  return (TComment $ take _nToTake . drop _nToDrop $ _src)
+  return $ TComment $ take _nToTake . drop _nToDrop $ _src
 
 lexHollerith :: FixedLex a Token
 lexHollerith = do
@@ -192,6 +208,14 @@ lexN n = do
         putAlexL newAlex
         lexN n
       Nothing -> return Nothing
+
+toStartCode :: Int -> FixedLex Token Token
+toStartCode startCode = do
+  ai <- getAlexL
+  if startCode == 0
+  then putAlexL $ ai { rStartCode = startCode, rWhiteSensitiveCharCount = 6 }
+  else putAlexL $ ai { rStartCode = startCode }
+  lexer'
 
 --------------------------------------------------------------------------------
 -- Tokens
@@ -250,6 +274,7 @@ data Token = TLeftPar
            | TId String
            | TComment String
            | THollerith String
+           | TLabel String
            | TEOF
            deriving (Show, Eq)
 
@@ -276,7 +301,8 @@ data AlexInput = AlexInput {
   rBytes                      :: [Word8],
   rPreviousChar               :: Char,
   rMatch                      :: String,
-  rWhiteSensitiveCharCount    :: Integer
+  rWhiteSensitiveCharCount    :: Integer,
+  rStartCode                  :: Int
 } deriving (Show)
 
 vanillaAlexInput :: AlexInput
@@ -286,7 +312,8 @@ vanillaAlexInput = AlexInput {
   rBytes = [],
   rPreviousChar = '\n',
   rMatch = "",
-  rWhiteSensitiveCharCount = 0
+  rWhiteSensitiveCharCount = 6,
+  rStartCode = 0
 }
 
 --------------------------------------------------------------------------------
@@ -394,12 +421,12 @@ lexer' :: FixedLex Token Token
 lexer' = do
   putMatch ""
   alexInput <- getAlexL
-  case (alexScanUser undefined alexInput 0) of
+  let startCode = rStartCode alexInput
+  case (alexScanUser undefined alexInput startCode) of
     AlexEOF -> return TEOF
     AlexError _ -> fail $ "Unrecognisable token"
     AlexSkip newAlex _ -> putAlexL newAlex >> lexer'
     AlexToken newAlex _ action -> do
       putAlexL newAlex
       action
-
 }

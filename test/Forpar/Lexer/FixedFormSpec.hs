@@ -16,44 +16,50 @@ setSourceInput srcInput = vanillaParseState { rAlexInput = vanillaAlexInput { rS
 collectFixedTokens :: ParseState AlexInput -> [Token]
 collectFixedTokens = collectTokens TEOF lexer'
 
+singleLexer'App :: String -> Token
+singleLexer'App str = runLex lexer' (setSourceInput str) 
+
 spec :: Spec
 spec = 
   describe "Fortran Fixed Form Lexer" $ do
     describe "lexer" $ do
-      it "should lex 'function'" $ do
-        runLex lexer' (setSourceInput "function") `shouldBe` TFunction
+      it "lexes 'function'" $ do
+        singleLexer'App "      function" `shouldBe` TFunction
 
-      it "should lex 'end'" $ do
-        runLex lexer' (setSourceInput "end") `shouldBe` TEnd
+      it "lexes 'end'" $ do
+        singleLexer'App "      end" `shouldBe` TEnd
     
-      it "should lex identifier" $ do
-        runLex lexer' (setSourceInput "mistr") `shouldBe` TId "mistr"
+      it "lexes identifier" $ do
+        singleLexer'App "      mistr" `shouldBe` TId "mistr"
 
-      it "should lex comment if first column is C" $ do
-        runLex lexer' (setSourceInput "c this is a comment\n") `shouldBe` TComment " this is a comment"
+      it "lexes comment if first column is C" $ do
+        singleLexer'App "c this is a comment\n" `shouldBe` TComment " this is a comment"
 
-      it "should lex empty comment" $ do
-        runLex lexer' (setSourceInput "c") `shouldBe` TComment ""
+      it "lexes empty comment" $ do
+        singleLexer'App "c" `shouldBe` TComment ""
 
-      it "should lex comment with one char" $ do
-        runLex lexer' (setSourceInput "ca") `shouldBe` TComment "a"
+      it "lexes comment with one char" $ do
+        singleLexer'App "ca" `shouldBe` TComment "a"
 
       it "should not lex from the next line" $ do
-        runLex lexer' (setSourceInput "cxxx\nselam") `shouldNotBe` TComment "xxxselam"
+        singleLexer'App "cxxx\nselam" `shouldNotBe` TComment "xxxselam"
 
-      it "should lex three tokens"  $ do
-        collectFixedTokens (setSourceInput "function end format") `shouldBe` [TFunction, TEnd, TFormat, TEOF]
+      it "lexes three tokens"  $ do
+        collectFixedTokens (setSourceInput "      function end format") `shouldBe` [TFunction, TEnd, TFormat, TEOF]
 
-      it "should multiple comments in a line" $ do
+      it "lexes multiple comments in a line" $ do
         collectFixedTokens (setSourceInput "csomething\ncsomething else\n\nc\ncc") `shouldBe` 
           [TComment "something", TComment "something else", TComment "", TComment "c", TEOF]
 
-      it "should lex example1" $ do
+      it "lexes example1" $ do
         collectFixedTokens (setSourceInput example1) `shouldBe` example1Expectation
 
+      it "shouldn't lex anything apart from numbers/comments in the first 6 columns" $ do
+        pending
+
     describe "lexer' >> lexer'" $ do
-      it "should lex two tokens and return last one" $ do
-        runLex (lexer' >> lexer') (setSourceInput "function end") `shouldBe` TEnd
+      it "lexes two tokens and return last one" $ do
+        runLex (lexer' >> lexer') (setSourceInput "      function end") `shouldBe` TEnd
 
     describe "lexN" $ do
       it "`lexN 5` parses lexes next five characters" $ do
@@ -61,19 +67,19 @@ spec =
 
     describe "lexHollerith" $ do
       it "lexes Hollerith '7hmistral'" $ do
-        runLex lexer' (setSourceInput "7hmistral") `shouldBe` THollerith "mistral"
+        singleLexer'App "      7hmistral" `shouldBe` THollerith "mistral"
 
 example1 = unwords [
   "      integer ix\n",
-  "      ix = 42\n",
-  "      ix = ix * ix\n",
-  "      write (*,*), ix\n",
+  "1     ix = 42\n",
+  " 200  ix = ix * ix\n",
+  " 10   write (*,*), ix\n",
   "      end" ]
 
 example1Expectation = [
   TType "integer", TId "ix",
-  TId "ix", TOpAssign, TNum "42",
-  TId "ix", TOpAssign, TId "ix", TStar , TId "ix",
-  TWrite, TLeftPar, TStar, TComma, TStar, TRightPar, TComma, TId "ix",
+  TLabel "1", TId "ix", TOpAssign, TNum "42",
+  TLabel "200", TId "ix", TOpAssign, TId "ix", TStar , TId "ix",
+  TLabel "10", TWrite, TLeftPar, TStar, TComma, TStar, TRightPar, TComma, TId "ix",
   TEnd,
   TEOF]
