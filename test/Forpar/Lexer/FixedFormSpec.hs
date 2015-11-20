@@ -3,21 +3,14 @@ module Forpar.Lexer.FixedFormSpec where
 import Forpar.ParserMonad
 import Forpar.Lexer.FixedForm
 import Test.Hspec
-import Helper
 import Control.Monad.State.Lazy
 import Control.Monad.Trans.Cont
 
-vanillaParseState :: ParseState AlexInput
-vanillaParseState = ParseState { rAlexInput = undefined, rVersion = Fortran66 }
-
-setSourceInput :: String -> ParseState AlexInput
-setSourceInput srcInput = vanillaParseState { rAlexInput = vanillaAlexInput { rSourceInput = srcInput } } 
-
-collectFixedTokens :: ParseState AlexInput -> [Token]
-collectFixedTokens = collectTokens TEOF lexer'
-
 singleLexer'App :: String -> Token
-singleLexer'App str = runLex lexer' (setSourceInput str) 
+singleLexer'App srcInput = runLex lexer' _parseState
+  where
+    _vanillaParseState = ParseState { rAlexInput = undefined, rVersion = Fortran66 }
+    _parseState = _vanillaParseState { rAlexInput = vanillaAlexInput { rSourceInput = srcInput } } 
 
 spec :: Spec
 spec = 
@@ -45,25 +38,21 @@ spec =
         singleLexer'App "cxxx\nselam" `shouldNotBe` TComment "xxxselam"
 
       it "lexes three tokens"  $ do
-        collectFixedTokens (setSourceInput "      function end format") `shouldBe` [TFunction, TEnd, TFormat, TEOF]
+        collectFixedFormTokens "      function end format" `shouldBe` [TFunction, TEnd, TFormat, TEOF]
 
       it "lexes multiple comments in a line" $ do
-        collectFixedTokens (setSourceInput "csomething\ncsomething else\n\nc\ncc") `shouldBe` 
+        collectFixedFormTokens "csomething\ncsomething else\n\nc\ncc" `shouldBe` 
           [TComment "something", TComment "something else", TComment "", TComment "c", TEOF]
 
       it "lexes example1" $ do
-        collectFixedTokens (setSourceInput example1) `shouldBe` example1Expectation
+        collectFixedFormTokens example1 `shouldBe` example1Expectation
 
       it "shouldn't lex anything apart from numbers/comments in the first 6 columns" $ do
         pending
 
-    describe "lexer' >> lexer'" $ do
-      it "lexes two tokens and return last one" $ do
-        runLex (lexer' >> lexer') (setSourceInput "      function end") `shouldBe` TEnd
-
     describe "lexN" $ do
       it "`lexN 5` parses lexes next five characters" $ do
-        rMatch (evalState (runContT (lexN 5 >> getAlexL) return) (setSourceInput "helloWorld")) `shouldBe` reverse "hello"
+        rMatch (evalState (runContT (lexN 5 >> getAlexL) return) (initParseState "helloWorld")) `shouldBe` reverse "hello"
 
     describe "lexHollerith" $ do
       it "lexes Hollerith '7hmistral'" $ do

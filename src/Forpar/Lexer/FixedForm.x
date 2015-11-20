@@ -429,4 +429,18 @@ lexer' = do
     AlexToken newAlex _ action -> do
       putAlexL newAlex
       action
+
+--------------------------------------------------------------------------------
+-- Functions to help testing & output
+--------------------------------------------------------------------------------
+
+initParseState :: String -> ParseState AlexInput
+initParseState srcInput = 
+  _vanillaParseState { rAlexInput = vanillaAlexInput { rSourceInput = srcInput } } 
+  where
+    _vanillaParseState = ParseState { rAlexInput = undefined, rVersion = Fortran66 }
+    
+collectFixedFormTokens :: String -> [Token]
+collectFixedFormTokens srcInput = collectTokens TEOF lexer' $ initParseState srcInput
+
 }

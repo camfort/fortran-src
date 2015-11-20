@@ -3,7 +3,6 @@ module Forpar.ParserMonadSpec where
 import Forpar.ParserMonad
 import Control.Monad.State.Lazy
 import Test.Hspec
-import Helper
 
 vanillaParseState :: ParseState String
 vanillaParseState = ParseState { rAlexInput = "", rVersion = Fortran66 }
