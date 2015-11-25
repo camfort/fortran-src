@@ -15,4 +15,6 @@ main = do
     case flag of
       "--fixed-form-lexer" -> do
         let tokens = collectFixedFormTokens contents
-        putStrLn $ show tokens
+        case tokens of
+          Just tokens' -> putStrLn $ show tokens'
+          Nothing -> putStrLn "Cannot lex the file"

@@ -1,4 +1,5 @@
 {
+{-# LANGUAGE ScopedTypeVariables #-}
 module Forpar.Lexer.FixedForm where
 
 import Forpar.ParserMonad
@@ -10,11 +11,13 @@ import qualified Data.Bits
 import Debug.Trace
 
 import Control.Monad.Trans.Cont
+import Control.Exception
+import GHC.Exts
 }
 
 $digit = [0-9]
 $letter = [a-z]
-$alphanumeric = [$letter $letter]
+$alphanumeric = [$letter $digit]
 $special = [\ \=\+\-\*\/\(\)\,\.\$]
 
 @id = $letter $alphanumeric{0,5}
@@ -24,11 +27,16 @@ $special = [\ \=\+\-\*\/\(\)\,\.\$]
 
 -- Numbers
 @integerConst = $digit+ -- Integer constant
+@posIntegerConst = [1-9] $digit*
+
+-- For format items
+@repeat = @posIntegerConst?
+@width = @posIntegerConst
 
 tokens :-
 
   <0> "c".* / { commentP }              { lexComment }
-  <0> @label / { withinLabelColsP }     { getMatch >>= \s -> return $ TLabel s }
+  <0> @label / { withinLabelColsP }     { getMatch >>= \s -> return $ Just $ TLabel s }
   <0> . / { \_ ai _ _ -> atColP 6 ai }  { toStartCode st }
   <0> " "                               ;
   <0> \n                                { toStartCode 0 }
@@ -37,88 +45,94 @@ tokens :-
   <st> \n                               { toStartCode 0 }
   <st> \r                               ;
 
-  <st> "("                              { return TLeftPar }
-  <st> ")"                              { return TRightPar }
-  <st> ","                              { return TComma }
-  <st> "."                              { return TDot }
+  <st> "("                              { return $ Just TLeftPar }
+  <st> ")"                              { return $ Just TRightPar }
+  <st> ","                              { return $ Just TComma }
+  <st> "."                              { return $ Just TDot }
 
   -- Tokens related to procedures and subprograms
-  <st> "function"                       { return TFunction }
-  <st> "subroutine"                     { return TSubroutine }
-  <st> "blockdata"                      { return TBlockData }
-  <st> "end"                            { return TEnd }
+  <st> "function"                       { return $ Just TFunction }
+  <st> "subroutine"                     { return $ Just TSubroutine }
+  <st> "blockdata"                      { return $ Just TBlockData }
+  <st> "end"                            { return $ Just TEnd }
 
   -- Tokens related to assignment statements
-  <st> "assign"                         { return TAssign }
-  <st> "="                              { return TOpAssign }
-  <st> "to"                             { return TTo }
+  <st> "assign"                         { return $ Just TAssign }
+  <st> "="                              { return $ Just TOpAssign }
+  <st> "to"                             { return $ Just TTo }
 
   -- Tokens related to control statements
-  <st> "goto"                           { return TGoto }
-  <st> "if"                             { return TIf }
-  <st> "call"                           { return TCall }
-  <st> "return"                         { return TReturn }
-  <st> "continue"                       { return TContinue }
-  <st> "stop"                           { return TStop }
-  <st> "pause"                          { return TPause }
-  <st> "do"                             { return TDo }
+  <st> "goto"                           { return $ Just TGoto }
+  <st> "if"                             { return $ Just TIf }
+  <st> "call"                           { return $ Just TCall }
+  <st> "return"                         { return $ Just TReturn }
+  <st> "continue"                       { return $ Just TContinue }
+  <st> "stop"                           { return $ Just TStop }
+  <st> "pause"                          { return $ Just TPause }
+  <st> "do"                             { return $ Just TDo }
 
   -- Tokens related to I/O statements
-  <st> "read"                           { return TRead }
-  <st> "write"                          { return TWrite }
-  <st> "rewind"                         { return TRewind }
-  <st> "backspace"                      { return TBackspace }
-  <st> "endfile"                        { return TEndfile }
+  <st> "read"                           { return $ Just TRead }
+  <st> "write"                          { return $ Just TWrite }
+  <st> "rewind"                         { return $ Just TRewind }
+  <st> "backspace"                      { return $ Just TBackspace }
+  <st> "endfile"                        { return $ Just TEndfile }
 
   -- Tokens related to non-executable statements
 
   -- Tokens related to speification statements
-  <st> "dimension"                      { return TDimension }
-  <st> "common"                         { return TCommon }
-  <st> "equivalence"                    { return TEquivalence }
-  <st> "external"                       { return TExternal }
-  <st> @datatype                        { getMatch >>= \s -> return $ TType s }
+  <st> "dimension"                      { return $ Just TDimension }
+  <st> "common"                         { return $ Just TCommon }
+  <st> "equivalence"                    { return $ Just TEquivalence }
+  <st> "external"                       { return $ Just TExternal }
+  <st> @datatype                        { getMatch >>= \s -> return $ Just $ TType s }
 
   -- Tokens related to data initalization statement
-  <st> "data"                           { return TData }
+  <st> "data"                           { return $ Just TData }
 
   -- Tokens related to format statement
-  <st> "format"                         { return TFormat }
+  <st> "format"                         { return $ Just TFormat }
 
   -- Tokens needed to parse integers, reals, double precision and complex 
   -- constants
-  <st> @integerConst                    { getMatch >>= \s -> return $ TNum s }
-  <st> "e"                              { return TRealExp }
-  <st> "d"                              { return TDoubleExp }
+  <st> @integerConst                    { getMatch >>= \s -> return $ Just $ TNum s }
+  <st> "e"                              { return $ Just TRealExp }
+  <st> "d"                              { return $ Just TDoubleExp }
 
   -- Logicals
-  <st> ".true."                         { return TTrue }
-  <st> ".false."                        { return TFalse }
+  <st> ".true."                         { return $ Just TTrue }
+  <st> ".false."                        { return $ Just TFalse }
 
   -- Arithmetic operators
-  <st> "+"                              { return TOpPlus }
-  <st> "-"                              { return TOpMinus }
-  <st> "**"                             { return TOpExp }
-  <st> "*"                              { return TStar }
-  <st> "/"                              { return TOpDiv }
+  <st> "+"                              { return $ Just TOpPlus }
+  <st> "-"                              { return $ Just TOpMinus }
+  <st> "**"                             { return $ Just TOpExp }
+  <st> "*"                              { return $ Just TStar }
+  <st> "/"                              { return $ Just TSlash }
 
   -- Logical operators
-  <st> ".or."                           { return TOpOr }
-  <st> ".and."                          { return TOpAnd }
-  <st> ".not."                          { return TOpNot }
+  <st> ".or."                           { return $ Just TOpOr }
+  <st> ".and."                          { return $ Just TOpAnd }
+  <st> ".not."                          { return $ Just TOpNot }
 
   -- Relational operators
-  <st> ".lt."                           { return TOpLT }
-  <st> ".le."                           { return TOpLE }
-  <st> ".eq."                           { return TOpEQ }
-  <st> ".ne."                           { return TOpNE }
-  <st> ".gt."                           { return TOpGT }
-  <st> ".ge."                           { return TOpGE }
+  <st> ".lt."                           { return $ Just TOpLT }
+  <st> ".le."                           { return $ Just TOpLE }
+  <st> ".eq."                           { return $ Just TOpEQ }
+  <st> ".ne."                           { return $ Just TOpNE }
+  <st> ".gt."                           { return $ Just TOpGT }
+  <st> ".ge."                           { return $ Just TOpGE }
 
-  <st> @id / { isNotPrefixOfKeywordP }  { getMatch >>= \s -> return $ TId s }
+  -- Format items
+  <st> @width "x"                       { getMatch >>= \s -> return $ Just $ TFormatItem s }
+  <st> @repeat [ail] @width             { getMatch >>= \s -> return $ Just $ TFormatItem s }
+  <st> @repeat [defg] @width "." @integerConst  { getMatch >>= \s -> return $ Just $ TFormatItem s }
+
+  -- ID
+  <st> @id / { isNotPrefixOfKeywordP }  { getMatch >>= \s -> return $ Just $ TId s }
 
   -- Strings
-  <st> @integerConst "h"                { lexHollerith }
+  <st> @posIntegerConst "h"             { lexHollerith }
 
 {
 
@@ -165,17 +179,18 @@ getMatch = do
   ai <- getAlexL
   return $ (reverse . rMatch) ai
 
-putMatch :: String -> FixedLex a AlexInput
+putMatch :: String -> FixedLex a ()
 putMatch newMatch = do
   ai <- getAlexL
   putAlexL $ ai { rMatch = newMatch }
+  return ()
 
 -- With the existing alexGetByte implementation comments are matched without
 -- whitespace characters. However, we have access to final column number,
 -- we know the comment would start at column, and we have access to the absolute
 -- offset so instead of using match, lexComment takes a slice from the original
 -- source input
-lexComment :: FixedLex a Token
+lexComment :: FixedLex a (Maybe Token)
 lexComment = do
   ai <- getAlexL
   let _col = (rColumn . rPosition) ai
@@ -183,17 +198,17 @@ lexComment = do
   let _src =  rSourceInput ai
   let _nToTake = fromIntegral (_col - 2)
   let _nToDrop = fromIntegral (_absl - _col + 2)
-  return $ TComment $ take _nToTake . drop _nToDrop $ _src
+  return $ Just $ TComment $ take _nToTake . drop _nToDrop $ _src
 
-lexHollerith :: FixedLex a Token
+lexHollerith :: FixedLex a (Maybe Token)
 lexHollerith = do
   match' <- getMatch
   let len = read $ init match' -- Get n of "nH" from string
   putMatch ""
   lexed <- lexN len
-  case lexed of
-    Just hollerith -> return $ THollerith hollerith
-    Nothing -> fail $ "Unrecognisable token"
+  return $ do
+    hollerith <- lexed
+    return $ THollerith hollerith
 
 lexN :: Int -> FixedLex a (Maybe String)
 lexN n = do
@@ -209,13 +224,13 @@ lexN n = do
         lexN n
       Nothing -> return Nothing
 
-toStartCode :: Int -> FixedLex Token Token
+toStartCode :: Int -> FixedLex a (Maybe Token)
 toStartCode startCode = do
   ai <- getAlexL
   if startCode == 0
   then putAlexL $ ai { rStartCode = startCode, rWhiteSensitiveCharCount = 6 }
   else putAlexL $ ai { rStartCode = startCode }
-  lexer'
+  return Nothing
 
 --------------------------------------------------------------------------------
 -- Tokens
@@ -261,7 +276,7 @@ data Token = TLeftPar
            | TOpMinus
            | TOpExp
            | TStar
-           | TOpDiv
+           | TSlash
            | TOpOr
            | TOpAnd
            | TOpNot
@@ -274,6 +289,7 @@ data Token = TLeftPar
            | TId String
            | TComment String
            | THollerith String
+           | TFormatItem String
            | TLabel String
            | TEOF
            deriving (Show, Eq)
@@ -414,21 +430,34 @@ utf8Encode = map fromIntegral . _go . ord
 -- Lexer definition
 --------------------------------------------------------------------------------
 
-lexer :: (Token -> Parse AlexInput Token) -> Parse AlexInput Token
-lexer = runContT lexer'
+--lexer :: (Maybe Token -> Parse AlexInput (Maybe Token)) -> Parse AlexInput (Maybe Token)
+--lexer :: (Maybe Token -> Parse AlexInput a) -> Parse AlexInput a
+--lexer = runContT lexer'
+
+lexer :: (Token -> Parse AlexInput a) -> Parse AlexInput a
+--lexer :: (Token -> Parse AlexInput (Maybe Token)) -> Parse AlexInput (Maybe Token)
+lexer = runContT $ do
+  mToken <- lexer'
+  case mToken of
+    Just tok -> return tok
+    Nothing -> fail "Unrecognised Token"
             
-lexer' :: FixedLex Token Token
+lexer' :: FixedLex a (Maybe Token)
+--lexer' :: FixedLex (Maybe Token) (Maybe Token)
 lexer' = do
   putMatch ""
   alexInput <- getAlexL
   let startCode = rStartCode alexInput
-  case (alexScanUser undefined alexInput startCode) of
-    AlexEOF -> return TEOF
-    AlexError _ -> fail $ "Unrecognisable token"
+  case alexScanUser undefined alexInput startCode of
+    AlexEOF -> return $ Just TEOF
+    AlexError _ -> return Nothing
     AlexSkip newAlex _ -> putAlexL newAlex >> lexer'
     AlexToken newAlex _ action -> do
       putAlexL newAlex
-      action
+      maybeTok <- (unsafeCoerce# action :: FixedLex a (Maybe Token))
+      case maybeTok of
+        Just _ -> return maybeTok
+        Nothing -> lexer'
 
 --------------------------------------------------------------------------------
 -- Functions to help testing & output
@@ -440,7 +469,7 @@ initParseState srcInput =
   where
     _vanillaParseState = ParseState { rAlexInput = undefined, rVersion = Fortran66 }
     
-collectFixedFormTokens :: String -> [Token]
+collectFixedFormTokens :: String -> Maybe [Token]
 collectFixedFormTokens srcInput = collectTokens TEOF lexer' $ initParseState srcInput
 
 }

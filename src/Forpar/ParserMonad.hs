@@ -2,6 +2,7 @@ module Forpar.ParserMonad where
 
 import Control.Monad.State.Lazy
 import Control.Monad.Trans.Cont
+import Control.Exception
 
 -------------------------------------------------------------------------------
 -- Helper datatype definitions
@@ -40,10 +41,10 @@ getAlexL = do
     s <- lift getAlexP
     return s
 
-putAlexL :: a -> Lex a r a
+putAlexL :: a -> Lex a r ()
 putAlexL ai = do
     lift (putAlexP ai)
-    return ai
+    return ()
 
 -------------------------------------------------------------------------------
 -- Parser helper functions
@@ -71,14 +72,19 @@ getAlexP = do
 runLex :: Lex b a a -> ParseState b -> a
 runLex lexer initState = evalState (runContT lexer return) initState
 
-collectTokens :: Eq a => a -> Lex b a a -> ParseState b -> [a]
+collectTokens :: Eq a => a -> Lex b (Maybe a) (Maybe a) -> ParseState b -> Maybe [a]
 collectTokens finishingToken lexer initState = 
     evalState (_collectTokens initState) undefined
   where
     _collectTokens state = do
       let (_token, _state) = runState (runContT lexer return) state
-      if _token == finishingToken 
-      then return [_token]
-      else do
-        tokens <- _collectTokens _state
-        return (_token:tokens)
+      case _token of
+        Just _token' ->
+          if _token' == finishingToken 
+          then return $ Just [_token']
+          else do
+            tokens <- _collectTokens _state
+            return $ do
+              tokens' <- tokens
+              return (_token':tokens')
+        Nothing -> return Nothing

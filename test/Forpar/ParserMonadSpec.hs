@@ -23,9 +23,9 @@ spec =
         runLex getAlexL vanillaParseState `shouldBe` ""
 
       it "overrides the state correctly" $ do
-        let ai = runLex (putAlexL "c'est") vanillaParseState in
+        let ai = runLex (putAlexL "c'est" >> getAlexL) vanillaParseState in
             ai `shouldBe` "c'est"
 
       it "mixes operations correctly" $ do
-       let ai = runLex (putAlexL "hello" >>= \s -> putAlexL $ take 4 s) vanillaParseState in
+       let ai = runLex (putAlexL "hello" >> getAlexL >>= \s -> (putAlexL $ take 4 s) >> getAlexL) vanillaParseState in
              ai `shouldBe` "hell"
