@@ -1,5 +1,4 @@
 {
-{-# LANGUAGE ScopedTypeVariables #-}
 module Forpar.Lexer.FixedForm where
 
 import Forpar.ParserMonad
@@ -205,6 +204,8 @@ lexHollerith = do
   match' <- getMatch
   let len = read $ init match' -- Get n of "nH" from string
   putMatch ""
+  ai <- getAlexL 
+  putAlexL $ ai { rWhiteSensitiveCharCount = len } 
   lexed <- lexN len
   return $ do
     hollerith <- lexed
@@ -267,6 +268,7 @@ data Token = TLeftPar
            | TType String
            | TData
            | TFormat
+           | TFormatItem String
            | TNum String
            | TRealExp
            | TDoubleExp
@@ -289,7 +291,6 @@ data Token = TLeftPar
            | TId String
            | TComment String
            | THollerith String
-           | TFormatItem String
            | TLabel String
            | TEOF
            deriving (Show, Eq)
@@ -298,39 +299,38 @@ data Token = TLeftPar
 -- AlexInput & related definitions
 --------------------------------------------------------------------------------
 
-data Position = Position {
-  rAbsoluteOffset   :: Integer,
-  rColumn           :: Integer,
-  rLine             :: Integer
-} deriving (Show)
+data Position = Position 
+  { rAbsoluteOffset   :: Integer
+  , rColumn           :: Integer
+  , rLine             :: Integer
+  } deriving (Show)
 
 initPosition :: Position
-initPosition = Position {
-  rAbsoluteOffset = 0,  
-  rColumn = 1,  
-  rLine = 1
-}
+initPosition = Position 
+  { rAbsoluteOffset = 0
+  , rColumn = 1
+  , rLine = 1 
+  }
 
-data AlexInput = AlexInput {
-  rSourceInput                :: String,
-  rPosition                   :: Position,
-  rBytes                      :: [Word8],
-  rPreviousChar               :: Char,
-  rMatch                      :: String,
-  rWhiteSensitiveCharCount    :: Integer,
-  rStartCode                  :: Int
-} deriving (Show)
+data AlexInput = AlexInput 
+  { rSourceInput                :: String
+  , rPosition                   :: Position
+  , rBytes                      :: [Word8]
+  , rPreviousChar               :: Char
+  , rMatch                      :: String
+  , rWhiteSensitiveCharCount    :: Int
+  , rStartCode                  :: Int
+  } deriving (Show)
 
 vanillaAlexInput :: AlexInput
-vanillaAlexInput = AlexInput {
-  rSourceInput = "",
-  rPosition = initPosition,
-  rBytes = [],
-  rPreviousChar = '\n',
-  rMatch = "",
-  rWhiteSensitiveCharCount = 6,
-  rStartCode = 0
-}
+vanillaAlexInput = AlexInput 
+  { rSourceInput = ""
+  , rPosition = initPosition
+  , rBytes = []
+  , rPreviousChar = '\n'
+  , rMatch = ""
+  , rWhiteSensitiveCharCount = 6
+  , rStartCode = 0 }
 
 --------------------------------------------------------------------------------
 -- Definitions needed for alexScanUser
@@ -430,20 +430,14 @@ utf8Encode = map fromIntegral . _go . ord
 -- Lexer definition
 --------------------------------------------------------------------------------
 
---lexer :: (Maybe Token -> Parse AlexInput (Maybe Token)) -> Parse AlexInput (Maybe Token)
---lexer :: (Maybe Token -> Parse AlexInput a) -> Parse AlexInput a
---lexer = runContT lexer'
-
-lexer :: (Token -> Parse AlexInput a) -> Parse AlexInput a
---lexer :: (Token -> Parse AlexInput (Maybe Token)) -> Parse AlexInput (Maybe Token)
+lexer :: (Token -> Parse AlexInput (Maybe Token)) -> Parse AlexInput (Maybe Token)
 lexer = runContT $ do
-  mToken <- lexer'
-  case mToken of
-    Just tok -> return tok
-    Nothing -> fail "Unrecognised Token"
+   mToken <- lexer'
+   case mToken of
+     Just tok -> return tok -- :: Lex AlexInput Token Token
+     Nothing -> fail "Unrecognised Token"
             
-lexer' :: FixedLex a (Maybe Token)
---lexer' :: FixedLex (Maybe Token) (Maybe Token)
+lexer' :: FixedLex (Maybe Token) (Maybe Token)
 lexer' = do
   putMatch ""
   alexInput <- getAlexL
@@ -454,7 +448,7 @@ lexer' = do
     AlexSkip newAlex _ -> putAlexL newAlex >> lexer'
     AlexToken newAlex _ action -> do
       putAlexL newAlex
-      maybeTok <- (unsafeCoerce# action :: FixedLex a (Maybe Token))
+      maybeTok <- action
       case maybeTok of
         Just _ -> return maybeTok
         Nothing -> lexer'
@@ -463,13 +457,18 @@ lexer' = do
 -- Functions to help testing & output
 --------------------------------------------------------------------------------
 
-initParseState :: String -> ParseState AlexInput
-initParseState srcInput = 
-  _vanillaParseState { rAlexInput = vanillaAlexInput { rSourceInput = srcInput } } 
+initParseState :: String -> FortranVersion -> String -> ParseState AlexInput
+initParseState srcInput fortranVersion filename = 
+  _vanillaParseState { rAlexInput = vanillaAlexInput { rSourceInput = srcInput } }
   where
-    _vanillaParseState = ParseState { rAlexInput = undefined, rVersion = Fortran66 }
+    _vanillaParseState = ParseState 
+      { rAlexInput = undefined
+      , rVersion = fortranVersion
+      , rFilename = filename 
+      }
     
 collectFixedFormTokens :: String -> Maybe [Token]
-collectFixedFormTokens srcInput = collectTokens TEOF lexer' $ initParseState srcInput
+collectFixedFormTokens srcInput = 
+    collectTokens TEOF lexer' $ initParseState srcInput Fortran66 "<unknown>"
 
 }

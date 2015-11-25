@@ -15,10 +15,11 @@ data FortranVersion = Fortran66
                     | Fortran2008
                     deriving (Ord, Eq, Show)
 
-data ParseState a = ParseState {
-  rAlexInput :: a,
-  rVersion :: FortranVersion 
-}
+data ParseState a = ParseState 
+  { rAlexInput :: a
+  , rVersion :: FortranVersion  -- To differentiate lexing behaviour
+  , rFilename :: String -- To save correct source location in AST
+  }
 
 -------------------------------------------------------------------------------
 -- Lexer Monad definitions

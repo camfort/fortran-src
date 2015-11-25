@@ -5,7 +5,7 @@ import Control.Monad.State.Lazy
 import Test.Hspec
 
 vanillaParseState :: ParseState String
-vanillaParseState = ParseState { rAlexInput = "", rVersion = Fortran66 }
+vanillaParseState = ParseState { rAlexInput = "", rVersion = Fortran66, rFilename = "<unknown>" }
 
 spec :: Spec
 spec =

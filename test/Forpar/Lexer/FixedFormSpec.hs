@@ -15,8 +15,7 @@ import Data.List (isPrefixOf)
 singleLexer'App :: String -> Maybe Token
 singleLexer'App srcInput = runLex lexer' _parseState
   where
-    _vanillaParseState = ParseState { rAlexInput = undefined, rVersion = Fortran66 }
-    _parseState = _vanillaParseState { rAlexInput = vanillaAlexInput { rSourceInput = srcInput } } 
+    _parseState = initParseState srcInput Fortran66 "<unknown>"
 
 spec :: Spec
 spec = 
@@ -85,11 +84,14 @@ spec =
 
     describe "lexN" $ do
       it "`lexN 5` parses lexes next five characters" $ do
-        rMatch (evalState (runContT (lexN 5 >> getAlexL) return) (initParseState "helloWorld")) `shouldBe` reverse "hello"
+        rMatch (evalState (runContT (lexN 5 >> getAlexL) return) (initParseState "helloWorld" Fortran66 "")) `shouldBe` reverse "hello"
 
     describe "lexHollerith" $ do
       it "lexes Hollerith '7hmistral'" $ do
         singleLexer'App "      7hmistral" `shouldBe` (Just $ THollerith "mistral")
+
+      it "becomes case sensitive" $ do
+        singleLexer'App "      5h a= 1" `shouldBe` (Just $ THollerith " a= 1")
 
 example1 = unlines [
   "      intEGerix",
