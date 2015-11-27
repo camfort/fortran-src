@@ -145,7 +145,7 @@ tokens :-
 -- fewer than 7 characters.
 isNotPrefixOfKeywordP :: user -> AlexInput -> Int -> AlexInput -> Bool
 isNotPrefixOfKeywordP _ _ _ ai = 
-  let match = reverse . rMatch $ ai in
+  let match = reverse . aiMatch $ ai in
     not $ any (\_keyword -> _keyword `isPrefixOf` match) _shortKeywords
   where
     _shortKeywords = [
@@ -157,15 +157,15 @@ isNotPrefixOfKeywordP _ _ _ ai =
 commentP :: user -> AlexInput -> Int -> AlexInput -> Bool
 commentP _ aiOld _ aiNew = atColP 1 aiOld && _endsWithLine
   where
-    _endsWithLine = (rColumn . rPosition) aiNew /= 1
+    _endsWithLine = (posColumn . aiPosition) aiNew /= 1
 
 withinLabelColsP :: user -> AlexInput -> Int -> AlexInput -> Bool
 withinLabelColsP _ aiOld _ aiNew = getCol aiOld >= 1 && getCol aiNew <= 6
   where
-    getCol = rColumn . rPosition
+    getCol = posColumn . aiPosition
 
 atColP :: Integer -> AlexInput -> Bool
-atColP n ai = (rColumn . rPosition) ai == n
+atColP n ai = (posColumn . aiPosition) ai == n
 
 --------------------------------------------------------------------------------
 -- Lexer helpers
@@ -176,12 +176,12 @@ type FixedLex a b = Lex AlexInput a b
 getMatch :: FixedLex a String
 getMatch = do
   ai <- getAlexL
-  return $ (reverse . rMatch) ai
+  return $ (reverse . aiMatch) ai
 
 putMatch :: String -> FixedLex a ()
 putMatch newMatch = do
   ai <- getAlexL
-  putAlexL $ ai { rMatch = newMatch }
+  putAlexL $ ai { aiMatch = newMatch }
   return ()
 
 -- With the existing alexGetByte implementation comments are matched without
@@ -192,9 +192,9 @@ putMatch newMatch = do
 lexComment :: FixedLex a (Maybe Token)
 lexComment = do
   ai <- getAlexL
-  let _col = (rColumn . rPosition) ai
-  let _absl = (rAbsoluteOffset . rPosition) ai
-  let _src =  rSourceInput ai
+  let _col = (posColumn . aiPosition) ai
+  let _absl = (posAbsoluteOffset . aiPosition) ai
+  let _src =  aiSourceInput ai
   let _nToTake = fromIntegral (_col - 2)
   let _nToDrop = fromIntegral (_absl - _col + 2)
   return $ Just $ TComment $ take _nToTake . drop _nToDrop $ _src
@@ -205,7 +205,7 @@ lexHollerith = do
   let len = read $ init match' -- Get n of "nH" from string
   putMatch ""
   ai <- getAlexL 
-  putAlexL $ ai { rWhiteSensitiveCharCount = len } 
+  putAlexL $ ai { aiWhiteSensitiveCharCount = len } 
   lexed <- lexN len
   return $ do
     hollerith <- lexed
@@ -229,8 +229,8 @@ toStartCode :: Int -> FixedLex a (Maybe Token)
 toStartCode startCode = do
   ai <- getAlexL
   if startCode == 0
-  then putAlexL $ ai { rStartCode = startCode, rWhiteSensitiveCharCount = 6 }
-  else putAlexL $ ai { rStartCode = startCode }
+  then putAlexL $ ai { aiStartCode = startCode, aiWhiteSensitiveCharCount = 6 }
+  else putAlexL $ ai { aiStartCode = startCode }
   return Nothing
 
 --------------------------------------------------------------------------------
@@ -299,38 +299,28 @@ data Token = TLeftPar
 -- AlexInput & related definitions
 --------------------------------------------------------------------------------
 
-data Position = Position 
-  { rAbsoluteOffset   :: Integer
-  , rColumn           :: Integer
-  , rLine             :: Integer
-  } deriving (Show)
-
-initPosition :: Position
-initPosition = Position 
-  { rAbsoluteOffset = 0
-  , rColumn = 1
-  , rLine = 1 
-  }
-
 data AlexInput = AlexInput 
-  { rSourceInput                :: String
-  , rPosition                   :: Position
-  , rBytes                      :: [Word8]
-  , rPreviousChar               :: Char
-  , rMatch                      :: String
-  , rWhiteSensitiveCharCount    :: Int
-  , rStartCode                  :: Int
+  { aiSourceInput                 :: String
+  , aiPosition                    :: Position
+  , aiBytes                       :: [Word8]
+  , aiPreviousChar                :: Char
+  , aiMatch                       :: String
+  , aiWhiteSensitiveCharCount     :: Int
+  , aiStartCode                   :: Int
   } deriving (Show)
+
+instance Loc AlexInput where
+  getPos = aiPosition
 
 vanillaAlexInput :: AlexInput
 vanillaAlexInput = AlexInput 
-  { rSourceInput = ""
-  , rPosition = initPosition
-  , rBytes = []
-  , rPreviousChar = '\n'
-  , rMatch = ""
-  , rWhiteSensitiveCharCount = 6
-  , rStartCode = 0 }
+  { aiSourceInput = ""
+  , aiPosition = initPosition
+  , aiBytes = []
+  , aiPreviousChar = '\n'
+  , aiMatch = ""
+  , aiWhiteSensitiveCharCount = 6
+  , aiStartCode = 0 }
 
 --------------------------------------------------------------------------------
 -- Definitions needed for alexScanUser
@@ -341,9 +331,9 @@ data Move = Continuation | Char | Newline
 alexGetByte :: AlexInput -> Maybe (Word8, AlexInput)
 alexGetByte ai 
   -- The process of reading individual bytes of the character
-  | _bytes /= [] = Just (head _bytes, ai { rBytes = tail _bytes })
+  | _bytes /= [] = Just (head _bytes, ai { aiBytes = tail _bytes })
   -- When all characters are already read
-  | rAbsoluteOffset _position == (toInteger . length . rSourceInput) ai = Nothing
+  | posAbsoluteOffset _position == (toInteger . length . aiSourceInput) ai = Nothing
   -- Skip the continuation line altogether
   | isContinuation ai && _isWhiteInsensitive = skip Continuation ai 
   -- If we are not parsing a Hollerith skip whitespace
@@ -353,32 +343,32 @@ alexGetByte ai
       let (_b:_bs) = (utf8Encode . toLower) _curChar in
         Just(_b,
           ai {
-            rPosition =
+            aiPosition =
               case _curChar of
                 '\n'  -> advance Newline _position
                 _     -> advance Char _position,
-            rBytes = _bs,
-            rPreviousChar = _curChar,
-            rMatch = (toLower _curChar):(rMatch ai),
-            rWhiteSensitiveCharCount = 
+            aiBytes = _bs,
+            aiPreviousChar = _curChar,
+            aiMatch = (toLower _curChar):(aiMatch ai),
+            aiWhiteSensitiveCharCount = 
               if _isWhiteInsensitive
               then 0
-              else rWhiteSensitiveCharCount ai - 1
+              else aiWhiteSensitiveCharCount ai - 1
           })
   where
     _curChar = currentChar ai
-    _bytes = rBytes ai
-    _position = rPosition ai
-    _isWhiteInsensitive = rWhiteSensitiveCharCount ai == 0
+    _bytes = aiBytes ai
+    _position = aiPosition ai
+    _isWhiteInsensitive = aiWhiteSensitiveCharCount ai == 0
 
 alexInputPrevChar :: AlexInput -> Char
-alexInputPrevChar ai = rPreviousChar ai
+alexInputPrevChar ai = aiPreviousChar ai
 
 takeNChars :: Integer -> AlexInput -> String
 takeNChars n ai = 
-  take (fromIntegral n) . drop (fromIntegral _dropN) $ rSourceInput ai
+  take (fromIntegral n) . drop (fromIntegral _dropN) $ aiSourceInput ai
   where 
-    _dropN = rAbsoluteOffset . rPosition $ ai 
+    _dropN = posAbsoluteOffset . aiPosition $ ai 
 
 currentChar :: AlexInput -> Char 
 currentChar ai = head (takeNChars 1 ai)
@@ -391,22 +381,22 @@ isContinuation ai =
 
 skip :: Move -> AlexInput -> Maybe (Word8, AlexInput)
 skip move ai = 
-  let _newPosition = advance move $ rPosition ai in
-    alexGetByte $ ai { rPosition = _newPosition }
+  let _newPosition = advance move $ aiPosition ai in
+    alexGetByte $ ai { aiPosition = _newPosition }
 
 advance :: Move -> Position -> Position
 advance move position =
   case move of 
     Char -> 
-      position { rAbsoluteOffset = _absl + 1, rColumn = _col + 1 }
+      position { posAbsoluteOffset = _absl + 1, posColumn = _col + 1 }
     Continuation -> 
-      position { rAbsoluteOffset = _absl + 7, rColumn = 7, rLine = _line + 1 }
+      position { posAbsoluteOffset = _absl + 7, posColumn = 7, posLine = _line + 1 }
     Newline -> 
-      position { rAbsoluteOffset = _absl + 1, rColumn = 1, rLine = _line + 1 }
+      position { posAbsoluteOffset = _absl + 1, posColumn = 1, posLine = _line + 1 }
   where
-    _col = rColumn position
-    _line = rLine position
-    _absl = rAbsoluteOffset position
+    _col = posColumn position
+    _line = posLine position
+    _absl = posAbsoluteOffset position
 
 utf8Encode :: Char -> [Word8]
 utf8Encode = map fromIntegral . _go . ord
@@ -441,7 +431,7 @@ lexer' :: FixedLex (Maybe Token) (Maybe Token)
 lexer' = do
   putMatch ""
   alexInput <- getAlexL
-  let startCode = rStartCode alexInput
+  let startCode = aiStartCode alexInput
   case alexScanUser undefined alexInput startCode of
     AlexEOF -> return $ Just TEOF
     AlexError _ -> return Nothing
@@ -459,12 +449,12 @@ lexer' = do
 
 initParseState :: String -> FortranVersion -> String -> ParseState AlexInput
 initParseState srcInput fortranVersion filename = 
-  _vanillaParseState { rAlexInput = vanillaAlexInput { rSourceInput = srcInput } }
+  _vanillaParseState { psAlexInput = vanillaAlexInput { aiSourceInput = srcInput } }
   where
     _vanillaParseState = ParseState 
-      { rAlexInput = undefined
-      , rVersion = fortranVersion
-      , rFilename = filename 
+      { psAlexInput = undefined
+      , psVersion = fortranVersion
+      , psFilename = filename 
       }
     
 collectFixedFormTokens :: String -> Maybe [Token]

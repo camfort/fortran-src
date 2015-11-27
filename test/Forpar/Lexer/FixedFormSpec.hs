@@ -84,7 +84,7 @@ spec =
 
     describe "lexN" $ do
       it "`lexN 5` parses lexes next five characters" $ do
-        rMatch (evalState (runContT (lexN 5 >> getAlexL) return) (initParseState "helloWorld" Fortran66 "")) `shouldBe` reverse "hello"
+        aiMatch (evalState (runContT (lexN 5 >> getAlexL) return) (initParseState "helloWorld" Fortran66 "")) `shouldBe` reverse "hello"
 
     describe "lexHollerith" $ do
       it "lexes Hollerith '7hmistral'" $ do

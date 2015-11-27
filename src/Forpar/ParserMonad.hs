@@ -8,6 +8,27 @@ import Control.Exception
 -- Helper datatype definitions
 -------------------------------------------------------------------------------
 
+class Loc a where
+  getPos :: a -> Position
+
+data Position = Position 
+  { posAbsoluteOffset   :: Integer
+  , posColumn           :: Integer
+  , posLine             :: Integer
+  } deriving (Show)
+
+initPosition :: Position
+initPosition = Position 
+  { posAbsoluteOffset = 0
+  , posColumn = 1
+  , posLine = 1 
+  }
+
+data SrcLoc = SrcLoc 
+  { locPosition   :: Position
+  , locFilename   :: String
+  } deriving (Show)
+
 data FortranVersion = Fortran66 
                     | Fortran77 
                     | Fortran90 
@@ -16,9 +37,9 @@ data FortranVersion = Fortran66
                     deriving (Ord, Eq, Show)
 
 data ParseState a = ParseState 
-  { rAlexInput :: a
-  , rVersion :: FortranVersion  -- To differentiate lexing behaviour
-  , rFilename :: String -- To save correct source location in AST
+  { psAlexInput :: a
+  , psVersion :: FortranVersion  -- To differentiate lexing behaviour
+  , psFilename :: String -- To save correct source location in AST
   }
 
 -------------------------------------------------------------------------------
@@ -54,17 +75,24 @@ putAlexL ai = do
 getVersionP :: Parse a FortranVersion
 getVersionP = do
   s <- get
-  return (rVersion s)
+  return (psVersion s)
 
 putAlexP :: a -> Parse a ()
 putAlexP ai = do
   s <- get
-  put (s { rAlexInput = ai })
+  put (s { psAlexInput = ai })
 
 getAlexP :: Parse a a
 getAlexP = do
     s <- get
-    return (rAlexInput s)
+    return (psAlexInput s)
+
+getSrcLoc :: (Loc a) => Parse a SrcLoc
+getSrcLoc = do
+  parseState <- get
+  let pos = getPos . psAlexInput $ parseState
+  let filename = psFilename parseState
+  return $ SrcLoc { locPosition = pos, locFilename = filename }
 
 -------------------------------------------------------------------------------
 -- Generic token collection and functions

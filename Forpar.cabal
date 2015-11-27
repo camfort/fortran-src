@@ -27,12 +27,12 @@ library
   exposed-modules:     
     Forpar.ParserMonad,
     Forpar.Lexer.FixedForm
+    -- Forpar.Parser.Fortran66
   build-tools:
     alex >= 3.1,
     happy >= 1.19
   -- other-modules:
-    -- Forpar.Lexer.FreeForm,
-    -- Forpar.Parser.Fortran66,
+    -- Forpar.Lexer.FreeForm
     -- Forpar.Parser.Fortran77,
     -- Forpar.Parser.Fortran90,
     -- Forpar.Parser.Fortran2003,
