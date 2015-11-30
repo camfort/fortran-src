@@ -15,7 +15,7 @@ data Position = Position
   { posAbsoluteOffset   :: Integer
   , posColumn           :: Integer
   , posLine             :: Integer
-  } deriving (Show)
+  } deriving (Show, Eq)
 
 initPosition :: Position
 initPosition = Position 
@@ -27,7 +27,7 @@ initPosition = Position
 data SrcLoc = SrcLoc 
   { locPosition   :: Position
   , locFilename   :: String
-  } deriving (Show)
+  } deriving (Show, Eq)
 
 data FortranVersion = Fortran66 
                     | Fortran77 
@@ -93,6 +93,11 @@ getSrcLoc = do
   let pos = getPos . psAlexInput $ parseState
   let filename = psFilename parseState
   return $ SrcLoc { locPosition = pos, locFilename = filename }
+
+getSrcSpan :: (Loc a) => SrcLoc -> Parse a (SrcLoc, SrcLoc)
+getSrcSpan loc1 = do
+  loc2 <- getSrcLoc
+  return (loc1, loc2)
 
 -------------------------------------------------------------------------------
 -- Generic token collection and functions
