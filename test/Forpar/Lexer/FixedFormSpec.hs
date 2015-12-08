@@ -71,16 +71,19 @@ spec =
 
       describe "lexing format items" $ do
         it "lexes '10x'" $ do
-          singleLexer'App "      10x" `shouldBe` (Just $ TFormatItem "10x")
+          singleLexer'App "      10x" `shouldBe` (Just $ TBlankDescriptor 10)
 
         it "lexes '10a1'" $ do
-          singleLexer'App "      10a1" `shouldBe` (Just $ TFormatItem "10a1")
+          singleLexer'App "      10a1" `shouldBe` (Just $ TFieldDescriptorAIL 10 'a' 1)
 
         it "lexes 'a1'" $ do
-          singleLexer'App "      a1" `shouldBe` (Just $ TFormatItem "a1")
+          singleLexer'App "      a1" `shouldBe` (Just $ TFieldDescriptorAIL 1 'a' 1)
 
         it "lexes '20g10.3'" $ do
-          singleLexer'App "      20g10.3" `shouldBe` (Just $ TFormatItem "20g10.3")
+          singleLexer'App "      20g10.3" `shouldBe` (Just $ TFieldDescriptorDEFG 20 'g' 10 3)
+
+        it "lexes '-10p'" $ do
+          singleLexer'App "      -10p" `shouldBe` (Just $ TScaleFactor $ -10)
 
     describe "lexN" $ do
       it "`lexN 5` parses lexes next five characters" $ do

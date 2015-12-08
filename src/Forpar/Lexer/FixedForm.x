@@ -4,7 +4,7 @@ module Forpar.Lexer.FixedForm where
 import Forpar.ParserMonad
 
 import Data.Word (Word8)
-import Data.Char (toLower)
+import Data.Char (toLower, isDigit)
 import Data.List (isPrefixOf, any)
 import qualified Data.Bits
 import Debug.Trace
@@ -122,10 +122,11 @@ tokens :-
   <st> ".gt."                           { return $ Just TOpGT }
   <st> ".ge."                           { return $ Just TOpGE }
 
-  -- Format items
-  <st> @width "x"                       { getMatch >>= \s -> return $ Just $ TFormatItem s }
-  <st> @repeat [ail] @width             { getMatch >>= \s -> return $ Just $ TFormatItem s }
-  <st> @repeat [defg] @width "." @integerConst  { getMatch >>= \s -> return $ Just $ TFormatItem s }
+  -- Field descriptors
+  @repeat [defg] @width \. @integerConst  { lexFieldDescriptorDEFG }
+  @repeat [ail] @width                    { lexFieldDescriptorAIL }
+  @width x                              { lexBlankDescriptor }
+  "-"? @posIntegerConst p               { lexScaleFactor }
 
   -- ID
   <st> @id / { isNotPrefixOfKeywordP }  { getMatch >>= \s -> return $ Just $ TId s }
@@ -225,6 +226,46 @@ lexN n = do
         lexN n
       Nothing -> return Nothing
 
+-- Lexing various field descriptors
+
+lexFieldDescriptorDEFG :: FixedLex a (Maybe Token)
+lexFieldDescriptorDEFG = do
+  match <- getMatch
+  let (repeat, descriptor, width, rest) = takeRepeatDescriptorWidth match
+  let fractionWidth = (read $ fst $ takeNumber $ tail rest) :: Integer
+  return $ Just $ TFieldDescriptorDEFG repeat descriptor width fractionWidth
+
+lexFieldDescriptorAIL :: FixedLex a (Maybe Token)
+lexFieldDescriptorAIL = do
+  match <- getMatch
+  let (repeat, descriptor, width, rest) = takeRepeatDescriptorWidth match
+  return $ Just $ TFieldDescriptorAIL repeat descriptor width
+
+lexBlankDescriptor :: FixedLex a (Maybe Token)
+lexBlankDescriptor = do
+  match <- getMatch
+  let (width, _) = takeNumber match
+  return $ Just $ TBlankDescriptor $ (read width :: Integer)
+
+lexScaleFactor :: FixedLex a (Maybe Token)
+lexScaleFactor = do
+  match <- getMatch
+  let (sign, rest) = if head match == '-' then (-1, tail match) else (1, match)
+  let (width, _) = takeNumber rest
+  return $ Just $ TScaleFactor $ (read width) * sign
+
+takeRepeatDescriptorWidth :: String -> (Integer, Char, Integer, String)
+takeRepeatDescriptorWidth str = 
+  let (repeatStr, rest) = takeNumber str
+      repeat = if repeatStr == [] then 1 else read repeatStr :: Integer
+      descriptor = head rest
+      (widthStr, rest') = takeNumber $ tail rest
+      width = read widthStr :: Integer in
+    (repeat, descriptor, width, rest')
+
+takeNumber :: String -> (String, String)
+takeNumber str = span isDigit str
+
 toStartCode :: Int -> FixedLex a (Maybe Token)
 toStartCode startCode = do
   ai <- getAlexL
@@ -268,7 +309,10 @@ data Token = TLeftPar
            | TType String
            | TData
            | TFormat
-           | TFormatItem String
+           | TFieldDescriptorDEFG Integer Char Integer Integer
+           | TFieldDescriptorAIL  Integer Char Integer
+           | TBlankDescriptor     Integer
+           | TScaleFactor         Integer
            | TNum String
            | TRealExp
            | TDoubleExp

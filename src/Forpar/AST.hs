@@ -29,25 +29,38 @@ data ProgramUnit a =
   |   Function        a             SrcSpan   Name   (AList String a)   BaseType          Block a
   |   BlockData       a             SrcSpan   Name                                        Block a
 
---             annotation | declerations            | statements
-data Block a = Block a      (AList (Prelude a) a)     (AList (Epilogue a) a)
+data Block a = Block  a             (AList (Statement a) a)
 
-data Prelude a = PreSpec (Specification a)
-               | PreData (Data a)
-               | PreFormat (Format a)
-               | PreFunc (InlineFunction a)
+data Statement a  = 
+    External            a SrcSpan (AList Name a)
+  | Dimension           a SrcSpan (AList (Declarator a) a)
+  | Common              a SrcSpan (AList (Name, AList Declarator a) a)
+  | Equivalence         a SrcSpan (AList (AList Name a) a)
+  | Data                a SrcSpan (AList (AList (Declarator a) a, AList (Expression a) a) a)
+  | Format              a SrcSpan (AList [FormatItem] a)
+  | Function            a SrcSpan Name (AList Name a) Expr
+  | Declaration         a SrcSpan BaseType (AList Declarator a)
+  | IfLogical           a SrcSpan (Expression a) (Statement a) -- Statement should not further recurse
+  | GotoUnconditional   a SrcSpan (Label a)
+  | GotoAssigned        a SrcSpan Name (AList (Label a) a)
+  | GotoComputed        a SrcSpan (AList (Label a) a) Name
+  | IfAritchmetic       a SrcSpan (Expression a) (Label a) (Label a) (Label a)
+  | Call                a SrcSpan Name (AList Name a)
+  | Return              a SrcSpan
+  | Stop                a SrcSpan
+  | Pause               a SrcSpan (Expression a) -- TODO add constant (which will be an expression)
+  | Read                a SrcSpan Index (Maybe Form)) (AList  a) -- TODO list of what
 
-data Epilogue a = EpiExec (Executable a)
-                | EpiFormat (Format a)
-                | EpiData (Data a)
+data Declarator a = VariableDeclarator  a SrcSpan Name
+                  | ArrayDeclarator     a SrcSpan Name (AList Index a)
+data Index = Variable Name | Constant String
+data Form = Format FormatItem | Label String
 
-data Specification a = -- TODO
-
-type Data a = AList a (AList a (Expression a), AList a (Expression a))
-
-data Format a = AList a -- TODO
-
---                      program type    | annotation  | span    | name  | arguments         | body 
-data InlineFunction a = InlineFunction    a             SrcSpan   Name    (AList String a)    Expr
-
-data Executable a = -- TODO
+data FormatItem = FormatList [FormatItem]
+                | Hollerith String
+                | Delimiter
+--                descriptor type     | repeat  | descriptor  | width   | integer 
+                | FieldDescriptorDFEG   Integer   Char          Integer   Integer
+                | FieldDescriptorILA    Integer   Char          Integer
+                | BlankDescriptor       Integer
+                | ScaleFactor           Integer
