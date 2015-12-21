@@ -6,7 +6,7 @@ import Forpar.Lexer.FixedForm
 
 }
 
-%name parser66
+%name expressionParser EXPRESSION
 %monad { Parse AlexInput }
 %tokentype { Token }
 %error { parseError }
@@ -66,6 +66,8 @@ import Forpar.Lexer.FixedForm
   EOF           { TEOF }
 
 %%
+
+EXPRESSION :- 
   
 
 {

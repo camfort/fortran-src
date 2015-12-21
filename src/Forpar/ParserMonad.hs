@@ -4,30 +4,11 @@ import Control.Monad.State.Lazy
 import Control.Monad.Trans.Cont
 import Control.Exception
 
+import Forpar.Util.Position
+
 -------------------------------------------------------------------------------
 -- Helper datatype definitions
 -------------------------------------------------------------------------------
-
-class Loc a where
-  getPos :: a -> Position
-
-data Position = Position 
-  { posAbsoluteOffset   :: Integer
-  , posColumn           :: Integer
-  , posLine             :: Integer
-  } deriving (Show, Eq)
-
-initPosition :: Position
-initPosition = Position 
-  { posAbsoluteOffset = 0
-  , posColumn = 1
-  , posLine = 1 
-  }
-
-data SrcLoc = SrcLoc 
-  { locPosition   :: Position
-  , locFilename   :: String
-  } deriving (Show, Eq)
 
 data FortranVersion = Fortran66 
                     | Fortran77 
@@ -43,13 +24,13 @@ data ParseState a = ParseState
   }
 
 -------------------------------------------------------------------------------
--- Lexer Monad definitions
+-- Lexer Monad definition
 -------------------------------------------------------------------------------
 
 type Lex b r a = ContT r (Parse b) a
 
 -------------------------------------------------------------------------------
--- Parser Monad definitions
+-- Parser Monad definition
 -------------------------------------------------------------------------------
 
 type Parse b = State (ParseState b)

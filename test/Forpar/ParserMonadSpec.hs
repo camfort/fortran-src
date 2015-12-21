@@ -4,6 +4,8 @@ import Forpar.ParserMonad
 import Control.Monad.State.Lazy
 import Test.Hspec
 
+import Forpar.Util.Position
+
 vanillaParseState :: ParseState String
 vanillaParseState = ParseState { psAlexInput = "", psVersion = Fortran66, psFilename = "<unknown>" }
 

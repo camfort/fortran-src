@@ -1,17 +1,16 @@
 {
 module Forpar.Lexer.FixedForm where
 
-import Forpar.ParserMonad
-
 import Data.Word (Word8)
 import Data.Char (toLower, isDigit)
 import Data.List (isPrefixOf, any)
 import qualified Data.Bits
-import Debug.Trace
-
 import Control.Monad.Trans.Cont
 import Control.Exception
 import GHC.Exts
+
+import Forpar.ParserMonad
+import Forpar.Util.Position
 }
 
 $digit = [0-9]
@@ -123,10 +122,10 @@ tokens :-
   <st> ".ge."                           { return $ Just TOpGE }
 
   -- Field descriptors
-  @repeat [defg] @width \. @integerConst  { lexFieldDescriptorDEFG }
-  @repeat [ail] @width                    { lexFieldDescriptorAIL }
-  @width x                              { lexBlankDescriptor }
-  "-"? @posIntegerConst p               { lexScaleFactor }
+  <st> @repeat [defg] @width \. @integerConst  { lexFieldDescriptorDEFG }
+  <st> @repeat [ail] @width                    { lexFieldDescriptorAIL }
+  <st> @width x                              { lexBlankDescriptor }
+  <st> "-"? @posIntegerConst p               { lexScaleFactor }
 
   -- ID
   <st> @id / { isNotPrefixOfKeywordP }  { getMatch >>= \s -> return $ Just $ TId s }
