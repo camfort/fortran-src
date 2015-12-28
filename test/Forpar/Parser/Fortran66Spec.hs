@@ -32,4 +32,4 @@ spec =
 
     it "parses '3 + 2'" $ do
       let expectedExp = resetSrcSpan $ ExpBinary () undefined Addition (intGen 3) (intGen 2)
-      evalExpressionParser "      3 + 2" `shouldBe` expectedExp
+      resetSrcSpan (evalExpressionParser "      3 + 2") `shouldBe` expectedExp

@@ -178,8 +178,6 @@ atColP n ai = (posColumn . aiPosition) ai == n
 -- Lexer helpers
 --------------------------------------------------------------------------------
 
-type FixedLex a b = Lex AlexInput a b
-
 getMatch :: Parse AlexInput String
 getMatch = do
   ai <- getAlexP

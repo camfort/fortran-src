@@ -153,9 +153,13 @@ data BinaryOp =
 -- Retrieving SrcSpan and Annotation from nodes
 class Annotated f where
   getAnnotation :: f a -> a
+  setAnnotation :: a -> f a -> f a
 
   default getAnnotation :: (FirstParameter (f a) a) => f a -> a
   getAnnotation a = getFirstParameter a 
+
+  default setAnnotation :: (FirstParameter (f a) a) => a -> f a -> f a
+  setAnnotation e a = setFirstParameter e a 
 
 instance FirstParameter (AList t a) a
 instance FirstParameter (ProgramUnit a) a
@@ -182,16 +186,27 @@ instance Annotated Form where
   getAnnotation (Format formatItem) = getAnnotation formatItem
   getAnnotation (Label value) = getAnnotation value
 
+  setAnnotation e (Format formatItem) = Format $ setAnnotation e formatItem
+  setAnnotation e (Label value) = Label $ setAnnotation e value
+
 instance Annotated IOElement where
   getAnnotation (Value value) = getAnnotation value
   getAnnotation (Tuple a _ _ _) = a
   getAnnotation (ValueList list) = getAnnotation list
 
+  setAnnotation e (Value value) = Value $ setAnnotation e value
+  setAnnotation e (Tuple _ a b c) = Tuple e a b c
+  setAnnotation e (ValueList list) = ValueList $ setAnnotation e list
+
 class Spanned a where
   getSpan :: a -> SrcSpan
+  setSpan :: SrcSpan -> a -> a
 
   default getSpan :: (SecondParameter a SrcSpan) => a -> SrcSpan
   getSpan a = getSecondParameter a
+
+  default setSpan :: (SecondParameter a SrcSpan) => SrcSpan -> a -> a
+  setSpan e a = setSecondParameter e a
 
 instance Spanned (AList t a)
 instance Spanned (ProgramUnit a)
@@ -204,10 +219,23 @@ instance Spanned (Form a) where
   getSpan (Format formatItem) = getSpan formatItem
   getSpan (Label value) = getSpan value
 
+  setSpan s (Format formatItem) = Format $ setSpan s formatItem
+  setSpan s (Label value) = Label $ setSpan s value
+
 instance Spanned (IOElement a) where
   getSpan (Value value) = getSpan value
   getSpan (Tuple _ s _ _) = s
   getSpan (ValueList list) = getSpan list
+
+  setSpan s (Value value) = Value $ setSpan s value
+  setSpan s (Tuple a _ b c) = Tuple a s b c
+  setSpan s (ValueList list) = ValueList $ setSpan s list
+
+getTransSpan :: (Spanned a, Spanned b) => a -> b -> SrcSpan
+getTransSpan x y =
+  let SrcSpan l1 l2 = getSpan x
+      SrcSpan l1' l2' = getSpan y in
+        SrcSpan l1 l2'
 
 --------------------------------------------------------------------------------
 -- Useful for testing                                                         --
