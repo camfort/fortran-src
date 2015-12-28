@@ -28,4 +28,13 @@ data SrcLoc = SrcLoc
   , locFilename   :: String
   } deriving (Show, Eq, Typeable, Data)
 
+initSrcLoc :: SrcLoc
+initSrcLoc = SrcLoc 
+  { locPosition = initPosition
+  , locFilename = "<unknown>" 
+  }
+
 data SrcSpan = SrcSpan SrcLoc SrcLoc deriving (Eq, Show, Typeable, Data)
+
+initSrcSpan :: SrcSpan
+initSrcSpan = SrcSpan initSrcLoc initSrcLoc

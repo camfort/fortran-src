@@ -13,7 +13,7 @@ import Control.Exception
 import Data.List (isPrefixOf)
 
 singleLexer'App :: String -> Maybe Token
-singleLexer'App srcInput = runLex lexer' _parseState
+singleLexer'App srcInput = runParse lexer' _parseState
   where
     _parseState = initParseState srcInput Fortran66 "<unknown>"
 
@@ -66,8 +66,11 @@ spec =
       it "lexes end of file" $ do
         singleLexer'App "" `shouldBe` Just TEOF
 
+      it "lexes '3 + 2'" $ do
+        collectFixedFormTokens "      3 + 2" `shouldBe` Just [TInt "3", TOpPlus, TInt "2", TEOF]
+
       it "should lex continuation lines properly" $ do
-        collectFixedFormTokens continuationExample `shouldBe` Just [ TType "integer", TId "ix", TId "ix", TOpAssign, TNum "42", TEnd, TEOF ]
+        collectFixedFormTokens continuationExample `shouldBe` Just [ TType "integer", TId "ix", TId "ix", TOpAssign, TInt "42", TEnd, TEOF ]
 
       describe "lexing format items" $ do
         it "lexes '10x'" $ do
@@ -87,7 +90,7 @@ spec =
 
     describe "lexN" $ do
       it "`lexN 5` parses lexes next five characters" $ do
-        aiMatch (evalState (runContT (lexN 5 >> getAlexL) return) (initParseState "helloWorld" Fortran66 "")) `shouldBe` reverse "hello"
+        aiMatch (evalState (lexN 5 >> getAlexP) (initParseState "helloWorld" Fortran66 "")) `shouldBe` reverse "hello"
 
     describe "lexHollerith" $ do
       it "lexes Hollerith '7hmistral'" $ do
@@ -113,7 +116,7 @@ continuationExample = unlines [
 
 example1Expectation = [
   TType "integer", TId "ix",
-  TLabel "1", TId "ix", TOpAssign, TNum "42",
+  TLabel "1", TId "ix", TOpAssign, TInt "42",
   TLabel "200", TId "ix", TOpAssign, TId "ix", TStar , TId "ix",
   TLabel "10", TWrite, TLeftPar, TStar, TComma, TStar, TRightPar, TComma, TId "ix",
   TEnd,

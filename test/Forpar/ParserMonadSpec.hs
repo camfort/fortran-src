@@ -53,17 +53,17 @@ spec =
                 putAlexP $ _ai { p = _loc2 }
                 getSrcSpan _loc1
               _span = evalState _exampleM vanillaSomeInput 
-              _expectation = (SrcLoc initPos "some.f", SrcLoc _loc2 "some.f") in 
+              _expectation = SrcSpan (SrcLoc initPos "some.f") (SrcLoc _loc2 "some.f") in 
             _span `shouldBe` _expectation
 
     describe "Lex" $ do
       it "reads the state correctly" $ do
-        runLex getAlexL vanillaParseState `shouldBe` ""
+        runParse getAlexP vanillaParseState `shouldBe` ""
 
       it "overrides the state correctly" $ do
-        let ai = runLex (putAlexL "c'est" >> getAlexL) vanillaParseState in
+        let ai = runParse (putAlexP "c'est" >> getAlexP) vanillaParseState in
             ai `shouldBe` "c'est"
 
       it "mixes operations correctly" $ do
-       let ai = runLex (putAlexL "hello" >> getAlexL >>= \s -> (putAlexL $ take 4 s) >> getAlexL) vanillaParseState in
+       let ai = runParse (putAlexP "hello" >> getAlexP >>= \s -> (putAlexP $ take 4 s) >> getAlexP) vanillaParseState in
              ai `shouldBe` "hell"

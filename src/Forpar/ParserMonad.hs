@@ -75,24 +75,24 @@ getSrcLoc = do
   let filename = psFilename parseState
   return $ SrcLoc { locPosition = pos, locFilename = filename }
 
-getSrcSpan :: (Loc a) => SrcLoc -> Parse a (SrcLoc, SrcLoc)
+getSrcSpan :: (Loc a) => SrcLoc -> Parse a SrcSpan
 getSrcSpan loc1 = do
   loc2 <- getSrcLoc
-  return (loc1, loc2)
+  return $ SrcSpan loc1 loc2
 
 -------------------------------------------------------------------------------
 -- Generic token collection and functions
 -------------------------------------------------------------------------------
 
-runLex :: Lex b a a -> ParseState b -> a
-runLex lexer initState = evalState (runContT lexer return) initState
+runParse :: Parse b a -> ParseState b -> a
+runParse lexer initState = evalState lexer initState
 
-collectTokens :: Eq a => a -> Lex b (Maybe a) (Maybe a) -> ParseState b -> Maybe [a]
+collectTokens :: Eq a => a -> Parse b (Maybe a) -> ParseState b -> Maybe [a]
 collectTokens finishingToken lexer initState = 
     evalState (_collectTokens initState) undefined
   where
     _collectTokens state = do
-      let (_token, _state) = runState (runContT lexer return) state
+      let (_token, _state) = runState lexer state
       case _token of
         Just _token' ->
           if _token' == finishingToken 

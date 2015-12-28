@@ -9,6 +9,7 @@ module Forpar.AST where
 
 import Data.Data
 import Data.Typeable
+import Data.Generics.Uniplate.Data
 import GHC.Generics
 import Control.Newtype
 
@@ -48,7 +49,7 @@ data ProgramUnit a =
   |   PUSubroutine    a             SrcSpan   Name   (AList a String)                 (AList (Block a) a)       ([Comment a])
   |   PUFunction      a             SrcSpan   Name   (AList a String)   BaseType      (AList (Block a) a)       ([Comment a])
   |   PUBlockData     a             SrcSpan   Name                                    (AList (Block a) a)       ([Comment a])
-  deriving (Show, Data, Typeable, Generic)
+  deriving (Eq, Show, Data, Typeable, Generic)
 
 -- This node is for various grouping structures such as large IFs, LOOPs
 -- and single statements that don't fit into either category.
@@ -56,9 +57,9 @@ data Block a =
     BlStatement a SrcSpan                                           (Statement a)                                   ([Comment a])
   | BlDo        a SrcSpan (Statement a) (Value a) (Maybe (Value a)) (AList (Block a) a)                             ([Comment a])
   | BlIf        a SrcSpan (Expression a)                            (AList (Block a) a) (Maybe (AList (Block a) a)) ([Comment a])
-  deriving (Show, Data, Typeable, Generic)
+  deriving (Eq, Show, Data, Typeable, Generic)
 
-data Comment a = Comment a SrcSpan String deriving (Show,Data,Typeable,Generic)
+data Comment a = Comment a SrcSpan String deriving (Eq, Show, Data, Typeable, Generic)
 
 data Statement a  = 
     StExternal            (AList (Value a) a)
@@ -86,9 +87,9 @@ data Statement a  =
   | StRewind              (Value a)
   | StBackspace           (Value a)
   | StEndfile             (Value a)
-  deriving (Show, Data, Typeable)
+  deriving (Eq, Show, Data, Typeable)
 
-data Form a = Format (FormatItem a) | Label (Value a) deriving (Show,Data,Typeable)
+data Form a = Format (FormatItem a) | Label (Expression a) deriving (Eq, Show, Data, Typeable)
 
 data FormatItem a = 
     FIFormatList            a             SrcSpan   (AList (FormatItem a) a)
@@ -99,43 +100,39 @@ data FormatItem a =
   | FIFieldDescriptorILA    a             SrcSpan   Integer   Char          Integer
   | FIBlankDescriptor       a             SrcSpan   Integer
   | FIScaleFactor           a             SrcSpan   Integer
-  deriving (Show,Data,Typeable,Generic)
+  deriving (Eq, Show, Data, Typeable, Generic)
 
 data IOElement a = 
-  Value (Value a)
+    Value (Expression a)
   | Tuple a SrcSpan (AList (IOElement a) a) (Expression a)
   | ValueList (AList (Value a) a) 
-  deriving (Show,Data,Typeable)
+  deriving (Eq, Show, Data, Typeable)
 
 data Expression a =
     ExpValue         a SrcSpan (Value a)
   | ExpBinary        a SrcSpan BinaryOp (Expression a) (Expression a)
   | ExpUnary         a SrcSpan UnaryOp (Expression a)
-  | ExpSubscript     a SrcSpan Name (AList (Expression a) a)
-  | ExpFunctionCall  a SrcSpan Name (AList (Expression a) a)
-  deriving (Show,Data,Typeable,Generic)
+  | ExpSubscript     a SrcSpan (Value a) (AList (Expression a) a)
+  | ExpFunctionCall  a SrcSpan (Value a) (AList (Expression a) a)
+  deriving (Eq, Show, Data, Typeable, Generic)
 
 -- All recursive Values 
 data Value a =
-    ValInteger           a SrcSpan Sign (Constant a)
-  | ValReal              a SrcSpan (Constant a) (Maybe (Constant a)) (Maybe (Constant a))
-  | ValDoublePrecision   a SrcSpan (Constant a) (Maybe (Constant a)) (Maybe (Constant a))
-  | ValComplex           a SrcSpan (Constant a) (Constant a)
-  | ValHollerith         a SrcSpan String
-  | ValLabel             a SrcSpan String
-  | ValVariable          a SrcSpan Name
-  | ValArray             a SrcSpan Name
-  | ValTrue              a SrcSpan
-  | ValFalse             a SrcSpan
-  | ValFunctionName      a SrcSpan Name
-  | ValSubroutineName    a SrcSpan Name
-  deriving (Show,Data,Typeable,Generic)
+    ValInteger           String
+--                       digits        .digits       e/d       sign          digits
+  | ValReal              String
+  | ValComplex           (Expression a) (Expression a)
+  | ValHollerith         String
+  | ValLabel             String
+  | ValVariable          Name
+  | ValArray             Name
+  | ValTrue              
+  | ValFalse             
+  | ValFunctionName      Name
+  | ValSubroutineName    Name
+  deriving (Eq, Show, Data, Typeable, Generic)
 
-data Constant a = ConstNumeric a SrcSpan String deriving (Show,Data,Typeable,Generic)
-
-data Sign = Plus | Minus deriving (Show,Data,Typeable)
-
-data UnaryOp = Negation | Not deriving (Show,Data,Typeable)
+data UnaryOp = Plus | Minus | Not deriving (Eq, Show, Data, Typeable)
 
 data BinaryOp = 
     Addition 
@@ -151,7 +148,7 @@ data BinaryOp =
   | NE
   | Or
   | And
-  deriving (Show,Data,Typeable)
+  deriving (Eq, Show, Data, Typeable)
 
 -- Retrieving SrcSpan and Annotation from nodes
 class Annotated f where
@@ -166,8 +163,6 @@ instance FirstParameter (Block a) a
 instance FirstParameter (Comment a) a
 instance FirstParameter (FormatItem a) a
 instance FirstParameter (Expression a) a
-instance FirstParameter (Value a) a
-instance FirstParameter (Constant a) a
 
 instance SecondParameter (AList t a) SrcSpan
 instance SecondParameter (ProgramUnit a) SrcSpan
@@ -175,8 +170,6 @@ instance SecondParameter (Block a) SrcSpan
 instance SecondParameter (Comment a) SrcSpan
 instance SecondParameter (FormatItem a) SrcSpan
 instance SecondParameter (Expression a) SrcSpan
-instance SecondParameter (Value a) SrcSpan
-instance SecondParameter (Constant a) SrcSpan
 
 instance Annotated (AList t)
 instance Annotated ProgramUnit
@@ -184,8 +177,6 @@ instance Annotated Block
 instance Annotated Comment
 instance Annotated FormatItem
 instance Annotated Expression
-instance Annotated Value
-instance Annotated Constant
 
 instance Annotated Form where
   getAnnotation (Format formatItem) = getAnnotation formatItem
@@ -208,8 +199,6 @@ instance Spanned (Block a)
 instance Spanned (Comment a)
 instance Spanned (FormatItem a)
 instance Spanned (Expression a)
-instance Spanned (Value a)
-instance Spanned (Constant a)
 
 instance Spanned (Form a) where
   getSpan (Format formatItem) = getSpan formatItem
@@ -219,3 +208,16 @@ instance Spanned (IOElement a) where
   getSpan (Value value) = getSpan value
   getSpan (Tuple _ s _ _) = s
   getSpan (ValueList list) = getSpan list
+
+--------------------------------------------------------------------------------
+-- Useful for testing                                                         --
+--------------------------------------------------------------------------------
+
+-- To be used in testing it reverts the SrcSpans in AST to dummy initial
+-- SrcSpan value.
+resetSrcSpan :: Expression () -> Expression ()
+resetSrcSpan = transformBi f
+  where 
+    f x = case cast x :: Maybe SrcSpan of 
+      Just _ -> initSrcSpan
+      Nothing -> x

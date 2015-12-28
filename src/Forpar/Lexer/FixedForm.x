@@ -11,6 +11,9 @@ import GHC.Exts
 
 import Forpar.ParserMonad
 import Forpar.Util.Position
+
+import Debug.Trace
+
 }
 
 $digit = [0-9]
@@ -26,6 +29,11 @@ $special = [\ \=\+\-\*\/\(\)\,\.\$]
 -- Numbers
 @integerConst = $digit+ -- Integer constant
 @posIntegerConst = [1-9] $digit*
+
+-- Real numbers
+@basicReal = (@integerConst '.' @integerConst | @integerConst '.' | '.' @integerConst)
+@exponent = [ed] [\+\-]? @integerConst
+@realConst = (@basicReal | @integerConst) @exponent?
 
 -- For format items
 @repeat = @posIntegerConst?
@@ -93,9 +101,8 @@ tokens :-
 
   -- Tokens needed to parse integers, reals, double precision and complex 
   -- constants
-  <st> @integerConst                    { getMatch >>= \s -> return $ Just $ TNum s }
-  <st> "e"                              { return $ Just TRealExp }
-  <st> "d"                              { return $ Just TDoubleExp }
+  <st> @integerConst                    { getMatch >>= \s -> return $ Just $ TInt s }
+  <st> @realConst                       { getMatch >>= \s -> return $ Just $ TReal s }
 
   -- Logicals
   <st> ".true."                         { return $ Just TTrue }
@@ -173,15 +180,15 @@ atColP n ai = (posColumn . aiPosition) ai == n
 
 type FixedLex a b = Lex AlexInput a b
 
-getMatch :: FixedLex a String
+getMatch :: Parse AlexInput String
 getMatch = do
-  ai <- getAlexL
+  ai <- getAlexP
   return $ (reverse . aiMatch) ai
 
-putMatch :: String -> FixedLex a ()
+putMatch :: String -> Parse AlexInput ()
 putMatch newMatch = do
-  ai <- getAlexL
-  putAlexL $ ai { aiMatch = newMatch }
+  ai <- getAlexP
+  putAlexP $ ai { aiMatch = newMatch }
   return ()
 
 -- With the existing alexGetByte implementation comments are matched without
@@ -189,9 +196,9 @@ putMatch newMatch = do
 -- we know the comment would start at column, and we have access to the absolute
 -- offset so instead of using match, lexComment takes a slice from the original
 -- source input
-lexComment :: FixedLex a (Maybe Token)
+lexComment :: Parse AlexInput (Maybe Token)
 lexComment = do
-  ai <- getAlexL
+  ai <- getAlexP
   let _col = (posColumn . aiPosition) ai
   let _absl = (posAbsoluteOffset . aiPosition) ai
   let _src =  aiSourceInput ai
@@ -199,21 +206,21 @@ lexComment = do
   let _nToDrop = fromIntegral (_absl - _col + 2)
   return $ Just $ TComment $ take _nToTake . drop _nToDrop $ _src
 
-lexHollerith :: FixedLex a (Maybe Token)
+lexHollerith :: Parse AlexInput (Maybe Token)
 lexHollerith = do
   match' <- getMatch
   let len = read $ init match' -- Get n of "nH" from string
   putMatch ""
-  ai <- getAlexL 
-  putAlexL $ ai { aiWhiteSensitiveCharCount = len } 
+  ai <- getAlexP
+  putAlexP $ ai { aiWhiteSensitiveCharCount = len } 
   lexed <- lexN len
   return $ do
     hollerith <- lexed
     return $ THollerith hollerith
 
-lexN :: Int -> FixedLex a (Maybe String)
+lexN :: Int -> Parse AlexInput (Maybe String)
 lexN n = do
-  alex <- getAlexL
+  alex <- getAlexP
   match' <- getMatch
   let len = length match'
   if n == len
@@ -221,32 +228,32 @@ lexN n = do
   else 
     case alexGetByte alex of
       Just (_, newAlex) -> do
-        putAlexL newAlex
+        putAlexP newAlex
         lexN n
       Nothing -> return Nothing
 
 -- Lexing various field descriptors
 
-lexFieldDescriptorDEFG :: FixedLex a (Maybe Token)
+lexFieldDescriptorDEFG :: Parse AlexInput (Maybe Token)
 lexFieldDescriptorDEFG = do
   match <- getMatch
   let (repeat, descriptor, width, rest) = takeRepeatDescriptorWidth match
   let fractionWidth = (read $ fst $ takeNumber $ tail rest) :: Integer
   return $ Just $ TFieldDescriptorDEFG repeat descriptor width fractionWidth
 
-lexFieldDescriptorAIL :: FixedLex a (Maybe Token)
+lexFieldDescriptorAIL :: Parse AlexInput (Maybe Token)
 lexFieldDescriptorAIL = do
   match <- getMatch
   let (repeat, descriptor, width, rest) = takeRepeatDescriptorWidth match
   return $ Just $ TFieldDescriptorAIL repeat descriptor width
 
-lexBlankDescriptor :: FixedLex a (Maybe Token)
+lexBlankDescriptor :: Parse AlexInput (Maybe Token)
 lexBlankDescriptor = do
   match <- getMatch
   let (width, _) = takeNumber match
   return $ Just $ TBlankDescriptor $ (read width :: Integer)
 
-lexScaleFactor :: FixedLex a (Maybe Token)
+lexScaleFactor :: Parse AlexInput (Maybe Token)
 lexScaleFactor = do
   match <- getMatch
   let (sign, rest) = if head match == '-' then (-1, tail match) else (1, match)
@@ -265,12 +272,12 @@ takeRepeatDescriptorWidth str =
 takeNumber :: String -> (String, String)
 takeNumber str = span isDigit str
 
-toStartCode :: Int -> FixedLex a (Maybe Token)
+toStartCode :: Int -> Parse AlexInput (Maybe Token)
 toStartCode startCode = do
-  ai <- getAlexL
+  ai <- getAlexP
   if startCode == 0
-  then putAlexL $ ai { aiStartCode = startCode, aiWhiteSensitiveCharCount = 6 }
-  else putAlexL $ ai { aiStartCode = startCode }
+  then putAlexP $ ai { aiStartCode = startCode, aiWhiteSensitiveCharCount = 6 }
+  else putAlexP $ ai { aiStartCode = startCode }
   return Nothing
 
 --------------------------------------------------------------------------------
@@ -312,9 +319,8 @@ data Token = TLeftPar
            | TFieldDescriptorAIL  Integer Char Integer
            | TBlankDescriptor     Integer
            | TScaleFactor         Integer
-           | TNum String
-           | TRealExp
-           | TDoubleExp
+           | TInt String
+           | TReal String
            | TTrue
            | TFalse
            | TOpPlus
@@ -463,28 +469,30 @@ utf8Encode = map fromIntegral . _go . ord
 -- Lexer definition
 --------------------------------------------------------------------------------
 
-lexer :: (Token -> Parse AlexInput (Maybe Token)) -> Parse AlexInput (Maybe Token)
-lexer = runContT $ do
+lexer :: (Token -> Parse AlexInput a) -> Parse AlexInput a
+lexer cont = do
    mToken <- lexer'
    case mToken of
-     Just tok -> return tok -- :: Lex AlexInput Token Token
+     Just token -> cont token
      Nothing -> fail "Unrecognised Token"
             
-lexer' :: FixedLex (Maybe Token) (Maybe Token)
+lexer' :: Parse AlexInput (Maybe Token)
 lexer' = do
   putMatch ""
-  alexInput <- getAlexL
+  alexInput <- getAlexP
   let startCode = aiStartCode alexInput
   case alexScanUser undefined alexInput startCode of
     AlexEOF -> return $ Just TEOF
     AlexError _ -> return Nothing
-    AlexSkip newAlex _ -> putAlexL newAlex >> lexer'
+    AlexSkip newAlex _ -> putAlexP newAlex >> lexer'
     AlexToken newAlex _ action -> do
-      putAlexL newAlex
+      putAlexP newAlex
       maybeTok <- action
       case maybeTok of
         Just _ -> return maybeTok
         Nothing -> lexer'
+
+alexScanUser :: () -> AlexInput -> Int -> AlexReturn (Parse AlexInput (Maybe Token))
 
 --------------------------------------------------------------------------------
 -- Functions to help testing & output
