@@ -98,23 +98,26 @@ STATEMENT
 | common COMMON_GROUPS { let rev = reverse $2 in StCommon (AList () (getListSpan rev) $ rev) }
 | equivalence EQUIVALENCE_GROUPS { let rev = reverse $2 in StEquivalence (AList () (getListSpan rev) $ rev) }
 | data  DATA_GROUPS { let rev = reverse $2 in StData (AList () (getListSpan rev) $ rev) }
-| format srcloc FORMAT_ITEMS ')' {% getSrcSpan $2 >>= \s -> return $ StFormat (AList () s $ reverse $3) }
-| format srcloc '(' ')' {% getSrcSpan $2 >>= \s -> return $ StFormat (AList () s []) }
+| format srcloc '(' FORMAT_ITEMS ')' {% getSrcSpan $2 >>= \s -> return $ StFormat (AList () s $ reverse $4) }
 
 FORMAT_ITEMS :: { [ FormatItem A0 ] }
 FORMAT_ITEMS
 : FORMAT_ITEMS ',' FORMAT_ITEM { $3 : $1 }
-| FORMAT_ITEMS FORMAT_ITEM_DELIMETER FORMAT_ITEM { $3 : $2 : $1 }
+| FORMAT_ITEMS ',' FORMAT_ITEM_DELIMETER { $3 : $1 }
+| FORMAT_ITEMS FORMAT_ITEM { $2 : $1 }
 | FORMAT_ITEMS FORMAT_ITEM_DELIMETER { $2 : $1 }
-| '(' FORMAT_ITEM { [ $2 ] }
-| '(' FORMAT_ITEM_DELIMETER { [ $2 ] }
+| FORMAT_ITEM { [ $1 ] }
+| FORMAT_ITEM_DELIMETER { [ $1 ] }
+| {- EMPTY -} { [ ] }
 
 FORMAT_ITEM_DELIMETER :: { FormatItem A0 }
 FORMAT_ITEM_DELIMETER: srcloc '/' {% getSrcSpan $1 >>= \s -> return $ FIDelimiter () s }
 
 FORMAT_ITEM :: { FormatItem A0 }
 FORMAT_ITEM
-: HOLLERITH { let (ExpValue _ s val) = $1 in FIHollerith () s val }
+: srcloc int '(' FORMAT_ITEMS ')' {% getSrcSpan $1 >>= \s -> return $ FIFormatList () s (Just $2) (let rev = reverse $4 in AList () (getListSpan rev) rev) }
+| srcloc '(' FORMAT_ITEMS ')' {% getSrcSpan $1 >>= \s -> return $ FIFormatList () s Nothing (let rev = reverse $3 in AList () (getListSpan rev) rev) }
+| HOLLERITH { let (ExpValue _ s val) = $1 in FIHollerith () s val }
 | srcloc fieldDescriptorDEFG {% getSrcSpan $1 >>= \s -> return $ let (TFieldDescriptorDEFG a b c d) = $2 in FIFieldDescriptorDEFG () s a b c d }
 | srcloc fieldDescriptorAIL {% getSrcSpan $1 >>= \s -> return $ let (TFieldDescriptorAIL a b c) = $2 in FIFieldDescriptorAIL () s a b c }
 | srcloc blankDescriptor {% getSrcSpan $1 >>= \s -> return $ FIBlankDescriptor () s $2 }

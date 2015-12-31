@@ -107,9 +107,7 @@ spec =
               expectedSt = resetSrcSpan $ StFormat $ AList () u formatList
           resetSrcSpan (evalStatementParser "      FORMAT (2i5/5hhello)") `shouldBe` expectedSt
 
-{- ignore for now
         it "parses 'FORMAT (/(i5))'" $ do
           let formatList = [FIDelimiter () u, FIFormatList () u Nothing (AList () u [FIFieldDescriptorAIL () u Nothing 'i' 5])]
               expectedSt = resetSrcSpan $ StFormat $ AList () u formatList
           resetSrcSpan (evalStatementParser "      FORMAT (/(i5))") `shouldBe` expectedSt
--}
