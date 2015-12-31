@@ -14,7 +14,10 @@ data Position = Position
   { posAbsoluteOffset   :: Integer
   , posColumn           :: Integer
   , posLine             :: Integer
-  } deriving (Show, Eq, Data, Typeable)
+  } deriving (Eq, Data, Typeable)
+
+instance Show Position where
+  show (Position _ c l) = (show l) ++ ":" ++ (show c)
 
 initPosition :: Position
 initPosition = Position 
@@ -26,7 +29,10 @@ initPosition = Position
 data SrcLoc = SrcLoc 
   { locPosition   :: Position
   , locFilename   :: String
-  } deriving (Show, Eq, Typeable, Data)
+  } deriving (Eq, Typeable, Data)
+
+instance Show SrcLoc where
+  show (SrcLoc p f) = (show f) ++ ":" ++ (show p)
 
 initSrcLoc :: SrcLoc
 initSrcLoc = SrcLoc 
@@ -34,7 +40,10 @@ initSrcLoc = SrcLoc
   , locFilename = "<unknown>" 
   }
 
-data SrcSpan = SrcSpan SrcLoc SrcLoc deriving (Eq, Show, Typeable, Data)
+data SrcSpan = SrcSpan SrcLoc SrcLoc deriving (Eq, Typeable, Data)
+
+instance Show SrcSpan where
+  show (SrcSpan s1 s2)= "(" ++ (show s1) ++ "," ++ (show s2) ++ ")"
 
 initSrcSpan :: SrcSpan
 initSrcSpan = SrcSpan initSrcLoc initSrcLoc

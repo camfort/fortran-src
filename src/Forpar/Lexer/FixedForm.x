@@ -5,14 +5,11 @@ import Data.Word (Word8)
 import Data.Char (toLower, isDigit)
 import Data.List (isPrefixOf, any)
 import qualified Data.Bits
-import Control.Monad.Trans.Cont
 import Control.Exception
 import GHC.Exts
 
 import Forpar.ParserMonad
 import Forpar.Util.Position
-
-import Debug.Trace
 
 }
 
@@ -258,10 +255,10 @@ lexScaleFactor = do
   let (width, _) = takeNumber rest
   return $ Just $ TScaleFactor $ (read width) * sign
 
-takeRepeatDescriptorWidth :: String -> (Integer, Char, Integer, String)
+takeRepeatDescriptorWidth :: String -> (Maybe Integer, Char, Integer, String)
 takeRepeatDescriptorWidth str = 
   let (repeatStr, rest) = takeNumber str
-      repeat = if repeatStr == [] then 1 else read repeatStr :: Integer
+      repeat = if repeatStr == [] then Nothing else Just $ (read repeatStr :: Integer)
       descriptor = head rest
       (widthStr, rest') = takeNumber $ tail rest
       width = read widthStr :: Integer in
@@ -313,8 +310,8 @@ data Token = TLeftPar
            | TType String
            | TData
            | TFormat
-           | TFieldDescriptorDEFG Integer Char Integer Integer
-           | TFieldDescriptorAIL  Integer Char Integer
+           | TFieldDescriptorDEFG (Maybe Integer) Char Integer Integer
+           | TFieldDescriptorAIL  (Maybe Integer) Char Integer
            | TBlankDescriptor     Integer
            | TScaleFactor         Integer
            | TInt String

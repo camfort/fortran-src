@@ -7,7 +7,6 @@ import Test.Hspec
 import Test.Hspec.QuickCheck
 
 import Control.Monad.State.Lazy
-import Control.Monad.Trans.Cont
 import Control.Exception
 
 import Data.List (isPrefixOf)
@@ -77,13 +76,13 @@ spec =
           singleLexer'App "      10x" `shouldBe` (Just $ TBlankDescriptor 10)
 
         it "lexes '10a1'" $ do
-          singleLexer'App "      10a1" `shouldBe` (Just $ TFieldDescriptorAIL 10 'a' 1)
+          singleLexer'App "      10a1" `shouldBe` (Just $ TFieldDescriptorAIL (Just 10) 'a' 1)
 
         it "lexes 'a1'" $ do
-          singleLexer'App "      a1" `shouldBe` (Just $ TFieldDescriptorAIL 1 'a' 1)
+          singleLexer'App "      a1" `shouldBe` (Just $ TFieldDescriptorAIL Nothing 'a' 1)
 
         it "lexes '20g10.3'" $ do
-          singleLexer'App "      20g10.3" `shouldBe` (Just $ TFieldDescriptorDEFG 20 'g' 10 3)
+          singleLexer'App "      20g10.3" `shouldBe` (Just $ TFieldDescriptorDEFG (Just 20) 'g' 10 3)
 
         it "lexes '-10p'" $ do
           singleLexer'App "      -10p" `shouldBe` (Just $ TScaleFactor $ -10)

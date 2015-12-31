@@ -62,12 +62,12 @@ data Block a =
 data Comment a = Comment a SrcSpan String deriving (Eq, Show, Data, Typeable, Generic)
 
 data Statement a  = 
-    StExternal            (AList (Value a) a)
+    StExternal            (AList (Expression a) a)
   | StDimension           (AList (Expression a) a)
-  | StCommon              (AList (Name, AList (Expression a) a) a)
-  | StEquivalence         (AList (AList a Name) a)
-  | StData                (AList (AList (Expression a) a, AList (Expression a) a) a)
-  | StFormat              (AList [FormatItem a] a)
+  | StCommon              (AList (CommonGroup a) a)
+  | StEquivalence         (AList (AList (Expression a) a) a)
+  | StData                (AList (DataGroup a) a)
+  | StFormat              (AList (FormatItem a) a)
   | StFunction            Name (AList Name a) (Expression a)
   | StDeclaration         BaseType (AList (Value a) a)
   | StDo                  (Block a) (Value a) (Maybe (Value a))
@@ -89,15 +89,26 @@ data Statement a  =
   | StEndfile             (Value a)
   deriving (Eq, Show, Data, Typeable)
 
-data Form a = Format (FormatItem a) | Label (Expression a) deriving (Eq, Show, Data, Typeable)
+data CommonGroup a = 
+  CommonGroup a SrcSpan (Maybe Name) (AList (Expression a) a)
+  deriving (Eq, Show, Data, Typeable, Generic)
+
+data DataGroup a =
+  DataGroup a SrcSpan (AList (Expression a) a) (AList (Expression a) a)
+  deriving (Eq, Show, Data, Typeable, Generic)
+
+data Form a = 
+    Format (FormatItem a) 
+  | Label (Expression a) 
+  deriving (Eq, Show, Data, Typeable)
 
 data FormatItem a = 
-    FIFormatList            a             SrcSpan   (AList (FormatItem a) a)
-  | FIHollerith             a             SrcSpan   String
-  | FIDelimiter             a             SrcSpan   String
---  descriptor type       | annotation  | span    | repeat  | descriptor  | width   | integer 
-  | FIFieldDescriptorDFEG   a             SrcSpan   Integer   Char          Integer   Integer
-  | FIFieldDescriptorILA    a             SrcSpan   Integer   Char          Integer
+    FIFormatList            a             SrcSpan   (Maybe String) (AList (FormatItem a) a)
+  | FIHollerith             a             SrcSpan   (Value a)
+  | FIDelimiter             a             SrcSpan
+--  descriptor type       | annotation  | span    | repeat          | descriptor  | width   | integer 
+  | FIFieldDescriptorDEFG   a             SrcSpan   (Maybe Integer)   Char          Integer   Integer
+  | FIFieldDescriptorAIL    a             SrcSpan   (Maybe Integer)   Char          Integer
   | FIBlankDescriptor       a             SrcSpan   Integer
   | FIScaleFactor           a             SrcSpan   Integer
   deriving (Eq, Show, Data, Typeable, Generic)
@@ -164,6 +175,8 @@ class Annotated f where
 instance FirstParameter (AList t a) a
 instance FirstParameter (ProgramUnit a) a
 instance FirstParameter (Block a) a
+instance FirstParameter (CommonGroup a) a
+instance FirstParameter (DataGroup a) a
 instance FirstParameter (Comment a) a
 instance FirstParameter (FormatItem a) a
 instance FirstParameter (Expression a) a
@@ -171,6 +184,8 @@ instance FirstParameter (Expression a) a
 instance SecondParameter (AList t a) SrcSpan
 instance SecondParameter (ProgramUnit a) SrcSpan
 instance SecondParameter (Block a) SrcSpan
+instance SecondParameter (CommonGroup a) SrcSpan
+instance SecondParameter (DataGroup a) SrcSpan
 instance SecondParameter (Comment a) SrcSpan
 instance SecondParameter (FormatItem a) SrcSpan
 instance SecondParameter (Expression a) SrcSpan
@@ -178,6 +193,8 @@ instance SecondParameter (Expression a) SrcSpan
 instance Annotated (AList t)
 instance Annotated ProgramUnit
 instance Annotated Block
+instance Annotated CommonGroup
+instance Annotated DataGroup
 instance Annotated Comment
 instance Annotated FormatItem
 instance Annotated Expression
@@ -211,6 +228,8 @@ class Spanned a where
 instance Spanned (AList t a)
 instance Spanned (ProgramUnit a)
 instance Spanned (Block a)
+instance Spanned (CommonGroup a)
+instance Spanned (DataGroup a)
 instance Spanned (Comment a)
 instance Spanned (FormatItem a)
 instance Spanned (Expression a)
@@ -237,13 +256,17 @@ getTransSpan x y =
       SrcSpan l1' l2' = getSpan y in
         SrcSpan l1 l2'
 
+getListSpan :: Spanned a => [a] -> SrcSpan
+getListSpan [x] =  getSpan x
+getListSpan (x:xs) = getTransSpan x (last xs)
+
 --------------------------------------------------------------------------------
 -- Useful for testing                                                         --
 --------------------------------------------------------------------------------
 
 -- To be used in testing it reverts the SrcSpans in AST to dummy initial
 -- SrcSpan value.
-resetSrcSpan :: Expression () -> Expression ()
+resetSrcSpan :: Data a => a -> a
 resetSrcSpan = transformBi f
   where 
     f x = case cast x :: Maybe SrcSpan of 

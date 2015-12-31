@@ -1,7 +1,6 @@
 module Forpar.ParserMonad where
 
 import Control.Monad.State.Lazy
-import Control.Monad.Trans.Cont
 import Control.Exception
 
 import Forpar.Util.Position

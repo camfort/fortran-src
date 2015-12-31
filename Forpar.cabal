@@ -43,7 +43,6 @@ library
     -- Forpar.Parser.Fortran2008
   build-depends:       
     base >= 4.6 && < 5,
-    transformers >= 0.4,
     mtl >= 2.2,
     array >= 0.5,
     newtype >= 0.2,
@@ -57,7 +56,6 @@ test-suite spec
     base >= 4.6 && < 5,
     hspec >= 2.2,
     mtl >= 2.2,
-    transformers >= 0.4,
     array >= 0.5,
     newtype >= 0.2,
     uniplate >= 1.6,
