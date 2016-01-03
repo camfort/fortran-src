@@ -24,6 +24,12 @@ evalStatementParser sourceCode =
 intGen :: Integer -> Expression ()
 intGen i = ExpValue () u $ ValInteger $ show i
 
+varGen :: String -> Expression ()
+varGen str = ExpValue () u $ ValVariable str
+
+arrGen :: String -> Expression ()
+arrGen str = ExpValue () u $ ValArray str
+
 u = undefined
 
 spec :: Spec
@@ -51,7 +57,7 @@ spec =
         resetSrcSpan (evalExpressionParser "      3 + -2 + 42") `shouldBe` expectedExp
 
       it "parses 'f(y, 24)'" $ do
-        let expectedExp = resetSrcSpan $ ExpSubscript () u (ValArray "f") (AList () u [ExpValue () u (ValVariable "y"), intGen 24])
+        let expectedExp = resetSrcSpan $ ExpSubscript () u (arrGen "f") (AList () u [ExpValue () u (ValVariable "y"), intGen 24])
         resetSrcSpan (evalExpressionParser "      f(y, 24)") `shouldBe` expectedExp
 
       it "parses '3 + 4 * 12'" $ do
@@ -67,6 +73,12 @@ spec =
       it "parses '(3 * 2) .lt. 42'" $ do
         let expectedExp = resetSrcSpan $ ExpBinary () u LT (ExpBinary () u Multiplication (intGen 3) (intGen 2)) (intGen 42)
         resetSrcSpan (evalExpressionParser "      (3 * 2) .lt. 42") `shouldBe` expectedExp
+
+    describe "Other expressions" $ do
+      it "parses 'a(2 * x - 3, 10)'" $ do
+        let firstEl = ExpBinary () u Subtraction (ExpBinary () u Multiplication (intGen 2) (varGen "x")) (intGen 3)
+            expectedExp = resetSrcSpan $ ExpSubscript () u (arrGen "a") (AList () u [firstEl, intGen 10])
+        resetSrcSpan (evalExpressionParser "      a(2 * x - 3, 10)") `shouldBe` expectedExp
 
     describe "Statements" $ do
       it "parses 'EXTERNAL f, g, h'" $ do
@@ -111,3 +123,8 @@ spec =
           let formatList = [FIDelimiter () u, FIFormatList () u Nothing (AList () u [FIFieldDescriptorAIL () u Nothing 'i' 5])]
               expectedSt = resetSrcSpan $ StFormat $ AList () u formatList
           resetSrcSpan (evalStatementParser "      FORMAT (/(i5))") `shouldBe` expectedSt
+
+      it "parses 'integer i, j(2,2), k'" $ do
+        let declarators = [varGen "i", ExpSubscript () u (arrGen "j") (AList () u [intGen 2, intGen 2]), varGen "k"] 
+            expectedSt = resetSrcSpan $ StDeclaration TypeInteger $ AList () u declarators
+        resetSrcSpan (evalStatementParser "      integer i, j(2,2), k") `shouldBe` expectedSt

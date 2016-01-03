@@ -30,6 +30,7 @@ import Debug.Trace
   blockData             { TBlockData }
   end                   { TEnd }
   '='                   { TOpAssign }
+  assign                { TAssign }
   to                    { TTo }
   goto                  { TGoto }
   if                    { TIf }
@@ -91,14 +92,119 @@ import Debug.Trace
 
 %%
 
+BLOCKS :: 
+
+COMMENTS :: { [ Comment a ]}
+COMMENTS
+: COMMENTS COMMENT { $2 : $1 }
+| {- EMPTY -} { [ ] }
+
+COMMENT :: { Comment a }
+COMMENT : srcloc comment {% getSrcSpan $1 >>= \s -> return $ Comment () s $2 }
+
+BLOCK :: { Block A0 }
+BLOCK : srcloc STATEMENT {% getSrcSpan $1 >>= \s -> return $ BlStatement () s $2 [] }
+
+ARITHMETIC_IF_BLOCK :: { Block A0 }
+ARITHMETIC_IF_BLOCK
+: srcloc OTHER_EXECUTABLE_STATEMENT {% getSrcSpan $1 >>= \s -> return $ BlStatement () s $2 [] }
+
+EXPRESSION_ASSIGNMENT_BLOCK :: { Block A0 }
+EXPRESSION_ASSIGNMENT_BLOCK
+: srcloc EXPRESSION_ASSIGNMENT_STATEMENT {% getSrcSpan $1 >>= \s -> return $ BlStatement () s $2 [] }
+
 STATEMENT :: { Statement A0 }
 STATEMENT
+: LOGICAL_IF_STATEMENT { $1 }
+| DO_STATEMENT { $1 }
+| OTHER_EXECUTABLE_STATEMENT { $1 }
+| NONEXECUTABLE_STATEMENT { $1 }
+
+LOGICAL_IF_STATEMENT :: { Statement A0 }
+LOGICAL_IF_STATEMENT : if '(' LOGICAL_EXPRESSION ')' ARITHMETIC_IF_BLOCK { StIfLogical $3 $5 }
+
+DO_STATEMENT :: { Statement A0 }
+DO_STATEMENT
+: do LABEL DO_SPECIFICATION { let (init, limit, step) = $3 in StDo $2 init limit step }
+
+DO_SPECIFICATION :: { (Block A0, Expression A0, Maybe (Expression A0))}
+DO_SPECIFICATION
+: EXPRESSION_ASSIGNMENT_BLOCK ',' INT_OR_VAR ',' INT_OR_VAR { ($1, $3, Just $5)}
+| EXPRESSION_ASSIGNMENT_BLOCK ',' INT_OR_VAR                { ($1, $3, Nothing)}
+
+INT_OR_VAR :: { Expression A0 } : INTEGER_LITERAL { $1 } | VARIABLE { $1 }
+
+OTHER_EXECUTABLE_STATEMENT :: { Statement A0 }
+OTHER_EXECUTABLE_STATEMENT
+: EXPRESSION_ASSIGNMENT_STATEMENT { $1 }
+| assign LABEL to VARIABLE { StLabelAssign $2 $4 }
+| goto LABEL { StGotoUnconditional $2 }
+| goto VARIABLE LABELS { StGotoAssigned $2 $3 }
+| goto LABELS VARIABLE { StGotoComputed $2 $3 }
+| if '(' ARITHMETIC_EXPRESSION ')' LABEL ',' LABEL ',' LABEL { StIfArithmetic $3 $5 $7 $9 }
+| call SUBROUTINE_NAME CALLABLE_EXPRESSIONS { StCall $2 $3 }
+| return { StReturn }
+| continue { StContinue }
+| stop INTEGER_LITERAL { StStop $2 }
+| pause INTEGER_LITERAL { StPause $2 }
+| rewind UNIT { StRewind $2 }
+| backspace UNIT { StBackspace $2 }
+| endfile UNIT { StEndfile $2 }
+| write READ_WRITE_ARGUMENTS { let (unit, form, list) = $2 in StWrite unit form list }
+| read READ_WRITE_ARGUMENTS { let (unit, form, list) = $2 in StRead unit form list }
+
+EXPRESSION_ASSIGNMENT_STATEMENT :: { Statement A0 }
+EXPRESSION_ASSIGNMENT_STATEMENT : ELEMENT '=' EXPRESSION { StExpressionAssign $1 $3 }
+
+NONEXECUTABLE_STATEMENT :: { Statement A0 }
 : external PROCEDURES { let rev = reverse $2 in StExternal (AList () (getListSpan rev) $ rev) }
 | dimension ARRAY_DECLARATORS { let rev = reverse $2 in StDimension (AList () (getListSpan rev) $ rev) }
 | common COMMON_GROUPS { let rev = reverse $2 in StCommon (AList () (getListSpan rev) $ rev) }
 | equivalence EQUIVALENCE_GROUPS { let rev = reverse $2 in StEquivalence (AList () (getListSpan rev) $ rev) }
 | data  DATA_GROUPS { let rev = reverse $2 in StData (AList () (getListSpan rev) $ rev) }
 | format srcloc '(' FORMAT_ITEMS ')' {% getSrcSpan $2 >>= \s -> return $ StFormat (AList () s $ reverse $4) }
+| type DECLARATORS { StDeclaration (read $1) (let rev = reverse $2 in AList () (getListSpan rev) rev) }
+
+
+READ_WRITE_ARGUMENTS :: { (Expression A0, Maybe (Expression A0), Maybe (AList (IOElement A0) A0)) }
+READ_WRITE_ARGUMENTS
+: '(' UNIT ')' READ_WRITE_ARGUMENTS_LEVEL1 { ($2, Nothing, $4) }
+| '(' UNIT ',' FORM ')' READ_WRITE_ARGUMENTS_LEVEL1 { ($2, Just $4, $6) }
+
+READ_WRITE_ARGUMENTS_LEVEL1 :: { Maybe (AList (IOElement A0) A0) }
+READ_WRITE_ARGUMENTS_LEVEL1
+: IO_ELEMENTS { let rev = reverse $1 in Just $ AList () (getListSpan rev) rev }
+| {- EMPTY -} { Nothing }
+
+-- Not my terminology a VAR or an INT (probably positive) is defined as UNIT.
+UNIT :: { Expression A0 } : INTEGER_LITERAL { $1 } | VARIABLE { $1 }
+
+FORM :: { Expression A0 } : ARRAY { $1 } | LABEL { $1 }
+
+IO_ELEMENTS :: { [ IOElement A0 ] }
+IO_ELEMENTS
+: IO_ELEMENTS ',' IO_ELEMENT { $3 : $1}
+| IO_ELEMENT { [ $1 ] }
+
+IO_ELEMENT :: { IOElement A0 }
+IO_ELEMENT
+: VARIABLE { IOExpression $1 }
+-- There should also be a caluse for variable names but not way to 
+-- differentiate it at this stage from VARIABLE. Hence, it is omitted to prevent
+-- reduce/reduce conflict.
+| SUBSCRIPT { IOExpression $1 }
+-- TODO after handling blocks | srcloc '(' IO_ELEMENTS ',' DO_SPEC ')' {% getSrcSpan $1 >>= \s -> return $ IOTuple () s $3 $5 }
+| '(' ELEMENTS ')' { let rev = reverse $2 in IOExpressionList $ AList () (getListSpan rev) rev} 
+
+ELEMENTS :: { [ Expression A0 ] }
+ELEMENTS
+: ELEMENTS ',' ELEMENT { $3 : $1 }
+| ELEMENT { [ $1 ] }
+
+ELEMENT :: { Expression A0 }
+ELEMENT
+: VARIABLE { $1 }
+| SUBSCRIPT { $1 }
 
 FORMAT_ITEMS :: { [ FormatItem A0 ] }
 FORMAT_ITEMS
@@ -191,10 +297,26 @@ ARRAY_DECLARATORS
 -- Here the procedure should be either a function or subroutine name, but 
 -- since they are syntactically identical at this stage subroutine names
 -- are also emitted as function names.
-PROCEDURES :: { [Expression A0] }
+PROCEDURES :: { [ Expression A0 ] }
 PROCEDURES
-: PROCEDURES ',' srcloc id {% getSrcSpan $3 >>= \s -> return $ (ExpValue () s (ValFunctionName $4)) : $1 }
-| srcloc id {% getSrcSpan $1 >>= \s -> return $ [ ExpValue () s (ValFunctionName $2) ] }
+: PROCEDURES ',' FUNCTION_NAME { $3 : $1 }
+| FUNCTION_NAME { [ $1 ] }
+
+CALLABLE_EXPRESSIONS :: { AList (Expression A0) A0 }
+CALLABLE_EXPRESSIONS
+: srcloc CALLABLE_EXPRESSIONS_LEVEL1 ')' {% getSrcSpan $1 >>= \s -> return $ AList () s $ reverse $2 }
+
+CALLABLE_EXPRESSIONS_LEVEL1 :: { [ Expression A0 ] }
+CALLABLE_EXPRESSIONS_LEVEL1
+: CALLABLE_EXPRESSIONS_LEVEL1 ',' CALLABLE_EXPRESSION { $3 : $1 }
+| '(' CALLABLE_EXPRESSION { [ $2 ] } 
+| '(' { [ ] }
+
+-- Expression all by itself subsumes all other callable expressions.
+CALLABLE_EXPRESSION :: { Expression A0 }
+CALLABLE_EXPRESSION
+: HOLLERITH   { $1 }
+| EXPRESSION  { $1 }
 
 EXPRESSION :: { Expression A0 }
 EXPRESSION
@@ -241,34 +363,50 @@ RELATIONAL_OPERATOR
 | '<='  { LTE }
 
 SUBSCRIPT :: { Expression A0 }
-SUBSCRIPT : srcloc id ELEMENT_LIST {% getSrcSpan $1 >>= \s -> return $ ExpSubscript () s (ValArray $2) $3 } 
+SUBSCRIPT : ARRAY INDICIES { ExpSubscript () (getTransSpan $1 $2) $1 $2 }
 
-ELEMENT_LIST :: { AList (Expression A0) A0 }
-ELEMENT_LIST 
-: srcloc '(' ELEMENT_LIST_LEVEL1 {% getSrcSpan $1 >>= \s -> return $ AList () s $3 }
+INDICIES :: { AList (Expression A0) A0 }
+INDICIES 
+: srcloc '(' INDICIES_LEVEL1 {% getSrcSpan $1 >>= \s -> return $ AList () s $3 }
 
-ELEMENT_LIST_LEVEL1 :: { [Expression A0] }
-ELEMENT_LIST_LEVEL1
-: ELEMENT ',' ELEMENT_LIST_LEVEL1 { $1:$3 }
-| ELEMENT ')' { [$1] }
-| ')' { [] }
+INDICIES_LEVEL1 :: { [Expression A0] }
+INDICIES_LEVEL1
+: INDEX ',' INDICIES_LEVEL1 { $1:$3 }
+| INDEX ')' { [ $1 ] }
+| ')' { [ ] }
 
-ELEMENT :: { Expression A0 }
-ELEMENT 
-: LITERAL   { $1 }
-| VARIABLE  { $1 }
-| EXPRESSION { $1 }
+INDEX :: { Expression A0 }
+INDEX
+: INTEGER_LITERAL { $1 }
+| INDEX_LEVEL1 '+' INTEGER_LITERAL { ExpBinary () (getTransSpan $1 $3) Addition $1 $3 } 
+| INDEX_LEVEL1 '-' INTEGER_LITERAL { ExpBinary () (getTransSpan $1 $3) Subtraction $1 $3 } 
+| INDEX_LEVEL1 { $1 }
+
+INDEX_LEVEL1 :: { Expression A0 }
+INDEX_LEVEL1
+: INTEGER_LITERAL '*' VARIABLE { ExpBinary () (getTransSpan $1 $3) Multiplication $1 $3 } 
+| VARIABLE { $1 }
 
 ARITHMETIC_SIGN :: { UnaryOp }
 ARITHMETIC_SIGN
 : '-' { Minus }
 | '+' { Plus }
 
--- This also parses a function name, or an array name. Since at this stage 
--- they are equivalent introducing separate productions just increase 
--- reduce/reduce conflicts
+-- This may also be used to parse a function name, or an array name. Since when
+-- are valid options in a production there is no way of differentiating them at
+-- this stage.
+-- This at least reduces reduce/reduce conflicts.
 VARIABLE :: { Expression A0 }
 VARIABLE : srcloc id {% getSrcSpan $1 >>= \s -> return $ ExpValue () s (ValVariable $2) }
+
+ARRAY :: { Expression A0 }
+ARRAY : srcloc id {% getSrcSpan $1 >>= \s -> return $ ExpValue () s (ValArray $2) }
+
+FUNCTION_NAME :: { Expression A0 }
+FUNCTION_NAME : srcloc id {% getSrcSpan $1 >>= \s -> return $ ExpValue () s (ValFunctionName $2) }
+
+SUBROUTINE_NAME :: { Expression A0 }
+SUBROUTINE_NAME : srcloc id {% getSrcSpan $1 >>= \s -> return $ ExpValue () s (ValSubroutineName $2) }
 
 LITERAL :: { Expression A0 }
 LITERAL
@@ -306,6 +444,17 @@ LOGICAL_LITERAL
 | srcloc false  {% getSrcSpan $1 >>= \s -> return $ ExpValue () s ValFalse }
 
 HOLLERITH :: { Expression A0 } : srcloc hollerith {% getSrcSpan $1 >>= \s -> return $ ExpValue () s (ValHollerith $2) }
+
+LABELS :: { AList (Expression A0) A0 }
+LABELS
+: srcloc LABELS_LEVEL1 ')' {% getSrcSpan $1 >>= \s -> return $ AList () s $ reverse $2 }
+
+LABELS_LEVEL1 :: { [ Expression A0 ] }
+LABELS_LEVEL1
+: LABELS_LEVEL1 ',' LABEL { $3 : $1 }
+| '(' LABEL { [ $2 ] }
+
+LABEL :: { Expression A0 } : srcloc label {% getSrcSpan $1 >>= \s -> return $ ExpValue () s (ValLabel $2) }
 
 srcloc :: { SrcLoc }
 srcloc :  {- EMPTY -} {% getSrcLoc }
