@@ -93,8 +93,8 @@ data Statement a  =
   | StContinue               
   | StStop                (Expression a)
   | StPause               (Expression a)
-  | StRead                (Expression a) (Maybe (Expression a)) (Maybe (AList (IOElement a) a))
-  | StWrite               (Expression a) (Maybe (Expression a)) (Maybe (AList (IOElement a) a))
+  | StRead                (Expression a) (Maybe (Expression a)) (AList (IOElement a) a)
+  | StWrite               (Expression a) (Maybe (Expression a)) (AList (IOElement a) a)
   | StRewind              (Expression a)
   | StBackspace           (Expression a)
   | StEndfile             (Expression a)
@@ -251,6 +251,20 @@ getTransSpan x y =
 getListSpan :: Spanned a => [a] -> SrcSpan
 getListSpan [x] =  getSpan x
 getListSpan (x:xs) = getTransSpan x (last xs)
+
+class Commented f where
+  setComments :: f a -> [ Comment a ] -> f a
+
+instance Commented Block where
+  setComments (BlStatement a s st _) comments = BlStatement a s st comments
+
+instance Commented ProgramUnit where
+  setComments progUnit comments =
+    case progUnit of 
+      PUMain        a s n b _         -> PUMain        a s n b comments
+      PUSubroutine  a s n args b _    -> PUSubroutine  a s n args b comments
+      PUFunction    a s n args r b _  -> PUFunction    a s n args r b comments
+      PUBlockData   a s n b _         -> PUBlockData   a s n b comments
 
 --------------------------------------------------------------------------------
 -- Useful for testing                                                         --

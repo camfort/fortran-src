@@ -15,14 +15,17 @@ import Data.Typeable
 
 evalExpressionParser :: String -> Expression ()
 evalExpressionParser sourceCode = 
-  evalState expressionParser $ initParseState sourceCode Fortran66 "<unknown>"
+  evalParse expressionParser $ initParseState sourceCode Fortran66 "<unknown>"
 
 evalStatementParser :: String -> Statement ()
 evalStatementParser sourceCode = 
-  evalState statementParser $ initParseState sourceCode Fortran66 "<unknown>"
+  evalParse statementParser $ initParseState sourceCode Fortran66 "<unknown>"
 
 intGen :: Integer -> Expression ()
 intGen i = ExpValue () u $ ValInteger $ show i
+
+labelGen :: Integer -> Expression ()
+labelGen i = ExpValue () u $ ValLabel $ show i
 
 varGen :: String -> Expression ()
 varGen str = ExpValue () u $ ValVariable str
@@ -128,3 +131,37 @@ spec =
         let declarators = [varGen "i", ExpSubscript () u (arrGen "j") (AList () u [intGen 2, intGen 2]), varGen "k"] 
             expectedSt = resetSrcSpan $ StDeclaration TypeInteger $ AList () u declarators
         resetSrcSpan (evalStatementParser "      integer i, j(2,2), k") `shouldBe` expectedSt
+
+      it "parses 'write (6) i'" $ do
+        let expectedSt = resetSrcSpan $ StWrite (intGen 6) (Nothing) (AList () u [IOExpression $ varGen "i"])
+        resetSrcSpan (evalStatementParser "      write (6) i") `shouldBe` expectedSt
+
+      it "parses 'write (6,10) i'" $ do
+        let expectedSt = resetSrcSpan $ StWrite (intGen 6) (Just $ labelGen 10) (AList () u [IOExpression $ varGen "i"])
+        resetSrcSpan (evalStatementParser "      write (6,10) i") `shouldBe` expectedSt
+
+      it "parses 'if (10 .LT. x) write (6,10) i'" $ do
+        let writeSt = StWrite (intGen 6) (Just $ labelGen 10) (AList () u [IOExpression $ varGen "i"])
+        let block = BlStatement () u writeSt []
+        let cond = ExpBinary () u LT (intGen 10) (varGen "x")
+        let expectedSt = resetSrcSpan $ StIfLogical cond block
+        resetSrcSpan (evalStatementParser "      if (10 .LT. x) write (6,10) i") `shouldBe` expectedSt
+
+      it "parses 'if (10 - 5) 10, 20, 30'" $ do
+        let cond = ExpBinary () u Subtraction (intGen 10) (intGen 5)
+        let expectedSt = resetSrcSpan $ StIfArithmetic cond (labelGen 10) (labelGen 20) (labelGen 30)
+        resetSrcSpan (evalStatementParser "      if (10 - 5) 10, 20, 30") `shouldBe` expectedSt
+
+      it "parses 'f = 1'" $ do
+        let expectedSt = resetSrcSpan $ StExpressionAssign (varGen "f") (intGen 1)
+        resetSrcSpan (evalStatementParser "      f = 1") `shouldBe` expectedSt
+
+      it "parses 'f = a(1,2)'" $ do
+        let rhs = ExpSubscript () u (ExpValue () u (ValArray "a")) (AList () u [intGen 1, intGen 2])
+        let expectedSt = resetSrcSpan $ StExpressionAssign (varGen "f") rhs
+        resetSrcSpan (evalStatementParser "      f = a(1,2)") `shouldBe` expectedSt
+
+      it "parses 'do 42 i = 10, 1, 1'" $ do
+        let block = BlStatement () u (StExpressionAssign (varGen "i") (intGen 10)) []
+        let expectedSt = resetSrcSpan $ StDo (labelGen 42) block (intGen 1) (Just $ intGen 1)
+        resetSrcSpan (evalStatementParser "      do 42 i = 10, 1, 1") `shouldBe` expectedSt

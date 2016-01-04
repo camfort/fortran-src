@@ -1,3 +1,5 @@
+{-# LANGUAGE FlexibleInstances #-}
+
 module Forpar.ParserMonadSpec where
 
 import Forpar.ParserMonad
@@ -9,6 +11,9 @@ import Forpar.Util.Position
 vanillaParseState :: ParseState String
 vanillaParseState = ParseState { psAlexInput = "", psVersion = Fortran66, psFilename = "<unknown>" }
 
+instance Loc (ParseState String) where
+  getPos = error "Never needed"
+
 data SomeInput = SomeInput { p :: Position }
 
 initPos :: Position
@@ -16,6 +21,9 @@ initPos = Position 5 1 2
 
 initSomeInput :: SomeInput
 initSomeInput = SomeInput { p = initPos }
+
+instance Loc (ParseState SomeInput) where
+  getPos = p . psAlexInput
 
 instance Loc SomeInput where
   getPos = p
@@ -28,10 +36,10 @@ spec =
   describe "ParserMonad" $ do
     describe "Parse" $ do
       it "should give out correct version" $ do
-        evalState getVersionP vanillaParseState `shouldBe` Fortran66
+        evalParse getVersionP vanillaParseState `shouldBe` Fortran66
 
       it "satisfies read after write equals to what is written" $ do
-        let ai = evalState (putAlexP "l'enfer" >> getAlexP) vanillaParseState in
+        let ai = evalParse (putAlexP "l'enfer" >> getAlexP) vanillaParseState in
           ai `shouldBe` "l'enfer"
 
       describe "Obtaining locations" $ do
@@ -41,7 +49,7 @@ spec =
                 _ai <- getAlexP
                 putAlexP $ _ai { p = _expPosition }
                 getSrcLoc
-              _loc = evalState _exampleM vanillaSomeInput
+              _loc = evalParse _exampleM vanillaSomeInput
               _expectation = SrcLoc { locFilename = "some.f" , locPosition = _expPosition } in
             _loc `shouldBe` _expectation
 
@@ -52,18 +60,18 @@ spec =
                 _loc1 <- getSrcLoc
                 putAlexP $ _ai { p = _loc2 }
                 getSrcSpan _loc1
-              _span = evalState _exampleM vanillaSomeInput 
+              _span = evalParse _exampleM vanillaSomeInput 
               _expectation = SrcSpan (SrcLoc initPos "some.f") (SrcLoc _loc2 "some.f") in 
             _span `shouldBe` _expectation
 
     describe "Lex" $ do
       it "reads the state correctly" $ do
-        runParse getAlexP vanillaParseState `shouldBe` ""
+        evalParse getAlexP vanillaParseState `shouldBe` ""
 
       it "overrides the state correctly" $ do
-        let ai = runParse (putAlexP "c'est" >> getAlexP) vanillaParseState in
+        let ai = evalParse (putAlexP "c'est" >> getAlexP) vanillaParseState in
             ai `shouldBe` "c'est"
 
       it "mixes operations correctly" $ do
-       let ai = runParse (putAlexP "hello" >> getAlexP >>= \s -> (putAlexP $ take 4 s) >> getAlexP) vanillaParseState in
+       let ai = evalParse (putAlexP "hello" >> getAlexP >>= \s -> (putAlexP $ take 4 s) >> getAlexP) vanillaParseState in
              ai `shouldBe` "hell"

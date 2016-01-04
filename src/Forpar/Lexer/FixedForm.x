@@ -1,4 +1,6 @@
 {
+{-# LANGUAGE FlexibleInstances #-}
+
 module Forpar.Lexer.FixedForm where
 
 import Data.Word (Word8)
@@ -352,6 +354,9 @@ data AlexInput = AlexInput
   , aiWhiteSensitiveCharCount     :: Int
   , aiStartCode                   :: Int
   } deriving (Show)
+
+instance Loc (ParseState AlexInput) where
+  getPos = getPos . psAlexInput
 
 instance Loc AlexInput where
   getPos = aiPosition

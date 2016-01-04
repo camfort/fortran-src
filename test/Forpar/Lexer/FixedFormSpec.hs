@@ -12,7 +12,7 @@ import Control.Exception
 import Data.List (isPrefixOf)
 
 singleLexer'App :: String -> Maybe Token
-singleLexer'App srcInput = runParse lexer' _parseState
+singleLexer'App srcInput = evalParse lexer' _parseState
   where
     _parseState = initParseState srcInput Fortran66 "<unknown>"
 
@@ -89,7 +89,7 @@ spec =
 
     describe "lexN" $ do
       it "`lexN 5` parses lexes next five characters" $ do
-        aiMatch (evalState (lexN 5 >> getAlexP) (initParseState "helloWorld" Fortran66 "")) `shouldBe` reverse "hello"
+        aiMatch (evalParse (lexN 5 >> getAlexP) (initParseState "helloWorld" Fortran66 "")) `shouldBe` reverse "hello"
 
     describe "lexHollerith" $ do
       it "lexes Hollerith '7hmistral'" $ do

@@ -24,7 +24,6 @@ import Debug.Trace
   '('                   { TLeftPar }
   ')'                   { TRightPar }
   ','                   { TComma }
-  '.'                   { TDot }
   function              { TFunction }
   subroutine            { TSubroutine }
   blockData             { TBlockData }
@@ -92,18 +91,32 @@ import Debug.Trace
 
 %%
 
-BLOCKS :: 
+BLOCKS :: { [ (Maybe (Expression A0), Block A0) ] }
+BLOCKS
+: BLOCKS_LEVEL1 COMMENTS { $1 }
 
-COMMENTS :: { [ Comment a ]}
+BLOCKS_LEVEL1 :: { [ (Maybe (Expression A0), Block A0) ] }
+: BLOCKS_LEVEL1 COMMENTS LABELED_BLOCK { (fst $3, setComments (snd $3) (reverse $2)) : $1 }
+| BLOCKS_LEVEL1 LABELED_BLOCK LABELED_BLOCK { $3 : $2 : $1 }
+| LABELED_BLOCK { [ $1 ] }
+| {- EMPTY -} { [ ] }
+
+-- TODO In this version an empty line followed by a block doesn't work.
+LABELED_BLOCK :: { (Maybe (Expression A0), Block A0) }
+LABELED_BLOCK
+: LABEL_IN_6COLUMN BLOCK { (Just $1, $2) }
+| BLOCK       { (Nothing, $1) }
+
+BLOCK :: { Block A0 }
+BLOCK : srcloc STATEMENT {% getSrcSpan $1 >>= \s -> return $ BlStatement () s $2 [] }
+
+COMMENTS :: { [ Comment a ] }
 COMMENTS
 : COMMENTS COMMENT { $2 : $1 }
 | {- EMPTY -} { [ ] }
 
 COMMENT :: { Comment a }
 COMMENT : srcloc comment {% getSrcSpan $1 >>= \s -> return $ Comment () s $2 }
-
-BLOCK :: { Block A0 }
-BLOCK : srcloc STATEMENT {% getSrcSpan $1 >>= \s -> return $ BlStatement () s $2 [] }
 
 ARITHMETIC_IF_BLOCK :: { Block A0 }
 ARITHMETIC_IF_BLOCK
@@ -125,7 +138,7 @@ LOGICAL_IF_STATEMENT : if '(' LOGICAL_EXPRESSION ')' ARITHMETIC_IF_BLOCK { StIfL
 
 DO_STATEMENT :: { Statement A0 }
 DO_STATEMENT
-: do LABEL DO_SPECIFICATION { let (init, limit, step) = $3 in StDo $2 init limit step }
+: do LABEL_IN_STATEMENT DO_SPECIFICATION { let (init, limit, step) = $3 in StDo $2 init limit step }
 
 DO_SPECIFICATION :: { (Block A0, Expression A0, Maybe (Expression A0))}
 DO_SPECIFICATION
@@ -137,11 +150,11 @@ INT_OR_VAR :: { Expression A0 } : INTEGER_LITERAL { $1 } | VARIABLE { $1 }
 OTHER_EXECUTABLE_STATEMENT :: { Statement A0 }
 OTHER_EXECUTABLE_STATEMENT
 : EXPRESSION_ASSIGNMENT_STATEMENT { $1 }
-| assign LABEL to VARIABLE { StLabelAssign $2 $4 }
-| goto LABEL { StGotoUnconditional $2 }
-| goto VARIABLE LABELS { StGotoAssigned $2 $3 }
-| goto LABELS VARIABLE { StGotoComputed $2 $3 }
-| if '(' ARITHMETIC_EXPRESSION ')' LABEL ',' LABEL ',' LABEL { StIfArithmetic $3 $5 $7 $9 }
+| assign LABEL_IN_STATEMENT to VARIABLE { StLabelAssign $2 $4 }
+| goto LABEL_IN_STATEMENT { StGotoUnconditional $2 }
+| goto VARIABLE LABELS_IN_STATEMENT { StGotoAssigned $2 $3 }
+| goto LABELS_IN_STATEMENT VARIABLE { StGotoComputed $2 $3 }
+| if '(' ARITHMETIC_EXPRESSION ')' LABEL_IN_STATEMENT ',' LABEL_IN_STATEMENT ',' LABEL_IN_STATEMENT { StIfArithmetic $3 $5 $7 $9 }
 | call SUBROUTINE_NAME CALLABLE_EXPRESSIONS { StCall $2 $3 }
 | return { StReturn }
 | continue { StContinue }
@@ -166,20 +179,19 @@ NONEXECUTABLE_STATEMENT :: { Statement A0 }
 | type DECLARATORS { StDeclaration (read $1) (let rev = reverse $2 in AList () (getListSpan rev) rev) }
 
 
-READ_WRITE_ARGUMENTS :: { (Expression A0, Maybe (Expression A0), Maybe (AList (IOElement A0) A0)) }
+READ_WRITE_ARGUMENTS :: { (Expression A0, Maybe (Expression A0), AList (IOElement A0) A0) }
 READ_WRITE_ARGUMENTS
 : '(' UNIT ')' READ_WRITE_ARGUMENTS_LEVEL1 { ($2, Nothing, $4) }
 | '(' UNIT ',' FORM ')' READ_WRITE_ARGUMENTS_LEVEL1 { ($2, Just $4, $6) }
 
-READ_WRITE_ARGUMENTS_LEVEL1 :: { Maybe (AList (IOElement A0) A0) }
+READ_WRITE_ARGUMENTS_LEVEL1 :: { AList (IOElement A0) A0 }
 READ_WRITE_ARGUMENTS_LEVEL1
-: IO_ELEMENTS { let rev = reverse $1 in Just $ AList () (getListSpan rev) rev }
-| {- EMPTY -} { Nothing }
+: IO_ELEMENTS { let rev = reverse $1 in AList () (getListSpan rev) rev }
 
 -- Not my terminology a VAR or an INT (probably positive) is defined as UNIT.
 UNIT :: { Expression A0 } : INTEGER_LITERAL { $1 } | VARIABLE { $1 }
 
-FORM :: { Expression A0 } : ARRAY { $1 } | LABEL { $1 }
+FORM :: { Expression A0 } : ARRAY { $1 } | LABEL_IN_STATEMENT { $1 }
 
 IO_ELEMENTS :: { [ IOElement A0 ] }
 IO_ELEMENTS
@@ -275,7 +287,7 @@ COMMON_GROUP
 COMMON_ELEMENTS :: { [Expression A0] }
 COMMON_ELEMENTS
 : COMMON_ELEMENTS ',' DECLARATOR { $3 : $1 }
-| DECLARATOR  { [$1] }
+| DECLARATOR  { [ $1 ] }
 
 -- Array name is also a possibility, but there is no way to differentiate it 
 -- from a variable.
@@ -445,16 +457,29 @@ LOGICAL_LITERAL
 
 HOLLERITH :: { Expression A0 } : srcloc hollerith {% getSrcSpan $1 >>= \s -> return $ ExpValue () s (ValHollerith $2) }
 
-LABELS :: { AList (Expression A0) A0 }
-LABELS
-: srcloc LABELS_LEVEL1 ')' {% getSrcSpan $1 >>= \s -> return $ AList () s $ reverse $2 }
+LABELS_IN_6COLUMN :: { AList (Expression A0) A0 }
+LABELS_IN_6COLUMN
+: srcloc LABELS_IN_6COLUMN_LEVEL1 ')' {% getSrcSpan $1 >>= \s -> return $ AList () s $ reverse $2 }
 
-LABELS_LEVEL1 :: { [ Expression A0 ] }
-LABELS_LEVEL1
-: LABELS_LEVEL1 ',' LABEL { $3 : $1 }
-| '(' LABEL { [ $2 ] }
+LABELS_IN_6COLUMN_LEVEL1 :: { [ Expression A0 ] }
+LABELS_IN_6COLUMN_LEVEL1
+: LABELS_IN_6COLUMN_LEVEL1 ',' LABEL_IN_6COLUMN { $3 : $1 }
+| '(' LABEL_IN_6COLUMN { [ $2 ] }
 
-LABEL :: { Expression A0 } : srcloc label {% getSrcSpan $1 >>= \s -> return $ ExpValue () s (ValLabel $2) }
+LABELS_IN_STATEMENT :: { AList (Expression A0) A0 }
+LABELS_IN_STATEMENT
+: srcloc LABELS_IN_STATEMENT_LEVEL1 ')' {% getSrcSpan $1 >>= \s -> return $ AList () s $ reverse $2 }
+
+LABELS_IN_STATEMENT_LEVEL1 :: { [ Expression A0 ] }
+LABELS_IN_STATEMENT_LEVEL1
+: LABELS_IN_STATEMENT_LEVEL1 ',' LABEL_IN_STATEMENT { $3 : $1 }
+| '(' LABEL_IN_STATEMENT { [ $2 ] }
+
+-- Labels that occur in the first 6 columns
+LABEL_IN_6COLUMN :: { Expression A0 } : srcloc label {% getSrcSpan $1 >>= \s -> return $ ExpValue () s (ValLabel $2) }
+
+-- Labels that occur in statements
+LABEL_IN_STATEMENT :: { Expression A0 } : srcloc int {% getSrcSpan $1 >>= \s -> return $ ExpValue () s (ValLabel $2) }
 
 srcloc :: { SrcLoc }
 srcloc :  {- EMPTY -} {% getSrcLoc }
@@ -475,6 +500,6 @@ dataGroup revDeclaratorL location revDataItemL = do
   return dataGroup
 
 parseError :: Token -> Parse AlexInput a
-parseError _ = fail "Blah blah"
+parseError _ = fail "Couldn't parse."
 
 }
