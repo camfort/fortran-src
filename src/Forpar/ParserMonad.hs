@@ -31,11 +31,12 @@ data ParseState a = ParseState
   }
 
 data ParseError = ParseError
-  { errLoc :: SrcLoc
-  , errMsg :: String }
+  { errPos      :: Position
+  , errFilename :: String
+  , errMsg      :: String }
 
 instance Show ParseError where
-  show err = show (errLoc err) ++ ": " ++ errMsg err
+  show err = show (errPos err) ++ ": " ++ errMsg err
 
 instance Exception ParseError
 
@@ -57,8 +58,9 @@ instance (Loc (ParseState b)) => Monad (Parse b) where
       ParseFailed e -> ParseFailed e
 
   fail msg = Parse $ \s -> ParseFailed $ ParseError 
-    { errLoc = SrcLoc { locPosition = getPos s, locFilename = psFilename s }
-    , errMsg = msg }
+    { errPos      = getPos s
+    , errFilename = psFilename s
+    , errMsg      = msg }
 
 instance (Loc (ParseState b)) => Functor (Parse b) where
   fmap = liftM
@@ -83,31 +85,29 @@ instance (Loc (ParseState b)) => MonadError ParseError (Parse b) where
 -- Parser helper functions
 -------------------------------------------------------------------------------
 
-getVersionP :: (Loc (ParseState a)) => Parse a FortranVersion
-getVersionP = do
+getVersion :: (Loc (ParseState a)) => Parse a FortranVersion
+getVersion = do
   s <- get
   return (psVersion s)
 
-putAlexP :: (Loc (ParseState a)) => a -> Parse a ()
-putAlexP ai = do
+putAlex :: (Loc (ParseState a)) => a -> Parse a ()
+putAlex ai = do
   s <- get
   put (s { psAlexInput = ai })
 
-getAlexP :: (Loc (ParseState a)) => Parse a a
-getAlexP = do
+getAlex :: (Loc (ParseState a)) => Parse a a
+getAlex = do
   s <- get
   return (psAlexInput s)
 
-getSrcLoc :: (Loc (ParseState a), Loc a) => Parse a SrcLoc
-getSrcLoc = do
+getPosition :: (Loc (ParseState a), Loc a) => Parse a Position
+getPosition = do
   parseState <- get
-  let pos = getPos . psAlexInput $ parseState
-  let filename = psFilename parseState
-  return $ SrcLoc { locPosition = pos, locFilename = filename }
+  return $ getPos parseState
 
-getSrcSpan :: (Loc (ParseState a), Loc a) => SrcLoc -> Parse a SrcSpan
+getSrcSpan :: (Loc (ParseState a), Loc a) => Position -> Parse a SrcSpan
 getSrcSpan loc1 = do
-  loc2 <- getSrcLoc
+  loc2 <- getPosition
   return $ SrcSpan loc1 loc2
 
 -------------------------------------------------------------------------------
@@ -126,16 +126,19 @@ evalParse m s = fst (runParse m s)
 execParse :: (Loc (ParseState b)) => Parse b a -> ParseState b -> ParseState b
 execParse m s = snd (runParse m s)
 
-collectTokens :: forall a b . (Loc (ParseState b), Eq a) => a -> Parse b (Maybe a) -> ParseState b -> Maybe [a]
-collectTokens finishingToken lexer initState = 
+class Tok a where
+  eofToken :: a -> Bool
+
+collectTokens :: forall a b . (Loc (ParseState b), Tok a) => Parse b (Maybe a) -> ParseState b -> Maybe [a]
+collectTokens lexer initState = 
     evalParse (_collectTokens initState) undefined
   where
-    _collectTokens :: (Loc (ParseState b), Eq a) => ParseState b -> Parse b (Maybe [a])
+    _collectTokens :: (Loc (ParseState b), Tok a) => ParseState b -> Parse b (Maybe [a])
     _collectTokens state = do
       let (_token, _state) = runParse lexer state
       case _token of
         Just _token' ->
-          if _token' == finishingToken 
+          if eofToken _token'
           then return $ Just [_token']
           else do
             tokens <- _collectTokens _state

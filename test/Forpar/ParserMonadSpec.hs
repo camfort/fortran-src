@@ -36,42 +36,41 @@ spec =
   describe "ParserMonad" $ do
     describe "Parse" $ do
       it "should give out correct version" $ do
-        evalParse getVersionP vanillaParseState `shouldBe` Fortran66
+        evalParse getVersion vanillaParseState `shouldBe` Fortran66
 
       it "satisfies read after write equals to what is written" $ do
-        let ai = evalParse (putAlexP "l'enfer" >> getAlexP) vanillaParseState in
+        let ai = evalParse (putAlex "l'enfer" >> getAlex) vanillaParseState in
           ai `shouldBe` "l'enfer"
 
       describe "Obtaining locations" $ do
-        it "getSrcLoc returns correct location" $ do
+        it "getPosition returns correct location" $ do
           let _expPosition = Position 6 2 3
               _exampleM = do
-                _ai <- getAlexP
-                putAlexP $ _ai { p = _expPosition }
-                getSrcLoc
-              _loc = evalParse _exampleM vanillaSomeInput
-              _expectation = SrcLoc { locFilename = "some.f" , locPosition = _expPosition } in
-            _loc `shouldBe` _expectation
+                _ai <- getAlex
+                putAlex $ _ai { p = _expPosition }
+                getPosition
+              _loc = evalParse _exampleM vanillaSomeInput in
+            _loc `shouldBe` _expPosition
 
         it "getSrcSpan return correct location span" $ do
           let _loc2 = Position 6 2 3
               _exampleM = do
-                _ai <- getAlexP
-                _loc1 <- getSrcLoc
-                putAlexP $ _ai { p = _loc2 }
+                _ai <- getAlex
+                _loc1 <- getPosition
+                putAlex $ _ai { p = _loc2 }
                 getSrcSpan _loc1
               _span = evalParse _exampleM vanillaSomeInput 
-              _expectation = SrcSpan (SrcLoc initPos "some.f") (SrcLoc _loc2 "some.f") in 
+              _expectation = SrcSpan initPos _loc2 in 
             _span `shouldBe` _expectation
 
     describe "Lex" $ do
       it "reads the state correctly" $ do
-        evalParse getAlexP vanillaParseState `shouldBe` ""
+        evalParse getAlex vanillaParseState `shouldBe` ""
 
       it "overrides the state correctly" $ do
-        let ai = evalParse (putAlexP "c'est" >> getAlexP) vanillaParseState in
+        let ai = evalParse (putAlex "c'est" >> getAlex) vanillaParseState in
             ai `shouldBe` "c'est"
 
       it "mixes operations correctly" $ do
-       let ai = evalParse (putAlexP "hello" >> getAlexP >>= \s -> (putAlexP $ take 4 s) >> getAlexP) vanillaParseState in
+       let ai = evalParse (putAlex "hello" >> getAlex >>= \s -> (putAlex $ take 4 s) >> getAlex) vanillaParseState in
              ai `shouldBe` "hell"

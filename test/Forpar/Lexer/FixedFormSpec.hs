@@ -2,6 +2,7 @@ module Forpar.Lexer.FixedFormSpec where
 
 import Forpar.ParserMonad
 import Forpar.Lexer.FixedForm
+import Forpar.AST (resetSrcSpan)
 
 import Test.Hspec
 import Test.Hspec.QuickCheck
@@ -16,6 +17,8 @@ singleLexer'App srcInput = evalParse lexer' _parseState
   where
     _parseState = initParseState srcInput Fortran66 "<unknown>"
 
+u = undefined
+
 spec :: Spec
 spec = 
   describe "Fortran Fixed Form Lexer" $ do
@@ -23,80 +26,80 @@ spec =
       prop "lexes Label, Comment, or EOF in the first six columns or returns Nothing " $
         \x -> isPrefixOf "      " x || case singleLexer'App x of
                 Nothing -> True
-                Just (TLabel _) -> True
-                Just (TComment _) -> True
-                Just TEOF -> True
+                Just (TLabel _ _) -> True
+                Just (TComment _ _) -> True
+                Just (TEOF _) -> True
                 _ -> False
         
       it "lexes alphanumeric identifier" $ do
-        singleLexer'App "      m42" `shouldBe` (Just $ TId "m42")
+        resetSrcSpan (singleLexer'App "      m42") `shouldBe` resetSrcSpan (Just $ TId u "m42")
 
       it "lexes 'function'" $ do
-        singleLexer'App "      function" `shouldBe` Just TFunction
+        resetSrcSpan (singleLexer'App "      function") `shouldBe` resetSrcSpan (Just $ TFunction u)
 
       it "lexes 'end'" $ do
-        singleLexer'App "      end" `shouldBe` Just TEnd
+        resetSrcSpan (singleLexer'App "      end") `shouldBe` resetSrcSpan (Just $ TEnd u)
     
       it "lexes identifier" $ do
-        singleLexer'App "      mistr" `shouldBe` (Just $ TId "mistr")
+        resetSrcSpan (singleLexer'App "      mistr") `shouldBe` resetSrcSpan (Just $ TId u "mistr")
 
       it "lexes comment if first column is C" $ do
-        singleLexer'App "c this is a comment\n" `shouldBe` (Just $ TComment " this is a comment")
+        resetSrcSpan (singleLexer'App "c this is a comment\n") `shouldBe` resetSrcSpan (Just $ TComment u " this is a comment")
 
       it "lexes empty comment" $ do
-        singleLexer'App "c" `shouldBe` (Just $ TComment "")
+        resetSrcSpan (singleLexer'App "c") `shouldBe` resetSrcSpan (Just $ TComment u "")
 
       it "lexes comment with one char" $ do
-        singleLexer'App "ca" `shouldBe` (Just $ TComment "a")
+        resetSrcSpan (singleLexer'App "ca") `shouldBe` resetSrcSpan (Just $ TComment u "a")
 
       it "should not lex from the next line" $ do
-        singleLexer'App "cxxx\nselam" `shouldNotBe` (Just $ TComment "xxxselam")
+        resetSrcSpan (singleLexer'App "cxxx\nselam") `shouldNotBe` resetSrcSpan (Just $ TComment u "xxxselam")
 
       it "lexes three tokens"  $ do
-        collectFixedFormTokens "      function end format" `shouldBe` Just [TFunction, TEnd, TFormat, TEOF]
+        resetSrcSpan (collectFixedFormTokens "      function end format") `shouldBe` resetSrcSpan (Just [TFunction u, TEnd u, TFormat u, TEOF u])
 
       it "lexes multiple comments in a line" $ do
-        collectFixedFormTokens "csomething\ncsomething else\n\nc\ncc" `shouldBe` 
-          Just [TComment "something", TComment "something else", TComment "", TComment "c", TEOF]
+        resetSrcSpan (collectFixedFormTokens "csomething\ncsomething else\n\nc\ncc") `shouldBe` 
+          resetSrcSpan (Just [TComment u "something", TComment u "something else", TComment u "", TComment u "c", TEOF u])
 
       it "lexes example1" $ do
-        collectFixedFormTokens example1 `shouldBe` Just example1Expectation
+        resetSrcSpan (collectFixedFormTokens example1) `shouldBe` resetSrcSpan (Just example1Expectation)
     
       it "lexes end of file" $ do
-        singleLexer'App "" `shouldBe` Just TEOF
+        resetSrcSpan (singleLexer'App "") `shouldBe` resetSrcSpan (Just $ TEOF u)
 
       it "lexes '3 + 2'" $ do
-        collectFixedFormTokens "      3 + 2" `shouldBe` Just [TInt "3", TOpPlus, TInt "2", TEOF]
+        resetSrcSpan (collectFixedFormTokens "      3 + 2") `shouldBe` resetSrcSpan (Just [TInt u "3", TOpPlus u , TInt u "2", TEOF u])
 
       it "should lex continuation lines properly" $ do
-        collectFixedFormTokens continuationExample `shouldBe` Just [ TType "integer", TId "ix", TId "ix", TOpAssign, TInt "42", TEnd, TEOF ]
+        resetSrcSpan (collectFixedFormTokens continuationExample) `shouldBe` resetSrcSpan (Just [ TType u "integer", TId u "ix", TId u "ix", TOpAssign u, TInt u "42", TEnd u, TEOF u ])
 
       describe "lexing format items" $ do
         it "lexes '10x'" $ do
-          singleLexer'App "      10x" `shouldBe` (Just $ TBlankDescriptor 10)
+          resetSrcSpan (singleLexer'App "      10x") `shouldBe` resetSrcSpan (Just $ TBlankDescriptor u 10)
 
         it "lexes '10a1'" $ do
-          singleLexer'App "      10a1" `shouldBe` (Just $ TFieldDescriptorAIL (Just 10) 'a' 1)
+          resetSrcSpan (singleLexer'App "      10a1") `shouldBe` resetSrcSpan (Just $ TFieldDescriptorAIL u (Just 10) 'a' 1)
 
         it "lexes 'a1'" $ do
-          singleLexer'App "      a1" `shouldBe` (Just $ TFieldDescriptorAIL Nothing 'a' 1)
+          resetSrcSpan (singleLexer'App "      a1") `shouldBe` resetSrcSpan (Just $ TFieldDescriptorAIL u Nothing 'a' 1)
 
         it "lexes '20g10.3'" $ do
-          singleLexer'App "      20g10.3" `shouldBe` (Just $ TFieldDescriptorDEFG (Just 20) 'g' 10 3)
+          resetSrcSpan (singleLexer'App "      20g10.3") `shouldBe` resetSrcSpan (Just $ TFieldDescriptorDEFG u (Just 20) 'g' 10 3)
 
         it "lexes '-10p'" $ do
-          singleLexer'App "      -10p" `shouldBe` (Just $ TScaleFactor $ -10)
+          resetSrcSpan (singleLexer'App "      -10p") `shouldBe` resetSrcSpan (Just $ TScaleFactor u (-10))
 
     describe "lexN" $ do
       it "`lexN 5` parses lexes next five characters" $ do
-        aiMatch (evalParse (lexN 5 >> getAlexP) (initParseState "helloWorld" Fortran66 "")) `shouldBe` reverse "hello"
+        (lexemeMatch . aiLexeme) (evalParse (lexN 5 >> getAlex) (initParseState "helloWorld" Fortran66 "")) `shouldBe` reverse "hello"
 
     describe "lexHollerith" $ do
       it "lexes Hollerith '7hmistral'" $ do
-        singleLexer'App "      7hmistral" `shouldBe` (Just $ THollerith "mistral")
+        resetSrcSpan (singleLexer'App "      7hmistral") `shouldBe` resetSrcSpan (Just $ THollerith u "mistral")
 
       it "becomes case sensitive" $ do
-        singleLexer'App "      5h a= 1" `shouldBe` (Just $ THollerith " a= 1")
+        resetSrcSpan (singleLexer'App "      5h a= 1") `shouldBe` resetSrcSpan (Just $ THollerith u " a= 1")
 
 example1 = unlines [
   "      intEGerix",
@@ -114,9 +117,9 @@ continuationExample = unlines [
   "      end"]
 
 example1Expectation = [
-  TType "integer", TId "ix",
-  TLabel "1", TId "ix", TOpAssign, TInt "42",
-  TLabel "200", TId "ix", TOpAssign, TId "ix", TStar , TId "ix",
-  TLabel "10", TWrite, TLeftPar, TStar, TComma, TStar, TRightPar, TComma, TId "ix",
-  TEnd,
-  TEOF]
+  TType u "integer", TId u "ix",
+  TLabel u "1", TId u "ix", TOpAssign u, TInt u "42",
+  TLabel u "200", TId u "ix", TOpAssign u, TId u "ix", TStar u, TId u "ix",
+  TLabel u "10", TWrite u, TLeftPar u, TStar u, TComma u, TStar u, TRightPar u, TComma u, TId u "ix",
+  TEnd u,
+  TEOF u]

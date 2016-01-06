@@ -86,82 +86,81 @@ spec =
     describe "Statements" $ do
       it "parses 'EXTERNAL f, g, h'" $ do
         let procGen s = ExpValue () u (ValFunctionName s) 
-        let expectedSt = resetSrcSpan $ StExternal (AList () u [procGen "f", procGen "g", procGen "h"])
+        let expectedSt = resetSrcSpan $ StExternal () u (AList () u [procGen "f", procGen "g", procGen "h"])
         resetSrcSpan (evalStatementParser "      EXTERNAL f, g, h") `shouldBe` expectedSt
 
       it "parses 'COMMON a, b'" $ do
-        let expectedSt = resetSrcSpan $ StCommon (AList () u [CommonGroup () u Nothing (AList () u [ExpValue () u (ValVariable "a"), ExpValue () u (ValVariable "b")])])
+        let expectedSt = resetSrcSpan $ StCommon () u (AList () u [CommonGroup () u Nothing (AList () u [ExpValue () u (ValVariable "a"), ExpValue () u (ValVariable "b")])])
         resetSrcSpan (evalStatementParser "      COMMON a, b") `shouldBe` expectedSt
 
       it "parses 'COMMON // a, b /hello/ x, y, z'" $ do
-        let expectedSt = resetSrcSpan $ StCommon (AList () u [CommonGroup () u Nothing (AList () u [ExpValue () u (ValVariable "a"), ExpValue () u (ValVariable "b")]), CommonGroup () u (Just "hello") (AList () u [ExpValue () u (ValVariable "x"), ExpValue () u (ValVariable "y"), ExpValue () u (ValVariable "z")])])
+        let expectedSt = resetSrcSpan $ StCommon () u (AList () u [CommonGroup () u Nothing (AList () u [ExpValue () u (ValVariable "a"), ExpValue () u (ValVariable "b")]), CommonGroup () u (Just "hello") (AList () u [ExpValue () u (ValVariable "x"), ExpValue () u (ValVariable "y"), ExpValue () u (ValVariable "z")])])
         resetSrcSpan (evalStatementParser "      COMMON // a, b /hello/ x, y, z") `shouldBe` expectedSt
 
       it "parses 'EQUIVALENCE (a,b), (x,y,z)'" $ do
         let valGen s = ExpValue () u (ValVariable s)
-            expectedSt = resetSrcSpan $ StEquivalence (AList () u [AList () u [valGen "a", valGen "b"], AList () u [valGen "x", valGen "y", valGen "z"]])
+            expectedSt = resetSrcSpan $ StEquivalence () u (AList () u [AList () u [valGen "a", valGen "b"], AList () u [valGen "x", valGen "y", valGen "z"]])
         resetSrcSpan (evalStatementParser "      EQUIVALENCE (a,b), (x,y,z)") `shouldBe` expectedSt
 
       it "parses 'DATA a/1,2,3/,x/42/'" $ do
         let valGen s = ExpValue () u (ValVariable s)
-            expectedSt = resetSrcSpan $ StData $ AList () u [DataGroup () u (AList () u [valGen "a"]) (AList () u [intGen 1, intGen 2, intGen 3]), DataGroup () u (AList () u [valGen "x"]) (AList () u [intGen 42])]
+            expectedSt = resetSrcSpan $ StData () u $ AList () u [DataGroup () u (AList () u [valGen "a"]) (AList () u [intGen 1, intGen 2, intGen 3]), DataGroup () u (AList () u [valGen "x"]) (AList () u [intGen 42])]
         resetSrcSpan (evalStatementParser "      DATA a/1,2,3/, x/42/") `shouldBe` expectedSt
 
       describe "FORMAT" $ do
         it "parses 'FORMAT ()'" $ do
-          let expectedSt = resetSrcSpan $ StFormat $ AList () u []
+          let expectedSt = resetSrcSpan $ StFormat () u $ AList () u []
           resetSrcSpan (evalStatementParser "      FORMAT ()") `shouldBe` expectedSt
 
         it "parses 'FORMAT (///)'" $ do
           let formatList = [FIDelimiter () u, FIDelimiter () u, FIDelimiter () u]
-              expectedSt = resetSrcSpan $ StFormat $ AList () u formatList
+              expectedSt = resetSrcSpan $ StFormat () u $ AList () u formatList
           resetSrcSpan (evalStatementParser "      FORMAT (///)") `shouldBe` expectedSt
 
         it "parses 'FORMAT (2i5/5hhello)'" $ do
           let formatList = [FIFieldDescriptorAIL () u (Just 2) 'i' 5, FIDelimiter () u, FIHollerith () u (ValHollerith "hello")]
-              expectedSt = resetSrcSpan $ StFormat $ AList () u formatList
+              expectedSt = resetSrcSpan $ StFormat () u $ AList () u formatList
           resetSrcSpan (evalStatementParser "      FORMAT (2i5/5hhello)") `shouldBe` expectedSt
 
         it "parses 'FORMAT (/(i5))'" $ do
           let formatList = [FIDelimiter () u, FIFormatList () u Nothing (AList () u [FIFieldDescriptorAIL () u Nothing 'i' 5])]
-              expectedSt = resetSrcSpan $ StFormat $ AList () u formatList
+              expectedSt = resetSrcSpan $ StFormat () u $ AList () u formatList
           resetSrcSpan (evalStatementParser "      FORMAT (/(i5))") `shouldBe` expectedSt
 
       it "parses 'integer i, j(2,2), k'" $ do
         let declarators = [varGen "i", ExpSubscript () u (arrGen "j") (AList () u [intGen 2, intGen 2]), varGen "k"] 
-            expectedSt = resetSrcSpan $ StDeclaration TypeInteger $ AList () u declarators
+            expectedSt = resetSrcSpan $ StDeclaration () u TypeInteger $ AList () u declarators
         resetSrcSpan (evalStatementParser "      integer i, j(2,2), k") `shouldBe` expectedSt
 
       it "parses 'write (6) i'" $ do
-        let expectedSt = resetSrcSpan $ StWrite (intGen 6) (Nothing) (AList () u [IOExpression $ varGen "i"])
+        let expectedSt = resetSrcSpan $ StWrite () u (intGen 6) (Nothing) (AList () u [IOExpression $ varGen "i"])
         resetSrcSpan (evalStatementParser "      write (6) i") `shouldBe` expectedSt
 
       it "parses 'write (6,10) i'" $ do
-        let expectedSt = resetSrcSpan $ StWrite (intGen 6) (Just $ labelGen 10) (AList () u [IOExpression $ varGen "i"])
+        let expectedSt = resetSrcSpan $ StWrite () u (intGen 6) (Just $ labelGen 10) (AList () u [IOExpression $ varGen "i"])
         resetSrcSpan (evalStatementParser "      write (6,10) i") `shouldBe` expectedSt
 
       it "parses 'if (10 .LT. x) write (6,10) i'" $ do
-        let writeSt = StWrite (intGen 6) (Just $ labelGen 10) (AList () u [IOExpression $ varGen "i"])
-        let block = BlStatement () u writeSt []
+        let writeSt = StWrite () u (intGen 6) (Just $ labelGen 10) (AList () u [IOExpression $ varGen "i"])
         let cond = ExpBinary () u LT (intGen 10) (varGen "x")
-        let expectedSt = resetSrcSpan $ StIfLogical cond block
+        let expectedSt = resetSrcSpan $ StIfLogical () u cond writeSt
         resetSrcSpan (evalStatementParser "      if (10 .LT. x) write (6,10) i") `shouldBe` expectedSt
 
       it "parses 'if (10 - 5) 10, 20, 30'" $ do
         let cond = ExpBinary () u Subtraction (intGen 10) (intGen 5)
-        let expectedSt = resetSrcSpan $ StIfArithmetic cond (labelGen 10) (labelGen 20) (labelGen 30)
+        let expectedSt = resetSrcSpan $ StIfArithmetic () u cond (labelGen 10) (labelGen 20) (labelGen 30)
         resetSrcSpan (evalStatementParser "      if (10 - 5) 10, 20, 30") `shouldBe` expectedSt
 
       it "parses 'f = 1'" $ do
-        let expectedSt = resetSrcSpan $ StExpressionAssign (varGen "f") (intGen 1)
+        let expectedSt = resetSrcSpan $ StExpressionAssign () u (varGen "f") (intGen 1)
         resetSrcSpan (evalStatementParser "      f = 1") `shouldBe` expectedSt
 
       it "parses 'f = a(1,2)'" $ do
         let rhs = ExpSubscript () u (ExpValue () u (ValArray "a")) (AList () u [intGen 1, intGen 2])
-        let expectedSt = resetSrcSpan $ StExpressionAssign (varGen "f") rhs
+        let expectedSt = resetSrcSpan $ StExpressionAssign () u (varGen "f") rhs
         resetSrcSpan (evalStatementParser "      f = a(1,2)") `shouldBe` expectedSt
 
       it "parses 'do 42 i = 10, 1, 1'" $ do
-        let block = BlStatement () u (StExpressionAssign (varGen "i") (intGen 10)) []
-        let expectedSt = resetSrcSpan $ StDo (labelGen 42) block (intGen 1) (Just $ intGen 1)
+        let st = StExpressionAssign () u (varGen "i") (intGen 10)
+        let expectedSt = resetSrcSpan $ StDo () u (labelGen 42) st (intGen 1) (Just $ intGen 1)
         resetSrcSpan (evalStatementParser "      do 42 i = 10, 1, 1") `shouldBe` expectedSt

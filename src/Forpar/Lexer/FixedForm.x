@@ -1,17 +1,32 @@
 {
 {-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE DeriveDataTypeable #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE UndecidableInstances #-}
 
 module Forpar.Lexer.FixedForm where
 
 import Data.Word (Word8)
 import Data.Char (toLower, isDigit)
 import Data.List (isPrefixOf, any)
+import Data.Maybe (fromJust, isNothing)
+import Data.Data
+import Data.Typeable
 import qualified Data.Bits
+
 import Control.Exception
+
 import GHC.Exts
+import GHC.Generics
 
 import Forpar.ParserMonad
+
+import Forpar.Util.FirstParameter
 import Forpar.Util.Position
+
+import Debug.Trace
 
 }
 
@@ -40,8 +55,8 @@ $special = [\ \=\+\-\*\/\(\)\,\.\$]
 
 tokens :-
 
-  <0> "c".* / { commentP }              { lexComment }
-  <0> @label / { withinLabelColsP }     { getMatch >>= \s -> return $ Just $ TLabel s }
+  <0> "c" / { commentP }                { lexComment Nothing }
+  <0> @label / { withinLabelColsP }     { getMatch >>= \m -> getLexemeSpan >>= \s -> return $ Just $ TLabel s m }
   <0> . / { \_ ai _ _ -> atColP 6 ai }  { toStartCode st }
   <0> " "                               ;
   <0> \n                                { toStartCode 0 }
@@ -50,91 +65,90 @@ tokens :-
   <st> \n                               { toStartCode 0 }
   <st> \r                               ;
 
-  <st> "("                              { return $ Just TLeftPar }
-  <st> ")"                              { return $ Just TRightPar }
-  <st> ","                              { return $ Just TComma }
-  <st> "."                              { return $ Just TDot }
+  <st> "("                              { getLexemeSpan >>= \s -> return $ Just $ TLeftPar s }
+  <st> ")"                              { getLexemeSpan >>= \s -> return $ Just $ TRightPar s }
+  <st> ","                              { getLexemeSpan >>= \s -> return $ Just $ TComma s }
 
   -- Tokens related to procedures and subprograms
-  <st> "function"                       { return $ Just TFunction }
-  <st> "subroutine"                     { return $ Just TSubroutine }
-  <st> "blockdata"                      { return $ Just TBlockData }
-  <st> "end"                            { return $ Just TEnd }
+  <st> "function"                       { getLexemeSpan >>= \s -> return $ Just $ TFunction s }
+  <st> "subroutine"                     { getLexemeSpan >>= \s -> return $ Just $ TSubroutine s }
+  <st> "blockdata"                      { getLexemeSpan >>= \s -> return $ Just $ TBlockData s }
+  <st> "end"                            { getLexemeSpan >>= \s -> return $ Just $ TEnd s }
 
   -- Tokens related to assignment statements
-  <st> "assign"                         { return $ Just TAssign }
-  <st> "="                              { return $ Just TOpAssign }
-  <st> "to"                             { return $ Just TTo }
+  <st> "assign"                         { getLexemeSpan >>= \s -> return $ Just $ TAssign s }
+  <st> "="                              { getLexemeSpan >>= \s -> return $ Just $ TOpAssign s }
+  <st> "to"                             { getLexemeSpan >>= \s -> return $ Just $ TTo s }
 
   -- Tokens related to control statements
-  <st> "goto"                           { return $ Just TGoto }
-  <st> "if"                             { return $ Just TIf }
-  <st> "call"                           { return $ Just TCall }
-  <st> "return"                         { return $ Just TReturn }
-  <st> "continue"                       { return $ Just TContinue }
-  <st> "stop"                           { return $ Just TStop }
-  <st> "pause"                          { return $ Just TPause }
-  <st> "do"                             { return $ Just TDo }
+  <st> "goto"                           { getLexemeSpan >>= \s -> return $ Just $ TGoto s }
+  <st> "if"                             { getLexemeSpan >>= \s -> return $ Just $ TIf s }
+  <st> "call"                           { getLexemeSpan >>= \s -> return $ Just $ TCall s }
+  <st> "return"                         { getLexemeSpan >>= \s -> return $ Just $ TReturn s }
+  <st> "continue"                       { getLexemeSpan >>= \s -> return $ Just $ TContinue s }
+  <st> "stop"                           { getLexemeSpan >>= \s -> return $ Just $ TStop s }
+  <st> "pause"                          { getLexemeSpan >>= \s -> return $ Just $ TPause s }
+  <st> "do"                             { getLexemeSpan >>= \s -> return $ Just $ TDo s }
 
   -- Tokens related to I/O statements
-  <st> "read"                           { return $ Just TRead }
-  <st> "write"                          { return $ Just TWrite }
-  <st> "rewind"                         { return $ Just TRewind }
-  <st> "backspace"                      { return $ Just TBackspace }
-  <st> "endfile"                        { return $ Just TEndfile }
+  <st> "read"                           { getLexemeSpan >>= \s -> return $ Just $ TRead s }
+  <st> "write"                          { getLexemeSpan >>= \s -> return $ Just $ TWrite s }
+  <st> "rewind"                         { getLexemeSpan >>= \s -> return $ Just $ TRewind s }
+  <st> "backspace"                      { getLexemeSpan >>= \s -> return $ Just $ TBackspace s }
+  <st> "endfile"                        { getLexemeSpan >>= \s -> return $ Just $ TEndfile s }
 
   -- Tokens related to non-executable statements
 
   -- Tokens related to speification statements
-  <st> "dimension"                      { return $ Just TDimension }
-  <st> "common"                         { return $ Just TCommon }
-  <st> "equivalence"                    { return $ Just TEquivalence }
-  <st> "external"                       { return $ Just TExternal }
-  <st> @datatype                        { getMatch >>= \s -> return $ Just $ TType s }
+  <st> "dimension"                      { getLexemeSpan >>= \s -> return $ Just $ TDimension s }
+  <st> "common"                         { getLexemeSpan >>= \s -> return $ Just $ TCommon s }
+  <st> "equivalence"                    { getLexemeSpan >>= \s -> return $ Just $ TEquivalence s }
+  <st> "external"                       { getLexemeSpan >>= \s -> return $ Just $ TExternal s }
+  <st> @datatype                        { getLexemeSpan >>= \s -> getMatch >>= \m -> return $ Just $ TType s m }
 
   -- Tokens related to data initalization statement
-  <st> "data"                           { return $ Just TData }
+  <st> "data"                           { getLexemeSpan >>= \s -> return $ Just $ TData s }
 
   -- Tokens related to format statement
-  <st> "format"                         { return $ Just TFormat }
+  <st> "format"                         { getLexemeSpan >>= \s -> return $ Just $ TFormat s }
 
   -- Tokens needed to parse integers, reals, double precision and complex 
   -- constants
-  <st> @integerConst                    { getMatch >>= \s -> return $ Just $ TInt s }
-  <st> @realConst                       { getMatch >>= \s -> return $ Just $ TReal s }
+  <st> @integerConst                    { getLexemeSpan >>= \s -> getMatch >>= \m -> return $ Just $ TInt s m }
+  <st> @realConst                       { getLexemeSpan >>= \s -> getMatch >>= \m -> return $ Just $ TReal s m }
 
   -- Logicals
-  <st> ".true."                         { return $ Just TTrue }
-  <st> ".false."                        { return $ Just TFalse }
+  <st> ".true."                         { getLexemeSpan >>= \s -> return $ Just $ TTrue s }
+  <st> ".false."                        { getLexemeSpan >>= \s -> return $ Just $ TFalse s }
 
   -- Arithmetic operators
-  <st> "+"                              { return $ Just TOpPlus }
-  <st> "-"                              { return $ Just TOpMinus }
-  <st> "**"                             { return $ Just TOpExp }
-  <st> "*"                              { return $ Just TStar }
-  <st> "/"                              { return $ Just TSlash }
+  <st> "+"                              { getLexemeSpan >>= \s -> return $ Just $ TOpPlus s }
+  <st> "-"                              { getLexemeSpan >>= \s -> return $ Just $ TOpMinus s }
+  <st> "**"                             { getLexemeSpan >>= \s -> return $ Just $ TOpExp s }
+  <st> "*"                              { getLexemeSpan >>= \s -> return $ Just $ TStar s }
+  <st> "/"                              { getLexemeSpan >>= \s -> return $ Just $ TSlash s }
 
   -- Logical operators
-  <st> ".or."                           { return $ Just TOpOr }
-  <st> ".and."                          { return $ Just TOpAnd }
-  <st> ".not."                          { return $ Just TOpNot }
+  <st> ".or."                           { getLexemeSpan >>= \s -> return $ Just $ TOpOr s }
+  <st> ".and."                          { getLexemeSpan >>= \s -> return $ Just $ TOpAnd s }
+  <st> ".not."                          { getLexemeSpan >>= \s -> return $ Just $ TOpNot s }
 
   -- Relational operators
-  <st> ".lt."                           { return $ Just TOpLT }
-  <st> ".le."                           { return $ Just TOpLE }
-  <st> ".eq."                           { return $ Just TOpEQ }
-  <st> ".ne."                           { return $ Just TOpNE }
-  <st> ".gt."                           { return $ Just TOpGT }
-  <st> ".ge."                           { return $ Just TOpGE }
+  <st> ".lt."                           { getLexemeSpan >>= \s -> return $ Just $ TOpLT s }
+  <st> ".le."                           { getLexemeSpan >>= \s -> return $ Just $ TOpLE s }
+  <st> ".eq."                           { getLexemeSpan >>= \s -> return $ Just $ TOpEQ s }
+  <st> ".ne."                           { getLexemeSpan >>= \s -> return $ Just $ TOpNE s }
+  <st> ".gt."                           { getLexemeSpan >>= \s -> return $ Just $ TOpGT s }
+  <st> ".ge."                           { getLexemeSpan >>= \s -> return $ Just $ TOpGE s }
 
   -- Field descriptors
-  <st> @repeat [defg] @width \. @integerConst  { lexFieldDescriptorDEFG }
-  <st> @repeat [ail] @width                    { lexFieldDescriptorAIL }
-  <st> @width x                              { lexBlankDescriptor }
-  <st> "-"? @posIntegerConst p               { lexScaleFactor }
+  <st> @repeat [defg] @width \. @integerConst { lexFieldDescriptorDEFG }
+  <st> @repeat [ail] @width                   { lexFieldDescriptorAIL }
+  <st> @width x                               { lexBlankDescriptor }
+  <st> "-"? @posIntegerConst p                { lexScaleFactor }
 
   -- ID
-  <st> @id / { isNotPrefixOfKeywordP }  { getMatch >>= \s -> return $ Just $ TId s }
+  <st> @id / { isNotPrefixOfKeywordP }  { getLexemeSpan >>= \s -> getMatch >>= \m -> return $ Just $ TId s m }
 
   -- Strings
   <st> @posIntegerConst "h"             { lexHollerith }
@@ -151,7 +165,7 @@ tokens :-
 -- fewer than 7 characters.
 isNotPrefixOfKeywordP :: user -> AlexInput -> Int -> AlexInput -> Bool
 isNotPrefixOfKeywordP _ _ _ ai = 
-  let match = reverse . aiMatch $ ai in
+  let match = reverse . lexemeMatch . aiLexeme $ ai in
     not $ any (\_keyword -> _keyword `isPrefixOf` match) _shortKeywords
   where
     _shortKeywords = [
@@ -177,47 +191,81 @@ atColP n ai = (posColumn . aiPosition) ai == n
 -- Lexer helpers
 --------------------------------------------------------------------------------
 
+getLexeme :: Parse AlexInput Lexeme
+getLexeme = do
+  ai <- getAlex
+  return $ aiLexeme ai
+
+putLexeme :: Lexeme -> Parse AlexInput ()
+putLexeme lexeme = do
+  ai <- getAlex
+  putAlex $ ai { aiLexeme = lexeme }
+
+resetLexeme :: Parse AlexInput ()
+resetLexeme = putLexeme initLexeme
+
 getMatch :: Parse AlexInput String
 getMatch = do
-  ai <- getAlexP
-  return $ (reverse . aiMatch) ai
+  lexeme <- getLexeme
+  return $ (reverse . lexemeMatch) lexeme
 
 putMatch :: String -> Parse AlexInput ()
 putMatch newMatch = do
-  ai <- getAlexP
-  putAlexP $ ai { aiMatch = newMatch }
-  return ()
+  lexeme <- getLexeme
+  putLexeme $ lexeme { lexemeMatch = newMatch }
+
+instance Spanned Lexeme where
+  getSpan lexeme = 
+    let ms = lexemeStart lexeme 
+        me = lexemeEnd lexeme in
+      SrcSpan (fromJust ms) (fromJust me)
+  setSpan _ = error "Should not be called"
+
+getLexemeSpan :: Parse AlexInput SrcSpan
+getLexemeSpan = do
+  lexeme <- getLexeme
+  return $ getSpan lexeme
 
 -- With the existing alexGetByte implementation comments are matched without
 -- whitespace characters. However, we have access to final column number,
 -- we know the comment would start at column, and we have access to the absolute
 -- offset so instead of using match, lexComment takes a slice from the original
 -- source input
-lexComment :: Parse AlexInput (Maybe Token)
-lexComment = do
-  ai <- getAlexP
-  let _col = (posColumn . aiPosition) ai
-  let _absl = (posAbsoluteOffset . aiPosition) ai
-  let _src =  aiSourceInput ai
-  let _nToTake = fromIntegral (_col - 2)
-  let _nToDrop = fromIntegral (_absl - _col + 2)
-  return $ Just $ TComment $ take _nToTake . drop _nToDrop $ _src
+lexComment :: Maybe Char -> Parse AlexInput (Maybe Token)
+lexComment mc = do
+  m <- getMatch
+  s <- getLexemeSpan
+  alex <- getAlex
+  let modifiedAlex = alex { aiWhiteSensitiveCharCount = 1 }
+  case mc of
+    Just '\n' -> return $ Just $ TComment s $ tail m
+    Just _ -> 
+      case alexGetByte modifiedAlex of
+        Just (_, newAlex) -> do
+          putAlex newAlex
+          lexComment Nothing
+        Nothing -> return Nothing
+    Nothing -> 
+      case alexGetByte modifiedAlex of
+        Just (_, newAlex) -> lexComment (Just $ (head . lexemeMatch . aiLexeme) newAlex)
+        Nothing -> return $ Just $ TComment s $ tail m
 
 lexHollerith :: Parse AlexInput (Maybe Token)
 lexHollerith = do
   match' <- getMatch
   let len = read $ init match' -- Get n of "nH" from string
   putMatch ""
-  ai <- getAlexP
-  putAlexP $ ai { aiWhiteSensitiveCharCount = len } 
+  ai <- getAlex
+  putAlex $ ai { aiWhiteSensitiveCharCount = len } 
   lexed <- lexN len
+  s <- getLexemeSpan
   return $ do
     hollerith <- lexed
-    return $ THollerith hollerith
+    return $ THollerith s hollerith
 
 lexN :: Int -> Parse AlexInput (Maybe String)
 lexN n = do
-  alex <- getAlexP
+  alex <- getAlex
   match' <- getMatch
   let len = length match'
   if n == len
@@ -225,7 +273,7 @@ lexN n = do
   else 
     case alexGetByte alex of
       Just (_, newAlex) -> do
-        putAlexP newAlex
+        putAlex newAlex
         lexN n
       Nothing -> return Nothing
 
@@ -236,26 +284,30 @@ lexFieldDescriptorDEFG = do
   match <- getMatch
   let (repeat, descriptor, width, rest) = takeRepeatDescriptorWidth match
   let fractionWidth = (read $ fst $ takeNumber $ tail rest) :: Integer
-  return $ Just $ TFieldDescriptorDEFG repeat descriptor width fractionWidth
+  s <- getLexemeSpan
+  return $ Just $ TFieldDescriptorDEFG s repeat descriptor width fractionWidth
 
 lexFieldDescriptorAIL :: Parse AlexInput (Maybe Token)
 lexFieldDescriptorAIL = do
   match <- getMatch
   let (repeat, descriptor, width, rest) = takeRepeatDescriptorWidth match
-  return $ Just $ TFieldDescriptorAIL repeat descriptor width
+  s <- getLexemeSpan
+  return $ Just $ TFieldDescriptorAIL s repeat descriptor width
 
 lexBlankDescriptor :: Parse AlexInput (Maybe Token)
 lexBlankDescriptor = do
   match <- getMatch
   let (width, _) = takeNumber match
-  return $ Just $ TBlankDescriptor $ (read width :: Integer)
+  s <- getLexemeSpan
+  return $ Just $ TBlankDescriptor s (read width :: Integer)
 
 lexScaleFactor :: Parse AlexInput (Maybe Token)
 lexScaleFactor = do
   match <- getMatch
   let (sign, rest) = if head match == '-' then (-1, tail match) else (1, match)
   let (width, _) = takeNumber rest
-  return $ Just $ TScaleFactor $ (read width) * sign
+  s <- getLexemeSpan
+  return $ Just $ TScaleFactor s $ (read width) * sign
 
 takeRepeatDescriptorWidth :: String -> (Maybe Integer, Char, Integer, String)
 takeRepeatDescriptorWidth str = 
@@ -271,88 +323,108 @@ takeNumber str = span isDigit str
 
 toStartCode :: Int -> Parse AlexInput (Maybe Token)
 toStartCode startCode = do
-  ai <- getAlexP
+  ai <- getAlex
   if startCode == 0
-  then putAlexP $ ai { aiStartCode = startCode, aiWhiteSensitiveCharCount = 6 }
-  else putAlexP $ ai { aiStartCode = startCode }
+  then putAlex $ ai { aiStartCode = startCode, aiWhiteSensitiveCharCount = 6 }
+  else putAlex $ ai { aiStartCode = startCode }
   return Nothing
 
 --------------------------------------------------------------------------------
 -- Tokens
 --------------------------------------------------------------------------------
 
-data Token = TLeftPar
-           | TRightPar
-           | TComma
-           | TDot
-           | TFunction
-           | TSubroutine
-           | TBlockData
-           | TEnd
-           | TAssign
-           | TOpAssign
-           | TTo
-           | TGoto
-           | TIf
-           | TCall
-           | TReturn
-           | TContinue
-           | TStop
-           | TPause
-           | TDo
-           | TRead
-           | TWrite
-           | TRewind
-           | TBackspace
-           | TEndfile
-           | TDimension
-           | TCommon
-           | TEquivalence
-           | TExternal
-           | TType String
-           | TData
-           | TFormat
-           | TFieldDescriptorDEFG (Maybe Integer) Char Integer Integer
-           | TFieldDescriptorAIL  (Maybe Integer) Char Integer
-           | TBlankDescriptor     Integer
-           | TScaleFactor         Integer
-           | TInt String
-           | TReal String
-           | TTrue
-           | TFalse
-           | TOpPlus
-           | TOpMinus
-           | TOpExp
-           | TStar
-           | TSlash
-           | TOpOr
-           | TOpAnd
-           | TOpNot
-           | TOpLT
-           | TOpLE
-           | TOpEQ
-           | TOpNE
-           | TOpGT
-           | TOpGE
-           | TId String
-           | TComment String
-           | THollerith String
-           | TLabel String
-           | TEOF
-           deriving (Show, Eq)
+data Token = TLeftPar             SrcSpan
+           | TRightPar            SrcSpan
+           | TComma               SrcSpan
+           | TFunction            SrcSpan
+           | TSubroutine          SrcSpan
+           | TBlockData           SrcSpan
+           | TEnd                 SrcSpan
+           | TAssign              SrcSpan
+           | TOpAssign            SrcSpan
+           | TTo                  SrcSpan
+           | TGoto                SrcSpan
+           | TIf                  SrcSpan
+           | TCall                SrcSpan
+           | TReturn              SrcSpan
+           | TContinue            SrcSpan
+           | TStop                SrcSpan
+           | TPause               SrcSpan
+           | TDo                  SrcSpan
+           | TRead                SrcSpan
+           | TWrite               SrcSpan
+           | TRewind              SrcSpan
+           | TBackspace           SrcSpan
+           | TEndfile             SrcSpan
+           | TDimension           SrcSpan
+           | TCommon              SrcSpan
+           | TEquivalence         SrcSpan
+           | TExternal            SrcSpan
+           | TType                SrcSpan String 
+           | TData                SrcSpan
+           | TFormat              SrcSpan
+           | TFieldDescriptorDEFG SrcSpan (Maybe Integer) Char Integer Integer
+           | TFieldDescriptorAIL  SrcSpan (Maybe Integer) Char Integer
+           | TBlankDescriptor     SrcSpan Integer
+           | TScaleFactor         SrcSpan Integer
+           | TInt                 SrcSpan String
+           | TReal                SrcSpan String
+           | TTrue                SrcSpan
+           | TFalse               SrcSpan
+           | TOpPlus              SrcSpan
+           | TOpMinus             SrcSpan
+           | TOpExp               SrcSpan
+           | TStar                SrcSpan
+           | TSlash               SrcSpan
+           | TOpOr                SrcSpan
+           | TOpAnd               SrcSpan
+           | TOpNot               SrcSpan
+           | TOpLT                SrcSpan
+           | TOpLE                SrcSpan
+           | TOpEQ                SrcSpan
+           | TOpNE                SrcSpan
+           | TOpGT                SrcSpan
+           | TOpGE                SrcSpan
+           | TId                  SrcSpan String
+           | TComment             SrcSpan String
+           | THollerith           SrcSpan String
+           | TLabel               SrcSpan String
+           | TEOF                 SrcSpan
+           deriving (Show, Eq, Data, Typeable, Generic)
+
+instance FirstParameter Token SrcSpan
+instance FirstParameter Token SrcSpan => Spanned Token where
+  getSpan a = getFirstParameter a
+  setSpan e a = setFirstParameter e a
+
+instance Tok Token where
+  eofToken (TEOF _) = True
+  eofToken _ = False
 
 --------------------------------------------------------------------------------
 -- AlexInput & related definitions
 --------------------------------------------------------------------------------
 
+data Lexeme = Lexeme 
+  { lexemeMatch :: String
+  , lexemeStart :: Maybe Position 
+  , lexemeEnd   :: Maybe Position 
+  } deriving (Show)
+
+initLexeme :: Lexeme
+initLexeme = Lexeme
+  { lexemeMatch = ""
+  , lexemeStart = Nothing
+  , lexemeEnd   = Nothing }
+
 data AlexInput = AlexInput 
-  { aiSourceInput                 :: String
-  , aiPosition                    :: Position
-  , aiBytes                       :: [Word8]
-  , aiPreviousChar                :: Char
-  , aiMatch                       :: String
-  , aiWhiteSensitiveCharCount     :: Int
-  , aiStartCode                   :: Int
+  { aiSourceInput               :: String
+  , aiPosition                  :: Position
+  , aiBytes                     :: [Word8]
+  , aiPreviousChar              :: Char
+  , aiLexeme                    :: Lexeme
+  , aiWhiteSensitiveCharCount   :: Int
+  , aiStartCode                 :: Int
   } deriving (Show)
 
 instance Loc (ParseState AlexInput) where
@@ -367,9 +439,22 @@ vanillaAlexInput = AlexInput
   , aiPosition = initPosition
   , aiBytes = []
   , aiPreviousChar = '\n'
-  , aiMatch = ""
+  , aiLexeme = initLexeme
   , aiWhiteSensitiveCharCount = 6
   , aiStartCode = 0 }
+
+updateLexeme :: Maybe Char -> Position -> AlexInput -> AlexInput
+updateLexeme maybeChar p ai =
+  let lexeme = aiLexeme ai
+      match = lexemeMatch lexeme
+      newMatch = 
+        case maybeChar of
+          Just c -> toLower c : match
+          Nothing -> match
+      start = lexemeStart lexeme
+      newStart = if isNothing start then Just p else start
+      newEnd = Just p in
+    ai { aiLexeme = Lexeme newMatch newStart newEnd }
 
 --------------------------------------------------------------------------------
 -- Definitions needed for alexScanUser
@@ -390,7 +475,7 @@ alexGetByte ai
   -- Read genuine character and advance. Also covers white sensitivity.
   | otherwise = 
       let (_b:_bs) = (utf8Encode . toLower) _curChar in
-        Just(_b,
+        Just(_b, updateLexeme (Just _curChar) _position
           ai {
             aiPosition =
               case _curChar of
@@ -398,7 +483,6 @@ alexGetByte ai
                 _     -> advance Char _position,
             aiBytes = _bs,
             aiPreviousChar = _curChar,
-            aiMatch = (toLower _curChar):(aiMatch ai),
             aiWhiteSensitiveCharCount = 
               if _isWhiteInsensitive
               then 0
@@ -431,7 +515,7 @@ isContinuation ai =
 skip :: Move -> AlexInput -> Maybe (Word8, AlexInput)
 skip move ai = 
   let _newPosition = advance move $ aiPosition ai in
-    alexGetByte $ ai { aiPosition = _newPosition }
+    alexGetByte $ updateLexeme Nothing _newPosition $ ai { aiPosition = _newPosition }
 
 advance :: Move -> Position -> Position
 advance move position =
@@ -478,15 +562,15 @@ lexer cont = do
             
 lexer' :: Parse AlexInput (Maybe Token)
 lexer' = do
-  putMatch ""
-  alexInput <- getAlexP
+  resetLexeme
+  alexInput <- getAlex
   let startCode = aiStartCode alexInput
   case alexScanUser undefined alexInput startCode of
-    AlexEOF -> return $ Just TEOF
+    AlexEOF -> return $ Just $ TEOF $ SrcSpan (getPos alexInput) (getPos alexInput)
     AlexError _ -> return Nothing
-    AlexSkip newAlex _ -> putAlexP newAlex >> lexer'
+    AlexSkip newAlex _ -> putAlex newAlex >> lexer'
     AlexToken newAlex _ action -> do
-      putAlexP newAlex
+      putAlex newAlex
       maybeTok <- action
       case maybeTok of
         Just _ -> return maybeTok
@@ -510,6 +594,6 @@ initParseState srcInput fortranVersion filename =
     
 collectFixedFormTokens :: String -> Maybe [Token]
 collectFixedFormTokens srcInput = 
-    collectTokens TEOF lexer' $ initParseState srcInput Fortran66 "<unknown>"
+    collectTokens lexer' $ initParseState srcInput Fortran66 "<unknown>"
 
 }

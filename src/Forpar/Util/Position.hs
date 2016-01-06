@@ -1,10 +1,13 @@
 {-# LANGUAGE DeriveDataTypeable #-}
+{-# LANGUAGE DefaultSignatures #-}
+{-# LANGUAGE FlexibleContexts #-}
 
 module Forpar.Util.Position where
 
 import Data.Data
 import Data.Typeable
 
+import Forpar.Util.FirstParameter
 import Forpar.Util.SecondParameter
 
 class Loc a where
@@ -26,24 +29,20 @@ initPosition = Position
   , posLine = 1 
   }
 
-data SrcLoc = SrcLoc 
-  { locPosition   :: Position
-  , locFilename   :: String
-  } deriving (Eq, Typeable, Data)
-
-instance Show SrcLoc where
-  show (SrcLoc p f) = (show f) ++ ":" ++ (show p)
-
-initSrcLoc :: SrcLoc
-initSrcLoc = SrcLoc 
-  { locPosition = initPosition
-  , locFilename = "<unknown>" 
-  }
-
-data SrcSpan = SrcSpan SrcLoc SrcLoc deriving (Eq, Typeable, Data)
+data SrcSpan = SrcSpan Position Position deriving (Eq, Typeable, Data)
 
 instance Show SrcSpan where
   show (SrcSpan s1 s2)= "(" ++ (show s1) ++ "," ++ (show s2) ++ ")"
 
 initSrcSpan :: SrcSpan
-initSrcSpan = SrcSpan initSrcLoc initSrcLoc
+initSrcSpan = SrcSpan initPosition initPosition
+
+class Spanned a where
+  getSpan :: a -> SrcSpan
+  setSpan :: SrcSpan -> a -> a
+
+  default getSpan :: (SecondParameter a SrcSpan) => a -> SrcSpan
+  getSpan a = getSecondParameter a
+
+  default setSpan :: (SecondParameter a SrcSpan) => SrcSpan -> a -> a
+  setSpan e a = setSecondParameter e a
