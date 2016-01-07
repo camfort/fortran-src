@@ -59,10 +59,10 @@ tokens :-
   <0> @label / { withinLabelColsP }     { getMatch >>= \m -> getLexemeSpan >>= \s -> return $ Just $ TLabel s m }
   <0> . / { \_ ai _ _ -> atColP 6 ai }  { toStartCode st }
   <0> " "                               ;
-  <0> \n                                { toStartCode 0 }
+  <0> \n                                { toStartCode 0 >> getLexemeSpan >>= \s -> return $ Just $ TNewline s }
   <0> \r                                ;
 
-  <st> \n                               { toStartCode 0 }
+  <st> \n                               { toStartCode 0 >> getLexemeSpan >>= \s -> return $ Just $ TNewline s }
   <st> \r                               ;
 
   <st> "("                              { getLexemeSpan >>= \s -> return $ Just $ TLeftPar s }
@@ -389,6 +389,7 @@ data Token = TLeftPar             SrcSpan
            | TComment             SrcSpan String
            | THollerith           SrcSpan String
            | TLabel               SrcSpan String
+           | TNewline             SrcSpan
            | TEOF                 SrcSpan
            deriving (Show, Eq, Data, Typeable, Generic)
 

@@ -79,6 +79,7 @@ import Forpar.AST
   comment               { TComment _ _ }
   hollerith             { THollerith _ _ }
   label                 { TLabel _ _ }
+  newline               { TNewline _ }
 
 %left or
 %left and
@@ -100,10 +101,13 @@ PROGRAM
 
 PROGRAM_UNITS :: { [ ProgramUnit A0 ] }
 PROGRAM_UNITS
-: PROGRAM_UNITS OTHER_PROGRAM_UNIT { $2 : $1 } 
-| PROGRAM_UNITS MAIN_PROGRAM_UNIT { $2 : $1 } 
-| MAIN_PROGRAM_UNIT { [ $1 ] } 
-| OTHER_PROGRAM_UNIT { [ $1 ] } 
+: PROGRAM_UNITS PROGRAM_UNIT { $2 : $1 } 
+| PROGRAM_UNIT { [ $1 ] } 
+
+PROGRAM_UNIT :: { ProgramUnit A0 }
+PROGRAM_UNIT
+: MAIN_PROGRAM_UNIT NEWLINE { $1 }
+| OTHER_PROGRAM_UNIT NEWLINE { $1 }
 
 MAIN_PROGRAM_UNIT :: { ProgramUnit A0 }
 MAIN_PROGRAM_UNIT
@@ -116,10 +120,10 @@ OTHER_PROGRAM_UNIT
 
 OTHER_PROGRAM_UNIT_LEVEL1 :: { ProgramUnit A0 }
 OTHER_PROGRAM_UNIT_LEVEL1
-: type function NAME '(' ARGS ')' BLOCKS end { PUFunction () (getTransSpan $1 $8) (let (TType _ t) = $1 in Just $ read t) $3 (aReverse $5) (reverse $7) [] }
-| function NAME '(' ARGS ')' BLOCKS end { PUFunction () (getTransSpan $1 $7) Nothing $2 (aReverse $4) (reverse $6) [] }
-| subroutine NAME '(' ARGS ')' BLOCKS end { PUSubroutine () (getTransSpan $1 $7) $2 $4 (reverse $6) [] }
-| blockData BLOCKS end { PUBlockData () (getTransSpan $1 $3) (reverse $2) [] }
+: type function NAME '(' ARGS ')' NEWLINE BLOCKS end { PUFunction () (getTransSpan $1 $9) (let (TType _ t) = $1 in Just $ read t) $3 (aReverse $5) (reverse $8) [] }
+| function NAME '(' ARGS ')' NEWLINE BLOCKS end { PUFunction () (getTransSpan $1 $8) Nothing $2 (aReverse $4) (reverse $7) [] }
+| subroutine NAME '(' ARGS ')' NEWLINE BLOCKS end { PUSubroutine () (getTransSpan $1 $8) $2 $4 (reverse $7) [] }
+| blockData NEWLINE BLOCKS end { PUBlockData () (getTransSpan $1 $4) (reverse $3) [] }
 
 ARGS :: { AList String A0 }
 ARGS
@@ -146,7 +150,7 @@ LABELED_BLOCK
 | BLOCK { (Nothing, $1) }
 
 BLOCK :: { Block A0 }
-BLOCK : STATEMENT { BlStatement () (getSpan $1) $1 [] }
+BLOCK : STATEMENT NEWLINE { BlStatement () (getSpan $1) $1 [] }
 
 COMMENTS :: { [ Comment A0 ] }
 COMMENTS
@@ -154,7 +158,12 @@ COMMENTS
 | COMMENT { [ $1 ] }
 
 COMMENT :: { Comment A0 }
-COMMENT : comment { let (TComment s c) = $1 in Comment () s c }
+COMMENT : comment NEWLINE { let (TComment s c) = $1 in Comment () s c }
+
+NEWLINE :: { Token } 
+NEWLINE
+: NEWLINE newline { $1 }
+| newline { $1 }
 
 STATEMENT :: { Statement A0 }
 STATEMENT

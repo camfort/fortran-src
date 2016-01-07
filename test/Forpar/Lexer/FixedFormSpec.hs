@@ -23,12 +23,13 @@ spec :: Spec
 spec = 
   describe "Fortran Fixed Form Lexer" $ do
     describe "lexer" $ do
-      prop "lexes Label, Comment, or EOF in the first six columns or returns Nothing " $
+      prop "lexes Label, Comment, Newline or EOF in the first six columns or returns Nothing " $
         \x -> isPrefixOf "      " x || case singleLexer'App x of
                 Nothing -> True
                 Just (TLabel _ _) -> True
                 Just (TComment _ _) -> True
                 Just (TEOF _) -> True
+                Just (TNewline _) -> True
                 _ -> False
         
       it "lexes alphanumeric identifier" $ do
@@ -59,8 +60,8 @@ spec =
         resetSrcSpan (collectFixedFormTokens "      function end format") `shouldBe` resetSrcSpan (Just [TFunction u, TEnd u, TFormat u, TEOF u])
 
       it "lexes multiple comments in a line" $ do
-        resetSrcSpan (collectFixedFormTokens "csomething\ncsomething else\n\nc\ncc") `shouldBe` 
-          resetSrcSpan (Just [TComment u "something", TComment u "something else", TComment u "", TComment u "c", TEOF u])
+        resetSrcSpan (collectFixedFormTokens "csomething\ncsomething else\n\nc\ncc\n") `shouldBe` 
+          resetSrcSpan (Just [TComment u "something", TNewline u, TComment u "something else", TNewline u, TNewline u, TComment u "", TNewline u, TComment u "c", TNewline u, TEOF u])
 
       it "lexes example1" $ do
         resetSrcSpan (collectFixedFormTokens example1) `shouldBe` resetSrcSpan (Just example1Expectation)
