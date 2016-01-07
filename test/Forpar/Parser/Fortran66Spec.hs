@@ -38,50 +38,51 @@ u = undefined
 spec :: Spec
 spec = 
   describe "Fortran 66 Parser" $ do
-    describe "Arithmetic expressions" $ do
-      it "parses '3'" $ do
-        let expectedExp = resetSrcSpan $ intGen 3
-        resetSrcSpan (evalExpressionParser "      3") `shouldBe` expectedExp
+    describe "Expressions" $ do
+      describe "Arithmetic expressions" $ do
+        it "parses '3'" $ do
+          let expectedExp = resetSrcSpan $ intGen 3
+          resetSrcSpan (evalExpressionParser "      3") `shouldBe` expectedExp
 
-      it "parses '-3'" $ do
-        let expectedExp = resetSrcSpan $ ExpUnary () u Minus $ intGen 3
-        resetSrcSpan (evalExpressionParser "      -3") `shouldBe` expectedExp
+        it "parses '-3'" $ do
+          let expectedExp = resetSrcSpan $ ExpUnary () u Minus $ intGen 3
+          resetSrcSpan (evalExpressionParser "      -3") `shouldBe` expectedExp
 
-      it "parses '3 + 2'" $ do
-        let expectedExp = resetSrcSpan $ ExpBinary () u Addition (intGen 3) (intGen 2)
-        resetSrcSpan (evalExpressionParser "      3 + 2") `shouldBe` expectedExp
+        it "parses '3 + 2'" $ do
+          let expectedExp = resetSrcSpan $ ExpBinary () u Addition (intGen 3) (intGen 2)
+          resetSrcSpan (evalExpressionParser "      3 + 2") `shouldBe` expectedExp
 
-      it "parses '3 + -2'" $ do
-        let expectedExp = resetSrcSpan $ ExpBinary () u Addition (intGen 3) (ExpUnary () u Minus (intGen 2))
-        resetSrcSpan (evalExpressionParser "      3 + -2") `shouldBe` expectedExp
+        it "parses '3 + -2'" $ do
+          let expectedExp = resetSrcSpan $ ExpBinary () u Addition (intGen 3) (ExpUnary () u Minus (intGen 2))
+          resetSrcSpan (evalExpressionParser "      3 + -2") `shouldBe` expectedExp
 
-      it "parses '3 + -2 + 42'" $ do
-        let expectedExp = resetSrcSpan $ ExpBinary () u Addition (ExpBinary () u Addition (intGen 3) (ExpUnary () u Minus (intGen 2))) (intGen 42)
-        resetSrcSpan (evalExpressionParser "      3 + -2 + 42") `shouldBe` expectedExp
+        it "parses '3 + -2 + 42'" $ do
+          let expectedExp = resetSrcSpan $ ExpBinary () u Addition (ExpBinary () u Addition (intGen 3) (ExpUnary () u Minus (intGen 2))) (intGen 42)
+          resetSrcSpan (evalExpressionParser "      3 + -2 + 42") `shouldBe` expectedExp
 
-      it "parses 'f(y, 24)'" $ do
-        let expectedExp = resetSrcSpan $ ExpSubscript () u (arrGen "f") (AList () u [ExpValue () u (ValVariable "y"), intGen 24])
-        resetSrcSpan (evalExpressionParser "      f(y, 24)") `shouldBe` expectedExp
+        it "parses 'f(y, 24)'" $ do
+          let expectedExp = resetSrcSpan $ ExpSubscript () u (arrGen "f") (AList () u [ExpValue () u (ValVariable "y"), intGen 24])
+          resetSrcSpan (evalExpressionParser "      f(y, 24)") `shouldBe` expectedExp
 
-      it "parses '3 + 4 * 12'" $ do
-        let expectedExp = resetSrcSpan $ ExpBinary () u Addition (intGen 3) (ExpBinary () u Multiplication (intGen 4) (intGen 12))
-        resetSrcSpan (evalExpressionParser "      3 + 4 * 12") `shouldBe` expectedExp
+        it "parses '3 + 4 * 12'" $ do
+          let expectedExp = resetSrcSpan $ ExpBinary () u Addition (intGen 3) (ExpBinary () u Multiplication (intGen 4) (intGen 12))
+          resetSrcSpan (evalExpressionParser "      3 + 4 * 12") `shouldBe` expectedExp
 
-    describe "Logical expressions" $ do
-      it "parses '.true. .and. .false.'" $ do
-        let expectedExp = resetSrcSpan $ ExpBinary () u And (ExpValue () u (ValTrue)) (ExpValue () u (ValFalse)) 
-        resetSrcSpan (evalExpressionParser "      .true. .and. .false.") `shouldBe` expectedExp
+      describe "Logical expressions" $ do
+        it "parses '.true. .and. .false.'" $ do
+          let expectedExp = resetSrcSpan $ ExpBinary () u And (ExpValue () u (ValTrue)) (ExpValue () u (ValFalse)) 
+          resetSrcSpan (evalExpressionParser "      .true. .and. .false.") `shouldBe` expectedExp
 
-    describe "Relational expressions" $ do
-      it "parses '(3 * 2) .lt. 42'" $ do
-        let expectedExp = resetSrcSpan $ ExpBinary () u LT (ExpBinary () u Multiplication (intGen 3) (intGen 2)) (intGen 42)
-        resetSrcSpan (evalExpressionParser "      (3 * 2) .lt. 42") `shouldBe` expectedExp
+      describe "Relational expressions" $ do
+        it "parses '(3 * 2) .lt. 42'" $ do
+          let expectedExp = resetSrcSpan $ ExpBinary () u LT (ExpBinary () u Multiplication (intGen 3) (intGen 2)) (intGen 42)
+          resetSrcSpan (evalExpressionParser "      (3 * 2) .lt. 42") `shouldBe` expectedExp
 
-    describe "Other expressions" $ do
-      it "parses 'a(2 * x - 3, 10)'" $ do
-        let firstEl = ExpBinary () u Subtraction (ExpBinary () u Multiplication (intGen 2) (varGen "x")) (intGen 3)
-            expectedExp = resetSrcSpan $ ExpSubscript () u (arrGen "a") (AList () u [firstEl, intGen 10])
-        resetSrcSpan (evalExpressionParser "      a(2 * x - 3, 10)") `shouldBe` expectedExp
+      describe "Other expressions" $ do
+        it "parses 'a(2 * x - 3, 10)'" $ do
+          let firstEl = ExpBinary () u Subtraction (ExpBinary () u Multiplication (intGen 2) (varGen "x")) (intGen 3)
+              expectedExp = resetSrcSpan $ ExpSubscript () u (arrGen "a") (AList () u [firstEl, intGen 10])
+          resetSrcSpan (evalExpressionParser "      a(2 * x - 3, 10)") `shouldBe` expectedExp
 
     describe "Statements" $ do
       it "parses 'EXTERNAL f, g, h'" $ do
@@ -146,37 +147,40 @@ spec =
             expectedSt = resetSrcSpan $ StDeclaration () u TypeInteger $ AList () u declarators
         resetSrcSpan (evalStatementParser "      integer i, j(2,2), k") `shouldBe` expectedSt
 
-      it "parses 'write (6)'" $ do
-        let expectedSt = resetSrcSpan $ StWrite () u (intGen 6) Nothing Nothing
-        resetSrcSpan (evalStatementParser "      write (6)") `shouldBe` expectedSt
+      describe "WRITE" $ do
+        it "parses 'write (6)'" $ do
+          let expectedSt = resetSrcSpan $ StWrite () u (intGen 6) Nothing Nothing
+          resetSrcSpan (evalStatementParser "      write (6)") `shouldBe` expectedSt
 
-      it "parses 'write (6) i'" $ do
-        let expectedSt = resetSrcSpan $ StWrite () u (intGen 6) Nothing (Just $ AList () u [IOExpression $ varGen "i"])
-        resetSrcSpan (evalStatementParser "      write (6) i") `shouldBe` expectedSt
+        it "parses 'write (6) i'" $ do
+          let expectedSt = resetSrcSpan $ StWrite () u (intGen 6) Nothing (Just $ AList () u [IOExpression $ varGen "i"])
+          resetSrcSpan (evalStatementParser "      write (6) i") `shouldBe` expectedSt
 
-      it "parses 'write (6,10) i'" $ do
-        let expectedSt = resetSrcSpan $ StWrite () u (intGen 6) (Just $ labelGen 10) (Just $ AList () u [IOExpression $ varGen "i"])
-        resetSrcSpan (evalStatementParser "      write (6,10) i") `shouldBe` expectedSt
+        it "parses 'write (6,10) i'" $ do
+          let expectedSt = resetSrcSpan $ StWrite () u (intGen 6) (Just $ labelGen 10) (Just $ AList () u [IOExpression $ varGen "i"])
+          resetSrcSpan (evalStatementParser "      write (6,10) i") `shouldBe` expectedSt
 
-      it "parses 'if (10 .LT. x) write (6,10) i'" $ do
-        let writeSt = StWrite () u (intGen 6) (Just $ labelGen 10) (Just $ AList () u [IOExpression $ varGen "i"])
-        let cond = ExpBinary () u LT (intGen 10) (varGen "x")
-        let expectedSt = resetSrcSpan $ StIfLogical () u cond writeSt
-        resetSrcSpan (evalStatementParser "      if (10 .LT. x) write (6,10) i") `shouldBe` expectedSt
+      describe "IF" $ do
+        it "parses 'if (10 .LT. x) write (6,10) i'" $ do
+          let writeSt = StWrite () u (intGen 6) (Just $ labelGen 10) (Just $ AList () u [IOExpression $ varGen "i"])
+          let cond = ExpBinary () u LT (intGen 10) (varGen "x")
+          let expectedSt = resetSrcSpan $ StIfLogical () u cond writeSt
+          resetSrcSpan (evalStatementParser "      if (10 .LT. x) write (6,10) i") `shouldBe` expectedSt
 
-      it "parses 'if (10 - 5) 10, 20, 30'" $ do
-        let cond = ExpBinary () u Subtraction (intGen 10) (intGen 5)
-        let expectedSt = resetSrcSpan $ StIfArithmetic () u cond (labelGen 10) (labelGen 20) (labelGen 30)
-        resetSrcSpan (evalStatementParser "      if (10 - 5) 10, 20, 30") `shouldBe` expectedSt
+        it "parses 'if (10 - 5) 10, 20, 30'" $ do
+          let cond = ExpBinary () u Subtraction (intGen 10) (intGen 5)
+          let expectedSt = resetSrcSpan $ StIfArithmetic () u cond (labelGen 10) (labelGen 20) (labelGen 30)
+          resetSrcSpan (evalStatementParser "      if (10 - 5) 10, 20, 30") `shouldBe` expectedSt
 
-      it "parses 'f = 1'" $ do
-        let expectedSt = resetSrcSpan $ StExpressionAssign () u (varGen "f") (intGen 1)
-        resetSrcSpan (evalStatementParser "      f = 1") `shouldBe` expectedSt
+      describe "ASSIGNMENT" $ do
+        it "parses 'f = 1'" $ do
+          let expectedSt = resetSrcSpan $ StExpressionAssign () u (varGen "f") (intGen 1)
+          resetSrcSpan (evalStatementParser "      f = 1") `shouldBe` expectedSt
 
-      it "parses 'f = a(1,2)'" $ do
-        let rhs = ExpSubscript () u (ExpValue () u (ValArray "a")) (AList () u [intGen 1, intGen 2])
-        let expectedSt = resetSrcSpan $ StExpressionAssign () u (varGen "f") rhs
-        resetSrcSpan (evalStatementParser "      f = a(1,2)") `shouldBe` expectedSt
+        it "parses 'f = a(1,2)'" $ do
+          let rhs = ExpSubscript () u (ExpValue () u (ValArray "a")) (AList () u [intGen 1, intGen 2])
+          let expectedSt = resetSrcSpan $ StExpressionAssign () u (varGen "f") rhs
+          resetSrcSpan (evalStatementParser "      f = a(1,2)") `shouldBe` expectedSt
 
       it "parses 'do 42 i = 10, 1, 1'" $ do
         let st = StExpressionAssign () u (varGen "i") (intGen 10)
