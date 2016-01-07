@@ -98,8 +98,8 @@ data Statement a  =
   | StCall                a SrcSpan (Expression a) (AList (Expression a) a)
   | StReturn              a SrcSpan
   | StContinue            a SrcSpan
-  | StStop                a SrcSpan (Expression a)
-  | StPause               a SrcSpan (Expression a)
+  | StStop                a SrcSpan (Maybe (Expression a))
+  | StPause               a SrcSpan (Maybe (Expression a))
   | StRead                a SrcSpan (Expression a) (Maybe (Expression a)) (Maybe (AList (IOElement a) a))
   | StWrite               a SrcSpan (Expression a) (Maybe (Expression a)) (Maybe (AList (IOElement a) a))
   | StRewind              a SrcSpan (Expression a)

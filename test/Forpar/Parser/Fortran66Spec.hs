@@ -127,6 +127,10 @@ spec =
               expectedSt = resetSrcSpan $ StFormat () u $ AList () u formatList
           resetSrcSpan (evalStatementParser "      FORMAT (/(i5))") `shouldBe` expectedSt
 
+      it "parses 'stop'" $ do
+        let expectedSt = resetSrcSpan $ StStop () u Nothing
+        resetSrcSpan (evalStatementParser "      stop") `shouldBe` expectedSt
+
       it "parses 'integer i, j(2,2), k'" $ do
         let declarators = [varGen "i", ExpSubscript () u (arrGen "j") (AList () u [intGen 2, intGen 2]), varGen "k"] 
             expectedSt = resetSrcSpan $ StDeclaration () u TypeInteger $ AList () u declarators

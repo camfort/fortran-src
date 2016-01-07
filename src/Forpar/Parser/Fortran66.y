@@ -197,8 +197,10 @@ OTHER_EXECUTABLE_STATEMENT
 | call SUBROUTINE_NAME CALLABLE_EXPRESSIONS { StCall () (getTransSpan $1 $3) $2 $3 }
 | return { StReturn () $ getSpan $1 }
 | continue { StContinue () $ getSpan $1 }
-| stop INTEGER_LITERAL { StStop () (getTransSpan $1 $2) $2 }
-| pause INTEGER_LITERAL { StPause () (getTransSpan $1 $2) $2 }
+| stop INTEGER_LITERAL { StStop () (getTransSpan $1 $2) $ Just $2 }
+| stop { StStop () (getSpan $1) Nothing }
+| pause INTEGER_LITERAL { StPause () (getTransSpan $1 $2) $ Just $2 }
+| pause { StPause () (getSpan $1) Nothing }
 | rewind UNIT { StRewind () (getTransSpan $1 $2) $2 }
 | backspace UNIT { StBackspace () (getTransSpan $1 $2) $2 }
 | endfile UNIT { StEndfile () (getTransSpan $1 $2) $2 }
