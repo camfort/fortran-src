@@ -73,7 +73,7 @@ spec =
         resetSrcSpan (collectFixedFormTokens "      3 + 2") `shouldBe` resetSrcSpan (Just [TInt u "3", TOpPlus u , TInt u "2", TEOF u])
 
       it "should lex continuation lines properly" $ do
-        resetSrcSpan (collectFixedFormTokens continuationExample) `shouldBe` resetSrcSpan (Just [ TType u "integer", TId u "ix", TId u "ix", TOpAssign u, TInt u "42", TEnd u, TEOF u ])
+        resetSrcSpan (collectFixedFormTokens continuationExample) `shouldBe` resetSrcSpan (Just [ TType u "integer", TId u "ix", TNewline u, TId u "ix", TOpAssign u, TInt u "42", TNewline u, TEnd u, TNewline u, TEOF u ])
 
       describe "lexing format items" $ do
         it "lexes '10x'" $ do
@@ -118,9 +118,9 @@ continuationExample = unlines [
   "      end"]
 
 example1Expectation = [
-  TType u "integer", TId u "ix",
-  TLabel u "1", TId u "ix", TOpAssign u, TInt u "42",
-  TLabel u "200", TId u "ix", TOpAssign u, TId u "ix", TStar u, TId u "ix",
-  TLabel u "10", TWrite u, TLeftPar u, TStar u, TComma u, TStar u, TRightPar u, TComma u, TId u "ix",
-  TEnd u,
+  TType u "integer", TId u "ix", TNewline u,
+  TLabel u "1", TId u "ix", TOpAssign u, TInt u "42", TNewline u,
+  TLabel u "200", TId u "ix", TOpAssign u, TId u "ix", TStar u, TId u "ix", TNewline u,
+  TLabel u "10", TWrite u, TLeftPar u, TStar u, TComma u, TStar u, TRightPar u, TComma u, TId u "ix", TNewline u,
+  TEnd u, TNewline u,
   TEOF u]
