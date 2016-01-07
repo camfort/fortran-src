@@ -194,7 +194,8 @@ OTHER_EXECUTABLE_STATEMENT
 | goto VARIABLE LABELS_IN_STATEMENT { StGotoAssigned () (getTransSpan $1 $3) $2 $3 }
 | goto LABELS_IN_STATEMENT VARIABLE { StGotoComputed () (getTransSpan $1 $3) $2 $3 }
 | if '(' ARITHMETIC_EXPRESSION ')' LABEL_IN_STATEMENT ',' LABEL_IN_STATEMENT ',' LABEL_IN_STATEMENT { StIfArithmetic () (getTransSpan $1 $9) $3 $5 $7 $9 }
-| call SUBROUTINE_NAME CALLABLE_EXPRESSIONS { StCall () (getTransSpan $1 $3) $2 $3 }
+| call SUBROUTINE_NAME CALLABLE_EXPRESSIONS { StCall () (getTransSpan $1 $3) $2 $ Just $3 }
+| call SUBROUTINE_NAME { StCall () (getTransSpan $1 $2) $2 Nothing }
 | return { StReturn () $ getSpan $1 }
 | continue { StContinue () $ getSpan $1 }
 | stop INTEGER_LITERAL { StStop () (getTransSpan $1 $2) $ Just $2 }

@@ -95,7 +95,7 @@ data Statement a  =
   | StGotoUnconditional   a SrcSpan (Expression a)
   | StGotoAssigned        a SrcSpan (Expression a) (AList (Expression a) a)
   | StGotoComputed        a SrcSpan (AList (Expression a) a) (Expression a)
-  | StCall                a SrcSpan (Expression a) (AList (Expression a) a)
+  | StCall                a SrcSpan (Expression a) (Maybe (AList (Expression a) a))
   | StReturn              a SrcSpan
   | StContinue            a SrcSpan
   | StStop                a SrcSpan (Maybe (Expression a))

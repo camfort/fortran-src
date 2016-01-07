@@ -127,6 +127,16 @@ spec =
               expectedSt = resetSrcSpan $ StFormat () u $ AList () u formatList
           resetSrcSpan (evalStatementParser "      FORMAT (/(i5))") `shouldBe` expectedSt
 
+      describe "CALL" $ do
+        it "parses 'CALL me" $ do
+          let expectedSt = resetSrcSpan $ StCall () u (ExpValue () u (ValSubroutineName "me")) Nothing
+          resetSrcSpan (evalStatementParser "      CALL me") `shouldBe` expectedSt
+
+        it "parses 'CALL me(baby)" $ do
+          let args = AList () u [varGen "baby"]
+          let expectedSt = resetSrcSpan $ StCall () u (ExpValue () u (ValSubroutineName "me")) $ Just args
+          resetSrcSpan (evalStatementParser "      CALL me(baby)") `shouldBe` expectedSt
+
       it "parses 'stop'" $ do
         let expectedSt = resetSrcSpan $ StStop () u Nothing
         resetSrcSpan (evalStatementParser "      stop") `shouldBe` expectedSt
