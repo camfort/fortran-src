@@ -1,6 +1,7 @@
 {
 module Forpar.Parser.Fortran66(expressionParser,
-                               statementParser) where
+                               statementParser,
+                               fortran66Parser) where
 
 import Prelude hiding (EQ,LT,GT) -- Same constructors exist in the AST
 
@@ -13,7 +14,7 @@ import Forpar.AST
 
 }
 
-%name fortran66Parser PROGRAM
+%name programParser PROGRAM
 %name statementParser STATEMENT
 %name expressionParser EXPRESSION
 %monad { Parse AlexInput }
@@ -92,20 +93,33 @@ import Forpar.AST
 
 %%
 
-PROGRAM :: { [ ProgramUnit A0 ] } : PROGRAM_UNITS { reverse $1 }
+PROGRAM :: { [ ProgramUnit A0 ] }
+PROGRAM
+: PROGRAM_UNITS { reverse $1 }
+| PROGRAM_UNITS COMMENTS { reverse $1 }
 
 PROGRAM_UNITS :: { [ ProgramUnit A0 ] }
 PROGRAM_UNITS
-: PROGRAM_UNITS PROGRAM_UNIT { $2 : $1 } 
-| PROGRAM_UNIT { [ $1 ] } 
+: PROGRAM_UNITS OTHER_PROGRAM_UNIT { $2 : $1 } 
+| PROGRAM_UNITS MAIN_PROGRAM_UNIT { $2 : $1 } 
+| MAIN_PROGRAM_UNIT { [ $1 ] } 
+| OTHER_PROGRAM_UNIT { [ $1 ] } 
 
-PROGRAM_UNIT :: { ProgramUnit a }
-PROGRAM_UNIT
-: BLOCKS end { PUMain () (getTransSpan $1 $2) Nothing (reverse $1) }
-| type function NAME ARGS BLOCKS end { PUFunction () (getTransSpan $1 $6) (let (TType _ t) = $1 in Just $ read t) $3 (aReverse $4) (reverse $5) }
-| function NAME ARGS BLOCKS end { PUFunction () (getTransSpan $1 $5) Nothing $2 (aReverse $3) (reverse $4) }
-| subroutine NAME ARGS BLOCKS end { PUSubroutine () (getTransSpan $1 $5) $2 $3 (reverse $4) }
-| blockData BLOCKS end { PUBlockData () (getTransSpan $1 $3) (reverse $2) }
+MAIN_PROGRAM_UNIT :: { ProgramUnit A0 }
+MAIN_PROGRAM_UNIT
+: BLOCKS end { let blocks = reverse $1 in PUMain () (getTransSpan $1 $2) Nothing blocks (getComments (snd . head $ blocks)) }
+
+OTHER_PROGRAM_UNIT :: { ProgramUnit A0 }
+OTHER_PROGRAM_UNIT
+: COMMENTS OTHER_PROGRAM_UNIT_LEVEL1 { setComments $2 (reverse $1) }
+| OTHER_PROGRAM_UNIT_LEVEL1 { $1 }
+
+OTHER_PROGRAM_UNIT_LEVEL1 :: { ProgramUnit A0 }
+OTHER_PROGRAM_UNIT_LEVEL1
+: type function NAME '(' ARGS ')' BLOCKS end { PUFunction () (getTransSpan $1 $8) (let (TType _ t) = $1 in Just $ read t) $3 (aReverse $5) (reverse $7) [] }
+| function NAME '(' ARGS ')' BLOCKS end { PUFunction () (getTransSpan $1 $7) Nothing $2 (aReverse $4) (reverse $6) [] }
+| subroutine NAME '(' ARGS ')' BLOCKS end { PUSubroutine () (getTransSpan $1 $7) $2 $4 (reverse $6) [] }
+| blockData BLOCKS end { PUBlockData () (getTransSpan $1 $3) (reverse $2) [] }
 
 ARGS :: { AList String A0 }
 ARGS
@@ -117,9 +131,12 @@ NAME :: { Name } : id { let (TId _ name) = $1 in name }
 BLOCKS :: { [ (Maybe (Expression A0), Block A0) ] }
 BLOCKS
 : BLOCKS_LEVEL1 COMMENTS { $1 }
+| BLOCKS_LEVEL1 { $1 }
 
 BLOCKS_LEVEL1 :: { [ (Maybe (Expression A0), Block A0) ] }
 : BLOCKS_LEVEL1 COMMENTS LABELED_BLOCK { (fst $3, setComments (snd $3) (reverse $2)) : $1 }
+| BLOCKS_LEVEL1 LABELED_BLOCK { $2 : $1 }
+| COMMENTS LABELED_BLOCK { [ (fst $2, setComments (snd $2) (reverse $1)) ] }
 | LABELED_BLOCK { [ $1 ] }
 
 -- TODO In this version an empty line followed by a block doesn't work.
@@ -134,10 +151,10 @@ BLOCK : STATEMENT { BlStatement () (getSpan $1) $1 [] }
 COMMENTS :: { [ Comment A0 ] }
 COMMENTS
 : COMMENTS COMMENT { $2 : $1 }
-| {- EMPTY -} { [ ] }
+| COMMENT { [ $1 ] }
 
-COMMENT :: { Comment a }
-COMMENT :  comment { let (TComment s c) = $1 in Comment () s c }
+COMMENT :: { Comment A0 }
+COMMENT : comment { let (TComment s c) = $1 in Comment () s c }
 
 STATEMENT :: { Statement A0 }
 STATEMENT
@@ -176,8 +193,8 @@ OTHER_EXECUTABLE_STATEMENT
 | rewind UNIT { StRewind () (getTransSpan $1 $2) $2 }
 | backspace UNIT { StBackspace () (getTransSpan $1 $2) $2 }
 | endfile UNIT { StEndfile () (getTransSpan $1 $2) $2 }
-| write READ_WRITE_ARGUMENTS { let (unit, form, list) = $2 in StWrite () (getTransSpan $1 list) unit form list }
-| read READ_WRITE_ARGUMENTS { let (unit, form, list) = $2 in StRead () (getTransSpan $1 list) unit form list }
+| write READ_WRITE_ARGUMENTS { let (unit, form, list) = $2 in StWrite () (getTransSpan $1 $2) unit form list }
+| read READ_WRITE_ARGUMENTS { let (unit, form, list) = $2 in StRead () (getTransSpan $1 $2) unit form list }
 
 EXPRESSION_ASSIGNMENT_STATEMENT :: { Statement A0 }
 EXPRESSION_ASSIGNMENT_STATEMENT : ELEMENT '=' EXPRESSION { StExpressionAssign () (getTransSpan $1 $3) $1 $3 }
@@ -187,14 +204,16 @@ NONEXECUTABLE_STATEMENT :: { Statement A0 }
 | dimension ARRAY_DECLARATORS { StDimension () (getTransSpan $1 $2) (aReverse $2) }
 | common COMMON_GROUPS { StCommon () (getTransSpan $1 $2) (aReverse $2) }
 | equivalence EQUIVALENCE_GROUPS { StEquivalence () (getTransSpan $1 $2) (aReverse $2) }
-| data  DATA_GROUPS { StData () (getTransSpan $1 $2) (aReverse $2) }
-| format  FORMAT_ITEMS ')' { StFormat () (getTransSpan $1 $3) (aReverse $2) }
+| data DATA_GROUPS { StData () (getTransSpan $1 $2) (aReverse $2) }
+| format FORMAT_ITEMS ')' { StFormat () (getTransSpan $1 $3) (aReverse $2) }
 | type DECLARATORS { StDeclaration () (getTransSpan $1 $2) (let (TType _ t) = $1 in read t) (aReverse $2) }
 
-READ_WRITE_ARGUMENTS :: { (Expression A0, Maybe (Expression A0), AList (IOElement A0) A0) }
+READ_WRITE_ARGUMENTS :: { (Expression A0, Maybe (Expression A0), Maybe (AList (IOElement A0) A0)) }
 READ_WRITE_ARGUMENTS
-: '(' UNIT ')' IO_ELEMENTS { ($2, Nothing, aReverse $4) }
-| '(' UNIT ',' FORM ')' IO_ELEMENTS { ($2, Just $4, aReverse $6) }
+: '(' UNIT ')' IO_ELEMENTS { ($2, Nothing, Just (aReverse $4)) }
+| '(' UNIT ',' FORM ')' IO_ELEMENTS { ($2, Just $4, Just (aReverse $6)) }
+| '(' UNIT ')' { ($2, Nothing, Nothing) }
+| '(' UNIT ',' FORM ')' { ($2, Just $4, Nothing) }
 
 -- Not my terminology a VAR or an INT (probably positive) is defined as UNIT.
 UNIT :: { Expression A0 } : INTEGER_LITERAL { $1 } | VARIABLE { $1 }
@@ -482,6 +501,10 @@ LABEL_IN_STATEMENT :: { Expression A0 } : int { ExpValue () (getSpan $1) (let (T
 {
 
 type A0 = ()
+
+fortran66Parser :: String -> String -> [ ProgramUnit A0 ]
+fortran66Parser sourceCode filename = 
+  evalParse programParser $ initParseState sourceCode Fortran66 filename
 
 parseError :: Token -> Parse AlexInput a
 parseError _ = fail "Couldn't parse."

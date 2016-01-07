@@ -132,16 +132,20 @@ spec =
             expectedSt = resetSrcSpan $ StDeclaration () u TypeInteger $ AList () u declarators
         resetSrcSpan (evalStatementParser "      integer i, j(2,2), k") `shouldBe` expectedSt
 
+      it "parses 'write (6)'" $ do
+        let expectedSt = resetSrcSpan $ StWrite () u (intGen 6) Nothing Nothing
+        resetSrcSpan (evalStatementParser "      write (6)") `shouldBe` expectedSt
+
       it "parses 'write (6) i'" $ do
-        let expectedSt = resetSrcSpan $ StWrite () u (intGen 6) (Nothing) (AList () u [IOExpression $ varGen "i"])
+        let expectedSt = resetSrcSpan $ StWrite () u (intGen 6) Nothing (Just $ AList () u [IOExpression $ varGen "i"])
         resetSrcSpan (evalStatementParser "      write (6) i") `shouldBe` expectedSt
 
       it "parses 'write (6,10) i'" $ do
-        let expectedSt = resetSrcSpan $ StWrite () u (intGen 6) (Just $ labelGen 10) (AList () u [IOExpression $ varGen "i"])
+        let expectedSt = resetSrcSpan $ StWrite () u (intGen 6) (Just $ labelGen 10) (Just $ AList () u [IOExpression $ varGen "i"])
         resetSrcSpan (evalStatementParser "      write (6,10) i") `shouldBe` expectedSt
 
       it "parses 'if (10 .LT. x) write (6,10) i'" $ do
-        let writeSt = StWrite () u (intGen 6) (Just $ labelGen 10) (AList () u [IOExpression $ varGen "i"])
+        let writeSt = StWrite () u (intGen 6) (Just $ labelGen 10) (Just $ AList () u [IOExpression $ varGen "i"])
         let cond = ExpBinary () u LT (intGen 10) (varGen "x")
         let expectedSt = resetSrcSpan $ StIfLogical () u cond writeSt
         resetSrcSpan (evalStatementParser "      if (10 .LT. x) write (6,10) i") `shouldBe` expectedSt

@@ -1,7 +1,10 @@
 module Main where
 
-import Forpar.Lexer.FixedForm
 import System.Environment
+import Text.PrettyPrint.GenericPretty (pp)
+
+import Forpar.Lexer.FixedForm
+import Forpar.Parser.Fortran66 (fortran66Parser)
 
 main :: IO ()
 main = do
@@ -18,3 +21,4 @@ main = do
         case tokens of
           Just tokens' -> putStrLn $ show tokens'
           Nothing -> putStrLn "Cannot lex the file"
+      "--66-parser" -> pp $ fortran66Parser contents path

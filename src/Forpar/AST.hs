@@ -12,6 +12,7 @@ import Data.Typeable
 import Data.Generics.Uniplate.Data
 import GHC.Generics
 import Control.Newtype
+import Text.PrettyPrint.GenericPretty
 
 import Forpar.Util.Position
 import Forpar.Util.FirstParameter
@@ -46,7 +47,7 @@ aReverse (AList a s xs) = AList a s $ reverse xs
 -- Basic AST nodes
 data BaseType = 
   TypeInteger | TypeReal | TypeDoublePrecision | TypeComplex | TypeLogical
-  deriving (Eq, Show, Data, Typeable)
+  deriving (Eq, Show, Data, Typeable, Generic)
 
 instance Read BaseType where
   readsPrec _ value = 
@@ -65,11 +66,11 @@ instance Read BaseType where
 type Program a = [ProgramUnit a]
 
 data ProgramUnit a =
---    program type  | a  | span    | return           | name         | arguments        | body                              
-      PUMain          a    SrcSpan                      (Maybe Name)                      [(Maybe (Expression a), Block a)]
-  |   PUSubroutine    a    SrcSpan                      Name           (AList String a)   [(Maybe (Expression a), Block a)]
-  |   PUFunction      a    SrcSpan   (Maybe BaseType)   Name           (AList String a)   [(Maybe (Expression a), Block a)]
-  |   PUBlockData     a    SrcSpan                                                        [(Maybe (Expression a), Block a)]
+--    program type  | a  | span    | return           | name         | arguments        | body                              | Comments
+      PUMain          a    SrcSpan                      (Maybe Name)                      [(Maybe (Expression a), Block a)]   [Comment a]
+  |   PUSubroutine    a    SrcSpan                      Name           (AList String a)   [(Maybe (Expression a), Block a)]   [Comment a]
+  |   PUFunction      a    SrcSpan   (Maybe BaseType)   Name           (AList String a)   [(Maybe (Expression a), Block a)]   [Comment a]
+  |   PUBlockData     a    SrcSpan                                                        [(Maybe (Expression a), Block a)]   [Comment a]
   deriving (Eq, Show, Data, Typeable, Generic)
 
 data Block a = BlStatement a SrcSpan (Statement a) ([Comment a])
@@ -99,8 +100,8 @@ data Statement a  =
   | StContinue            a SrcSpan
   | StStop                a SrcSpan (Expression a)
   | StPause               a SrcSpan (Expression a)
-  | StRead                a SrcSpan (Expression a) (Maybe (Expression a)) (AList (IOElement a) a)
-  | StWrite               a SrcSpan (Expression a) (Maybe (Expression a)) (AList (IOElement a) a)
+  | StRead                a SrcSpan (Expression a) (Maybe (Expression a)) (Maybe (AList (IOElement a) a))
+  | StWrite               a SrcSpan (Expression a) (Maybe (Expression a)) (Maybe (AList (IOElement a) a))
   | StRewind              a SrcSpan (Expression a)
   | StBackspace           a SrcSpan (Expression a)
   | StEndfile             a SrcSpan (Expression a)
@@ -129,7 +130,7 @@ data IOElement a =
     IOExpression (Expression a)
   | IOTuple a SrcSpan (AList (IOElement a) a) (Expression a)
   | IOExpressionList a SrcSpan (AList (Expression a) a) 
-  deriving (Eq, Show, Data, Typeable)
+  deriving (Eq, Show, Data, Typeable, Generic)
 
 data Expression a =
     ExpValue         a SrcSpan (Value a)
@@ -155,7 +156,7 @@ data Value a =
   | ValSubroutineName    Name
   deriving (Eq, Show, Data, Typeable, Generic)
 
-data UnaryOp = Plus | Minus | Not deriving (Eq, Show, Data, Typeable)
+data UnaryOp = Plus | Minus | Not deriving (Eq, Show, Data, Typeable, Generic)
 
 data BinaryOp = 
     Addition 
@@ -171,7 +172,7 @@ data BinaryOp =
   | NE
   | Or
   | And
-  deriving (Eq, Show, Data, Typeable)
+  deriving (Eq, Show, Data, Typeable, Generic)
 
 -- Retrieving SrcSpan and Annotation from nodes
 class Annotated f where
@@ -255,13 +256,19 @@ instance {-# OVERLAPPABLE #-} (Spanned a, Spanned b) => Spanned (a, b) where
   getSpan (x,y) = getTransSpan x y
   setSpan _ = undefined
 
-instance (Spanned a, Spanned b, Spanned c) => Spanned (a, b, c) where
-  getSpan (x,y,z) = getTransSpan x z
+instance {-# OVERLAPPING #-}(Spanned a, Spanned b, Spanned c) => Spanned (a, Maybe b, Maybe c) where
+  getSpan (x,_,Just z) = getTransSpan x z
+  getSpan (x,Just y,Nothing) = getTransSpan x y
+  getSpan (x,Nothing,Nothing) = getSpan x
   setSpan _ = undefined
 
-instance {-# OVERLAPPABLE #-} (Spanned a, Spanned b, Spanned c) => Spanned (Maybe a, b, c) where
+instance {-# OVERLAPPING #-} (Spanned a, Spanned b, Spanned c) => Spanned (Maybe a, b, c) where
   getSpan (Just x,_,z) = getTransSpan x z
   getSpan (_,y,z) = getSpan (y,z)
+  setSpan _ = undefined
+
+instance {-# OVERLAPPABLE #-} (Spanned a, Spanned b, Spanned c) => Spanned (a, b, c) where
+  getSpan (x,y,z) = getTransSpan x z
   setSpan _ = undefined
 
 getTransSpan :: (Spanned a, Spanned b) => a -> b -> SrcSpan
@@ -276,9 +283,37 @@ getListSpan (x:xs) = getTransSpan x (last xs)
 
 class Commented f where
   setComments :: f a -> [ Comment a ] -> f a
+  getComments :: f a -> [ Comment a ]
 
 instance Commented Block where
   setComments (BlStatement a s st _) comments = BlStatement a s st comments
+  getComments (BlStatement _ _ _ c) = c
+
+instance Commented ProgramUnit where
+  setComments (PUMain a b c d _) comments = PUMain a b c d comments
+  setComments (PUSubroutine a b c d e _) comments = PUSubroutine a b c d e comments
+  setComments (PUFunction a b c d e f _) comments = PUFunction a b c d e f comments
+  setComments (PUBlockData a b c _) comments = PUBlockData a b c comments
+
+  getComments (PUMain _ _ _ _ c) = c
+  getComments (PUSubroutine _ _ _ _ _ c) = c
+  getComments (PUFunction _ _ _ _ _ _ c) = c
+  getComments (PUBlockData _ _ _ c) = c
+
+instance Out a => Out (ProgramUnit a)
+instance (Out a, Out t) => Out (AList t a)
+instance Out a => Out (Statement a)
+instance Out a => Out (Block a)
+instance Out a => Out (CommonGroup a)
+instance Out a => Out (DataGroup a)
+instance Out a => Out (Comment a)
+instance Out a => Out (FormatItem a)
+instance Out a => Out (Expression a)
+instance Out a => Out (IOElement a)
+instance Out a => Out (Value a)
+instance Out UnaryOp
+instance Out BinaryOp
+instance Out BaseType
 
 --------------------------------------------------------------------------------
 -- Useful for testing                                                         --

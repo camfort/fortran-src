@@ -1,11 +1,16 @@
 {-# LANGUAGE DeriveDataTypeable #-}
 {-# LANGUAGE DefaultSignatures #-}
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE DeriveGeneric #-}
 
 module Forpar.Util.Position where
 
 import Data.Data
 import Data.Typeable
+import Text.PrettyPrint.GenericPretty
+import Text.PrettyPrint
+
+import GHC.Generics
 
 import Forpar.Util.FirstParameter
 import Forpar.Util.SecondParameter
@@ -29,10 +34,14 @@ initPosition = Position
   , posLine = 1 
   }
 
-data SrcSpan = SrcSpan Position Position deriving (Eq, Typeable, Data)
+data SrcSpan = SrcSpan Position Position deriving (Eq, Typeable, Data, Generic)
 
 instance Show SrcSpan where
   show (SrcSpan s1 s2)= "(" ++ (show s1) ++ "," ++ (show s2) ++ ")"
+
+instance Out SrcSpan where
+  doc s = text $ show s
+  docPrec _ = doc
 
 initSrcSpan :: SrcSpan
 initSrcSpan = SrcSpan initPosition initPosition
