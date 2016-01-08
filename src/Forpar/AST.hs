@@ -49,19 +49,6 @@ data BaseType =
   TypeInteger | TypeReal | TypeDoublePrecision | TypeComplex | TypeLogical
   deriving (Eq, Show, Data, Typeable, Generic)
 
-instance Read BaseType where
-  readsPrec _ value = 
-    let options = [ ("integer", TypeInteger)
-                  , ("real", TypeReal)
-                  , ("doubleprecision", TypeDoublePrecision)
-                  , ("complex", TypeComplex)
-                  , ("logical", TypeLogical)] in
-      tryTypes options
-      where
-        tryTypes [] = []
-        tryTypes ((attempt,result):xs) = 
-          if value == attempt then [(result, "")] else tryTypes xs
-
 -- Program structure definition
 type Program a = [ProgramUnit a]
 

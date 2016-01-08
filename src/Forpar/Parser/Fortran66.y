@@ -511,6 +511,20 @@ LABEL_IN_STATEMENT :: { Expression A0 } : int { ExpValue () (getSpan $1) (let (T
 
 type A0 = ()
 
+instance Read BaseType where
+  readsPrec _ value = 
+    let options = [ ("integer", TypeInteger)
+                  , ("real", TypeReal)
+                  , ("doubleprecision", TypeDoublePrecision)
+                  , ("complex", TypeComplex)
+                  , ("logical", TypeLogical)] in
+      tryTypes options
+      where
+        tryTypes [] = []
+        tryTypes ((attempt,result):xs) = 
+          if value == attempt then [(result, "")] else tryTypes xs
+
+
 makeReal :: Maybe Token -> Maybe Token -> Maybe Token -> Maybe (SrcSpan, String) -> Expression A0
 makeReal i1 dot i2 exp = 
   let span1   = getSpan (i1, dot, i2)
