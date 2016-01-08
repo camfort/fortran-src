@@ -381,7 +381,7 @@ EXPRESSION
 | EXPRESSION '*' EXPRESSION { ExpBinary () (getTransSpan $1 $3) Multiplication $1 $3 }
 | EXPRESSION '/' EXPRESSION { ExpBinary () (getTransSpan $1 $3) Division $1 $3 }
 | EXPRESSION '**' EXPRESSION { ExpBinary () (getTransSpan $1 $3) Exponentiation $1 $3 }
-| ARITHMETIC_SIGN EXPRESSION %prec NEGATION { ExpUnary () (let (SrcSpan p1 _) = (fst $1); (SrcSpan _ p2) = getSpan $2 in SrcSpan p1 p2) (snd $1) $2 }
+| ARITHMETIC_SIGN EXPRESSION %prec NEGATION { ExpUnary () (getTransSpan (fst $1) $2) (snd $1) $2 }
 | EXPRESSION or EXPRESSION { ExpBinary () (getTransSpan $1 $3) Or $1 $3 }
 | EXPRESSION and EXPRESSION { ExpBinary () (getTransSpan $1 $3) And $1 $3 }
 | not EXPRESSION { ExpUnary () (getTransSpan $1 $2) Not $2 }
@@ -390,7 +390,7 @@ EXPRESSION
 | INTEGER_LITERAL               { $1 }
 | REAL_LITERAL                  { $1 }
 | COMPLEX_LITERAL               { $1 }
-| LOGICAL_LITERAL             { $1 }
+| LOGICAL_LITERAL               { $1 }
 | SUBSCRIPT                     { $1 }
 -- There should be FUNCTION_CALL here but as far as the parser is concerned it is same as SUBSCRIPT,
 -- hence putting it here would cause a reduce/reduce conflict.
@@ -456,14 +456,14 @@ SUBROUTINE_NAME
 
 SIGNED_INTEGER_LITERAL :: { Expression A0 }
 SIGNED_INTEGER_LITERAL
-: ARITHMETIC_SIGN INTEGER_LITERAL { ExpUnary () (let (SrcSpan p1 _) = fst $1; (SrcSpan _ p2) = getSpan $2 in SrcSpan p1 p2) (snd $1) $2 }
+: ARITHMETIC_SIGN INTEGER_LITERAL { ExpUnary () (getTransSpan (fst $1) $2) (snd $1) $2 }
 | INTEGER_LITERAL { $1 }
 
 INTEGER_LITERAL :: { Expression A0 } : int { ExpValue () (getSpan $1) $ let (TInt _ i) = $1 in ValInteger i }
 
 SIGNED_REAL_LITERAL :: { Expression A0 }
 SIGNED_REAL_LITERAL
-: ARITHMETIC_SIGN REAL_LITERAL { ExpUnary () (let (SrcSpan p1 _) = (fst $1); (SrcSpan _ p2) = (getSpan $2) in SrcSpan p1 p2) (snd $1) $2 }
+: ARITHMETIC_SIGN REAL_LITERAL { ExpUnary () (getTransSpan (fst $1) $2) (snd $1) $2 }
 | REAL_LITERAL { $1 }
 
 REAL_LITERAL :: { Expression A0 } 
