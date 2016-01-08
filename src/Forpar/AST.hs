@@ -86,7 +86,7 @@ data Statement a  =
   | StData                a SrcSpan (AList (DataGroup a) a)
   | StFormat              a SrcSpan (AList (FormatItem a) a)
   | StDeclaration         a SrcSpan BaseType (AList (Expression a) a)
-  | StDo                  a SrcSpan (Expression a) (Statement a) (Expression a) (Maybe (Expression a))
+  | StDo                  a SrcSpan (Expression a) (DoSpecification a)
   | StIfLogical           a SrcSpan (Expression a) (Statement a) -- Statement should not further recurse
   | StIfArithmetic        a SrcSpan (Expression a) (Expression a) (Expression a) (Expression a)
   | StFunction            a SrcSpan Name (AList Name a) (Expression a)
@@ -128,8 +128,11 @@ data FormatItem a =
 
 data IOElement a = 
     IOExpression (Expression a)
-  | IOTuple a SrcSpan (AList (IOElement a) a) (Expression a)
-  | IOExpressionList a SrcSpan (AList (Expression a) a) 
+  | IOTuple a SrcSpan (AList (IOElement a) a) (DoSpecification a)
+  deriving (Eq, Show, Data, Typeable, Generic)
+
+data DoSpecification a = 
+  DoSpecification a SrcSpan (Statement a) (Expression a) (Maybe (Expression a))
   deriving (Eq, Show, Data, Typeable, Generic)
 
 data Expression a =
@@ -194,6 +197,7 @@ instance FirstParameter (DataGroup a) a
 instance FirstParameter (Comment a) a
 instance FirstParameter (FormatItem a) a
 instance FirstParameter (Expression a) a
+instance FirstParameter (DoSpecification a) a
 
 instance SecondParameter (AList t a) SrcSpan
 instance SecondParameter (ProgramUnit a) SrcSpan
@@ -204,6 +208,7 @@ instance SecondParameter (DataGroup a) SrcSpan
 instance SecondParameter (Comment a) SrcSpan
 instance SecondParameter (FormatItem a) SrcSpan
 instance SecondParameter (Expression a) SrcSpan
+instance SecondParameter (DoSpecification a) SrcSpan
 
 instance Annotated (AList t)
 instance Annotated ProgramUnit
@@ -214,15 +219,14 @@ instance Annotated DataGroup
 instance Annotated Comment
 instance Annotated FormatItem
 instance Annotated Expression
+instance Annotated DoSpecification
 
 instance Annotated IOElement where
   getAnnotation (IOExpression value) = getAnnotation value
   getAnnotation (IOTuple a _ _ _) = a
-  getAnnotation (IOExpressionList a _ _) = a
 
   setAnnotation e (IOExpression value) = IOExpression $ setAnnotation e value
   setAnnotation e (IOTuple _ s b c) = IOTuple e s b c
-  setAnnotation e (IOExpressionList _ s list) = IOExpressionList e s list
 
 instance Spanned (AList t a)
 instance Spanned (ProgramUnit a)
@@ -233,15 +237,14 @@ instance Spanned (DataGroup a)
 instance Spanned (Comment a)
 instance Spanned (FormatItem a)
 instance Spanned (Expression a)
+instance Spanned (DoSpecification a)
 
 instance Spanned (IOElement a) where
   getSpan (IOExpression value) = getSpan value
   getSpan (IOTuple _ s _ _) = s
-  getSpan (IOExpressionList _ s _) = s
 
   setSpan s (IOExpression value) = IOExpression $ setSpan s value
   setSpan s (IOTuple a _ b c) = IOTuple a s b c
-  setSpan s (IOExpressionList a _ list) = IOExpressionList a s list
 
 instance Spanned a => Spanned ([a]) where
   getSpan xs = getListSpan xs
@@ -320,6 +323,7 @@ instance Out a => Out (Comment a)
 instance Out a => Out (FormatItem a)
 instance Out a => Out (Expression a)
 instance Out a => Out (IOElement a)
+instance Out a => Out (DoSpecification a)
 instance Out a => Out (Value a)
 instance Out UnaryOp
 instance Out BinaryOp

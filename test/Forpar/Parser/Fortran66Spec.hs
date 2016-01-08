@@ -217,5 +217,6 @@ spec =
 
       it "parses 'do 42 i = 10, 1, 1'" $ do
         let st = StExpressionAssign () u (varGen "i") (intGen 10)
-        let expectedSt = resetSrcSpan $ StDo () u (labelGen 42) st (intGen 1) (Just $ intGen 1)
+        let doSpec = DoSpecification () u st (intGen 1) (Just $ intGen 1)
+        let expectedSt = resetSrcSpan $ StDo () u (labelGen 42) doSpec
         resetSrcSpan (evalStatementParser "      do 42 i = 10, 1, 1") `shouldBe` expectedSt

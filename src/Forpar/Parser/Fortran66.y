@@ -179,12 +179,12 @@ LOGICAL_IF_STATEMENT : if '(' EXPRESSION ')' OTHER_EXECUTABLE_STATEMENT { StIfLo
 
 DO_STATEMENT :: { Statement A0 }
 DO_STATEMENT
-: do LABEL_IN_STATEMENT DO_SPECIFICATION { let (init, limit, step) = $3 in StDo () (getTransSpan $1 (if isNothing step then $2 else fromJust step)) $2 init limit step }
+: do LABEL_IN_STATEMENT DO_SPECIFICATION { StDo () (getTransSpan $1 $3) $2 $3 }
 
-DO_SPECIFICATION :: { (Statement A0, Expression A0, Maybe (Expression A0))}
+DO_SPECIFICATION :: { DoSpecification A0 }
 DO_SPECIFICATION
-: EXPRESSION_ASSIGNMENT_STATEMENT ',' INT_OR_VAR ',' INT_OR_VAR { ($1, $3, Just $5)}
-| EXPRESSION_ASSIGNMENT_STATEMENT ',' INT_OR_VAR                { ($1, $3, Nothing)}
+: EXPRESSION_ASSIGNMENT_STATEMENT ',' INT_OR_VAR ',' INT_OR_VAR { DoSpecification () (getTransSpan $1 $5) $1 $3 (Just $5) }
+| EXPRESSION_ASSIGNMENT_STATEMENT ',' INT_OR_VAR                { DoSpecification () (getTransSpan $1 $3) $1 $3 Nothing }
 
 INT_OR_VAR :: { Expression A0 } : INTEGER_LITERAL { $1 } | VARIABLE { $1 }
 
@@ -246,13 +246,7 @@ IO_ELEMENT
 -- differentiate it at this stage from VARIABLE. Hence, it is omitted to prevent
 -- reduce/reduce conflict.
 | SUBSCRIPT { IOExpression $1 }
--- TODO after handling blocks |  '(' IO_ELEMENTS ',' DO_SPEC ')' {% getSrcSpan $1 >>= \s -> return $ IOTuple () s $3 $5 }
-| '(' ELEMENTS ')' { IOExpressionList () (getTransSpan $1 $3) $ aReverse $2 } 
-
-ELEMENTS :: { AList (Expression A0) A0 }
-ELEMENTS
-: ELEMENTS ',' ELEMENT { setSpan (getTransSpan $1 $3) $ $3 `aCons` $1 }
-| ELEMENT { AList () (getSpan $1) [ $1 ] }
+| '(' IO_ELEMENTS ',' DO_SPECIFICATION ')' { IOTuple () (getTransSpan $1 $5) $2 $4 }
 
 ELEMENT :: { Expression A0 }
 ELEMENT
