@@ -33,7 +33,10 @@ spec =
                 _ -> False
 
       it "lexes alphanumeric identifier" $ do
-        resetSrcSpan (singleLexer'App "      m42") `shouldBe` resetSrcSpan (Just $ TId u "m42")
+        resetSrcSpan (collectFixedFormTokens "      e42") `shouldBe` resetSrcSpan (Just $ [TId u "e42", TEOF u] )
+
+      it "lexes exponent" $ do
+        resetSrcSpan (collectFixedFormTokens "      42 e42") `shouldBe` resetSrcSpan (Just $ [TInt u "42", TExponent u "e42", TEOF u])
 
       it "lexes 'function'" $ do
         resetSrcSpan (singleLexer'App "      function") `shouldBe` resetSrcSpan (Just $ TFunction u)
