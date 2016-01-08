@@ -40,6 +40,35 @@ spec =
   describe "Fortran 66 Parser" $ do
     describe "Expressions" $ do
       describe "Arithmetic expressions" $ do
+        describe "Real numbers" $ do
+          it "parses 'hello" $ do
+            let expectedExp = resetSrcSpan $ (varGen "hello")
+            resetSrcSpan (evalExpressionParser "      hello") `shouldBe` expectedExp
+
+          it "parses '3.14" $ do
+            let expectedExp = resetSrcSpan $ ExpValue () u (ValReal "3.14")
+            resetSrcSpan (evalExpressionParser "      3.14") `shouldBe` expectedExp
+
+          it "parses '.14" $ do
+            let expectedExp = resetSrcSpan $ ExpValue () u (ValReal ".14")
+            resetSrcSpan (evalExpressionParser "      .14") `shouldBe` expectedExp
+
+          it "parses '3." $ do
+            let expectedExp = resetSrcSpan $ ExpValue () u (ValReal "3.")
+            resetSrcSpan (evalExpressionParser "      3.") `shouldBe` expectedExp
+
+          it "parses '3E12" $ do
+            let expectedExp = resetSrcSpan $ ExpValue () u (ValReal "3e12")
+            resetSrcSpan (evalExpressionParser "      3E12") `shouldBe` expectedExp
+
+          it "parses '3.14d12" $ do
+            let expectedExp = resetSrcSpan $ ExpValue () u (ValReal "3.14d12")
+            resetSrcSpan (evalExpressionParser "      3.14d12") `shouldBe` expectedExp
+
+          it "parses '.14d+1" $ do
+            let expectedExp = resetSrcSpan $ ExpValue () u (ValReal ".14d+1")
+            resetSrcSpan (evalExpressionParser "      .14d+1") `shouldBe` expectedExp
+
         it "parses '3'" $ do
           let expectedExp = resetSrcSpan $ intGen 3
           resetSrcSpan (evalExpressionParser "      3") `shouldBe` expectedExp
@@ -171,6 +200,10 @@ spec =
           let cond = ExpBinary () u Subtraction (intGen 10) (intGen 5)
           let expectedSt = resetSrcSpan $ StIfArithmetic () u cond (labelGen 10) (labelGen 20) (labelGen 30)
           resetSrcSpan (evalStatementParser "      if (10 - 5) 10, 20, 30") `shouldBe` expectedSt
+
+        it "parses 'IF (IY) 5,6,6" $ do
+          let expectedSt = resetSrcSpan $ StIfArithmetic () u (varGen "iy") (labelGen 5) (labelGen 6) (labelGen 6)
+          resetSrcSpan (evalStatementParser "      IF (IY) 5,6,6") `shouldBe` expectedSt
 
       describe "ASSIGNMENT" $ do
         it "parses 'f = 1'" $ do

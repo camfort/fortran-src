@@ -44,10 +44,8 @@ $special = [\ \=\+\-\*\/\(\)\,\.\$]
 @integerConst = $digit+ -- Integer constant
 @posIntegerConst = [1-9] $digit*
 
--- Real numbers
-@basicReal = (@integerConst '.' @integerConst | @integerConst '.' | '.' @integerConst)
+-- For reals
 @exponent = [ed] [\+\-]? @integerConst
-@realConst = (@basicReal | @integerConst) @exponent?
 
 -- For format items
 @repeat = @posIntegerConst?
@@ -68,6 +66,7 @@ tokens :-
   <st> "("                              { getLexemeSpan >>= \s -> return $ Just $ TLeftPar s }
   <st> ")"                              { getLexemeSpan >>= \s -> return $ Just $ TRightPar s }
   <st> ","                              { getLexemeSpan >>= \s -> return $ Just $ TComma s }
+  <st> "."                              { getLexemeSpan >>= \s -> return $ Just $ TDot s }
 
   -- Tokens related to procedures and subprograms
   <st> "function"                       { getLexemeSpan >>= \s -> return $ Just $ TFunction s }
@@ -114,8 +113,8 @@ tokens :-
 
   -- Tokens needed to parse integers, reals, double precision and complex 
   -- constants
+  <st> @exponent / { exponentP }        { getLexemeSpan >>= \s -> getMatch >>= \m -> return $ Just $ TExponent s m }
   <st> @integerConst                    { getLexemeSpan >>= \s -> getMatch >>= \m -> return $ Just $ TInt s m }
-  <st> @realConst                       { getLexemeSpan >>= \s -> getMatch >>= \m -> return $ Just $ TReal s m }
 
   -- Logicals
   <st> ".true."                         { getLexemeSpan >>= \s -> return $ Just $ TTrue s }
@@ -187,6 +186,17 @@ withinLabelColsP _ aiOld _ aiNew = getCol aiOld >= 1 && getCol aiNew <= 6
 atColP :: Integer -> AlexInput -> Bool
 atColP n ai = (posColumn . aiPosition) ai == n
 
+-- This predicate allows to distinguish identifiers and real exponent tokens
+-- by looking at previous token. Since exponent can only follow a "." or an
+-- integer token. Anything other previous token will prevent matching the input
+-- as an exponent token.
+exponentP :: user -> AlexInput -> Int -> AlexInput -> Bool
+exponentP _ _ _ ai = 
+  case aiPreviousToken ai of
+    Just (TInt _ _) -> True
+    Just (TDot _) -> True
+    _ -> False
+
 --------------------------------------------------------------------------------
 -- Lexer helpers
 --------------------------------------------------------------------------------
@@ -220,6 +230,11 @@ instance Spanned Lexeme where
         me = lexemeEnd lexeme in
       SrcSpan (fromJust ms) (fromJust me)
   setSpan _ = error "Should not be called"
+
+updatePreviousToken :: Maybe Token -> Parse AlexInput ()
+updatePreviousToken maybeToken = do
+  ai <- getAlex
+  putAlex $ ai { aiPreviousToken = maybeToken }
 
 getLexemeSpan :: Parse AlexInput SrcSpan
 getLexemeSpan = do
@@ -336,6 +351,7 @@ toStartCode startCode = do
 data Token = TLeftPar             SrcSpan
            | TRightPar            SrcSpan
            | TComma               SrcSpan
+           | TDot                 SrcSpan
            | TFunction            SrcSpan
            | TSubroutine          SrcSpan
            | TBlockData           SrcSpan
@@ -368,7 +384,7 @@ data Token = TLeftPar             SrcSpan
            | TBlankDescriptor     SrcSpan Integer
            | TScaleFactor         SrcSpan Integer
            | TInt                 SrcSpan String
-           | TReal                SrcSpan String
+           | TExponent            SrcSpan String
            | TTrue                SrcSpan
            | TFalse               SrcSpan
            | TOpPlus              SrcSpan
@@ -426,6 +442,7 @@ data AlexInput = AlexInput
   , aiLexeme                    :: Lexeme
   , aiWhiteSensitiveCharCount   :: Int
   , aiStartCode                 :: Int
+  , aiPreviousToken             :: Maybe Token
   } deriving (Show)
 
 instance Loc (ParseState AlexInput) where
@@ -442,7 +459,8 @@ vanillaAlexInput = AlexInput
   , aiPreviousChar = '\n'
   , aiLexeme = initLexeme
   , aiWhiteSensitiveCharCount = 6
-  , aiStartCode = 0 }
+  , aiStartCode = 0
+  , aiPreviousToken = Nothing }
 
 updateLexeme :: Maybe Char -> Position -> AlexInput -> AlexInput
 updateLexeme maybeChar p ai =
@@ -572,9 +590,9 @@ lexer' = do
     AlexSkip newAlex _ -> putAlex newAlex >> lexer'
     AlexToken newAlex _ action -> do
       putAlex newAlex
-      maybeTok <- action
-      case maybeTok of
-        Just _ -> return maybeTok
+      maybeToken <- action
+      case maybeToken of
+        Just _ -> updatePreviousToken maybeToken >> return maybeToken
         Nothing -> lexer'
 
 alexScanUser :: () -> AlexInput -> Int -> AlexReturn (Parse AlexInput (Maybe Token))

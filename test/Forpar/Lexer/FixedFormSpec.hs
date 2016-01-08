@@ -31,7 +31,7 @@ spec =
                 Just (TEOF _) -> True
                 Just (TNewline _) -> True
                 _ -> False
-        
+
       it "lexes alphanumeric identifier" $ do
         resetSrcSpan (singleLexer'App "      m42") `shouldBe` resetSrcSpan (Just $ TId u "m42")
 
@@ -101,6 +101,9 @@ spec =
 
       it "becomes case sensitive" $ do
         resetSrcSpan (singleLexer'App "      5h a= 1") `shouldBe` resetSrcSpan (Just $ THollerith u " a= 1")
+
+    it "lexer if statement '        IF (IY) 5,6,6'" $ do
+      resetSrcSpan (collectFixedFormTokens "      IF (IY) 5,6,6") `shouldBe` resetSrcSpan (Just [TIf u, TLeftPar u, TId u "iy", TRightPar u, TInt u "5", TComma u, TInt u "6", TComma u, TInt u "6", TEOF u])
 
 example1 = unlines [
   "      intEGerix",

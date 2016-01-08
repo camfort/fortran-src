@@ -256,6 +256,16 @@ instance {-# OVERLAPPABLE #-} (Spanned a, Spanned b) => Spanned (a, b) where
   getSpan (x,y) = getTransSpan x y
   setSpan _ = undefined
 
+instance {-# OVERLAPPING #-}(Spanned a, Spanned b, Spanned c) => Spanned (Maybe a, Maybe b, Maybe c) where
+  getSpan (Just x,_,Just z) = getTransSpan x z
+  getSpan (Just x,Just y,Nothing) = getTransSpan x y
+  getSpan (Nothing,Just y,Just z) = getTransSpan y z
+  getSpan (Just x,Nothing,Nothing) = getSpan x
+  getSpan (Nothing,Just y,Nothing) = getSpan y
+  getSpan (Nothing,Nothing,Just z) = getSpan z
+  getSpan (Nothing,Nothing,Nothing) = undefined
+  setSpan _ = undefined
+
 instance {-# OVERLAPPING #-}(Spanned a, Spanned b, Spanned c) => Spanned (a, Maybe b, Maybe c) where
   getSpan (x,_,Just z) = getTransSpan x z
   getSpan (x,Just y,Nothing) = getTransSpan x y

@@ -46,6 +46,10 @@ instance Out SrcSpan where
 initSrcSpan :: SrcSpan
 initSrcSpan = SrcSpan initPosition initPosition
 
+instance Spanned SrcSpan where
+  getSpan s = s
+  setSpan _ _ = undefined
+
 class Spanned a where
   getSpan :: a -> SrcSpan
   setSpan :: SrcSpan -> a -> a

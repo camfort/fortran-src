@@ -26,6 +26,7 @@ import Forpar.AST
   '('                   { TLeftPar _ }
   ')'                   { TRightPar _ }
   ','                   { TComma _ }
+  '.'                   { TDot _ }
   function              { TFunction _ }
   subroutine            { TSubroutine _ }
   blockData             { TBlockData _ }
@@ -58,7 +59,7 @@ import Forpar.AST
   blankDescriptor       { TBlankDescriptor _ _ }
   scaleFactor           { TScaleFactor _ _ }
   int                   { TInt _ _ }
-  real                  { TReal _ _ }
+  exponent              { TExponent _ _ }
   true                  { TTrue _ }
   false                 { TFalse _ }
   '+'                   { TOpPlus _ }
@@ -86,6 +87,7 @@ import Forpar.AST
 %right not
 
 %nonassoc '>' '<' '>=' '<=' '==' '!='
+%nonassoc RELATIONAL
 
 %left '+' '-'
 %left '*' '/'
@@ -173,7 +175,7 @@ STATEMENT
 | NONEXECUTABLE_STATEMENT { $1 }
 
 LOGICAL_IF_STATEMENT :: { Statement A0 }
-LOGICAL_IF_STATEMENT : if '(' LOGICAL_EXPRESSION ')' OTHER_EXECUTABLE_STATEMENT { StIfLogical () (getTransSpan $1 $5) $3 $5 }
+LOGICAL_IF_STATEMENT : if '(' EXPRESSION ')' OTHER_EXECUTABLE_STATEMENT { StIfLogical () (getTransSpan $1 $5) $3 $5 }
 
 DO_STATEMENT :: { Statement A0 }
 DO_STATEMENT
@@ -193,7 +195,7 @@ OTHER_EXECUTABLE_STATEMENT
 | goto LABEL_IN_STATEMENT { StGotoUnconditional () (getTransSpan $1 $2) $2 }
 | goto VARIABLE LABELS_IN_STATEMENT { StGotoAssigned () (getTransSpan $1 $3) $2 $3 }
 | goto LABELS_IN_STATEMENT VARIABLE { StGotoComputed () (getTransSpan $1 $3) $2 $3 }
-| if '(' ARITHMETIC_EXPRESSION ')' LABEL_IN_STATEMENT ',' LABEL_IN_STATEMENT ',' LABEL_IN_STATEMENT { StIfArithmetic () (getTransSpan $1 $9) $3 $5 $7 $9 }
+| if '(' EXPRESSION ')' LABEL_IN_STATEMENT ',' LABEL_IN_STATEMENT ',' LABEL_IN_STATEMENT { StIfArithmetic () (getTransSpan $1 $9) $3 $5 $7 $9 }
 | call SUBROUTINE_NAME CALLABLE_EXPRESSIONS { StCall () (getTransSpan $1 $3) $2 $ Just $3 }
 | call SUBROUTINE_NAME { StCall () (getTransSpan $1 $2) $2 Nothing }
 | return { StReturn () $ getSpan $1 }
@@ -374,38 +376,25 @@ CALLABLE_EXPRESSION
 
 EXPRESSION :: { Expression A0 }
 EXPRESSION
-: ARITHMETIC_EXPRESSION { $1 }
-| LOGICAL_EXPRESSION    { $1 }
-
-ARITHMETIC_EXPRESSION :: { Expression A0 }
-ARITHMETIC_EXPRESSION
-: ARITHMETIC_EXPRESSION '+' ARITHMETIC_EXPRESSION { ExpBinary () (getTransSpan $1 $3) Addition $1 $3 }
-| ARITHMETIC_EXPRESSION '-' ARITHMETIC_EXPRESSION { ExpBinary () (getTransSpan $1 $3) Subtraction $1 $3 }
-| ARITHMETIC_EXPRESSION '*' ARITHMETIC_EXPRESSION { ExpBinary () (getTransSpan $1 $3) Multiplication $1 $3 }
-| ARITHMETIC_EXPRESSION '/' ARITHMETIC_EXPRESSION { ExpBinary () (getTransSpan $1 $3) Division $1 $3 }
-| ARITHMETIC_EXPRESSION '**' ARITHMETIC_EXPRESSION { ExpBinary () (getTransSpan $1 $3) Exponentiation $1 $3 }
-| ARITHMETIC_SIGN ARITHMETIC_EXPRESSION %prec NEGATION { ExpUnary () (let (SrcSpan p1 _) = (fst $1); (SrcSpan _ p2) = getSpan $2 in SrcSpan p1 p2) (snd $1) $2 }
-| '(' ARITHMETIC_EXPRESSION ')' { setSpan (getTransSpan $1 $3) $2 }
+: EXPRESSION '+' EXPRESSION { ExpBinary () (getTransSpan $1 $3) Addition $1 $3 }
+| EXPRESSION '-' EXPRESSION { ExpBinary () (getTransSpan $1 $3) Subtraction $1 $3 }
+| EXPRESSION '*' EXPRESSION { ExpBinary () (getTransSpan $1 $3) Multiplication $1 $3 }
+| EXPRESSION '/' EXPRESSION { ExpBinary () (getTransSpan $1 $3) Division $1 $3 }
+| EXPRESSION '**' EXPRESSION { ExpBinary () (getTransSpan $1 $3) Exponentiation $1 $3 }
+| ARITHMETIC_SIGN EXPRESSION %prec NEGATION { ExpUnary () (let (SrcSpan p1 _) = (fst $1); (SrcSpan _ p2) = getSpan $2 in SrcSpan p1 p2) (snd $1) $2 }
+| EXPRESSION or EXPRESSION { ExpBinary () (getTransSpan $1 $3) Or $1 $3 }
+| EXPRESSION and EXPRESSION { ExpBinary () (getTransSpan $1 $3) And $1 $3 }
+| not EXPRESSION { ExpUnary () (getTransSpan $1 $2) Not $2 }
+| EXPRESSION RELATIONAL_OPERATOR EXPRESSION %prec RELATIONAL { ExpBinary () (getTransSpan $1 $3) $2 $1 $3 }
+| '(' EXPRESSION ')' { setSpan (getTransSpan $1 $3) $2 }
 | INTEGER_LITERAL               { $1 }
 | REAL_LITERAL                  { $1 }
 | COMPLEX_LITERAL               { $1 }
+| LOGICAL_LITERAL             { $1 }
 | SUBSCRIPT                     { $1 }
 -- There should be FUNCTION_CALL here but as far as the parser is concerned it is same as SUBSCRIPT,
 -- hence putting it here would cause a reduce/reduce conflict.
 | VARIABLE                      { $1 }
-
-LOGICAL_EXPRESSION :: { Expression A0 }
-LOGICAL_EXPRESSION
-: LOGICAL_EXPRESSION or LOGICAL_EXPRESSION { ExpBinary () (getTransSpan $1 $3) Or $1 $3 }
-| LOGICAL_EXPRESSION and LOGICAL_EXPRESSION { ExpBinary () (getTransSpan $1 $3) And $1 $3 }
-| not LOGICAL_EXPRESSION { ExpUnary () (getTransSpan $1 $2) Not $2 }
-| '(' LOGICAL_EXPRESSION ')'  { setSpan (getTransSpan $1 $3) $2 }
-| LOGICAL_LITERAL             { $1 }
-| ARITHMETIC_EXPRESSION RELATIONAL_OPERATOR ARITHMETIC_EXPRESSION { ExpBinary () (getTransSpan $1 $3) $2 $1 $3 }
-| SUBSCRIPT                   { $1 }
--- There should be FUNCTION_CALL here but as far as the parser is concerned it is same as SUBSCRIPT,
--- hence putting it here would cause a reduce/reduce conflict.
-| VARIABLE                    { $1 }
 
 RELATIONAL_OPERATOR :: { BinaryOp }
 RELATIONAL_OPERATOR
@@ -477,7 +466,21 @@ SIGNED_REAL_LITERAL
 : ARITHMETIC_SIGN REAL_LITERAL { ExpUnary () (let (SrcSpan p1 _) = (fst $1); (SrcSpan _ p2) = (getSpan $2) in SrcSpan p1 p2) (snd $1) $2 }
 | REAL_LITERAL { $1 }
 
-REAL_LITERAL :: { Expression A0 } : real { ExpValue () (getSpan $1) $ let (TReal _ r) = $1 in (ValReal r) }
+REAL_LITERAL :: { Expression A0 } 
+REAL_LITERAL
+: int EXPONENT { makeReal (Just $1) Nothing Nothing (Just $2) }
+| int '.' MAYBE_EXPONENT { makeReal (Just $1) (Just $2) Nothing $3 }
+| '.' int MAYBE_EXPONENT { makeReal Nothing (Just $1) (Just $2) $3 }
+| int '.' int MAYBE_EXPONENT { makeReal (Just $1) (Just $2) (Just $3) $4 }
+
+MAYBE_EXPONENT :: { Maybe (SrcSpan, String) }
+MAYBE_EXPONENT
+: EXPONENT { Just $1 }
+| {-EMPTY-} { Nothing }
+
+EXPONENT :: { (SrcSpan, String) }
+EXPONENT
+: exponent { let (TExponent s exp) = $1 in (s, exp) }
 
 SIGNED_NUMERIC_LITERAL :: { Expression A0 }
 SIGNED_NUMERIC_LIETERAL
@@ -513,6 +516,18 @@ LABEL_IN_STATEMENT :: { Expression A0 } : int { ExpValue () (getSpan $1) (let (T
 {
 
 type A0 = ()
+
+makeReal :: Maybe Token -> Maybe Token -> Maybe Token -> Maybe (SrcSpan, String) -> Expression A0
+makeReal i1 dot i2 exp = 
+  let span1   = getSpan (i1, dot, i2)
+      span2   = case exp of 
+                  Just e -> getTransSpan span1 (fst e) 
+                  Nothing -> span1
+      i1Str   = case i1 of { Just (TInt _ s) -> s ; _ -> "" }
+      dotStr  = case dot of { Just (TDot _) -> "." ; _ -> "" }
+      i2Str   = case i2 of { Just (TInt _ s) -> s ; _ -> "" }
+      expStr  = case exp of { Just (_, s) -> s ; _ -> "" } in
+    ExpValue () span2 (ValReal $ i1Str ++ dotStr ++ i2Str ++ expStr)
 
 fortran66Parser :: String -> String -> [ ProgramUnit A0 ]
 fortran66Parser sourceCode filename = 
