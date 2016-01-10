@@ -1,4 +1,5 @@
 {-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
 
 module Forpar.ParserMonadSpec where
 
@@ -11,8 +12,11 @@ import Forpar.Util.Position
 vanillaParseState :: ParseState String
 vanillaParseState = ParseState { psAlexInput = "", psVersion = Fortran66, psFilename = "<unknown>" }
 
-instance Loc (ParseState String) where
+instance Loc String where
   getPos = error "Never needed"
+
+instance LastToken String String where
+  getLastToken  = error "Never needed"
 
 data SomeInput = SomeInput { p :: Position }
 
@@ -22,11 +26,11 @@ initPos = Position 5 1 2
 initSomeInput :: SomeInput
 initSomeInput = SomeInput { p = initPos }
 
-instance Loc (ParseState SomeInput) where
-  getPos = p . psAlexInput
-
 instance Loc SomeInput where
   getPos = p
+
+instance LastToken SomeInput String where
+  getLastToken  = error "Never needed"
 
 vanillaSomeInput :: ParseState SomeInput
 vanillaSomeInput = ParseState { psAlexInput = initSomeInput, psVersion = Fortran66, psFilename = "some.f" }

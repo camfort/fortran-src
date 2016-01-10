@@ -201,25 +201,25 @@ exponentP _ _ _ ai =
 -- Lexer helpers
 --------------------------------------------------------------------------------
 
-getLexeme :: Parse AlexInput Lexeme
+getLexeme :: LexAction Lexeme
 getLexeme = do
   ai <- getAlex
   return $ aiLexeme ai
 
-putLexeme :: Lexeme -> Parse AlexInput ()
+putLexeme :: Lexeme -> LexAction ()
 putLexeme lexeme = do
   ai <- getAlex
   putAlex $ ai { aiLexeme = lexeme }
 
-resetLexeme :: Parse AlexInput ()
+resetLexeme :: LexAction ()
 resetLexeme = putLexeme initLexeme
 
-getMatch :: Parse AlexInput String
+getMatch :: LexAction String
 getMatch = do
   lexeme <- getLexeme
   return $ (reverse . lexemeMatch) lexeme
 
-putMatch :: String -> Parse AlexInput ()
+putMatch :: String -> LexAction ()
 putMatch newMatch = do
   lexeme <- getLexeme
   putLexeme $ lexeme { lexemeMatch = newMatch }
@@ -231,12 +231,12 @@ instance Spanned Lexeme where
       SrcSpan (fromJust ms) (fromJust me)
   setSpan _ = error "Should not be called"
 
-updatePreviousToken :: Maybe Token -> Parse AlexInput ()
+updatePreviousToken :: Maybe Token -> LexAction ()
 updatePreviousToken maybeToken = do
   ai <- getAlex
   putAlex $ ai { aiPreviousToken = maybeToken }
 
-getLexemeSpan :: Parse AlexInput SrcSpan
+getLexemeSpan :: LexAction SrcSpan
 getLexemeSpan = do
   lexeme <- getLexeme
   return $ getSpan lexeme
@@ -246,7 +246,7 @@ getLexemeSpan = do
 -- we know the comment would start at column, and we have access to the absolute
 -- offset so instead of using match, lexComment takes a slice from the original
 -- source input
-lexComment :: Maybe Char -> Parse AlexInput (Maybe Token)
+lexComment :: Maybe Char -> LexAction (Maybe Token)
 lexComment mc = do
   m <- getMatch
   s <- getLexemeSpan
@@ -265,7 +265,7 @@ lexComment mc = do
         Just (_, newAlex) -> lexComment (Just $ (head . lexemeMatch . aiLexeme) newAlex)
         Nothing -> return $ Just $ TComment s $ tail m
 
-lexHollerith :: Parse AlexInput (Maybe Token)
+lexHollerith :: LexAction (Maybe Token)
 lexHollerith = do
   match' <- getMatch
   let len = read $ init match' -- Get n of "nH" from string
@@ -278,7 +278,7 @@ lexHollerith = do
     hollerith <- lexed
     return $ THollerith s hollerith
 
-lexN :: Int -> Parse AlexInput (Maybe String)
+lexN :: Int -> LexAction (Maybe String)
 lexN n = do
   alex <- getAlex
   match' <- getMatch
@@ -294,7 +294,7 @@ lexN n = do
 
 -- Lexing various field descriptors
 
-lexFieldDescriptorDEFG :: Parse AlexInput (Maybe Token)
+lexFieldDescriptorDEFG :: LexAction (Maybe Token)
 lexFieldDescriptorDEFG = do
   match <- getMatch
   let (repeat, descriptor, width, rest) = takeRepeatDescriptorWidth match
@@ -302,21 +302,21 @@ lexFieldDescriptorDEFG = do
   s <- getLexemeSpan
   return $ Just $ TFieldDescriptorDEFG s repeat descriptor width fractionWidth
 
-lexFieldDescriptorAIL :: Parse AlexInput (Maybe Token)
+lexFieldDescriptorAIL :: LexAction (Maybe Token)
 lexFieldDescriptorAIL = do
   match <- getMatch
   let (repeat, descriptor, width, rest) = takeRepeatDescriptorWidth match
   s <- getLexemeSpan
   return $ Just $ TFieldDescriptorAIL s repeat descriptor width
 
-lexBlankDescriptor :: Parse AlexInput (Maybe Token)
+lexBlankDescriptor :: LexAction (Maybe Token)
 lexBlankDescriptor = do
   match <- getMatch
   let (width, _) = takeNumber match
   s <- getLexemeSpan
   return $ Just $ TBlankDescriptor s (read width :: Integer)
 
-lexScaleFactor :: Parse AlexInput (Maybe Token)
+lexScaleFactor :: LexAction (Maybe Token)
 lexScaleFactor = do
   match <- getMatch
   let (sign, rest) = if head match == '-' then (-1, tail match) else (1, match)
@@ -336,7 +336,7 @@ takeRepeatDescriptorWidth str =
 takeNumber :: String -> (String, String)
 takeNumber str = span isDigit str
 
-toStartCode :: Int -> Parse AlexInput (Maybe Token)
+toStartCode :: Int -> LexAction (Maybe Token)
 toStartCode startCode = do
   ai <- getAlex
   if startCode == 0
@@ -445,11 +445,13 @@ data AlexInput = AlexInput
   , aiPreviousToken             :: Maybe Token
   } deriving (Show)
 
-instance Loc (ParseState AlexInput) where
-  getPos = getPos . psAlexInput
-
 instance Loc AlexInput where
   getPos = aiPosition
+
+instance LastToken AlexInput Token where
+  getLastToken = aiPreviousToken
+
+type LexAction a = Parse AlexInput Token a
 
 vanillaAlexInput :: AlexInput
 vanillaAlexInput = AlexInput 
@@ -572,14 +574,14 @@ utf8Encode = map fromIntegral . _go . ord
 -- Lexer definition
 --------------------------------------------------------------------------------
 
-lexer :: (Token -> Parse AlexInput a) -> Parse AlexInput a
+lexer :: (Token -> LexAction a) -> LexAction a
 lexer cont = do
    mToken <- lexer'
    case mToken of
      Just token -> cont token
      Nothing -> fail "Unrecognised Token"
             
-lexer' :: Parse AlexInput (Maybe Token)
+lexer' :: LexAction (Maybe Token)
 lexer' = do
   resetLexeme
   alexInput <- getAlex
@@ -595,7 +597,7 @@ lexer' = do
         Just _ -> updatePreviousToken maybeToken >> return maybeToken
         Nothing -> lexer'
 
-alexScanUser :: () -> AlexInput -> Int -> AlexReturn (Parse AlexInput (Maybe Token))
+alexScanUser :: () -> AlexInput -> Int -> AlexReturn (LexAction (Maybe Token))
 
 --------------------------------------------------------------------------------
 -- Functions to help testing & output

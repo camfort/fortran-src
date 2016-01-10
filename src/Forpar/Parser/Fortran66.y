@@ -17,7 +17,7 @@ import Forpar.AST
 %name programParser PROGRAM
 %name statementParser STATEMENT
 %name expressionParser EXPRESSION
-%monad { Parse AlexInput }
+%monad { LexAction }
 %lexer { lexer } { TEOF _ }
 %tokentype { Token }
 %error { parseError }
@@ -541,7 +541,7 @@ fortran66Parser :: String -> String -> [ ProgramUnit A0 ]
 fortran66Parser sourceCode filename = 
   evalParse programParser $ initParseState sourceCode Fortran66 filename
 
-parseError :: Token -> Parse AlexInput a
-parseError _ = fail "Couldn't parse."
+parseError :: Token -> LexAction a
+parseError _ = fail "Parsing failed."
 
 }

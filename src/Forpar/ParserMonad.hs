@@ -2,6 +2,7 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE FunctionalDependencies #-}
 
 module Forpar.ParserMonad where
 
@@ -10,6 +11,8 @@ import Control.Exception
 import Control.Monad.State
 import Control.Monad.Except
 import Control.Applicative
+
+import Data.Typeable
 
 import Forpar.Util.Position
 
@@ -30,26 +33,34 @@ data ParseState a = ParseState
   , psFilename :: String -- To save correct source location in AST
   }
 
-data ParseError = ParseError
-  { errPos      :: Position
-  , errFilename :: String
-  , errMsg      :: String }
+data ParseError a b = ParseError
+  { errPos        :: Position
+  , errLastToken  :: Maybe b
+  , errFilename   :: String
+  , errMsg        :: String }
 
-instance Show ParseError where
-  show err = show (errPos err) ++ ": " ++ errMsg err
+instance Show b => Show (ParseError a b) where
+  show err = 
+    let lastTokenMsg = 
+          (case errLastToken err of
+            Just a -> "Last parsed token: " ++ show a ++ "."
+            Nothing -> "Not token had been lexed.") in
+    show (errPos err) ++ ": " ++ errMsg err ++ lastTokenMsg
 
-instance Exception ParseError
+instance (Typeable a, Typeable b, Show a, Show b) => Exception (ParseError a b)
 
-data ParseResult b a = ParseOk a (ParseState b) 
-                     | ParseFailed ParseError
+data ParseResult b c a = ParseOk a (ParseState b) | ParseFailed (ParseError b c)
+
+class LastToken a b | a -> b where
+  getLastToken :: (Show b) => a -> Maybe b
 
 -------------------------------------------------------------------------------
 -- Parser Monad definition
 -------------------------------------------------------------------------------
 
-data Parse b a = Parse { unParse :: ParseState b -> ParseResult b a }
+data Parse b c a = Parse { unParse :: ParseState b -> ParseResult b c a }
 
-instance (Loc (ParseState b)) => Monad (Parse b) where
+instance (Loc b, LastToken b c, Show c) => Monad (Parse b c) where
   return a = Parse $ \s -> ParseOk a s
 
   (Parse m) >>= f = Parse $ \s -> 
@@ -58,22 +69,23 @@ instance (Loc (ParseState b)) => Monad (Parse b) where
       ParseFailed e -> ParseFailed e
 
   fail msg = Parse $ \s -> ParseFailed $ ParseError 
-    { errPos      = getPos s
-    , errFilename = psFilename s
-    , errMsg      = msg }
+    { errPos        = (getPos . psAlexInput) s
+    , errLastToken  = (getLastToken . psAlexInput) s
+    , errFilename   = psFilename s
+    , errMsg        = msg }
 
-instance (Loc (ParseState b)) => Functor (Parse b) where
+instance (Loc b, LastToken b c, Show c) => Functor (Parse b c) where
   fmap = liftM
 
-instance (Loc (ParseState b)) => Applicative (Parse b) where
+instance (Loc b, LastToken b c, Show c) => Applicative (Parse b c) where
   pure  = return
   (<*>) = ap
 
-instance (Loc (ParseState b)) => MonadState (ParseState b) (Parse b) where
+instance (Loc b, LastToken b c, Show c) => MonadState (ParseState b) (Parse b c) where
   get = Parse $ \s -> ParseOk s s
   put s = Parse $ \_ -> ParseOk () s
 
-instance (Loc (ParseState b)) => MonadError ParseError (Parse b) where
+instance (Loc b, LastToken b c, Show c) => MonadError (ParseError b c) (Parse b c) where
   throwError e = Parse $ \_ -> ParseFailed e
 
   (Parse m) `catchError` f = Parse $ \s ->
@@ -85,27 +97,27 @@ instance (Loc (ParseState b)) => MonadError ParseError (Parse b) where
 -- Parser helper functions
 -------------------------------------------------------------------------------
 
-getVersion :: (Loc (ParseState a)) => Parse a FortranVersion
+getVersion :: (Loc a, LastToken a b, Show b) => Parse a b FortranVersion
 getVersion = do
   s <- get
   return (psVersion s)
 
-putAlex :: (Loc (ParseState a)) => a -> Parse a ()
+putAlex :: (Loc a, LastToken a b, Show b) => a -> Parse a b ()
 putAlex ai = do
   s <- get
   put (s { psAlexInput = ai })
 
-getAlex :: (Loc (ParseState a)) => Parse a a
+getAlex :: (Loc a, LastToken a b, Show b) => Parse a b a
 getAlex = do
   s <- get
   return (psAlexInput s)
 
-getPosition :: (Loc (ParseState a), Loc a) => Parse a Position
+getPosition :: (Loc a, LastToken a b, Show b) => Parse a b Position
 getPosition = do
   parseState <- get
-  return $ getPos parseState
+  return $ getPos $ psAlexInput parseState
 
-getSrcSpan :: (Loc (ParseState a), Loc a) => Position -> Parse a SrcSpan
+getSrcSpan :: (Loc a, LastToken a b, Show b) => Position -> Parse a b SrcSpan
 getSrcSpan loc1 = do
   loc2 <- getPosition
   return $ SrcSpan loc1 loc2
@@ -114,26 +126,26 @@ getSrcSpan loc1 = do
 -- Generic token collection and functions
 -------------------------------------------------------------------------------
 
-runParse :: (Loc (ParseState b)) => Parse b a -> ParseState b -> (a, ParseState b)
+runParse :: (Loc b, LastToken b c, Show c) => Parse b c a -> ParseState b -> (a, ParseState b)
 runParse lexer initState = 
   case unParse lexer initState of
     ParseOk a s -> (a, s)
     ParseFailed e -> error $ show e
 
-evalParse :: (Loc (ParseState b)) => Parse b a -> ParseState b -> a
+evalParse :: (Loc b, LastToken b c, Show c) => Parse b c a -> ParseState b -> a
 evalParse m s = fst (runParse m s)
 
-execParse :: (Loc (ParseState b)) => Parse b a -> ParseState b -> ParseState b
+execParse :: (Loc b, LastToken b c, Show c) => Parse b c a -> ParseState b -> ParseState b
 execParse m s = snd (runParse m s)
 
 class Tok a where
   eofToken :: a -> Bool
 
-collectTokens :: forall a b . (Loc (ParseState b), Tok a) => Parse b (Maybe a) -> ParseState b -> Maybe [a]
+collectTokens :: forall a b . (Loc b, Tok a, LastToken b a, Show a) => Parse b a (Maybe a) -> ParseState b -> Maybe [a]
 collectTokens lexer initState = 
     evalParse (_collectTokens initState) undefined
   where
-    _collectTokens :: (Loc (ParseState b), Tok a) => ParseState b -> Parse b (Maybe [a])
+    _collectTokens :: (Loc b, Tok a, LastToken b a, Show a) => ParseState b -> Parse b a (Maybe [a])
     _collectTokens state = do
       let (_token, _state) = runParse lexer state
       case _token of
