@@ -23,6 +23,7 @@ import Forpar.Util.Position
 data FortranVersion = Fortran66 
                     | Fortran77 
                     | Fortran90 
+                    | Fortran95
                     | Fortran2003 
                     | Fortran2008
                     deriving (Ord, Eq, Show)
