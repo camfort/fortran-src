@@ -8,7 +8,7 @@ import Data.List (isInfixOf, isSuffixOf)
 import Data.Char (toLower)
 
 import Forpar.ParserMonad (FortranVersion(..))
-import Forpar.Lexer.FixedForm (collectFixedFormTokens)
+import Forpar.Lexer.FixedForm (collectFixedTokens)
 import Forpar.Parser.Fortran66 (fortran66Parser)
 
 programName = "Forpar"
@@ -25,12 +25,15 @@ main = do
     let version = case fortranVersion opts of { Just v -> v; Nothing -> deduceVersion path }
     case action opts of
       Lex -> 
-        case version of 
-          Fortran66 -> do
-            let tokens = collectFixedFormTokens contents
+        if version `elem` [Fortran66, Fortran77]
+        then do
+            let tokens = collectFixedTokens version contents
             case tokens of
               Just tokens' -> putStrLn $ show tokens'
               Nothing -> putStrLn "Cannot lex the file"
+        else if version `elem` [Fortran90, Fortran2003, Fortran2008]
+        then fail "for now"
+        else ioError $ userError $ usageInfo programName options
       Parse ->
         case version of 
           Fortran66 -> pp $ fortran66Parser contents path

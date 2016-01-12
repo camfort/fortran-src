@@ -67,8 +67,10 @@ tokens :-
   <st> ")"                              { getLexemeSpan >>= \s -> return $ Just $ TRightPar s }
   <st> ","                              { getLexemeSpan >>= \s -> return $ Just $ TComma s }
   <st> "."                              { getLexemeSpan >>= \s -> return $ Just $ TDot s }
+  <st> ":" / { fortran77P }             { getLexemeSpan >>= \s -> return $ Just $ TColon s }
 
   -- Tokens related to procedures and subprograms
+  <st> "program"                        { getLexemeSpan >>= \s -> return $ Just $ TProgram s }
   <st> "function"                       { getLexemeSpan >>= \s -> return $ Just $ TFunction s }
   <st> "subroutine"                     { getLexemeSpan >>= \s -> return $ Just $ TSubroutine s }
   <st> "blockdata"                      { getLexemeSpan >>= \s -> return $ Just $ TBlockData s }
@@ -84,6 +86,7 @@ tokens :-
   <st> "if"                             { getLexemeSpan >>= \s -> return $ Just $ TIf s }
   <st> "call"                           { getLexemeSpan >>= \s -> return $ Just $ TCall s }
   <st> "return"                         { getLexemeSpan >>= \s -> return $ Just $ TReturn s }
+  <st> "save" / { fortran77P }          { getLexemeSpan >>= \s -> return $ Just $ TSave s }
   <st> "continue"                       { getLexemeSpan >>= \s -> return $ Just $ TContinue s }
   <st> "stop"                           { getLexemeSpan >>= \s -> return $ Just $ TStop s }
   <st> "pause"                          { getLexemeSpan >>= \s -> return $ Just $ TPause s }
@@ -95,6 +98,9 @@ tokens :-
   <st> "rewind"                         { getLexemeSpan >>= \s -> return $ Just $ TRewind s }
   <st> "backspace"                      { getLexemeSpan >>= \s -> return $ Just $ TBackspace s }
   <st> "endfile"                        { getLexemeSpan >>= \s -> return $ Just $ TEndfile s }
+  <st> "inquire" / { fortran77P }       { getLexemeSpan >>= \s -> return $ Just $ TInquire s }
+  <st> "open" / { fortran77P }          { getLexemeSpan >>= \s -> return $ Just $ TOpen s }
+  <st> "close" / { fortran77P }         { getLexemeSpan >>= \s -> return $ Just $ TClose s }
 
   -- Tokens related to non-executable statements
 
@@ -104,6 +110,12 @@ tokens :-
   <st> "equivalence"                    { getLexemeSpan >>= \s -> return $ Just $ TEquivalence s }
   <st> "external"                       { getLexemeSpan >>= \s -> return $ Just $ TExternal s }
   <st> @datatype                        { getLexemeSpan >>= \s -> getMatch >>= \m -> return $ Just $ TType s m }
+  <st> "character" / { fortran77P }     { getLexemeSpan >>= \s -> return $ Just $ TType s "character" }
+  <st> "entry" / { fortran77P }         { getLexemeSpan >>= \s -> return $ Just $ TEntry s }
+  <st> "intrinsic" / { fortran77P }     { getLexemeSpan >>= \s -> return $ Just $ TIntrinsic s }
+  <st> "implicit" / { fortran77P }      { getLexemeSpan >>= \s -> return $ Just $ TImplicit s }
+  <st> "none" / { fortran77P }          { getLexemeSpan >>= \s -> return $ Just $ TNone s }
+  <st> "parameter" / { fortran77P }     { getLexemeSpan >>= \s -> return $ Just $ TParameter s }
 
   -- Tokens related to data initalization statement
   <st> "data"                           { getLexemeSpan >>= \s -> return $ Just $ TData s }
@@ -115,6 +127,9 @@ tokens :-
   -- constants
   <st> @exponent / { exponentP }        { getLexemeSpan >>= \s -> getMatch >>= \m -> return $ Just $ TExponent s m }
   <st> @integerConst                    { getLexemeSpan >>= \s -> getMatch >>= \m -> return $ Just $ TInt s m }
+
+  -- String
+  <st> \' / { fortran77P }              { strAutomaton 0 }
 
   -- Logicals
   <st> ".true."                         { getLexemeSpan >>= \s -> return $ Just $ TTrue s }
@@ -131,6 +146,8 @@ tokens :-
   <st> ".or."                           { getLexemeSpan >>= \s -> return $ Just $ TOpOr s }
   <st> ".and."                          { getLexemeSpan >>= \s -> return $ Just $ TOpAnd s }
   <st> ".not."                          { getLexemeSpan >>= \s -> return $ Just $ TOpNot s }
+  <st> ".eqv." / { fortran77P }         { getLexemeSpan >>= \s -> return $ Just $ TOpEquivalent s }
+  <st> ".neqv." / { fortran77P }        { getLexemeSpan >>= \s -> return $ Just $ TOpNotEquivalent s }
 
   -- Relational operators
   <st> ".lt."                           { getLexemeSpan >>= \s -> return $ Just $ TOpLT s }
@@ -162,7 +179,7 @@ tokens :-
 -- Since identifiers are at most 6 characters long and alex takes the longest
 -- match, we only need to check if the matched pattern starts with keywords with
 -- fewer than 7 characters.
-isNotPrefixOfKeywordP :: user -> AlexInput -> Int -> AlexInput -> Bool
+isNotPrefixOfKeywordP :: FortranVersion -> AlexInput -> Int -> AlexInput -> Bool
 isNotPrefixOfKeywordP _ _ _ ai = 
   let match = reverse . lexemeMatch . aiLexeme $ ai in
     not $ any (\_keyword -> _keyword `isPrefixOf` match) _shortKeywords
@@ -173,12 +190,12 @@ isNotPrefixOfKeywordP _ _ _ ai =
       "write", "rewind", "common", "data", "format",
       "real" ]
 
-commentP :: user -> AlexInput -> Int -> AlexInput -> Bool
+commentP :: FortranVersion -> AlexInput -> Int -> AlexInput -> Bool
 commentP _ aiOld _ aiNew = atColP 1 aiOld && _endsWithLine
   where
     _endsWithLine = (posColumn . aiPosition) aiNew /= 1
 
-withinLabelColsP :: user -> AlexInput -> Int -> AlexInput -> Bool
+withinLabelColsP :: FortranVersion -> AlexInput -> Int -> AlexInput -> Bool
 withinLabelColsP _ aiOld _ aiNew = getCol aiOld >= 1 && getCol aiNew <= 6
   where
     getCol = posColumn . aiPosition
@@ -190,12 +207,16 @@ atColP n ai = (posColumn . aiPosition) ai == n
 -- by looking at previous token. Since exponent can only follow a "." or an
 -- integer token. Anything other previous token will prevent matching the input
 -- as an exponent token.
-exponentP :: user -> AlexInput -> Int -> AlexInput -> Bool
+exponentP :: FortranVersion -> AlexInput -> Int -> AlexInput -> Bool
 exponentP _ _ _ ai = 
   case aiPreviousToken ai of
     Just (TInt _ _) -> True
     Just (TDot _) -> True
     _ -> False
+
+fortran77P :: FortranVersion -> AlexInput -> Int -> AlexInput -> Bool
+fortran77P Fortran77 _ _ _ = True
+fortran77P _ _ _ _ = False
 
 --------------------------------------------------------------------------------
 -- Lexer helpers
@@ -222,7 +243,7 @@ getMatch = do
 putMatch :: String -> LexAction ()
 putMatch newMatch = do
   lexeme <- getLexeme
-  putLexeme $ lexeme { lexemeMatch = newMatch }
+  putLexeme $ lexeme { lexemeMatch = reverse newMatch }
 
 instance Spanned Lexeme where
   getSpan lexeme = 
@@ -259,11 +280,60 @@ lexComment mc = do
         Just (_, newAlex) -> do
           putAlex newAlex
           lexComment Nothing
-        Nothing -> return Nothing
+        Nothing -> fail "Comment abruptly ended."
     Nothing -> 
       case alexGetByte modifiedAlex of
         Just (_, newAlex) -> lexComment (Just $ (head . lexemeMatch . aiLexeme) newAlex)
         Nothing -> return $ Just $ TComment s $ tail m
+
+
+{-
+     Chars
+      +-+
+      | |
+      | |
+      | v
+      +-+  Nothing  +-+
++---> |0|---------->+3|
+  +-> +++           +-+
+  |    |
+' |    | '
+  |    v
+  |   +++  Nothing  +-+
+  +---|1|----------->2|
+      +++           +++
+       |             ^
+       +-------------+
+            Chars
+-}
+strAutomaton :: Int -> LexAction (Maybe Token)
+strAutomaton 0 = do
+  alex <- getAlex
+  case alexGetByte alex of
+    Just (_, newAlex) -> do
+      putAlex newAlex
+      m <- getMatch
+      if last m == '\''
+      then strAutomaton 1
+      else strAutomaton 0
+    Nothing -> strAutomaton 3
+strAutomaton 1 = do
+  alex <- getAlex
+  case alexGetByte alex of
+    Just (_, newAlex) -> do
+      let m = lexemeMatch . aiLexeme $ newAlex
+      if head m == '\''
+      then do
+        putAlex newAlex
+        putMatch $ reverse . tail $ m
+        strAutomaton 0
+      else strAutomaton 2
+    Nothing -> strAutomaton 2
+strAutomaton 2 = do
+  s <- getLexemeSpan
+  m <- getMatch
+  return $ Just $ TString s $ (init . tail) m
+strAutomaton 3 = fail "Unmatched string."
 
 lexHollerith :: LexAction (Maybe Token)
 lexHollerith = do
@@ -352,6 +422,8 @@ data Token = TLeftPar             SrcSpan
            | TRightPar            SrcSpan
            | TComma               SrcSpan
            | TDot                 SrcSpan
+           | TColon               SrcSpan
+           | TProgram             SrcSpan
            | TFunction            SrcSpan
            | TSubroutine          SrcSpan
            | TBlockData           SrcSpan
@@ -363,6 +435,7 @@ data Token = TLeftPar             SrcSpan
            | TIf                  SrcSpan
            | TCall                SrcSpan
            | TReturn              SrcSpan
+           | TSave                SrcSpan
            | TContinue            SrcSpan
            | TStop                SrcSpan
            | TPause               SrcSpan
@@ -372,11 +445,19 @@ data Token = TLeftPar             SrcSpan
            | TRewind              SrcSpan
            | TBackspace           SrcSpan
            | TEndfile             SrcSpan
+           | TInquire             SrcSpan
+           | TOpen                SrcSpan
+           | TClose               SrcSpan
            | TDimension           SrcSpan
            | TCommon              SrcSpan
            | TEquivalence         SrcSpan
            | TExternal            SrcSpan
            | TType                SrcSpan String 
+           | TEntry               SrcSpan
+           | TIntrinsic           SrcSpan
+           | TImplicit            SrcSpan
+           | TNone                SrcSpan
+           | TParameter           SrcSpan
            | TData                SrcSpan
            | TFormat              SrcSpan
            | TFieldDescriptorDEFG SrcSpan (Maybe Integer) Char Integer Integer
@@ -395,6 +476,8 @@ data Token = TLeftPar             SrcSpan
            | TOpOr                SrcSpan
            | TOpAnd               SrcSpan
            | TOpNot               SrcSpan
+           | TOpEquivalent        SrcSpan
+           | TOpNotEquivalent     SrcSpan
            | TOpLT                SrcSpan
            | TOpLE                SrcSpan
            | TOpEQ                SrcSpan
@@ -403,6 +486,7 @@ data Token = TLeftPar             SrcSpan
            | TOpGE                SrcSpan
            | TId                  SrcSpan String
            | TComment             SrcSpan String
+           | TString              SrcSpan String
            | THollerith           SrcSpan String
            | TLabel               SrcSpan String
            | TNewline             SrcSpan
@@ -586,7 +670,8 @@ lexer' = do
   resetLexeme
   alexInput <- getAlex
   let startCode = aiStartCode alexInput
-  case alexScanUser undefined alexInput startCode of
+  version <- getVersion
+  case alexScanUser version alexInput startCode of
     AlexEOF -> return $ Just $ TEOF $ SrcSpan (getPos alexInput) (getPos alexInput)
     AlexError _ -> return Nothing
     AlexSkip newAlex _ -> putAlex newAlex >> lexer'
@@ -597,7 +682,7 @@ lexer' = do
         Just _ -> updatePreviousToken maybeToken >> return maybeToken
         Nothing -> lexer'
 
-alexScanUser :: () -> AlexInput -> Int -> AlexReturn (LexAction (Maybe Token))
+alexScanUser :: FortranVersion -> AlexInput -> Int -> AlexReturn (LexAction (Maybe Token))
 
 --------------------------------------------------------------------------------
 -- Functions to help testing & output
@@ -613,8 +698,8 @@ initParseState srcInput fortranVersion filename =
       , psFilename = filename 
       }
     
-collectFixedFormTokens :: String -> Maybe [Token]
-collectFixedFormTokens srcInput = 
-    collectTokens lexer' $ initParseState srcInput Fortran66 "<unknown>"
+collectFixedTokens :: FortranVersion -> String -> Maybe [Token]
+collectFixedTokens version srcInput = 
+    collectTokens lexer' $ initParseState srcInput version "<unknown>"
 
 }
