@@ -84,6 +84,7 @@ tokens :-
   -- Tokens related to control statements
   <st> "goto"                           { getLexemeSpan >>= \s -> return $ Just $ TGoto s }
   <st> "if"                             { getLexemeSpan >>= \s -> return $ Just $ TIf s }
+  <st> "else"                           { getLexemeSpan >>= \s -> return $ Just $ TElse s }
   <st> "call"                           { getLexemeSpan >>= \s -> return $ Just $ TCall s }
   <st> "return"                         { getLexemeSpan >>= \s -> return $ Just $ TReturn s }
   <st> "save" / { fortran77P }          { getLexemeSpan >>= \s -> return $ Just $ TSave s }
@@ -101,6 +102,7 @@ tokens :-
   <st> "inquire" / { fortran77P }       { getLexemeSpan >>= \s -> return $ Just $ TInquire s }
   <st> "open" / { fortran77P }          { getLexemeSpan >>= \s -> return $ Just $ TOpen s }
   <st> "close" / { fortran77P }         { getLexemeSpan >>= \s -> return $ Just $ TClose s }
+  <st> "print" / { fortran77P }         { getLexemeSpan >>= \s -> return $ Just $ TPrint s }
 
   -- Tokens related to non-executable statements
 
@@ -437,6 +439,7 @@ data Token = TLeftPar             SrcSpan
            | TTo                  SrcSpan
            | TGoto                SrcSpan
            | TIf                  SrcSpan
+           | TElse                SrcSpan
            | TCall                SrcSpan
            | TReturn              SrcSpan
            | TSave                SrcSpan
@@ -452,6 +455,7 @@ data Token = TLeftPar             SrcSpan
            | TInquire             SrcSpan
            | TOpen                SrcSpan
            | TClose               SrcSpan
+           | TPrint               SrcSpan
            | TDimension           SrcSpan
            | TCommon              SrcSpan
            | TEquivalence         SrcSpan
