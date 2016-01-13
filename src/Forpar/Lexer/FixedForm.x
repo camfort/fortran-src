@@ -167,7 +167,7 @@ tokens :-
   <st> @id / { isNotPrefixOfKeywordP }  { getLexemeSpan >>= \s -> getMatch >>= \m -> return $ Just $ TId s m }
 
   -- Strings
-  <st> @posIntegerConst "h"             { lexHollerith }
+  <st> @posIntegerConst "h" / { fortran66P }  { lexHollerith }
 
 {
 
@@ -213,6 +213,10 @@ exponentP _ _ _ ai =
     Just (TInt _ _) -> True
     Just (TDot _) -> True
     _ -> False
+
+fortran66P :: FortranVersion -> AlexInput -> Int -> AlexInput -> Bool
+fortran66P Fortran66 _ _ _ = True
+fortran66P _ _ _ _ = False
 
 fortran77P :: FortranVersion -> AlexInput -> Int -> AlexInput -> Bool
 fortran77P Fortran77 _ _ _ = True
