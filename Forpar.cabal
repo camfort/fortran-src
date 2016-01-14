@@ -42,6 +42,7 @@ library
     Forpar.ParserMonad,
     Forpar.Lexer.FixedForm
     Forpar.Parser.Fortran66
+    Forpar.Parser.Fortran77,
     Forpar.AST
     Forpar.Util.Position
     Forpar.Util.FirstParameter
@@ -51,7 +52,6 @@ library
     happy >= 1.19
   -- other-modules:
     -- Forpar.Lexer.FreeForm
-    -- Forpar.Parser.Fortran77,
     -- Forpar.Parser.Fortran90,
     -- Forpar.Parser.Fortran2003,
     -- Forpar.Parser.Fortran2008
