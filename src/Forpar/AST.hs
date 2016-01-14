@@ -147,7 +147,6 @@ data Expression a =
 -- All recursive Values 
 data Value a =
     ValInteger           String
---                       digits        .digits       e/d       sign          digits
   | ValReal              String
   | ValComplex           (Expression a) (Expression a)
   | ValHollerith         String
