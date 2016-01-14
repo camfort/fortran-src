@@ -62,7 +62,7 @@ data ProgramUnit a =
       PUMain          a    SrcSpan                          (Maybe Name)                      [(Maybe (Expression a), Block a)]   [Comment a]
   |   PUSubroutine    a    SrcSpan                          Name           (AList String a)   [(Maybe (Expression a), Block a)]   [Comment a]
   |   PUFunction      a    SrcSpan   (Maybe (BaseType a))   Name           (AList String a)   [(Maybe (Expression a), Block a)]   [Comment a]
-  |   PUBlockData     a    SrcSpan                                                            [(Maybe (Expression a), Block a)]   [Comment a]
+  |   PUBlockData     a    SrcSpan                          (Maybe Name)                      [(Maybe (Expression a), Block a)]   [Comment a]
   deriving (Eq, Show, Data, Typeable, Generic)
 
 data Block a = BlStatement a SrcSpan (Statement a) ([Comment a])
@@ -319,12 +319,12 @@ instance Commented ProgramUnit where
   setComments (PUMain a b c d _) comments = PUMain a b c d comments
   setComments (PUSubroutine a b c d e _) comments = PUSubroutine a b c d e comments
   setComments (PUFunction a b c d e f _) comments = PUFunction a b c d e f comments
-  setComments (PUBlockData a b c _) comments = PUBlockData a b c comments
+  setComments (PUBlockData a b c d _) comments = PUBlockData a b c d comments
 
   getComments (PUMain _ _ _ _ c) = c
   getComments (PUSubroutine _ _ _ _ _ c) = c
   getComments (PUFunction _ _ _ _ _ _ c) = c
-  getComments (PUBlockData _ _ _ c) = c
+  getComments (PUBlockData _ _ _ _ c) = c
 
 instance Out a => Out (ProgramUnit a)
 instance (Out a, Out t) => Out (AList t a)

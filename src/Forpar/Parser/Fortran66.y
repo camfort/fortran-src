@@ -129,7 +129,7 @@ OTHER_PROGRAM_UNIT_LEVEL1
 : TYPE function NAME '(' ARGS ')' NEWLINE BLOCKS end { PUFunction () (getTransSpan $1 $9) (Just $1) $3 (aReverse $5) (reverse $8) [] }
 | function NAME '(' ARGS ')' NEWLINE BLOCKS end { PUFunction () (getTransSpan $1 $8) Nothing $2 (aReverse $4) (reverse $7) [] }
 | subroutine NAME '(' ARGS ')' NEWLINE BLOCKS end { PUSubroutine () (getTransSpan $1 $8) $2 $4 (reverse $7) [] }
-| blockData NEWLINE BLOCKS end { PUBlockData () (getTransSpan $1 $4) (reverse $3) [] }
+| blockData NEWLINE BLOCKS end { PUBlockData () (getTransSpan $1 $4) Nothing (reverse $3) [] }
 
 ARGS :: { AList String A0 }
 ARGS
