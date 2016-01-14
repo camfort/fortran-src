@@ -52,7 +52,14 @@ import Forpar.AST
   equivalence           { TEquivalence _ }
   external              { TExternal _ }
   dimension             { TDimension _ }
-  type                  { TType _ _ }
+  character             { TType _ "character" }
+  integer               { TType _ "integer" }
+  real                  { TType _ "real" }
+  doublePrecision       { TType _ "doubleprecision" }
+  logical               { TType _ "logical" }
+  complex               { TType _ "complex" }
+  implicit              { TImplicit _ }
+  none                  { TNone _ }
   data                  { TData _ }
   format                { TFormat _ }
   fieldDescriptorDEFG   { TFieldDescriptorDEFG _ _ _ _ _ }
@@ -115,7 +122,7 @@ PROGRAM_UNIT
 PROGRAM_UNIT_LEVEL1 :: { ProgramUnit A0 }
 PROGRAM_UNIT_LEVEL1
 : program NAME NEWLINE BLOCKS end { PUMain () (getTransSpan $1 $5) (Just $2) (reverse $4) [] }
-| type function NAME '(' ARGS ')' NEWLINE BLOCKS end { PUFunction () (getTransSpan $1 $9) (let (TType _ t) = $1 in Just $ read t) $3 (aReverse $5) (reverse $8) [] }
+| TYPE function NAME '(' ARGS ')' NEWLINE BLOCKS end { PUFunction () (getTransSpan $1 $9) (Just $1) $3 (aReverse $5) (reverse $8) [] }
 | function NAME '(' ARGS ')' NEWLINE BLOCKS end { PUFunction () (getTransSpan $1 $8) Nothing $2 (aReverse $4) (reverse $7) [] }
 | subroutine NAME '(' ARGS ')' NEWLINE BLOCKS end { PUSubroutine () (getTransSpan $1 $8) $2 $4 (reverse $7) [] }
 | blockData NEWLINE BLOCKS end { PUBlockData () (getTransSpan $1 $4) (reverse $3) [] }
@@ -213,7 +220,38 @@ NONEXECUTABLE_STATEMENT :: { Statement A0 }
 | equivalence EQUIVALENCE_GROUPS { StEquivalence () (getTransSpan $1 $2) (aReverse $2) }
 | data DATA_GROUPS { StData () (getTransSpan $1 $2) (aReverse $2) }
 | format FORMAT_ITEMS ')' { StFormat () (getTransSpan $1 $3) (aReverse $2) }
-| type DECLARATORS { StDeclaration () (getTransSpan $1 $2) (let (TType _ t) = $1 in read t) (aReverse $2) }
+| TYPE DECLARATORS { StDeclaration () (getTransSpan $1 $2) $1 (aReverse $2) }
+| implicit none { StImplicit () (getTransSpan $1 $2) Nothing }
+| implicit IMP_LISTS { StImplicit () (getTransSpan $1 $2) $ Just $ aReverse $2 }
+
+IMP_LISTS :: { AList (ImpList A0) A0 }
+IMP_LISTS
+: IMP_LISTS ',' IMP_LIST { setSpan (getTransSpan $1 $3) $ $3 `aCons` $1 }
+| IMP_LIST { AList () (getSpan $1) [ $1 ] }
+
+IMP_LIST :: { ImpList A0 }
+IMP_LIST : TYPE '(' IMP_ELEMENTS ')' { ImpList () (getTransSpan $1 $4) $1 $ aReverse $3 }
+
+IMP_ELEMENTS :: { AList (ImpElement A0) A0 }
+IMP_ELEMENTS
+: IMP_ELEMENTS ',' IMP_ELEMENT { setSpan (getTransSpan $1 $3) $ $3 `aCons` $1 }
+| IMP_ELEMENT { AList () (getSpan $1) [ $1 ] }
+
+IMP_ELEMENT :: { ImpElement A0 }
+IMP_ELEMENT
+: id {% do
+      let (TId s id) = $1 
+      if length id /= 1 
+      then fail "Implicit argument must be a character." 
+      else return $ ImpCharacter () s id
+     }
+| id '-' id {% do
+             let (TId _ id1) = $1
+             let (TId _ id2) = $3
+             if length id1 /= 1 || length id2 /= 1
+             then fail "Implicit argument must be a character." 
+             else return $ ImpRange () (getTransSpan $1 $3) id1 id2
+             }
 
 READ_WRITE_ARGUMENTS :: { (Expression A0, Maybe (Expression A0), Maybe (AList (IOElement A0) A0)) }
 READ_WRITE_ARGUMENTS
@@ -383,6 +421,19 @@ EXPRESSION
 -- hence putting it here would cause a reduce/reduce conflict.
 | VARIABLE                      { $1 }
 
+ARITHMETIC_CONSTANT_EXPRESSION :: { Expression A0 }
+ARITHMETIC_CONSTANT_EXPRESSION
+: ARITHMETIC_CONSTANT_EXPRESSION '+' ARITHMETIC_CONSTANT_EXPRESSION { ExpBinary () (getTransSpan $1 $3) Addition $1 $3 }
+| ARITHMETIC_CONSTANT_EXPRESSION '-' ARITHMETIC_CONSTANT_EXPRESSION { ExpBinary () (getTransSpan $1 $3) Subtraction $1 $3 }
+| ARITHMETIC_CONSTANT_EXPRESSION '*' ARITHMETIC_CONSTANT_EXPRESSION { ExpBinary () (getTransSpan $1 $3) Multiplication $1 $3 }
+| ARITHMETIC_CONSTANT_EXPRESSION '/' ARITHMETIC_CONSTANT_EXPRESSION { ExpBinary () (getTransSpan $1 $3) Division $1 $3 }
+| ARITHMETIC_CONSTANT_EXPRESSION '**' ARITHMETIC_CONSTANT_EXPRESSION { ExpBinary () (getTransSpan $1 $3) Exponentiation $1 $3 }
+| ARITHMETIC_SIGN ARITHMETIC_CONSTANT_EXPRESSION %prec NEGATION { ExpUnary () (getTransSpan (fst $1) $2) (snd $1) $2 }
+| '(' ARITHMETIC_CONSTANT_EXPRESSION ')' { setSpan (getTransSpan $1 $3) $2 }
+| INTEGER_LITERAL               { $1 }
+| REAL_LITERAL                  { $1 }
+| COMPLEX_LITERAL               { $1 }
+
 RELATIONAL_OPERATOR :: { BinaryOp }
 RELATIONAL_OPERATOR
 : '=='  { EQ }
@@ -500,23 +551,19 @@ LABEL_IN_6COLUMN :: { Expression A0 } : label { ExpValue () (getSpan $1) (let (T
 -- Labels that occur in statements
 LABEL_IN_STATEMENT :: { Expression A0 } : int { ExpValue () (getSpan $1) (let (TInt _ l) = $1 in ValLabel l) }
 
+TYPE :: { BaseType A0 }
+TYPE
+: character        { TypeCharacter () (getSpan $1) Nothing }
+| character '*' ARITHMETIC_CONSTANT_EXPRESSION  { TypeCharacter () (getTransSpan $1 $3) $ Just $3 }
+| integer          { TypeInteger () (getSpan $1) }
+| real             { TypeReal () (getSpan $1) }
+| doublePrecision  { TypeDoublePrecision () (getSpan $1) }
+| logical          { TypeLogical () (getSpan $1) }
+| complex          { TypeComplex () (getSpan $1) }
+
 {
 
 type A0 = ()
-
-instance Read BaseType where
-  readsPrec _ value = 
-    let options = [ ("integer", TypeInteger)
-                  , ("real", TypeReal)
-                  , ("doubleprecision", TypeDoublePrecision)
-                  , ("complex", TypeComplex)
-                  , ("logical", TypeLogical)] in
-      tryTypes options
-      where
-        tryTypes [] = []
-        tryTypes ((attempt,result):xs) = 
-          if value == attempt then [(result, "")] else tryTypes xs
-
 
 makeReal :: Maybe Token -> Maybe Token -> Maybe Token -> Maybe (SrcSpan, String) -> Expression A0
 makeReal i1 dot i2 exp = 

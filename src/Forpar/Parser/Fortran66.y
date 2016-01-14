@@ -51,7 +51,11 @@ import Forpar.AST
   equivalence           { TEquivalence _ }
   external              { TExternal _ }
   dimension             { TDimension _ }
-  type                  { TType _ _ }
+  integer               { TType _ "integer" }
+  real                  { TType _ "real" }
+  doublePrecision       { TType _ "doubleprecision" }
+  logical               { TType _ "logical" }
+  complex               { TType _ "complex" }
   data                  { TData _ }
   format                { TFormat _ }
   fieldDescriptorDEFG   { TFieldDescriptorDEFG _ _ _ _ _ }
@@ -122,7 +126,7 @@ OTHER_PROGRAM_UNIT
 
 OTHER_PROGRAM_UNIT_LEVEL1 :: { ProgramUnit A0 }
 OTHER_PROGRAM_UNIT_LEVEL1
-: type function NAME '(' ARGS ')' NEWLINE BLOCKS end { PUFunction () (getTransSpan $1 $9) (let (TType _ t) = $1 in Just $ read t) $3 (aReverse $5) (reverse $8) [] }
+: TYPE function NAME '(' ARGS ')' NEWLINE BLOCKS end { PUFunction () (getTransSpan $1 $9) (Just $1) $3 (aReverse $5) (reverse $8) [] }
 | function NAME '(' ARGS ')' NEWLINE BLOCKS end { PUFunction () (getTransSpan $1 $8) Nothing $2 (aReverse $4) (reverse $7) [] }
 | subroutine NAME '(' ARGS ')' NEWLINE BLOCKS end { PUSubroutine () (getTransSpan $1 $8) $2 $4 (reverse $7) [] }
 | blockData NEWLINE BLOCKS end { PUBlockData () (getTransSpan $1 $4) (reverse $3) [] }
@@ -220,7 +224,7 @@ NONEXECUTABLE_STATEMENT :: { Statement A0 }
 | equivalence EQUIVALENCE_GROUPS { StEquivalence () (getTransSpan $1 $2) (aReverse $2) }
 | data DATA_GROUPS { StData () (getTransSpan $1 $2) (aReverse $2) }
 | format FORMAT_ITEMS ')' { StFormat () (getTransSpan $1 $3) (aReverse $2) }
-| type DECLARATORS { StDeclaration () (getTransSpan $1 $2) (let (TType _ t) = $1 in read t) (aReverse $2) }
+| TYPE DECLARATORS { StDeclaration () (getTransSpan $1 $2) $1 (aReverse $2) }
 
 READ_WRITE_ARGUMENTS :: { (Expression A0, Maybe (Expression A0), Maybe (AList (IOElement A0) A0)) }
 READ_WRITE_ARGUMENTS
@@ -507,23 +511,17 @@ LABEL_IN_6COLUMN :: { Expression A0 } : label { ExpValue () (getSpan $1) (let (T
 -- Labels that occur in statements
 LABEL_IN_STATEMENT :: { Expression A0 } : int { ExpValue () (getSpan $1) (let (TInt _ l) = $1 in ValLabel l) }
 
+TYPE :: { BaseType A0 }
+TYPE
+: integer           { TypeInteger () (getSpan $1) }
+| real              { TypeReal () (getSpan $1) }
+| doublePrecision   { TypeDoublePrecision () (getSpan $1) }
+| logical           { TypeLogical () (getSpan $1) }
+| complex           { TypeComplex () (getSpan $1) }
+
 {
 
 type A0 = ()
-
-instance Read BaseType where
-  readsPrec _ value = 
-    let options = [ ("integer", TypeInteger)
-                  , ("real", TypeReal)
-                  , ("doubleprecision", TypeDoublePrecision)
-                  , ("complex", TypeComplex)
-                  , ("logical", TypeLogical)] in
-      tryTypes options
-      where
-        tryTypes [] = []
-        tryTypes ((attempt,result):xs) = 
-          if value == attempt then [(result, "")] else tryTypes xs
-
 
 makeReal :: Maybe Token -> Maybe Token -> Maybe Token -> Maybe (SrcSpan, String) -> Expression A0
 makeReal i1 dot i2 exp = 

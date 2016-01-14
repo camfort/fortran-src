@@ -45,19 +45,24 @@ aReverse :: AList t a -> AList t a
 aReverse (AList a s xs) = AList a s $ reverse xs
 
 -- Basic AST nodes
-data BaseType = 
-  TypeInteger | TypeReal | TypeDoublePrecision | TypeComplex | TypeLogical
+data BaseType a = 
+    TypeInteger         a SrcSpan 
+  | TypeReal            a SrcSpan 
+  | TypeDoublePrecision a SrcSpan 
+  | TypeComplex         a SrcSpan 
+  | TypeLogical         a SrcSpan
+  | TypeCharacter       a SrcSpan (Maybe (Expression a))
   deriving (Eq, Show, Data, Typeable, Generic)
 
 -- Program structure definition
 type Program a = [ProgramUnit a]
 
 data ProgramUnit a =
---    program type  | a  | span    | return           | name         | arguments        | body                              | Comments
-      PUMain          a    SrcSpan                      (Maybe Name)                      [(Maybe (Expression a), Block a)]   [Comment a]
-  |   PUSubroutine    a    SrcSpan                      Name           (AList String a)   [(Maybe (Expression a), Block a)]   [Comment a]
-  |   PUFunction      a    SrcSpan   (Maybe BaseType)   Name           (AList String a)   [(Maybe (Expression a), Block a)]   [Comment a]
-  |   PUBlockData     a    SrcSpan                                                        [(Maybe (Expression a), Block a)]   [Comment a]
+--    program type  | a  | span    | return               | name         | arguments        | body                              | Comments
+      PUMain          a    SrcSpan                          (Maybe Name)                      [(Maybe (Expression a), Block a)]   [Comment a]
+  |   PUSubroutine    a    SrcSpan                          Name           (AList String a)   [(Maybe (Expression a), Block a)]   [Comment a]
+  |   PUFunction      a    SrcSpan   (Maybe (BaseType a))   Name           (AList String a)   [(Maybe (Expression a), Block a)]   [Comment a]
+  |   PUBlockData     a    SrcSpan                                                            [(Maybe (Expression a), Block a)]   [Comment a]
   deriving (Eq, Show, Data, Typeable, Generic)
 
 data Block a = BlStatement a SrcSpan (Statement a) ([Comment a])
@@ -72,7 +77,8 @@ data Statement a  =
   | StEquivalence         a SrcSpan (AList (AList (Expression a) a) a)
   | StData                a SrcSpan (AList (DataGroup a) a)
   | StFormat              a SrcSpan (AList (FormatItem a) a)
-  | StDeclaration         a SrcSpan BaseType (AList (Expression a) a)
+  | StDeclaration         a SrcSpan (BaseType a) (AList (Expression a) a)
+  | StImplicit            a SrcSpan (Maybe (AList (ImpList a) a))
   | StDo                  a SrcSpan (Expression a) (DoSpecification a)
   | StIfLogical           a SrcSpan (Expression a) (Statement a) -- Statement should not further recurse
   | StIfArithmetic        a SrcSpan (Expression a) (Expression a) (Expression a) (Expression a)
@@ -92,6 +98,14 @@ data Statement a  =
   | StRewind              a SrcSpan (Expression a)
   | StBackspace           a SrcSpan (Expression a)
   | StEndfile             a SrcSpan (Expression a)
+  deriving (Eq, Show, Data, Typeable, Generic)
+
+data ImpList a = ImpList a SrcSpan (BaseType a) (AList (ImpElement a) a)
+  deriving (Eq, Show, Data, Typeable, Generic)
+
+data ImpElement a = 
+    ImpCharacter    a SrcSpan String
+  | ImpRange        a SrcSpan String String
   deriving (Eq, Show, Data, Typeable, Generic)
 
 data CommonGroup a = 
@@ -179,34 +193,43 @@ instance FirstParameter (AList t a) a
 instance FirstParameter (ProgramUnit a) a
 instance FirstParameter (Block a) a
 instance FirstParameter (Statement a) a
+instance FirstParameter (ImpList a) a
+instance FirstParameter (ImpElement a) a
 instance FirstParameter (CommonGroup a) a
 instance FirstParameter (DataGroup a) a
 instance FirstParameter (Comment a) a
 instance FirstParameter (FormatItem a) a
 instance FirstParameter (Expression a) a
 instance FirstParameter (DoSpecification a) a
+instance FirstParameter (BaseType a) a
 
 instance SecondParameter (AList t a) SrcSpan
 instance SecondParameter (ProgramUnit a) SrcSpan
 instance SecondParameter (Block a) SrcSpan
 instance SecondParameter (Statement a) SrcSpan
+instance SecondParameter (ImpList a) SrcSpan
+instance SecondParameter (ImpElement a) SrcSpan
 instance SecondParameter (CommonGroup a) SrcSpan
 instance SecondParameter (DataGroup a) SrcSpan
 instance SecondParameter (Comment a) SrcSpan
 instance SecondParameter (FormatItem a) SrcSpan
 instance SecondParameter (Expression a) SrcSpan
 instance SecondParameter (DoSpecification a) SrcSpan
+instance SecondParameter (BaseType a) SrcSpan
 
 instance Annotated (AList t)
 instance Annotated ProgramUnit
 instance Annotated Block
 instance Annotated Statement
+instance Annotated ImpList
+instance Annotated ImpElement
 instance Annotated CommonGroup
 instance Annotated DataGroup
 instance Annotated Comment
 instance Annotated FormatItem
 instance Annotated Expression
 instance Annotated DoSpecification
+instance Annotated BaseType
 
 instance Annotated IOElement where
   getAnnotation (IOExpression value) = getAnnotation value
@@ -218,6 +241,8 @@ instance Annotated IOElement where
 instance Spanned (AList t a)
 instance Spanned (ProgramUnit a)
 instance Spanned (Statement a)
+instance Spanned (ImpList a)
+instance Spanned (ImpElement a)
 instance Spanned (Block a)
 instance Spanned (CommonGroup a)
 instance Spanned (DataGroup a)
@@ -225,6 +250,7 @@ instance Spanned (Comment a)
 instance Spanned (FormatItem a)
 instance Spanned (Expression a)
 instance Spanned (DoSpecification a)
+instance Spanned (BaseType a)
 
 instance Spanned (IOElement a) where
   getSpan (IOExpression value) = getSpan value
@@ -303,6 +329,8 @@ instance Commented ProgramUnit where
 instance Out a => Out (ProgramUnit a)
 instance (Out a, Out t) => Out (AList t a)
 instance Out a => Out (Statement a)
+instance Out a => Out (ImpList a)
+instance Out a => Out (ImpElement a)
 instance Out a => Out (Block a)
 instance Out a => Out (CommonGroup a)
 instance Out a => Out (DataGroup a)
@@ -312,9 +340,9 @@ instance Out a => Out (Expression a)
 instance Out a => Out (IOElement a)
 instance Out a => Out (DoSpecification a)
 instance Out a => Out (Value a)
+instance Out a => Out (BaseType a)
 instance Out UnaryOp
 instance Out BinaryOp
-instance Out BaseType
 
 --------------------------------------------------------------------------------
 -- Useful for testing                                                         --
