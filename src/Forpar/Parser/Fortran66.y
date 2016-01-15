@@ -218,7 +218,7 @@ EXPRESSION_ASSIGNMENT_STATEMENT :: { Statement A0 }
 EXPRESSION_ASSIGNMENT_STATEMENT : ELEMENT '=' EXPRESSION { StExpressionAssign () (getTransSpan $1 $3) $1 $3 }
 
 NONEXECUTABLE_STATEMENT :: { Statement A0 }
-: external PROCEDURES { StExternal () (getTransSpan $1 $2) (aReverse $2) }
+: external FUNCTION_NAMES { StExternal () (getTransSpan $1 $2) (aReverse $2) }
 | dimension ARRAY_DECLARATORS { StDimension () (getTransSpan $1 $2) (aReverse $2) }
 | common COMMON_GROUPS { StCommon () (getTransSpan $1 $2) (aReverse $2) }
 | equivalence EQUIVALENCE_GROUPS { StEquivalence () (getTransSpan $1 $2) (aReverse $2) }
@@ -351,9 +351,9 @@ ARRAY_DECLARATORS
 -- Here the procedure should be either a function or subroutine name, but 
 -- since they are syntactically identical at this stage subroutine names
 -- are also emitted as function names.
-PROCEDURES :: { AList (Expression A0) A0 }
-PROCEDURES
-: PROCEDURES ',' FUNCTION_NAME { setSpan (getTransSpan $1 $3) $ $3 `aCons` $1 }
+FUNCTION_NAMES :: { AList (Expression A0) A0 }
+FUNCTION_NAMES
+: FUNCTION_NAMES ',' FUNCTION_NAME { setSpan (getTransSpan $1 $3) $ $3 `aCons` $1 }
 | FUNCTION_NAME { AList () (getSpan $1) [ $1 ] }
 
 CALLABLE_EXPRESSIONS :: { AList (Expression A0) A0 }

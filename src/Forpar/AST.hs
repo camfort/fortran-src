@@ -72,6 +72,7 @@ data Comment a = Comment a SrcSpan String deriving (Eq, Show, Data, Typeable, Ge
 
 data Statement a  = 
     StExternal            a SrcSpan (AList (Expression a) a)
+  | StIntrinsic           a SrcSpan (AList (Expression a) a)
   | StDimension           a SrcSpan (AList (Expression a) a)
   | StCommon              a SrcSpan (AList (CommonGroup a) a)
   | StEquivalence         a SrcSpan (AList (AList (Expression a) a) a)

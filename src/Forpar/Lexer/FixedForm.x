@@ -111,10 +111,10 @@ tokens :-
   <st> "common"                         { getLexemeSpan >>= \s -> return $ Just $ TCommon s }
   <st> "equivalence"                    { getLexemeSpan >>= \s -> return $ Just $ TEquivalence s }
   <st> "external"                       { getLexemeSpan >>= \s -> return $ Just $ TExternal s }
+  <st> "intrinsic" / { fortran77P }     { getLexemeSpan >>= \s -> return $ Just $ TIntrinsic s }
   <st> @datatype                        { getLexemeSpan >>= \s -> getMatch >>= \m -> return $ Just $ TType s m }
   <st> "character" / { fortran77P }     { getLexemeSpan >>= \s -> return $ Just $ TType s "character" }
   <st> "entry" / { fortran77P }         { getLexemeSpan >>= \s -> return $ Just $ TEntry s }
-  <st> "intrinsic" / { fortran77P }     { getLexemeSpan >>= \s -> return $ Just $ TIntrinsic s }
   <st> "implicit" / { fortran77P }      { getLexemeSpan >>= \s -> return $ Just $ TImplicit s }
   <st> "none" / { fortran77P }          { getLexemeSpan >>= \s -> return $ Just $ TNone s }
   <st> "parameter" / { fortran77P }     { getLexemeSpan >>= \s -> return $ Just $ TParameter s }
@@ -460,9 +460,9 @@ data Token = TLeftPar             SrcSpan
            | TCommon              SrcSpan
            | TEquivalence         SrcSpan
            | TExternal            SrcSpan
+           | TIntrinsic           SrcSpan
            | TType                SrcSpan String 
            | TEntry               SrcSpan
-           | TIntrinsic           SrcSpan
            | TImplicit            SrcSpan
            | TNone                SrcSpan
            | TParameter           SrcSpan

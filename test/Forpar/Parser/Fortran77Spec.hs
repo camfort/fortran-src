@@ -44,6 +44,12 @@ spec =
       let pu = resetSrcSpan $ PUBlockData () u (Just "hello") [(Nothing, bl)] []
       resetSrcSpan (pParser exampleProgram2) `shouldBe` [pu]
 
+    it "parses 'intrinsic cosh, sin'" $ do
+      let fun1 = ExpValue () u (ValFunctionName "cosh")
+      let fun2 = ExpValue () u (ValFunctionName "sin")
+      let st = resetSrcSpan $ StIntrinsic () u (AList () u [ fun1, fun2 ])
+      resetSrcSpan (sParser $ "      intrinsic cosh, sin") `shouldBe` st
+
     describe "GOTO" $ do
       it "parses computed GOTO with integer expression" $ do
         let exp = ExpBinary () u Multiplication (intGen 42) (intGen 24)
