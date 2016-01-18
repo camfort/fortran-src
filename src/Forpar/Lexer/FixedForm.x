@@ -9,7 +9,7 @@
 module Forpar.Lexer.FixedForm where
 
 import Data.Word (Word8)
-import Data.Char (toLower, isDigit)
+import Data.Char (toLower, isDigit, ord)
 import Data.List (isPrefixOf, any)
 import Data.Maybe (fromJust, isNothing)
 import Data.Data
