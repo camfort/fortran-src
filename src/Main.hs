@@ -10,6 +10,7 @@ import Data.Char (toLower)
 import Forpar.ParserMonad (FortranVersion(..))
 import Forpar.Lexer.FixedForm (collectFixedTokens)
 import Forpar.Parser.Fortran66 (fortran66Parser)
+import Forpar.Parser.Fortran77 (fortran77Parser)
 
 programName = "Forpar"
 
@@ -37,6 +38,7 @@ main = do
       Parse ->
         case version of 
           Fortran66 -> pp $ fortran66Parser contents path
+          Fortran77 -> pp $ fortran77Parser contents path
 
 data Action = Lex | Parse
 

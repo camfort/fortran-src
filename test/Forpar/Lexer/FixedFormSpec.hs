@@ -44,6 +44,12 @@ spec =
         it "lexes '''hello'''" $ do
           resetSrcSpan (lex77 "      'hello' right") `shouldBe` resetSrcSpan (Just $ TString u "hello")
 
+        it "lexes 'hello world'" $ do
+          resetSrcSpan (lex77 "      'hello world'") `shouldBe` resetSrcSpan (Just $ TString u "hello world")
+
+        it "lexes 'hello world'" $ do
+          resetSrcSpan (collectFixedTokens Fortran77 "      'x' // 'o'") `shouldBe` resetSrcSpan (Just $ [TString u "x", TSlash u, TSlash u, TString u "o", TEOF u])
+
     describe "Fortran 66" $ do
       prop "lexes Label, Comment, Newline or EOF in the first six columns or returns Nothing " $
         \x -> isPrefixOf "      " x || case lex66 x of

@@ -29,17 +29,25 @@ intGen i = ExpValue () u $ ValInteger $ show i
 labelGen :: Integer -> Expression ()
 labelGen i = ExpValue () u $ ValLabel $ show i
 
+arrGen :: String -> Expression ()
+arrGen str = ExpValue () u $ ValArray str
+
+starVal :: Expression ()
+starVal = ExpValue () u ValStar
+
 spec :: Spec
 spec = 
   describe "Fortran 77 Parser" $ do
     it "parses main program unit" $ do
-      let st = StDeclaration () u (TypeInteger () u) (AList () u [varGen "x"])
+      let decl = DeclVariable () u (varGen "x")
+      let st = StDeclaration () u (TypeInteger () u) (AList () u [ decl ])
       let bl = BlStatement () u st []
       let pu = resetSrcSpan $ PUMain () u (Just "hello") [(Nothing, bl)] []
       resetSrcSpan (pParser exampleProgram1) `shouldBe` [pu]
 
     it "parses block data unit" $ do
-      let st = StDeclaration () u (TypeInteger () u) (AList () u [varGen "x"])
+      let decl = DeclVariable () u (varGen "x")
+      let st = StDeclaration () u (TypeInteger () u) (AList () u [ decl ])
       let bl = BlStatement () u st []
       let pu = resetSrcSpan $ PUBlockData () u (Just "hello") [(Nothing, bl)] []
       resetSrcSpan (pParser exampleProgram2) `shouldBe` [pu]
@@ -49,6 +57,45 @@ spec =
       let fun2 = ExpValue () u (ValFunctionName "sin")
       let st = resetSrcSpan $ StIntrinsic () u (AList () u [ fun1, fun2 ])
       resetSrcSpan (sParser $ "      intrinsic cosh, sin") `shouldBe` st
+
+    describe "CHARACTER" $ do
+      it "parses character literal assignment" $ do
+        let rhs = ExpValue () u (ValString "hello 'baby")
+        let st = resetSrcSpan $ StExpressionAssign () u (varGen "xyz") rhs
+        resetSrcSpan (sParser $ "      xyz = 'hello ''baby'") `shouldBe` st
+
+      it "string concatination" $ do
+        let str1 = ExpValue () u (ValString "hello ")
+        let str2 = ExpValue () u (ValString "world")
+        let exp = resetSrcSpan $ ExpBinary () u Concatination str1 str2
+        resetSrcSpan (eParser $ "      'hello ' // 'world'") `shouldBe` exp
+
+    describe "Subscript like" $ do
+      it "parses vanilla subscript" $ do
+        let exp = resetSrcSpan $ ExpSubscript () u (arrGen "a") (AList () u [ varGen "x", intGen 2, intGen 3 ])
+        resetSrcSpan (eParser $ "      a(x, 2, 3)") `shouldBe` exp
+
+      it "parses array declarator" $ do
+        let dimDecls = [ DimensionDeclarator () u (Just $ intGen 1) (intGen 2)
+                       , DimensionDeclarator () u Nothing (intGen 15)
+                       , DimensionDeclarator () u (Just $ varGen "x") starVal ]
+        let decl = DeclArray () u (arrGen "a") (AList () u dimDecls)
+        let st = resetSrcSpan $ StDeclaration () u (TypeInteger () u) (AList () u [ decl ])
+        resetSrcSpan (sParser $ "      integer a(1:2, 15, x:*)") `shouldBe` st
+
+      it "parses character substring" $ do
+        let indicies = [ intGen 1, intGen 2, intGen 3 ]
+        let subExp = ExpSubscript () u (arrGen "a")  (AList () u indicies)
+        let exp = resetSrcSpan $ ExpSubstring () u subExp Nothing (Just $ intGen 10)
+        resetSrcSpan (eParser $ "      a(1, 2, 3)(:10)") `shouldBe` exp
+
+      it "parses simpler substring" $ do
+        let exp = resetSrcSpan $ ExpSubstring () u (arrGen "a") (Just $ intGen 5) (Just $ intGen 10)
+        resetSrcSpan (eParser $ "      a(5:10)") `shouldBe` exp
+
+      it "parses simpler substring" $ do
+        let exp = resetSrcSpan $ ExpSubstring () u (arrGen "a") (Just $ intGen 5) Nothing
+        resetSrcSpan (eParser $ "      a(5:)") `shouldBe` exp
 
     describe "GOTO" $ do
       it "parses computed GOTO with integer expression" $ do

@@ -73,12 +73,12 @@ data Comment a = Comment a SrcSpan String deriving (Eq, Show, Data, Typeable, Ge
 data Statement a  = 
     StExternal            a SrcSpan (AList (Expression a) a)
   | StIntrinsic           a SrcSpan (AList (Expression a) a)
-  | StDimension           a SrcSpan (AList (Expression a) a)
+  | StDimension           a SrcSpan (AList (Declarator a) a)
   | StCommon              a SrcSpan (AList (CommonGroup a) a)
   | StEquivalence         a SrcSpan (AList (AList (Expression a) a) a)
   | StData                a SrcSpan (AList (DataGroup a) a)
   | StFormat              a SrcSpan (AList (FormatItem a) a)
-  | StDeclaration         a SrcSpan (BaseType a) (AList (Expression a) a)
+  | StDeclaration         a SrcSpan (BaseType a) (AList (Declarator a) a)
   | StImplicit            a SrcSpan (Maybe (AList (ImpList a) a))
   | StDo                  a SrcSpan (Expression a) (DoSpecification a)
   | StIfLogical           a SrcSpan (Expression a) (Statement a) -- Statement should not further recurse
@@ -142,6 +142,7 @@ data Expression a =
   | ExpBinary        a SrcSpan BinaryOp (Expression a) (Expression a)
   | ExpUnary         a SrcSpan UnaryOp (Expression a)
   | ExpSubscript     a SrcSpan (Expression a) (AList (Expression a) a)
+  | ExpSubstring     a SrcSpan (Expression a) (Maybe (Expression a)) (Maybe (Expression a))
   | ExpFunctionCall  a SrcSpan (Expression a) (AList (Expression a) a)
   deriving (Eq, Show, Data, Typeable, Generic)
 
@@ -150,6 +151,7 @@ data Value a =
     ValInteger           String
   | ValReal              String
   | ValComplex           (Expression a) (Expression a)
+  | ValString            String
   | ValHollerith         String
   | ValLabel             String
   | ValVariable          Name
@@ -158,6 +160,18 @@ data Value a =
   | ValFalse             
   | ValFunctionName      Name
   | ValSubroutineName    Name
+  | ValStar
+  deriving (Eq, Show, Data, Typeable, Generic)
+
+data Declarator a =
+    DeclArray a SrcSpan (Expression a) (AList (DimensionDeclarator a) a)
+  | DeclCharArray a SrcSpan (Expression a) (AList (DimensionDeclarator a) a) (Maybe (Expression a))
+  | DeclVariable a SrcSpan (Expression a)
+  | DeclCharVariable a SrcSpan (Expression a) (Maybe (Expression a))
+  deriving (Eq, Show, Data, Typeable, Generic)
+
+data DimensionDeclarator a = 
+  DimensionDeclarator a SrcSpan (Maybe (Expression a)) (Expression a)
   deriving (Eq, Show, Data, Typeable, Generic)
 
 data UnaryOp = Plus | Minus | Not deriving (Eq, Show, Data, Typeable, Generic)
@@ -168,6 +182,7 @@ data BinaryOp =
   | Multiplication 
   | Division
   | Exponentiation
+  | Concatination
   | GT
   | GTE
   | LT
@@ -202,6 +217,8 @@ instance FirstParameter (FormatItem a) a
 instance FirstParameter (Expression a) a
 instance FirstParameter (DoSpecification a) a
 instance FirstParameter (BaseType a) a
+instance FirstParameter (Declarator a) a
+instance FirstParameter (DimensionDeclarator a) a
 
 instance SecondParameter (AList t a) SrcSpan
 instance SecondParameter (ProgramUnit a) SrcSpan
@@ -216,6 +233,8 @@ instance SecondParameter (FormatItem a) SrcSpan
 instance SecondParameter (Expression a) SrcSpan
 instance SecondParameter (DoSpecification a) SrcSpan
 instance SecondParameter (BaseType a) SrcSpan
+instance SecondParameter (Declarator a) SrcSpan
+instance SecondParameter (DimensionDeclarator a) SrcSpan
 
 instance Annotated (AList t)
 instance Annotated ProgramUnit
@@ -230,6 +249,8 @@ instance Annotated FormatItem
 instance Annotated Expression
 instance Annotated DoSpecification
 instance Annotated BaseType
+instance Annotated Declarator
+instance Annotated DimensionDeclarator
 
 instance Annotated IOElement where
   getAnnotation (IOExpression value) = getAnnotation value
@@ -251,6 +272,8 @@ instance Spanned (FormatItem a)
 instance Spanned (Expression a)
 instance Spanned (DoSpecification a)
 instance Spanned (BaseType a)
+instance Spanned (Declarator a)
+instance Spanned (DimensionDeclarator a)
 
 instance Spanned (IOElement a) where
   getSpan (IOExpression value) = getSpan value
@@ -341,6 +364,8 @@ instance Out a => Out (IOElement a)
 instance Out a => Out (DoSpecification a)
 instance Out a => Out (Value a)
 instance Out a => Out (BaseType a)
+instance Out a => Out (Declarator a)
+instance Out a => Out (DimensionDeclarator a)
 instance Out UnaryOp
 instance Out BinaryOp
 

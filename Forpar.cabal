@@ -30,6 +30,7 @@ executable forpar
     Forpar.ParserMonad,
     Forpar.Lexer.FixedForm
     Forpar.Parser.Fortran66
+    Forpar.Parser.Fortran77
     Forpar.AST
     Forpar.Util.Position
     Forpar.Util.FirstParameter

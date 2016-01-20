@@ -120,22 +120,27 @@ spec =
         resetSrcSpan (sParser "      EXTERNAL f, g, h") `shouldBe` expectedSt
 
       it "parses 'COMMON a, b'" $ do
-        let expectedSt = resetSrcSpan $ StCommon () u (AList () u [CommonGroup () u Nothing (AList () u [ExpValue () u (ValVariable "a"), ExpValue () u (ValVariable "b")])])
-        resetSrcSpan (sParser "      COMMON a, b") `shouldBe` expectedSt
+        let comGr = CommonGroup () u Nothing (AList () u [ varGen "a", varGen "b" ])
+        let st = resetSrcSpan $ StCommon () u (AList () u [ comGr ])
+        resetSrcSpan (sParser "      COMMON a, b") `shouldBe` st
 
       it "parses 'COMMON // a, b /hello/ x, y, z'" $ do
-        let expectedSt = resetSrcSpan $ StCommon () u (AList () u [CommonGroup () u Nothing (AList () u [ExpValue () u (ValVariable "a"), ExpValue () u (ValVariable "b")]), CommonGroup () u (Just "hello") (AList () u [ExpValue () u (ValVariable "x"), ExpValue () u (ValVariable "y"), ExpValue () u (ValVariable "z")])])
-        resetSrcSpan (sParser "      COMMON // a, b /hello/ x, y, z") `shouldBe` expectedSt
+        let comGrs = [ CommonGroup () u Nothing (AList () u [ varGen "a", varGen "b" ])
+                     , CommonGroup () u (Just "hello") (AList () u [ varGen "x", varGen "y", varGen "z" ]) ]
+        let st = resetSrcSpan $ StCommon () u (AList () u comGrs)
+        resetSrcSpan (sParser "      COMMON // a, b /hello/ x, y, z") `shouldBe` st
 
       it "parses 'EQUIVALENCE (a,b), (x,y,z)'" $ do
-        let valGen s = ExpValue () u (ValVariable s)
-            expectedSt = resetSrcSpan $ StEquivalence () u (AList () u [AList () u [valGen "a", valGen "b"], AList () u [valGen "x", valGen "y", valGen "z"]])
-        resetSrcSpan (sParser "      EQUIVALENCE (a,b), (x,y,z)") `shouldBe` expectedSt
+        let ls = [ AList () u [varGen "a", varGen "b"]
+                 , AList () u [varGen "x", varGen "y", varGen "z"] ]
+        let st = resetSrcSpan $ StEquivalence () u (AList () u ls)
+        resetSrcSpan (sParser "      EQUIVALENCE (a,b), (x,y,z)") `shouldBe` st
 
       it "parses 'DATA a/1,2,3/,x/42/'" $ do
-        let valGen s = ExpValue () u (ValVariable s)
-            expectedSt = resetSrcSpan $ StData () u $ AList () u [DataGroup () u (AList () u [valGen "a"]) (AList () u [intGen 1, intGen 2, intGen 3]), DataGroup () u (AList () u [valGen "x"]) (AList () u [intGen 42])]
-        resetSrcSpan (sParser "      DATA a/1,2,3/, x/42/") `shouldBe` expectedSt
+        let dGrs = [ DataGroup () u (AList () u [varGen "a"]) (AList () u [intGen 1, intGen 2, intGen 3])
+                   , DataGroup () u (AList () u [varGen "x"]) (AList () u [intGen 42]) ]
+        let st = resetSrcSpan $ StData () u $ AList () u dGrs
+        resetSrcSpan (sParser "      DATA a/1,2,3/, x/42/") `shouldBe` st
 
       describe "FORMAT" $ do
         it "parses 'FORMAT ()'" $ do
@@ -172,9 +177,12 @@ spec =
         resetSrcSpan (sParser "      stop") `shouldBe` expectedSt
 
       it "parses 'integer i, j(2,2), k'" $ do
-        let declarators = [varGen "i", ExpSubscript () u (arrGen "j") (AList () u [intGen 2, intGen 2]), varGen "k"] 
-            expectedSt = resetSrcSpan $ StDeclaration () u (TypeInteger () u) $ AList () u declarators
-        resetSrcSpan (sParser "      integer i, j(2,2), k") `shouldBe` expectedSt
+        let dimDecls = take 2 $ repeat $ DimensionDeclarator () u Nothing (intGen 2) 
+            declarators = [ DeclVariable () u (varGen "i")
+                          , DeclArray () u (arrGen "j") (AList () u dimDecls)
+                          , DeclVariable () u (varGen "k") ] 
+            st = resetSrcSpan $ StDeclaration () u (TypeInteger () u) $ AList () u declarators
+        resetSrcSpan (sParser "      integer i, j(2,2), k") `shouldBe` st
 
       describe "WRITE" $ do
         it "parses 'write (6)'" $ do

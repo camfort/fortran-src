@@ -265,8 +265,7 @@ FORMAT_ITEMS
 | FORMAT_ITEMS FORMAT_ITEM_DELIMETER { setSpan (getTransSpan $1 $2) $ $2 `aCons` $1 }
 | '(' { AList () (getSpan $1) [ ] }
 
-FORMAT_ITEM_DELIMETER :: { FormatItem A0 }
-FORMAT_ITEM_DELIMETER: '/' { FIDelimiter () (getSpan $1) }
+FORMAT_ITEM_DELIMETER :: { FormatItem A0 } : '/' { FIDelimiter () (getSpan $1) }
 
 FORMAT_ITEM :: { FormatItem A0 }
 FORMAT_ITEM
@@ -280,8 +279,8 @@ FORMAT_ITEM
 
 DATA_GROUPS :: { AList (DataGroup A0) A0 }
 DATA_GROUPS
-: DATA_GROUPS ',' DECLARATORS  '/' DATA_ITEMS '/' { setSpan (getTransSpan $1 $6) $ (DataGroup () (getTransSpan $3 $6) (aReverse $3) (aReverse $5)) `aCons` $1 }
-| DECLARATORS  '/' DATA_ITEMS '/' { AList () (getTransSpan $1 $4) [ DataGroup () (getTransSpan $1 $4) (aReverse $1) (aReverse $3) ] }
+: DATA_GROUPS ',' NAME_LIST  '/' DATA_ITEMS '/' { setSpan (getTransSpan $1 $6) $ (DataGroup () (getTransSpan $3 $6) (aReverse $3) (aReverse $5)) `aCons` $1 }
+| NAME_LIST  '/' DATA_ITEMS '/' { AList () (getTransSpan $1 $4) [ DataGroup () (getTransSpan $1 $4) (aReverse $1) (aReverse $3) ] }
 
 DATA_ITEMS :: { AList (Expression A0) A0 }
 DATA_ITEMS
@@ -302,13 +301,8 @@ DATA_ITEM_LEVEL1
 
 EQUIVALENCE_GROUPS :: { AList (AList (Expression A0) A0) A0 }
 EQUIVALENCE_GROUPS
-: EQUIVALENCE_GROUPS ','  '(' DECLARATORS ')' { setSpan (getTransSpan $1 $5) $ (setSpan (getTransSpan $3 $5) $ aReverse $4) `aCons` $1 }
-| '(' DECLARATORS ')' { let s = (getTransSpan $1 $3) in AList () s [ setSpan s $ aReverse $2 ] }
-
-DECLARATORS :: { AList (Expression A0) A0 }
-DECLARATORS
-: DECLARATORS ',' DECLARATOR { setSpan (getTransSpan $1 $3) $ $3 `aCons` $1 }
-| DECLARATOR { AList () (getSpan $1) [ $1 ] }
+: EQUIVALENCE_GROUPS ','  '(' NAME_LIST ')' { setSpan (getTransSpan $1 $5) $ (setSpan (getTransSpan $3 $5) $ aReverse $4) `aCons` $1 }
+| '(' NAME_LIST ')' { let s = (getTransSpan $1 $3) in AList () s [ setSpan s $ aReverse $2 ] }
 
 COMMON_GROUPS :: { AList (CommonGroup A0) A0 }
 COMMON_GROUPS
@@ -317,36 +311,54 @@ COMMON_GROUPS
 
 COMMON_GROUP :: { CommonGroup A0 }
 COMMON_GROUP
-: '/' id '/' COMMON_ELEMENTS { CommonGroup () (getTransSpan $1 $4) (let (TId _ s) = $2 in Just s) $ aReverse $4 }
-| '/' '/' COMMON_ELEMENTS { CommonGroup () (getTransSpan $1 $3) Nothing $ aReverse $3 }
+: '/' id '/' NAME_LIST { CommonGroup () (getTransSpan $1 $4) (let (TId _ s) = $2 in Just s) $ aReverse $4 }
+| '/' '/' NAME_LIST { CommonGroup () (getTransSpan $1 $3) Nothing $ aReverse $3 }
 
 INIT_COMMON_GROUP :: { CommonGroup A0 }
 INIT_COMMON_GROUP
-: '/' id '/' COMMON_ELEMENTS { CommonGroup () (getTransSpan $1 $4) (let (TId _ s) = $2 in Just s) $ aReverse $4 }
-| '/' '/' COMMON_ELEMENTS { CommonGroup () (getTransSpan $1 $3) Nothing $ aReverse $3 }
-| COMMON_ELEMENTS { CommonGroup () (getSpan $1) Nothing $ aReverse $1 }
+: '/' id '/' NAME_LIST { CommonGroup () (getTransSpan $1 $4) (let (TId _ s) = $2 in Just s) $ aReverse $4 }
+| '/' '/' NAME_LIST { CommonGroup () (getTransSpan $1 $3) Nothing $ aReverse $3 }
+| NAME_LIST { CommonGroup () (getSpan $1) Nothing $ aReverse $1 }
 
-COMMON_ELEMENTS :: { AList (Expression A0) A0 }
-COMMON_ELEMENTS
-: COMMON_ELEMENTS ',' DECLARATOR { setSpan (getTransSpan $1 $3) $ $3 `aCons` $1 }
-| DECLARATOR  { AList () (getSpan $1) [ $1 ] }
+NAME_LIST :: { AList (Expression A0) A0 }
+NAME_LIST
+: NAME_LIST ',' NAME_LIST_ELEMENT { setSpan (getTransSpan $1 $3) $ $3 `aCons` $1 }
+| NAME_LIST_ELEMENT { AList () (getSpan $1) [ $1 ] }
 
--- Array name is also a possibility, but there is no way to differentiate it 
--- from a variable.
--- Also subscript is technically not correct an array with size only specified
--- by positive integer values (specifically no variables) is allowed. Here 
--- subscript is used to simplify the matters.
-DECLARATOR :: { Expression A0 }
+NAME_LIST_ELEMENT :: { Expression A0 } : VARIABLE { $1 } | SUBSCRIPT { $1 }
+
+DECLARATORS :: { AList (Declarator A0) A0 }
+DECLARATORS
+: DECLARATORS ',' DECLARATOR { setSpan (getTransSpan $1 $3) $ $3 `aCons` $1 }
+| DECLARATOR { AList () (getSpan $1) [ $1 ] }
+
+-- Parses arrays as DeclVariable, otherwise we get a conflict.
+DECLARATOR :: { Declarator A0 }
 DECLARATOR
-: VARIABLE    { $1 }
-| SUBSCRIPT   { $1 }
+: ARRAY_DECLARATOR { $1 }
+| VARIABLE_DECLARATOR { $1 }
 
--- Technically, it is not a subscript, but the syntax is identical and there is
--- not meaningful differentiation.
-ARRAY_DECLARATORS :: { AList (Expression A0) A0 }
+ARRAY_DECLARATORS :: { AList (Declarator A0) A0 }
 ARRAY_DECLARATORS
-: ARRAY_DECLARATORS ',' SUBSCRIPT { setSpan (getTransSpan $1 $3) $ $3 `aCons` $1 }
-| SUBSCRIPT { AList () (getSpan $1) [ $1 ] }
+: ARRAY_DECLARATORS ',' ARRAY_DECLARATOR { setSpan (getTransSpan $1 $3) $ $3 `aCons` $1 }
+| ARRAY_DECLARATOR { AList () (getSpan $1) [ $1 ] }
+
+ARRAY_DECLARATOR :: { Declarator A0 }
+ARRAY_DECLARATOR 
+: ARRAY '(' DIMENSION_DECLARATORS ')' { DeclArray () (getTransSpan $1 $4) $1 $ aReverse $3 }
+
+DIMENSION_DECLARATORS :: { AList (DimensionDeclarator A0) A0 } 
+DIMENSION_DECLARATORS
+: DIMENSION_DECLARATORS ',' DIMENSION_DECLARATOR { setSpan (getTransSpan $1 $3) $ $3 `aCons` $1 }
+| DIMENSION_DECLARATOR { AList () (getSpan $1) [ $1 ] }
+
+DIMENSION_DECLARATOR :: { DimensionDeclarator A0 }
+DIMENSION_DECLARATOR
+: EXPRESSION { DimensionDeclarator () (getSpan $1) Nothing $1 } 
+
+VARIABLE_DECLARATOR :: { Declarator A0 }
+VARIABLE_DECLARATOR
+: VARIABLE { DeclVariable () (getSpan $1) $1 } 
 
 -- Here the procedure should be either a function or subroutine name, but 
 -- since they are syntactically identical at this stage subroutine names

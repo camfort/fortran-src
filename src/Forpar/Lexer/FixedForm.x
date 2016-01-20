@@ -251,6 +251,17 @@ putMatch newMatch = do
   lexeme <- getLexeme
   putLexeme $ lexeme { lexemeMatch = reverse newMatch }
 
+incWhiteSensitiveCharCount :: LexAction ()
+incWhiteSensitiveCharCount = do
+  ai <- getAlex
+  let wsc = aiWhiteSensitiveCharCount ai
+  putAlex $ ai { aiWhiteSensitiveCharCount = wsc + 1 }
+
+resetWhiteSensitiveCharCount :: LexAction ()
+resetWhiteSensitiveCharCount = do
+  ai <- getAlex
+  putAlex $ ai { aiWhiteSensitiveCharCount = 0 }
+
 instance Spanned Lexeme where
   getSpan lexeme = 
     let ms = lexemeStart lexeme 
@@ -314,6 +325,7 @@ lexComment mc = do
 -}
 strAutomaton :: Int -> LexAction (Maybe Token)
 strAutomaton 0 = do
+  incWhiteSensitiveCharCount
   alex <- getAlex
   case alexGetByte alex of
     Just (_, newAlex) -> do
@@ -324,6 +336,7 @@ strAutomaton 0 = do
       else strAutomaton 0
     Nothing -> strAutomaton 3
 strAutomaton 1 = do
+  incWhiteSensitiveCharCount
   alex <- getAlex
   case alexGetByte alex of
     Just (_, newAlex) -> do
@@ -338,6 +351,7 @@ strAutomaton 1 = do
 strAutomaton 2 = do
   s <- getLexemeSpan
   m <- getMatch
+  resetWhiteSensitiveCharCount
   return $ Just $ TString s $ (init . tail) m
 strAutomaton 3 = fail "Unmatched string."
 

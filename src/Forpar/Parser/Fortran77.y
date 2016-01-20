@@ -12,6 +12,8 @@ import Forpar.ParserMonad
 import Forpar.Lexer.FixedForm
 import Forpar.AST
 
+import Debug.Trace
+
 }
 
 %name programParser PROGRAM
@@ -27,6 +29,7 @@ import Forpar.AST
   ')'                   { TRightPar _ }
   ','                   { TComma _ }
   '.'                   { TDot _ }
+  ':'                   { TColon _ }
   program               { TProgram _ }
   function              { TFunction _ }
   subroutine            { TSubroutine _ }
@@ -88,6 +91,7 @@ import Forpar.AST
   id                    { TId _ _ }
   comment               { TComment _ _ }
   hollerith             { THollerith _ _ }
+  string                { TString _ _ }
   label                 { TLabel _ _ }
   newline               { TNewline _ }
 
@@ -97,6 +101,8 @@ import Forpar.AST
 
 %nonassoc '>' '<' '>=' '<=' '==' '!='
 %nonassoc RELATIONAL
+
+%left CONCAT
 
 %left '+' '-'
 %left '*' '/'
@@ -224,14 +230,19 @@ EXPRESSION_ASSIGNMENT_STATEMENT : ELEMENT '=' EXPRESSION { StExpressionAssign ()
 NONEXECUTABLE_STATEMENT :: { Statement A0 }
 : external FUNCTION_NAMES { StExternal () (getTransSpan $1 $2) (aReverse $2) }
 | intrinsic FUNCTION_NAMES { StIntrinsic () (getTransSpan $1 $2) (aReverse $2) }
-| dimension ARRAY_DECLARATORS { StDimension () (getTransSpan $1 $2) (aReverse $2) }
+| dimension OTHER_ARRAY_DECLARATORS { StDimension () (getTransSpan $1 $2) (aReverse $2) }
 | common COMMON_GROUPS { StCommon () (getTransSpan $1 $2) (aReverse $2) }
 | equivalence EQUIVALENCE_GROUPS { StEquivalence () (getTransSpan $1 $2) (aReverse $2) }
 | data DATA_GROUPS { StData () (getTransSpan $1 $2) (aReverse $2) }
 | format FORMAT_ITEMS ')' { StFormat () (getTransSpan $1 $3) (aReverse $2) }
-| TYPE DECLARATORS { StDeclaration () (getTransSpan $1 $2) $1 (aReverse $2) }
+| DECLARATION_STATEMENT { $1 }
 | implicit none { StImplicit () (getTransSpan $1 $2) Nothing }
 | implicit IMP_LISTS { StImplicit () (getTransSpan $1 $2) $ Just $ aReverse $2 }
+
+DECLARATION_STATEMENT :: { Statement A0 }
+DECLARATION_STATEMENT
+: CHARACTER_TYPE CHARACTER_DECLARATORS { StDeclaration () (getTransSpan $1 $2) $1 $2 }
+| OTHER_TYPE OTHER_DECLARATORS { StDeclaration () (getTransSpan $1 $2) $1 $2 }
 
 IMP_LISTS :: { AList (ImpList A0) A0 }
 IMP_LISTS
@@ -301,8 +312,7 @@ FORMAT_ITEMS
 | FORMAT_ITEMS FORMAT_ITEM_DELIMETER { setSpan (getTransSpan $1 $2) $ $2 `aCons` $1 }
 | '(' { AList () (getSpan $1) [ ] }
 
-FORMAT_ITEM_DELIMETER :: { FormatItem A0 }
-FORMAT_ITEM_DELIMETER: '/' { FIDelimiter () (getSpan $1) }
+FORMAT_ITEM_DELIMETER :: { FormatItem A0 } : '/' { FIDelimiter () (getSpan $1) }
 
 FORMAT_ITEM :: { FormatItem A0 }
 FORMAT_ITEM
@@ -316,8 +326,8 @@ FORMAT_ITEM
 
 DATA_GROUPS :: { AList (DataGroup A0) A0 }
 DATA_GROUPS
-: DATA_GROUPS ',' DECLARATORS  '/' DATA_ITEMS '/' { setSpan (getTransSpan $1 $6) $ (DataGroup () (getTransSpan $3 $6) (aReverse $3) (aReverse $5)) `aCons` $1 }
-| DECLARATORS  '/' DATA_ITEMS '/' { AList () (getTransSpan $1 $4) [ DataGroup () (getTransSpan $1 $4) (aReverse $1) (aReverse $3) ] }
+: DATA_GROUPS ',' NAME_LIST  '/' DATA_ITEMS '/' { setSpan (getTransSpan $1 $6) $ (DataGroup () (getTransSpan $3 $6) (aReverse $3) (aReverse $5)) `aCons` $1 }
+| NAME_LIST  '/' DATA_ITEMS '/' { AList () (getTransSpan $1 $4) [ DataGroup () (getTransSpan $1 $4) (aReverse $1) (aReverse $3) ] }
 
 DATA_ITEMS :: { AList (Expression A0) A0 }
 DATA_ITEMS
@@ -334,17 +344,11 @@ DATA_ITEM_LEVEL1
 : SIGNED_NUMERIC_LITERAL  { $1 }
 | COMPLEX_LITERAL         { $1 }
 | LOGICAL_LITERAL         { $1 }
-| HOLLERITH               { $1 }
 
 EQUIVALENCE_GROUPS :: { AList (AList (Expression A0) A0) A0 }
 EQUIVALENCE_GROUPS
-: EQUIVALENCE_GROUPS ','  '(' DECLARATORS ')' { setSpan (getTransSpan $1 $5) $ (setSpan (getTransSpan $3 $5) $ aReverse $4) `aCons` $1 }
-| '(' DECLARATORS ')' { let s = (getTransSpan $1 $3) in AList () s [ setSpan s $ aReverse $2 ] }
-
-DECLARATORS :: { AList (Expression A0) A0 }
-DECLARATORS
-: DECLARATORS ',' DECLARATOR { setSpan (getTransSpan $1 $3) $ $3 `aCons` $1 }
-| DECLARATOR { AList () (getSpan $1) [ $1 ] }
+: EQUIVALENCE_GROUPS ','  '(' NAME_LIST ')' { setSpan (getTransSpan $1 $5) $ (setSpan (getTransSpan $3 $5) $ aReverse $4) `aCons` $1 }
+| '(' NAME_LIST ')' { let s = (getTransSpan $1 $3) in AList () s [ setSpan s $ aReverse $2 ] }
 
 COMMON_GROUPS :: { AList (CommonGroup A0) A0 }
 COMMON_GROUPS
@@ -353,36 +357,79 @@ COMMON_GROUPS
 
 COMMON_GROUP :: { CommonGroup A0 }
 COMMON_GROUP
-: '/' id '/' COMMON_ELEMENTS { CommonGroup () (getTransSpan $1 $4) (let (TId _ s) = $2 in Just s) $ aReverse $4 }
-| '/' '/' COMMON_ELEMENTS { CommonGroup () (getTransSpan $1 $3) Nothing $ aReverse $3 }
+: '/' id '/' NAME_LIST { CommonGroup () (getTransSpan $1 $4) (let (TId _ s) = $2 in Just s) $ aReverse $4 }
+| '/' '/' NAME_LIST { CommonGroup () (getTransSpan $1 $3) Nothing $ aReverse $3 }
 
 INIT_COMMON_GROUP :: { CommonGroup A0 }
 INIT_COMMON_GROUP
-: '/' id '/' COMMON_ELEMENTS { CommonGroup () (getTransSpan $1 $4) (let (TId _ s) = $2 in Just s) $ aReverse $4 }
-| '/' '/' COMMON_ELEMENTS { CommonGroup () (getTransSpan $1 $3) Nothing $ aReverse $3 }
-| COMMON_ELEMENTS { CommonGroup () (getSpan $1) Nothing $ aReverse $1 }
+: '/' id '/' NAME_LIST { CommonGroup () (getTransSpan $1 $4) (let (TId _ s) = $2 in Just s) $ aReverse $4 }
+| '/' '/' NAME_LIST { CommonGroup () (getTransSpan $1 $3) Nothing $ aReverse $3 }
+| NAME_LIST { CommonGroup () (getSpan $1) Nothing $ aReverse $1 }
 
-COMMON_ELEMENTS :: { AList (Expression A0) A0 }
-COMMON_ELEMENTS
-: COMMON_ELEMENTS ',' DECLARATOR { setSpan (getTransSpan $1 $3) $ $3 `aCons` $1 }
-| DECLARATOR  { AList () (getSpan $1) [ $1 ] }
+NAME_LIST :: { AList (Expression A0) A0 }
+NAME_LIST
+: NAME_LIST ',' NAME_LIST_ELEMENT { setSpan (getTransSpan $1 $3) $ $3 `aCons` $1 }
+| NAME_LIST_ELEMENT { AList () (getSpan $1) [ $1 ] }
 
--- Array name is also a possibility, but there is no way to differentiate it 
--- from a variable.
--- Also subscript is technically not correct an array with size only specified
--- by positive integer values (specifically no variables) is allowed. Here 
--- subscript is used to simplify the matters.
-DECLARATOR :: { Expression A0 }
-DECLARATOR
-: VARIABLE    { $1 }
-| SUBSCRIPT   { $1 }
+NAME_LIST_ELEMENT :: { Expression A0 } : VARIABLE { $1 } | SUBSTRING { $1 } | SUBSCRIPT { $1 }
 
--- Technically, it is not a subscript, but the syntax is identical and there is
--- not meaningful differentiation.
-ARRAY_DECLARATORS :: { AList (Expression A0) A0 }
-ARRAY_DECLARATORS
-: ARRAY_DECLARATORS ',' SUBSCRIPT { setSpan (getTransSpan $1 $3) $ $3 `aCons` $1 }
-| SUBSCRIPT { AList () (getSpan $1) [ $1 ] }
+CHARACTER_DECLARATORS :: { AList (Declarator A0) A0 }
+CHARACTER_DECLARATORS
+: CHARACTER_DECLARATORS ',' CHARACTER_DECLARATOR { setSpan (getTransSpan $1 $3) $ $3 `aCons` $1 }
+| CHARACTER_DECLARATOR { AList () (getSpan $1) [ $1 ] }
+
+OTHER_DECLARATORS :: { AList (Declarator A0) A0 }
+OTHER_DECLARATORS
+: OTHER_DECLARATORS ',' OTHER_DECLARATOR { setSpan (getTransSpan $1 $3) $ $3 `aCons` $1 }
+| OTHER_DECLARATOR { AList () (getSpan $1) [ $1 ] }
+
+-- Parses arrays as DeclCharVariable, otherwise we get a conflict.
+CHARACTER_DECLARATOR :: { Declarator A0 }
+CHARACTER_DECLARATOR
+: CHARACTER_ARRAY_DECLARATOR { $1 }
+| CHARACTER_VARIABLE_DECLARATOR { $1 }
+| VARIABLE { DeclCharVariable () (getSpan $1) $1 Nothing }
+
+-- Parses arrays as DeclVariable, otherwise we get a conflict.
+OTHER_DECLARATOR :: { Declarator A0 }
+OTHER_DECLARATOR
+: OTHER_ARRAY_DECLARATOR { $1 }
+| OTHER_VARIABLE_DECLARATOR { $1 }
+
+CHARACTER_ARRAY_DECLARATOR :: { Declarator A0 }
+CHARACTER_ARRAY_DECLARATOR
+: ARRAY '(' DIMENSION_DECLARATORS ')' '*' EXPRESSION { DeclCharArray () (getTransSpan $1 $6) $1 (aReverse $3) (Just $6) }
+| ARRAY '(' DIMENSION_DECLARATORS ')' '*' '(' '*' ')' { DeclCharArray () (getTransSpan $1 $8) $1 (aReverse $3) (Just $ ExpValue () (getSpan $7) ValStar) }
+
+OTHER_ARRAY_DECLARATORS :: { AList (Declarator A0) A0 }
+OTHER_ARRAY_DECLARATORS
+: OTHER_ARRAY_DECLARATORS ',' OTHER_ARRAY_DECLARATOR { setSpan (getTransSpan $1 $3) $ $3 `aCons` $1 }
+| OTHER_ARRAY_DECLARATOR { AList () (getSpan $1) [ $1 ] }
+
+OTHER_ARRAY_DECLARATOR :: { Declarator A0 }
+OTHER_ARRAY_DECLARATOR 
+: ARRAY '(' DIMENSION_DECLARATORS ')' { DeclArray () (getTransSpan $1 $4) $1 $ aReverse $3 }
+
+CHARACTER_VARIABLE_DECLARATOR :: { Declarator A0 }
+CHARACTER_VARIABLE_DECLARATOR
+: VARIABLE '*' EXPRESSION { DeclCharVariable () (getTransSpan $1 $3) $1 (Just $3) }
+| VARIABLE '*' '(' '*' ')' { DeclCharVariable () (getTransSpan $1 $5) $1 (Just $ ExpValue () (getSpan $4) ValStar) }
+
+OTHER_VARIABLE_DECLARATOR :: { Declarator A0 }
+OTHER_VARIABLE_DECLARATOR
+: VARIABLE { DeclVariable () (getSpan $1) $1 } 
+
+DIMENSION_DECLARATORS :: { AList (DimensionDeclarator A0) A0 } 
+DIMENSION_DECLARATORS
+: DIMENSION_DECLARATORS ',' DIMENSION_DECLARATOR { setSpan (getTransSpan $1 $3) $ $3 `aCons` $1 }
+| DIMENSION_DECLARATOR { AList () (getSpan $1) [ $1 ] }
+
+DIMENSION_DECLARATOR :: { DimensionDeclarator A0 }
+DIMENSION_DECLARATOR
+: EXPRESSION ':' EXPRESSION { DimensionDeclarator () (getTransSpan $1 $3) (Just $1) $3 }
+| EXPRESSION { DimensionDeclarator () (getSpan $1) Nothing $1 } 
+| EXPRESSION ':' '*' { DimensionDeclarator () (getTransSpan $1 $3) (Just $1) (ExpValue () (getSpan $3) (ValStar)) } 
+| '*' { DimensionDeclarator () (getSpan $1) Nothing (ExpValue () (getSpan $1) (ValStar)) } 
 
 -- Here the procedure should be either a function or subroutine name, but 
 -- since they are syntactically identical at this stage subroutine names
@@ -415,6 +462,7 @@ EXPRESSION
 | EXPRESSION '*' EXPRESSION { ExpBinary () (getTransSpan $1 $3) Multiplication $1 $3 }
 | EXPRESSION '/' EXPRESSION { ExpBinary () (getTransSpan $1 $3) Division $1 $3 }
 | EXPRESSION '**' EXPRESSION { ExpBinary () (getTransSpan $1 $3) Exponentiation $1 $3 }
+| EXPRESSION '/' '/' EXPRESSION %prec CONCAT { ExpBinary () (getTransSpan $1 $4) Concatination $1 $4 }
 | ARITHMETIC_SIGN EXPRESSION %prec NEGATION { ExpUnary () (getTransSpan (fst $1) $2) (snd $1) $2 }
 | EXPRESSION or EXPRESSION { ExpBinary () (getTransSpan $1 $3) Or $1 $3 }
 | EXPRESSION and EXPRESSION { ExpBinary () (getTransSpan $1 $3) And $1 $3 }
@@ -425,9 +473,11 @@ EXPRESSION
 | REAL_LITERAL                  { $1 }
 | COMPLEX_LITERAL               { $1 }
 | LOGICAL_LITERAL               { $1 }
-| SUBSCRIPT                     { $1 }
+| string                        { let (TString s cs) = $1 in ExpValue () s (ValString cs) }
 -- There should be FUNCTION_CALL here but as far as the parser is concerned it is same as SUBSCRIPT,
 -- hence putting it here would cause a reduce/reduce conflict.
+| SUBSCRIPT                     { $1 }
+| SUBSTRING                     { $1 }
 | VARIABLE                      { $1 }
 
 ARITHMETIC_CONSTANT_EXPRESSION :: { Expression A0 }
@@ -452,30 +502,33 @@ RELATIONAL_OPERATOR
 | '<'   { LT }
 | '<='  { LTE }
 
+-- This combined with parsing of INDICIES is a completely evil beast, using 
+-- which we parse everything from array declarators to function statements.
+-- It, however, is a necessary evil at this stage as nicely separating the 
+-- cases leads to conflicts.
+SUBSTRING :: { Expression A0 }
+SUBSTRING
+: SUBSCRIPT '(' EXPRESSION ':' EXPRESSION ')' { ExpSubstring () (getTransSpan $1 $6) $1 (Just $3) (Just $5) }
+| SUBSCRIPT '(' ':' EXPRESSION ')' { ExpSubstring () (getTransSpan $1 $5) $1 Nothing (Just $4) }
+| SUBSCRIPT '(' EXPRESSION ':' ')' { ExpSubstring () (getTransSpan $1 $5) $1 (Just $3) Nothing }
+| SUBSCRIPT '(' ':' ')' { ExpSubstring () (getTransSpan $1 $4) $1 Nothing Nothing }
+| ARRAY '(' EXPRESSION ':' EXPRESSION ')' { ExpSubstring () (getTransSpan $1 $6) $1 (Just $3) (Just $5) }
+| ARRAY '(' ':' EXPRESSION ')' { ExpSubstring () (getTransSpan $1 $5) $1 Nothing (Just $4) }
+| ARRAY '(' EXPRESSION ':' ')' { ExpSubstring () (getTransSpan $1 $5) $1 (Just $3) Nothing }
+| ARRAY '(' ':' ')' { ExpSubstring () (getTransSpan $1 $4) $1 Nothing Nothing }
+
 SUBSCRIPT :: { Expression A0 }
 SUBSCRIPT : ARRAY INDICIES { ExpSubscript () (getTransSpan $1 $2) $1 $2 }
 
 INDICIES :: { AList (Expression A0) A0 }
 INDICIES 
-:  '(' INDICIES_LEVEL1 { setSpan (getTransSpan $1 $2) $2 }
+: INDICIES_LEVEL1 ')' { setSpan (getTransSpan $1 $2) $ aReverse $1 }
 
 INDICIES_LEVEL1 :: { AList (Expression A0) A0  }
 INDICIES_LEVEL1
-: INDEX ',' INDICIES_LEVEL1 { setSpan (getTransSpan $1 $3) $ $1 `aCons` $3 }
-| INDEX ')' { AList () (getTransSpan $1 $2) [ $1 ] }
-| ')' { AList () (getSpan $1) [ ] }
-
-INDEX :: { Expression A0 }
-INDEX
-: INTEGER_LITERAL { $1 }
-| INDEX_LEVEL1 '+' INTEGER_LITERAL { ExpBinary () (getTransSpan $1 $3) Addition $1 $3 } 
-| INDEX_LEVEL1 '-' INTEGER_LITERAL { ExpBinary () (getTransSpan $1 $3) Subtraction $1 $3 } 
-| INDEX_LEVEL1 { $1 }
-
-INDEX_LEVEL1 :: { Expression A0 }
-INDEX_LEVEL1
-: INTEGER_LITERAL '*' VARIABLE { ExpBinary () (getTransSpan $1 $3) Multiplication $1 $3 } 
-| VARIABLE { $1 }
+: INDICIES_LEVEL1 ',' EXPRESSION { setSpan (getTransSpan $1 $3) $ $3 `aCons` $1 }
+| '(' EXPRESSION { AList () (getTransSpan $1 $2) [ $2 ] }
+| '(' { AList () (getSpan $1) [ ] }
 
 ARITHMETIC_SIGN :: { (SrcSpan, UnaryOp) }
 ARITHMETIC_SIGN
@@ -560,11 +613,16 @@ LABEL_IN_6COLUMN :: { Expression A0 } : label { ExpValue () (getSpan $1) (let (T
 -- Labels that occur in statements
 LABEL_IN_STATEMENT :: { Expression A0 } : int { ExpValue () (getSpan $1) (let (TInt _ l) = $1 in ValLabel l) }
 
-TYPE :: { BaseType A0 }
-TYPE
+TYPE :: { BaseType A0 } : CHARACTER_TYPE { $1 } | OTHER_TYPE { $1 }
+
+CHARACTER_TYPE :: { BaseType A0 }
+CHARACTER_TYPE
 : character        { TypeCharacter () (getSpan $1) Nothing }
 | character '*' ARITHMETIC_CONSTANT_EXPRESSION  { TypeCharacter () (getTransSpan $1 $3) $ Just $3 }
-| integer          { TypeInteger () (getSpan $1) }
+
+OTHER_TYPE :: { BaseType A0 }
+OTHER_TYPE
+: integer          { TypeInteger () (getSpan $1) }
 | real             { TypeReal () (getSpan $1) }
 | doublePrecision  { TypeDoublePrecision () (getSpan $1) }
 | logical          { TypeLogical () (getSpan $1) }
