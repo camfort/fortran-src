@@ -23,8 +23,14 @@ pParser source = fortran77Parser source "<unknown>"
 varGen :: String -> Expression ()
 varGen str = ExpValue () u $ ValVariable str
 
+parGen :: String -> Expression ()
+parGen str = ExpValue () u $ ValParameter str
+
 intGen :: Integer -> Expression ()
 intGen i = ExpValue () u $ ValInteger $ show i
+
+strGen :: String -> Expression ()
+strGen str = ExpValue () u $ ValString $ str
 
 labelGen :: Integer -> Expression ()
 labelGen i = ExpValue () u $ ValLabel $ show i
@@ -120,6 +126,13 @@ spec =
         let imp2 = ImpList () u (TypeInteger () u) $ AList () u [ImpRange () u "a" "z", ImpCharacter () u "l"]
         let st = resetSrcSpan $ StImplicit () u $ Just $ AList () u [imp1, imp2]
         resetSrcSpan (sParser "      implicit character*30 (a, b, c), integer (a-z, l)") `shouldBe` st
+
+    it "parses 'parameter (pi = 3.14, b = 'X' // 'O', d = k) '" $ do
+      let sts = [ StExpressionAssign () u (parGen "pi") (ExpValue () u (ValReal "3.14"))
+                , StExpressionAssign () u (parGen "b") (ExpBinary () u Concatination (strGen "x") (strGen "o"))
+                , StExpressionAssign () u (parGen "d") (parGen "k") ] 
+      let st = resetSrcSpan $ StParameter () u (AList () u sts)
+      resetSrcSpan (sParser "      parameter (pi = 3.14, b = 'X' // 'O', d = k)") `shouldBe` st
 
 exampleProgram1 = unlines
   [ "      program hello"

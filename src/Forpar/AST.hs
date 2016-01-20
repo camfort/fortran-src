@@ -80,6 +80,7 @@ data Statement a  =
   | StFormat              a SrcSpan (AList (FormatItem a) a)
   | StDeclaration         a SrcSpan (BaseType a) (AList (Declarator a) a)
   | StImplicit            a SrcSpan (Maybe (AList (ImpList a) a))
+  | StParameter           a SrcSpan (AList (Statement a) a)
   | StDo                  a SrcSpan (Expression a) (DoSpecification a)
   | StIfLogical           a SrcSpan (Expression a) (Statement a) -- Statement should not further recurse
   | StIfArithmetic        a SrcSpan (Expression a) (Expression a) (Expression a) (Expression a)
@@ -155,6 +156,7 @@ data Value a =
   | ValHollerith         String
   | ValLabel             String
   | ValVariable          Name
+  | ValParameter         Name
   | ValArray             Name
   | ValTrue              
   | ValFalse             

@@ -63,6 +63,7 @@ import Debug.Trace
   complex               { TType _ "complex" }
   intrinsic             { TIntrinsic _ }
   implicit              { TImplicit _ }
+  parameter             { TParameter _ }
   none                  { TNone _ }
   data                  { TData _ }
   format                { TFormat _ }
@@ -238,6 +239,16 @@ NONEXECUTABLE_STATEMENT :: { Statement A0 }
 | DECLARATION_STATEMENT { $1 }
 | implicit none { StImplicit () (getTransSpan $1 $2) Nothing }
 | implicit IMP_LISTS { StImplicit () (getTransSpan $1 $2) $ Just $ aReverse $2 }
+| parameter '(' PARAMETER_ASSIGNMENTS ')' { StParameter () (getTransSpan $1 $4) $ aReverse $3 }
+
+PARAMETER_ASSIGNMENTS :: { AList (Statement A0) A0 }
+PARAMETER_ASSIGNMENTS
+: PARAMETER_ASSIGNMENTS ',' PARAMETER_ASSIGNMENT { setSpan (getTransSpan $1 $3) $ $3 `aCons` $1 }
+| PARAMETER_ASSIGNMENT { AList () (getSpan $1) [ $1 ] }
+
+PARAMETER_ASSIGNMENT :: { Statement A0 }
+PARAMETER_ASSIGNMENT
+: PARAMETER '=' CONSTANT_EXPRESSION { StExpressionAssign () (getTransSpan $1 $3) $1 $3 }
 
 DECLARATION_STATEMENT :: { Statement A0 }
 DECLARATION_STATEMENT
@@ -480,6 +491,27 @@ EXPRESSION
 | SUBSTRING                     { $1 }
 | VARIABLE                      { $1 }
 
+CONSTANT_EXPRESSION :: { Expression A0 }
+CONSTANT_EXPRESSION
+: EXPRESSION '+' EXPRESSION { ExpBinary () (getTransSpan $1 $3) Addition $1 $3 }
+| EXPRESSION '-' EXPRESSION { ExpBinary () (getTransSpan $1 $3) Subtraction $1 $3 }
+| EXPRESSION '*' EXPRESSION { ExpBinary () (getTransSpan $1 $3) Multiplication $1 $3 }
+| EXPRESSION '/' EXPRESSION { ExpBinary () (getTransSpan $1 $3) Division $1 $3 }
+| EXPRESSION '**' EXPRESSION { ExpBinary () (getTransSpan $1 $3) Exponentiation $1 $3 }
+| EXPRESSION '/' '/' EXPRESSION %prec CONCAT { ExpBinary () (getTransSpan $1 $4) Concatination $1 $4 }
+| ARITHMETIC_SIGN EXPRESSION %prec NEGATION { ExpUnary () (getTransSpan (fst $1) $2) (snd $1) $2 }
+| EXPRESSION or EXPRESSION { ExpBinary () (getTransSpan $1 $3) Or $1 $3 }
+| EXPRESSION and EXPRESSION { ExpBinary () (getTransSpan $1 $3) And $1 $3 }
+| not EXPRESSION { ExpUnary () (getTransSpan $1 $2) Not $2 }
+| EXPRESSION RELATIONAL_OPERATOR EXPRESSION %prec RELATIONAL { ExpBinary () (getTransSpan $1 $3) $2 $1 $3 }
+| '(' EXPRESSION ')' { setSpan (getTransSpan $1 $3) $2 }
+| INTEGER_LITERAL               { $1 }
+| REAL_LITERAL                  { $1 }
+| COMPLEX_LITERAL               { $1 }
+| LOGICAL_LITERAL               { $1 }
+| string                        { let (TString s cs) = $1 in ExpValue () s (ValString cs) }
+| PARAMETER                     { $1 } 
+
 ARITHMETIC_CONSTANT_EXPRESSION :: { Expression A0 }
 ARITHMETIC_CONSTANT_EXPRESSION
 : ARITHMETIC_CONSTANT_EXPRESSION '+' ARITHMETIC_CONSTANT_EXPRESSION { ExpBinary () (getTransSpan $1 $3) Addition $1 $3 }
@@ -492,6 +524,10 @@ ARITHMETIC_CONSTANT_EXPRESSION
 | INTEGER_LITERAL               { $1 }
 | REAL_LITERAL                  { $1 }
 | COMPLEX_LITERAL               { $1 }
+| PARAMETER                     { $1 }
+
+PARAMETER :: { Expression A0 }
+PARAMETER : id { let (TId s par) = $1 in ExpValue () s $ ValParameter par }
 
 RELATIONAL_OPERATOR :: { BinaryOp }
 RELATIONAL_OPERATOR
