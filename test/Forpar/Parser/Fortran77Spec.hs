@@ -127,7 +127,8 @@ spec =
         sParser "      implicit none" `shouldBe'` st
 
       it "parses 'implicit character*30 (a, b, c), integer (a-z, l)" $ do
-        let imp1 = ImpList () u (TypeCharacter () u (Just $ intGen 30)) $ AList () u [ImpCharacter () u "a", ImpCharacter () u "b", ImpCharacter () u "c"]
+        let impEls = [ImpCharacter () u "a", ImpCharacter () u "b", ImpCharacter () u "c"]
+        let imp1 = ImpList () u (TypeCharacter () u (Just $ intGen 30)) $ AList () u impEls
         let imp2 = ImpList () u (TypeInteger () u) $ AList () u [ImpRange () u "a" "z", ImpCharacter () u "l"]
         let st = StImplicit () u $ Just $ AList () u [imp1, imp2]
         sParser "      implicit character*30 (a, b, c), integer (a-z, l)" `shouldBe'` st
@@ -151,6 +152,14 @@ spec =
 
       it "parses 'save'" $ do
         sParser "      save" `shouldBe'` StSave () u (AList () u [])
+
+    it "parses '.true. .eqv. f(42) .neqv. x'" $ do
+      let arg1 = ExpValue () u ValTrue
+      let arg2 = ExpSubscript () u (arrGen "f") $ AList () u [ intGen 42 ]
+      let arg3 = varGen "x"
+      let subexp = ExpBinary () u Equivalent arg1 arg2
+      let exp = ExpBinary () u NotEquivalent subexp arg3
+      eParser "      .true. .eqv. f(42) .neqv. x" `shouldBe'` exp
 
 exampleProgram1 = unlines
   [ "      program hello"

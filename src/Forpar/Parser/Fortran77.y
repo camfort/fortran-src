@@ -81,6 +81,8 @@ import Debug.Trace
   '**'                  { TOpExp _ }
   '*'                   { TStar _ }
   '/'                   { TSlash _ }
+  eqv                   { TOpEquivalent _ }
+  neqv                  { TOpNotEquivalent _ }
   or                    { TOpOr _ }
   and                   { TOpAnd _ }
   not                   { TOpNot _ }
@@ -97,6 +99,7 @@ import Debug.Trace
   label                 { TLabel _ _ }
   newline               { TNewline _ }
 
+%left eqv neqv
 %left or
 %left and
 %right not
@@ -499,6 +502,8 @@ EXPRESSION
 | EXPRESSION or EXPRESSION { ExpBinary () (getTransSpan $1 $3) Or $1 $3 }
 | EXPRESSION and EXPRESSION { ExpBinary () (getTransSpan $1 $3) And $1 $3 }
 | not EXPRESSION { ExpUnary () (getTransSpan $1 $2) Not $2 }
+| EXPRESSION eqv EXPRESSION { ExpBinary () (getTransSpan $1 $3) Equivalent $1 $3 }
+| EXPRESSION neqv EXPRESSION { ExpBinary () (getTransSpan $1 $3) NotEquivalent $1 $3 }
 | EXPRESSION RELATIONAL_OPERATOR EXPRESSION %prec RELATIONAL { ExpBinary () (getTransSpan $1 $3) $2 $1 $3 }
 | '(' EXPRESSION ')' { setSpan (getTransSpan $1 $3) $2 }
 | INTEGER_LITERAL               { $1 }

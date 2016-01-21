@@ -195,6 +195,8 @@ data BinaryOp =
   | NE
   | Or
   | And
+  | Equivalent
+  | NotEquivalent
   deriving (Eq, Show, Data, Typeable, Generic)
 
 -- Retrieving SrcSpan and Annotation from nodes
