@@ -41,6 +41,8 @@ arrGen str = ExpValue () u $ ValArray str
 starVal :: Expression ()
 starVal = ExpValue () u ValStar
 
+shouldBe' a b = resetSrcSpan a `shouldBe` resetSrcSpan b
+
 spec :: Spec
 spec = 
   describe "Fortran 77 Parser" $ do
@@ -48,91 +50,95 @@ spec =
       let decl = DeclVariable () u (varGen "x")
       let st = StDeclaration () u (TypeInteger () u) (AList () u [ decl ])
       let bl = BlStatement () u st []
-      let pu = resetSrcSpan $ PUMain () u (Just "hello") [(Nothing, bl)] []
-      resetSrcSpan (pParser exampleProgram1) `shouldBe` [pu]
+      let pu = PUMain () u (Just "hello") [(Nothing, bl)] []
+      pParser exampleProgram1 `shouldBe'` [pu]
 
     it "parses block data unit" $ do
       let decl = DeclVariable () u (varGen "x")
       let st = StDeclaration () u (TypeInteger () u) (AList () u [ decl ])
       let bl = BlStatement () u st []
-      let pu = resetSrcSpan $ PUBlockData () u (Just "hello") [(Nothing, bl)] []
-      resetSrcSpan (pParser exampleProgram2) `shouldBe` [pu]
+      let pu = PUBlockData () u (Just "hello") [(Nothing, bl)] []
+      pParser exampleProgram2 `shouldBe'` [pu]
 
     it "parses 'intrinsic cosh, sin'" $ do
       let fun1 = ExpValue () u (ValFunctionName "cosh")
       let fun2 = ExpValue () u (ValFunctionName "sin")
-      let st = resetSrcSpan $ StIntrinsic () u (AList () u [ fun1, fun2 ])
-      resetSrcSpan (sParser $ "      intrinsic cosh, sin") `shouldBe` st
+      let st = StIntrinsic () u (AList () u [ fun1, fun2 ])
+      sParser "      intrinsic cosh, sin" `shouldBe'` st
 
     describe "CHARACTER" $ do
       it "parses character literal assignment" $ do
         let rhs = ExpValue () u (ValString "hello 'baby")
-        let st = resetSrcSpan $ StExpressionAssign () u (varGen "xyz") rhs
-        resetSrcSpan (sParser $ "      xyz = 'hello ''baby'") `shouldBe` st
+        let st = StExpressionAssign () u (varGen "xyz") rhs
+        sParser "      xyz = 'hello ''baby'" `shouldBe'` st
 
       it "string concatination" $ do
         let str1 = ExpValue () u (ValString "hello ")
         let str2 = ExpValue () u (ValString "world")
-        let exp = resetSrcSpan $ ExpBinary () u Concatination str1 str2
-        resetSrcSpan (eParser $ "      'hello ' // 'world'") `shouldBe` exp
+        let exp = ExpBinary () u Concatination str1 str2
+        eParser "      'hello ' // 'world'" `shouldBe'` exp
 
     describe "Subscript like" $ do
       it "parses vanilla subscript" $ do
-        let exp = resetSrcSpan $ ExpSubscript () u (arrGen "a") (AList () u [ varGen "x", intGen 2, intGen 3 ])
-        resetSrcSpan (eParser $ "      a(x, 2, 3)") `shouldBe` exp
+        let exp = ExpSubscript () u (arrGen "a") (AList () u [ varGen "x", intGen 2, intGen 3 ])
+        eParser "      a(x, 2, 3)" `shouldBe'` exp
 
       it "parses array declarator" $ do
         let dimDecls = [ DimensionDeclarator () u (Just $ intGen 1) (intGen 2)
                        , DimensionDeclarator () u Nothing (intGen 15)
                        , DimensionDeclarator () u (Just $ varGen "x") starVal ]
         let decl = DeclArray () u (arrGen "a") (AList () u dimDecls)
-        let st = resetSrcSpan $ StDeclaration () u (TypeInteger () u) (AList () u [ decl ])
-        resetSrcSpan (sParser $ "      integer a(1:2, 15, x:*)") `shouldBe` st
+        let st = StDeclaration () u (TypeInteger () u) (AList () u [ decl ])
+        sParser "      integer a(1:2, 15, x:*)" `shouldBe'` st
 
       it "parses character substring" $ do
         let indicies = [ intGen 1, intGen 2, intGen 3 ]
         let subExp = ExpSubscript () u (arrGen "a")  (AList () u indicies)
-        let exp = resetSrcSpan $ ExpSubstring () u subExp Nothing (Just $ intGen 10)
-        resetSrcSpan (eParser $ "      a(1, 2, 3)(:10)") `shouldBe` exp
+        let exp = ExpSubstring () u subExp Nothing (Just $ intGen 10)
+        eParser "      a(1, 2, 3)(:10)" `shouldBe'` exp
 
       it "parses simpler substring" $ do
-        let exp = resetSrcSpan $ ExpSubstring () u (arrGen "a") (Just $ intGen 5) (Just $ intGen 10)
-        resetSrcSpan (eParser $ "      a(5:10)") `shouldBe` exp
+        let exp = ExpSubstring () u (arrGen "a") (Just $ intGen 5) (Just $ intGen 10)
+        eParser "      a(5:10)" `shouldBe'` exp
 
       it "parses simpler substring" $ do
-        let exp = resetSrcSpan $ ExpSubstring () u (arrGen "a") (Just $ intGen 5) Nothing
-        resetSrcSpan (eParser $ "      a(5:)") `shouldBe` exp
+        let exp = ExpSubstring () u (arrGen "a") (Just $ intGen 5) Nothing
+        eParser "      a(5:)" `shouldBe'` exp
 
     describe "GOTO" $ do
       it "parses computed GOTO with integer expression" $ do
         let exp = ExpBinary () u Multiplication (intGen 42) (intGen 24)
-        let st = resetSrcSpan $ StGotoComputed () u (AList () u [labelGen 10, labelGen 20, labelGen 30]) exp
-        resetSrcSpan (sParser "      GOTO (10, 20, 30), 42 * 24") `shouldBe` st
+        let st = StGotoComputed () u (AList () u [labelGen 10, labelGen 20, labelGen 30]) exp
+        sParser "      GOTO (10, 20, 30), 42 * 24" `shouldBe'` st
 
-      let gotoSt = resetSrcSpan $ StGotoAssigned () u (varGen "v") (AList () u [labelGen 10, labelGen 20, labelGen 30])
+      let gotoSt = StGotoAssigned () u (varGen "v") (AList () u [labelGen 10, labelGen 20, labelGen 30])
       it "parses assigned GOTO with comma" $ do
-        resetSrcSpan (sParser "      GOTO v, (10, 20, 30)") `shouldBe` gotoSt
+        sParser "      GOTO v, (10, 20, 30)" `shouldBe'` gotoSt
 
       it "parses assigned GOTO without comma" $ do
-        resetSrcSpan (sParser "      GOTO v (10, 20, 30)") `shouldBe` gotoSt
+        sParser "      GOTO v (10, 20, 30)" `shouldBe'` gotoSt
 
     describe "IMPLICIT" $ do
       it "parses 'implicit none'" $ do
         let st = resetSrcSpan $ StImplicit () u Nothing
-        resetSrcSpan (sParser "      implicit none") `shouldBe` st
+        sParser "      implicit none" `shouldBe'` st
 
       it "parses 'implicit character*30 (a, b, c), integer (a-z, l)" $ do
         let imp1 = ImpList () u (TypeCharacter () u (Just $ intGen 30)) $ AList () u [ImpCharacter () u "a", ImpCharacter () u "b", ImpCharacter () u "c"]
         let imp2 = ImpList () u (TypeInteger () u) $ AList () u [ImpRange () u "a" "z", ImpCharacter () u "l"]
-        let st = resetSrcSpan $ StImplicit () u $ Just $ AList () u [imp1, imp2]
-        resetSrcSpan (sParser "      implicit character*30 (a, b, c), integer (a-z, l)") `shouldBe` st
+        let st = StImplicit () u $ Just $ AList () u [imp1, imp2]
+        sParser "      implicit character*30 (a, b, c), integer (a-z, l)" `shouldBe'` st
 
     it "parses 'parameter (pi = 3.14, b = 'X' // 'O', d = k) '" $ do
       let sts = [ StExpressionAssign () u (parGen "pi") (ExpValue () u (ValReal "3.14"))
                 , StExpressionAssign () u (parGen "b") (ExpBinary () u Concatination (strGen "x") (strGen "o"))
                 , StExpressionAssign () u (parGen "d") (parGen "k") ] 
-      let st = resetSrcSpan $ StParameter () u (AList () u sts)
-      resetSrcSpan (sParser "      parameter (pi = 3.14, b = 'X' // 'O', d = k)") `shouldBe` st
+      let st = StParameter () u (AList () u sts)
+      sParser "      parameter (pi = 3.14, b = 'X' // 'O', d = k)" `shouldBe'` st
+
+    it "parses 'pause 'hello world''" $ do
+      let st = StPause () u $ Just $ strGen "hello world"
+      sParser "      pause 'hello world'" `shouldBe'` st
 
 exampleProgram1 = unlines
   [ "      program hello"

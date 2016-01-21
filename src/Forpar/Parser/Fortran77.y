@@ -207,15 +207,17 @@ OTHER_EXECUTABLE_STATEMENT
 | call SUBROUTINE_NAME { StCall () (getTransSpan $1 $2) $2 Nothing }
 | return { StReturn () $ getSpan $1 }
 | continue { StContinue () $ getSpan $1 }
-| stop INTEGER_LITERAL { StStop () (getTransSpan $1 $2) $ Just $2 }
+| stop INTEGER_OR_STRING { StStop () (getTransSpan $1 $2) $ Just $2 }
 | stop { StStop () (getSpan $1) Nothing }
-| pause INTEGER_LITERAL { StPause () (getTransSpan $1 $2) $ Just $2 }
+| pause INTEGER_OR_STRING { StPause () (getTransSpan $1 $2) $ Just $2 }
 | pause { StPause () (getSpan $1) Nothing }
 | rewind UNIT { StRewind () (getTransSpan $1 $2) $2 }
 | backspace UNIT { StBackspace () (getTransSpan $1 $2) $2 }
 | endfile UNIT { StEndfile () (getTransSpan $1 $2) $2 }
 | write READ_WRITE_ARGUMENTS { let (unit, form, list) = $2 in StWrite () (getTransSpan $1 $2) unit form list }
 | read READ_WRITE_ARGUMENTS { let (unit, form, list) = $2 in StRead () (getTransSpan $1 $2) unit form list }
+
+INTEGER_OR_STRING :: { Expression A0 } : STRING { $1 } | INTEGER_LITERAL { $1 }
 
 GOTO_STATEMENT :: { Statement A0 }
 GOTO_STATEMENT
@@ -484,12 +486,14 @@ EXPRESSION
 | REAL_LITERAL                  { $1 }
 | COMPLEX_LITERAL               { $1 }
 | LOGICAL_LITERAL               { $1 }
-| string                        { let (TString s cs) = $1 in ExpValue () s (ValString cs) }
+| STRING                        { $1 }
 -- There should be FUNCTION_CALL here but as far as the parser is concerned it is same as SUBSCRIPT,
 -- hence putting it here would cause a reduce/reduce conflict.
 | SUBSCRIPT                     { $1 }
 | SUBSTRING                     { $1 }
 | VARIABLE                      { $1 }
+
+STRING :: { Expression A0 } : string { let (TString s cs) = $1 in ExpValue () s (ValString cs) }
 
 CONSTANT_EXPRESSION :: { Expression A0 }
 CONSTANT_EXPRESSION
