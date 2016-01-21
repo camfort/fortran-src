@@ -206,7 +206,8 @@ OTHER_EXECUTABLE_STATEMENT
 | if '(' EXPRESSION ')' LABEL_IN_STATEMENT ',' LABEL_IN_STATEMENT ',' LABEL_IN_STATEMENT { StIfArithmetic () (getTransSpan $1 $9) $3 $5 $7 $9 }
 | call SUBROUTINE_NAME CALLABLE_EXPRESSIONS { StCall () (getTransSpan $1 $3) $2 $ Just $3 }
 | call SUBROUTINE_NAME { StCall () (getTransSpan $1 $2) $2 Nothing }
-| return { StReturn () $ getSpan $1 }
+| return { StReturn () (getSpan $1) Nothing }
+| return EXPRESSION { StReturn () (getTransSpan $1 $2) $ Just $2 }
 | save SAVE_ARGS { StSave () (getSpan $1) $ aReverse $2 }
 | continue { StContinue () $ getSpan $1 }
 | stop INTEGER_OR_STRING { StStop () (getTransSpan $1 $2) $ Just $2 }
