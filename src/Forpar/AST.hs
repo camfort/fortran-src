@@ -92,6 +92,7 @@ data Statement a  =
   | StGotoComputed        a SrcSpan (AList (Expression a) a) (Expression a)
   | StCall                a SrcSpan (Expression a) (Maybe (AList (Expression a) a))
   | StReturn              a SrcSpan
+  | StSave                a SrcSpan (AList (Expression a) a)
   | StContinue            a SrcSpan
   | StStop                a SrcSpan (Maybe (Expression a))
   | StPause               a SrcSpan (Maybe (Expression a))

@@ -38,6 +38,9 @@ labelGen i = ExpValue () u $ ValLabel $ show i
 arrGen :: String -> Expression ()
 arrGen str = ExpValue () u $ ValArray str
 
+cbNameGen :: String -> Expression ()
+cbNameGen str = ExpValue () u $ ValCommonName str
+
 starVal :: Expression ()
 starVal = ExpValue () u ValStar
 
@@ -139,6 +142,15 @@ spec =
     it "parses 'pause 'hello world''" $ do
       let st = StPause () u $ Just $ strGen "hello world"
       sParser "      pause 'hello world'" `shouldBe'` st
+
+    describe "SAVE" $ do
+      it "parses 'save /cb/, var, /key/'" $ do
+        let saveArgs = [ cbNameGen "cb", varGen "var", cbNameGen "key" ]
+        let st = StSave () u (AList () u saveArgs)
+        sParser "      save /cb/, var, /key/" `shouldBe'` st
+
+      it "parses 'save'" $ do
+        sParser "      save" `shouldBe'` StSave () u (AList () u [])
 
 exampleProgram1 = unlines
   [ "      program hello"

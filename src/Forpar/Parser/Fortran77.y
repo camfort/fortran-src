@@ -42,6 +42,7 @@ import Debug.Trace
   if                    { TIf _ }
   call                  { TCall _ }
   return                { TReturn _ }
+  save                  { TSave _ }
   continue              { TContinue _ }
   stop                  { TStop _ }
   pause                 { TPause _ }
@@ -206,6 +207,7 @@ OTHER_EXECUTABLE_STATEMENT
 | call SUBROUTINE_NAME CALLABLE_EXPRESSIONS { StCall () (getTransSpan $1 $3) $2 $ Just $3 }
 | call SUBROUTINE_NAME { StCall () (getTransSpan $1 $2) $2 Nothing }
 | return { StReturn () $ getSpan $1 }
+| save SAVE_ARGS { StSave () (getSpan $1) $ aReverse $2 }
 | continue { StContinue () $ getSpan $1 }
 | stop INTEGER_OR_STRING { StStop () (getTransSpan $1 $2) $ Just $2 }
 | stop { StStop () (getSpan $1) Nothing }
@@ -216,6 +218,19 @@ OTHER_EXECUTABLE_STATEMENT
 | endfile UNIT { StEndfile () (getTransSpan $1 $2) $2 }
 | write READ_WRITE_ARGUMENTS { let (unit, form, list) = $2 in StWrite () (getTransSpan $1 $2) unit form list }
 | read READ_WRITE_ARGUMENTS { let (unit, form, list) = $2 in StRead () (getTransSpan $1 $2) unit form list }
+
+SAVE_ARGS :: { AList (Expression A0) A0 }
+SAVE_ARGS
+: SAVE_ARGS_LEVEL1 { $1 }
+| {-EMPTY-} {% getPosition >>= \p -> return $ AList () (SrcSpan p p) [] }
+
+SAVE_ARGS_LEVEL1 :: { AList (Expression A0) A0 }
+SAVE_ARGS_LEVEL1
+: SAVE_ARGS_LEVEL1 ',' SAVE_ARG { setSpan (getTransSpan $1 $3) $ $3 `aCons` $1 }
+| SAVE_ARG { AList () (getSpan $1) [ $1 ] }
+
+SAVE_ARG :: { Expression A0 }
+SAVE_ARG : COMMON_NAME { $1 } | VARIABLE { $1 }
 
 INTEGER_OR_STRING :: { Expression A0 } : STRING { $1 } | INTEGER_LITERAL { $1 }
 
@@ -370,17 +385,17 @@ COMMON_GROUPS
 
 COMMON_GROUP :: { CommonGroup A0 }
 COMMON_GROUP
-: '/' COMMON_NAME '/' NAME_LIST { CommonGroup () (getTransSpan $1 $4) (Just $2) $ aReverse $4 }
+: COMMON_NAME NAME_LIST { CommonGroup () (getTransSpan $1 $2) (Just $1) $ aReverse $2 }
 | '/' '/' NAME_LIST { CommonGroup () (getTransSpan $1 $3) Nothing $ aReverse $3 }
 
 INIT_COMMON_GROUP :: { CommonGroup A0 }
 INIT_COMMON_GROUP
-: '/' COMMON_NAME '/' NAME_LIST { CommonGroup () (getTransSpan $1 $4) (Just $2) $ aReverse $4 }
+: COMMON_NAME NAME_LIST { CommonGroup () (getTransSpan $1 $2) (Just $1) $ aReverse $2 }
 | '/' '/' NAME_LIST { CommonGroup () (getTransSpan $1 $3) Nothing $ aReverse $3 }
 | NAME_LIST { CommonGroup () (getSpan $1) Nothing $ aReverse $1 }
 
 COMMON_NAME :: { Expression A0 }
-COMMON_NAME : id { let (TId s cn) = $1 in ExpValue () s (ValCommonName cn) }
+COMMON_NAME : '/' id '/' { let (TId _ cn) = $2 in ExpValue () (getTransSpan $1 $3) (ValCommonName cn) }
 
 NAME_LIST :: { AList (Expression A0) A0 }
 NAME_LIST
