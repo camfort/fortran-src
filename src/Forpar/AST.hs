@@ -111,7 +111,7 @@ data ImpElement a =
   deriving (Eq, Show, Data, Typeable, Generic)
 
 data CommonGroup a = 
-  CommonGroup a SrcSpan (Maybe Name) (AList (Expression a) a)
+  CommonGroup a SrcSpan (Maybe (Expression a)) (AList (Expression a) a)
   deriving (Eq, Show, Data, Typeable, Generic)
 
 data DataGroup a =
@@ -162,6 +162,7 @@ data Value a =
   | ValFalse             
   | ValFunctionName      Name
   | ValSubroutineName    Name
+  | ValCommonName        Name
   | ValStar
   deriving (Eq, Show, Data, Typeable, Generic)
 

@@ -128,7 +128,7 @@ spec =
 
       it "parses 'COMMON // a, b /hello/ x, y, z'" $ do
         let comGrs = [ CommonGroup () u Nothing (AList () u [ varGen "a", varGen "b" ])
-                     , CommonGroup () u (Just "hello") (AList () u [ varGen "x", varGen "y", varGen "z" ]) ]
+                     , CommonGroup () u (Just $ ExpValue () u $ ValCommonName "hello") (AList () u [ varGen "x", varGen "y", varGen "z" ]) ]
         let st = StCommon () u (AList () u comGrs)
         sParser "      COMMON // a, b /hello/ x, y, z" `shouldBe'` st
 
