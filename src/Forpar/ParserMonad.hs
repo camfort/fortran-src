@@ -30,6 +30,7 @@ data FortranVersion = Fortran66
 
 data ParseState a = ParseState 
   { psAlexInput :: a
+  , psParanthesesCount :: Integer 
   , psVersion :: FortranVersion  -- To differentiate lexing behaviour
   , psFilename :: String -- To save correct source location in AST
   }

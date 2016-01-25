@@ -11,7 +11,11 @@ u = undefined
 
 eParser :: String -> Expression ()
 eParser sourceCode = 
-  evalParse expressionParser $ initParseState sourceCode Fortran77 "<unknown>"
+  case evalParse statementParser parseState of
+    (StExpressionAssign _ _ _ e) -> e
+  where
+    paddedSourceCode = "      a = " ++ sourceCode
+    parseState =  initParseState paddedSourceCode Fortran77 "<unknown>"
 
 sParser :: String -> Statement ()
 sParser sourceCode = 
@@ -79,12 +83,12 @@ spec =
         let str1 = ExpValue () u (ValString "hello ")
         let str2 = ExpValue () u (ValString "world")
         let exp = ExpBinary () u Concatination str1 str2
-        eParser "      'hello ' // 'world'" `shouldBe'` exp
+        eParser "'hello ' // 'world'" `shouldBe'` exp
 
     describe "Subscript like" $ do
       it "parses vanilla subscript" $ do
         let exp = ExpSubscript () u (arrGen "a") (AList () u [ varGen "x", intGen 2, intGen 3 ])
-        eParser "      a(x, 2, 3)" `shouldBe'` exp
+        eParser "a(x, 2, 3)" `shouldBe'` exp
 
       it "parses array declarator" $ do
         let dimDecls = [ DimensionDeclarator () u (Just $ intGen 1) (intGen 2)
@@ -98,15 +102,15 @@ spec =
         let indicies = [ intGen 1, intGen 2, intGen 3 ]
         let subExp = ExpSubscript () u (arrGen "a")  (AList () u indicies)
         let exp = ExpSubstring () u subExp Nothing (Just $ intGen 10)
-        eParser "      a(1, 2, 3)(:10)" `shouldBe'` exp
+        eParser "a(1, 2, 3)(:10)" `shouldBe'` exp
 
       it "parses simpler substring" $ do
         let exp = ExpSubstring () u (arrGen "a") (Just $ intGen 5) (Just $ intGen 10)
-        eParser "      a(5:10)" `shouldBe'` exp
+        eParser "a(5:10)" `shouldBe'` exp
 
       it "parses simpler substring" $ do
         let exp = ExpSubstring () u (arrGen "a") (Just $ intGen 5) Nothing
-        eParser "      a(5:)" `shouldBe'` exp
+        eParser "a(5:)" `shouldBe'` exp
 
     describe "GOTO" $ do
       it "parses computed GOTO with integer expression" $ do
@@ -159,7 +163,13 @@ spec =
       let arg3 = varGen "x"
       let subexp = ExpBinary () u Equivalent arg1 arg2
       let exp = ExpBinary () u NotEquivalent subexp arg3
-      eParser "      .true. .eqv. f(42) .neqv. x" `shouldBe'` exp
+      eParser ".true. .eqv. f(42) .neqv. x" `shouldBe'` exp
+
+    it "parses 'entry me (a,b,*)'" $ do
+      let func = ExpValue () u (ValFunctionName "me") 
+      let args = [ varGen "a", varGen "b", starVal ]
+      let st = StEntry () u func (Just $ AList () u args)
+      sParser "      entry me (a,b,*)" `shouldBe'` st
 
 exampleProgram1 = unlines
   [ "      program hello"

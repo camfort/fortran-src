@@ -65,6 +65,7 @@ import Debug.Trace
   intrinsic             { TIntrinsic _ }
   implicit              { TImplicit _ }
   parameter             { TParameter _ }
+  entry                 { TEntry _ }
   none                  { TNone _ }
   data                  { TData _ }
   format                { TFormat _ }
@@ -250,6 +251,7 @@ EXPRESSION_ASSIGNMENT_STATEMENT :: { Statement A0 }
 EXPRESSION_ASSIGNMENT_STATEMENT : ELEMENT '=' EXPRESSION { StExpressionAssign () (getTransSpan $1 $3) $1 $3 }
 
 NONEXECUTABLE_STATEMENT :: { Statement A0 }
+NONEXECUTABLE_STATEMENT
 : external FUNCTION_NAMES { StExternal () (getTransSpan $1 $2) (aReverse $2) }
 | intrinsic FUNCTION_NAMES { StIntrinsic () (getTransSpan $1 $2) (aReverse $2) }
 | dimension OTHER_ARRAY_DECLARATORS { StDimension () (getTransSpan $1 $2) (aReverse $2) }
@@ -261,6 +263,23 @@ NONEXECUTABLE_STATEMENT :: { Statement A0 }
 | implicit none { StImplicit () (getTransSpan $1 $2) Nothing }
 | implicit IMP_LISTS { StImplicit () (getTransSpan $1 $2) $ Just $ aReverse $2 }
 | parameter '(' PARAMETER_ASSIGNMENTS ')' { StParameter () (getTransSpan $1 $4) $ aReverse $3 }
+| entry FUNCTION_NAME { StEntry () (getTransSpan $1 $2) $2 Nothing }
+| entry FUNCTION_NAME ENTRY_ARGS { StEntry () (getTransSpan $1 $3) $2 $ Just $3 }
+
+ENTRY_ARGS :: { AList (Expression A0) A0 }
+ENTRY_ARGS
+: ENTRY_ARGS_LEVEL1 ')' { setSpan (getTransSpan $1 $2) $ aReverse $1 }
+
+ENTRY_ARGS_LEVEL1 :: { AList (Expression A0) A0 }
+ENTRY_ARGS_LEVEL1
+: ENTRY_ARGS_LEVEL1 ',' ENTRY_ARG { setSpan (getTransSpan $1 $3) $ $3 `aCons` $1 }
+| '(' ENTRY_ARG { AList () (getTransSpan $1 $2) [ $2 ] }
+| '(' { AList () (getSpan $1) [ ] }
+
+ENTRY_ARG :: { Expression A0 }
+ENTRY_ARG
+: VARIABLE { $1 } 
+| '*' { ExpValue () (getSpan $1) ValStar }
 
 PARAMETER_ASSIGNMENTS :: { AList (Statement A0) A0 }
 PARAMETER_ASSIGNMENTS

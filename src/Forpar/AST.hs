@@ -81,6 +81,7 @@ data Statement a  =
   | StDeclaration         a SrcSpan (BaseType a) (AList (Declarator a) a)
   | StImplicit            a SrcSpan (Maybe (AList (ImpList a) a))
   | StParameter           a SrcSpan (AList (Statement a) a)
+  | StEntry               a SrcSpan (Expression a) (Maybe (AList (Expression a) a))
   | StDo                  a SrcSpan (Expression a) (DoSpecification a)
   | StIfLogical           a SrcSpan (Expression a) (Statement a) -- Statement should not further recurse
   | StIfArithmetic        a SrcSpan (Expression a) (Expression a) (Expression a) (Expression a)

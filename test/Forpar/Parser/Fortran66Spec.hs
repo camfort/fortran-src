@@ -15,7 +15,11 @@ import Data.Typeable
 
 eParser :: String -> Expression ()
 eParser sourceCode = 
-  evalParse expressionParser $ initParseState sourceCode Fortran66 "<unknown>"
+  case evalParse statementParser parseState of
+    (StExpressionAssign _ _ _ e) -> e
+  where
+    paddedSourceCode = "      a = " ++ sourceCode
+    parseState =  initParseState paddedSourceCode Fortran66 "<unknown>"
 
 sParser :: String -> Statement ()
 sParser sourceCode = 
@@ -45,75 +49,75 @@ spec =
         describe "Real numbers" $ do
           it "parses 'hello" $ do
             let expectedExp = (varGen "hello")
-            eParser "      hello" `shouldBe'` expectedExp
+            eParser "hello" `shouldBe'` expectedExp
 
           it "parses '3.14" $ do
             let expectedExp = ExpValue () u (ValReal "3.14")
-            eParser "      3.14" `shouldBe'` expectedExp
+            eParser "3.14" `shouldBe'` expectedExp
 
           it "parses '.14" $ do
             let expectedExp = ExpValue () u (ValReal ".14")
-            eParser "      .14" `shouldBe'` expectedExp
+            eParser ".14" `shouldBe'` expectedExp
 
           it "parses '3." $ do
             let expectedExp = ExpValue () u (ValReal "3.")
-            eParser "      3." `shouldBe'` expectedExp
+            eParser "3." `shouldBe'` expectedExp
 
           it "parses '3E12" $ do
             let expectedExp = ExpValue () u (ValReal "3e12")
-            eParser "      3E12" `shouldBe'` expectedExp
+            eParser "3E12" `shouldBe'` expectedExp
 
           it "parses '3.14d12" $ do
             let expectedExp = ExpValue () u (ValReal "3.14d12")
-            eParser "      3.14d12" `shouldBe'` expectedExp
+            eParser "3.14d12" `shouldBe'` expectedExp
 
           it "parses '.14d+1" $ do
             let expectedExp = ExpValue () u (ValReal ".14d+1")
-            eParser "      .14d+1" `shouldBe'` expectedExp
+            eParser ".14d+1" `shouldBe'` expectedExp
 
         it "parses '3'" $ do
           let expectedExp = intGen 3
-          eParser "      3" `shouldBe'` expectedExp
+          eParser "3" `shouldBe'` expectedExp
 
         it "parses '-3'" $ do
           let expectedExp = ExpUnary () u Minus $ intGen 3
-          eParser "      -3" `shouldBe'` expectedExp
+          eParser "-3" `shouldBe'` expectedExp
 
         it "parses '3 + 2'" $ do
           let expectedExp = ExpBinary () u Addition (intGen 3) (intGen 2)
-          eParser "      3 + 2" `shouldBe'` expectedExp
+          eParser "3 + 2" `shouldBe'` expectedExp
 
         it "parses '3 + -2'" $ do
           let expectedExp = ExpBinary () u Addition (intGen 3) (ExpUnary () u Minus (intGen 2))
-          eParser "      3 + -2" `shouldBe'` expectedExp
+          eParser "3 + -2" `shouldBe'` expectedExp
 
         it "parses '3 + -2 + 42'" $ do
           let expectedExp = ExpBinary () u Addition (ExpBinary () u Addition (intGen 3) (ExpUnary () u Minus (intGen 2))) (intGen 42)
-          eParser "      3 + -2 + 42" `shouldBe'` expectedExp
+          eParser "3 + -2 + 42" `shouldBe'` expectedExp
 
         it "parses 'f(y, 24)'" $ do
           let expectedExp = ExpSubscript () u (arrGen "f") (AList () u [ExpValue () u (ValVariable "y"), intGen 24])
-          eParser "      f(y, 24)" `shouldBe'` expectedExp
+          eParser "f(y, 24)" `shouldBe'` expectedExp
 
         it "parses '3 + 4 * 12'" $ do
           let expectedExp = ExpBinary () u Addition (intGen 3) (ExpBinary () u Multiplication (intGen 4) (intGen 12))
-          eParser "      3 + 4 * 12" `shouldBe'` expectedExp
+          eParser "3 + 4 * 12" `shouldBe'` expectedExp
 
       describe "Logical expressions" $ do
         it "parses '.true. .and. .false.'" $ do
           let expectedExp = ExpBinary () u And (ExpValue () u (ValTrue)) (ExpValue () u (ValFalse)) 
-          eParser "      .true. .and. .false." `shouldBe'` expectedExp
+          eParser ".true. .and. .false." `shouldBe'` expectedExp
 
       describe "Relational expressions" $ do
         it "parses '(3 * 2) .lt. 42'" $ do
           let expectedExp = ExpBinary () u LT (ExpBinary () u Multiplication (intGen 3) (intGen 2)) (intGen 42)
-          eParser "      (3 * 2) .lt. 42" `shouldBe'` expectedExp
+          eParser "(3 * 2) .lt. 42" `shouldBe'` expectedExp
 
       describe "Other expressions" $ do
         it "parses 'a(2 * x - 3, 10)'" $ do
           let firstEl = ExpBinary () u Subtraction (ExpBinary () u Multiplication (intGen 2) (varGen "x")) (intGen 3)
               expectedExp = ExpSubscript () u (arrGen "a") (AList () u [firstEl, intGen 10])
-          eParser "      a(2 * x - 3, 10)" `shouldBe'` expectedExp
+          eParser "a(2 * x - 3, 10)" `shouldBe'` expectedExp
 
     describe "Statements" $ do
       it "parses 'EXTERNAL f, g, h'" $ do

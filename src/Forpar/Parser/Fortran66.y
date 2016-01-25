@@ -218,6 +218,7 @@ EXPRESSION_ASSIGNMENT_STATEMENT :: { Statement A0 }
 EXPRESSION_ASSIGNMENT_STATEMENT : ELEMENT '=' EXPRESSION { StExpressionAssign () (getTransSpan $1 $3) $1 $3 }
 
 NONEXECUTABLE_STATEMENT :: { Statement A0 }
+NONEXECUTABLE_STATEMENT
 : external FUNCTION_NAMES { StExternal () (getTransSpan $1 $2) (aReverse $2) }
 | dimension ARRAY_DECLARATORS { StDimension () (getTransSpan $1 $2) (aReverse $2) }
 | common COMMON_GROUPS { StCommon () (getTransSpan $1 $2) (aReverse $2) }
