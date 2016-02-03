@@ -10,7 +10,7 @@ import Data.Maybe (isNothing, fromJust)
 import Forpar.Util.Position
 import Forpar.ParserMonad
 import Forpar.Lexer.FixedForm
-import Forpar.Disambiguator
+import Forpar.Transformer (transform, Transformation(..))
 import Forpar.AST
 
 import Debug.Trace
@@ -715,7 +715,7 @@ makeReal i1 dot i2 exp =
 
 fortran77Parser :: String -> String -> [ ProgramUnit A0 ]
 fortran77Parser sourceCode filename = 
-  groupBlocks $ evalParse programParser $ initParseState sourceCode Fortran77 filename
+  transform [ GroupIf ] $ evalParse programParser $ initParseState sourceCode Fortran77 filename
 
 parseError :: Token -> LexAction a
 parseError _ = fail "Parsing failed."

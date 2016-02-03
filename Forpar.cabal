@@ -44,7 +44,8 @@ library
     Forpar.Lexer.FixedForm
     Forpar.Parser.Fortran66
     Forpar.Parser.Fortran77
-    Forpar.Disambiguator
+    Forpar.Transformer
+    Forpar.Transformations.Grouping
     Forpar.AST
     Forpar.Util.Position
     Forpar.Util.FirstParameter
