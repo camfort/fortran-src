@@ -136,8 +136,11 @@ spec =
       it "becomes case sensitive" $ do
         resetSrcSpan (lex66 "      format 5h a= 1") `shouldBe` resetSrcSpan (Just $ THollerith u " a= 1")
 
-    it "lexer if statement '        IF (IY) 5,6,6'" $ do
+    it "lexes if statement '        IF (IY) 5,6,6'" $ do
       resetSrcSpan (collectFixedTokens Fortran66 "      IF (IY) 5,6,6") `shouldBe` resetSrcSpan (Just [TIf u, TLeftPar u, TId u "iy", TRightPar u, TInt u "5", TComma u, TInt u "6", TComma u, TInt u "6", TEOF u])
+
+    it "lexes if then statement '      if (x) then'" $ do
+      resetSrcSpan (collectFixedTokens Fortran77 "      if (x) then") `shouldBe` resetSrcSpan (Just [TIf u, TLeftPar u, TId u "x", TRightPar u, TThen u, TEOF u])
 
 example1 = unlines [
   "      intEGerix",

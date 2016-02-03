@@ -10,6 +10,7 @@ import Data.Maybe (isNothing, fromJust)
 import Forpar.Util.Position
 import Forpar.ParserMonad
 import Forpar.Lexer.FixedForm
+import Forpar.Disambiguator
 import Forpar.AST
 
 import Debug.Trace
@@ -40,6 +41,10 @@ import Debug.Trace
   to                    { TTo _ }
   goto                  { TGoto _ }
   if                    { TIf _ }
+  then                  { TThen _ }
+  else                  { TElse _ }
+  elsif                 { TElsif _ }
+  endif                 { TEndif _ }
   call                  { TCall _ }
   return                { TReturn _ }
   save                  { TSave _ }
@@ -120,26 +125,20 @@ import Debug.Trace
 PROGRAM :: { [ ProgramUnit A0 ] }
 PROGRAM
 : PROGRAM_UNITS { reverse $1 }
-| PROGRAM_UNITS COMMENTS { reverse $1 }
 
 PROGRAM_UNITS :: { [ ProgramUnit A0 ] }
 PROGRAM_UNITS
-: PROGRAM_UNITS PROGRAM_UNIT { $2 : $1 } 
-| PROGRAM_UNIT { [ $1 ] } 
+: PROGRAM_UNITS PROGRAM_UNIT NEWLINE { $2 : $1 } 
+| PROGRAM_UNIT NEWLINE { [ $1 ] } 
 
 PROGRAM_UNIT :: { ProgramUnit A0 }
 PROGRAM_UNIT
-: COMMENTS PROGRAM_UNIT_LEVEL1 NEWLINE { setComments $2 (reverse $1) }
-| PROGRAM_UNIT_LEVEL1 NEWLINE { $1 }
-
-PROGRAM_UNIT_LEVEL1 :: { ProgramUnit A0 }
-PROGRAM_UNIT_LEVEL1
-: program NAME NEWLINE BLOCKS end { PUMain () (getTransSpan $1 $5) (Just $2) (reverse $4) [] }
-| TYPE function NAME '(' ARGS ')' NEWLINE BLOCKS end { PUFunction () (getTransSpan $1 $9) (Just $1) $3 (aReverse $5) (reverse $8) [] }
-| function NAME '(' ARGS ')' NEWLINE BLOCKS end { PUFunction () (getTransSpan $1 $8) Nothing $2 (aReverse $4) (reverse $7) [] }
-| subroutine NAME '(' ARGS ')' NEWLINE BLOCKS end { PUSubroutine () (getTransSpan $1 $8) $2 $4 (reverse $7) [] }
-| blockData NEWLINE BLOCKS end { PUBlockData () (getTransSpan $1 $4) Nothing (reverse $3) [] }
-| blockData NAME NEWLINE BLOCKS end { PUBlockData () (getTransSpan $1 $5) (Just $2) (reverse $4) [] }
+: program NAME NEWLINE BLOCKS end { PUMain () (getTransSpan $1 $5) (Just $2) (reverse $4) }
+| TYPE function NAME '(' ARGS ')' NEWLINE BLOCKS end { PUFunction () (getTransSpan $1 $9) (Just $1) $3 (aReverse $5) (reverse $8) }
+| function NAME '(' ARGS ')' NEWLINE BLOCKS end { PUFunction () (getTransSpan $1 $8) Nothing $2 (aReverse $4) (reverse $7) }
+| subroutine NAME '(' ARGS ')' NEWLINE BLOCKS end { PUSubroutine () (getTransSpan $1 $8) $2 $4 (reverse $7) }
+| blockData NEWLINE BLOCKS end { PUBlockData () (getTransSpan $1 $4) Nothing (reverse $3) }
+| blockData NAME NEWLINE BLOCKS end { PUBlockData () (getTransSpan $1 $5) (Just $2) (reverse $4) }
 
 ARGS :: { AList String A0 }
 ARGS
@@ -148,33 +147,16 @@ ARGS
 
 NAME :: { Name } : id { let (TId _ name) = $1 in name }
 
-BLOCKS :: { [ (Maybe (Expression A0), Block A0) ] }
+BLOCKS :: { [ Block A0 ] }
 BLOCKS
-: BLOCKS_LEVEL1 COMMENTS { $1 }
-| BLOCKS_LEVEL1 { $1 }
-
-BLOCKS_LEVEL1 :: { [ (Maybe (Expression A0), Block A0) ] }
-: BLOCKS_LEVEL1 COMMENTS LABELED_BLOCK { (fst $3, setComments (snd $3) (reverse $2)) : $1 }
-| BLOCKS_LEVEL1 LABELED_BLOCK { $2 : $1 }
-| COMMENTS LABELED_BLOCK { [ (fst $2, setComments (snd $2) (reverse $1)) ] }
-| LABELED_BLOCK { [ $1 ] }
-
--- TODO In this version an empty line followed by a block doesn't work.
-LABELED_BLOCK :: { (Maybe (Expression A0), Block A0) }
-LABELED_BLOCK
-: LABEL_IN_6COLUMN BLOCK { (Just $1, $2) }
-| BLOCK { (Nothing, $1) }
+: BLOCKS BLOCK { $2 : $1 }
+| BLOCK { [ $1 ] }
 
 BLOCK :: { Block A0 }
-BLOCK : STATEMENT NEWLINE { BlStatement () (getSpan $1) $1 [] }
-
-COMMENTS :: { [ Comment A0 ] }
-COMMENTS
-: COMMENTS COMMENT { $2 : $1 }
-| COMMENT { [ $1 ] }
-
-COMMENT :: { Comment A0 }
-COMMENT : comment NEWLINE { let (TComment s c) = $1 in Comment () s c }
+BLOCK 
+: LABEL_IN_6COLUMN STATEMENT NEWLINE { BlStatement () (getTransSpan $1 $2) (Just $1) $2 }
+| STATEMENT NEWLINE { BlStatement () (getSpan $1) Nothing $1 }
+| comment NEWLINE { let (TComment s c) = $1 in BlComment () s c }
 
 NEWLINE :: { Token } 
 NEWLINE
@@ -208,6 +190,10 @@ OTHER_EXECUTABLE_STATEMENT
 | assign LABEL_IN_STATEMENT to VARIABLE { StLabelAssign () (getTransSpan $1 $4) $2 $4 }
 | GOTO_STATEMENT { $1 }
 | if '(' EXPRESSION ')' LABEL_IN_STATEMENT ',' LABEL_IN_STATEMENT ',' LABEL_IN_STATEMENT { StIfArithmetic () (getTransSpan $1 $9) $3 $5 $7 $9 }
+| if '(' EXPRESSION ')' then { StIfThen () (getTransSpan $1 $5) $3 }
+| elsif '(' EXPRESSION ')' then { StElsif () (getTransSpan $1 $5) $3 }
+| else { StElse () (getSpan $1) }
+| endif { StEndif () (getSpan $1) }
 | call SUBROUTINE_NAME CALLABLE_EXPRESSIONS { StCall () (getTransSpan $1 $3) $2 $ Just $3 }
 | call SUBROUTINE_NAME { StCall () (getTransSpan $1 $2) $2 Nothing }
 | return { StReturn () (getSpan $1) Nothing }
@@ -729,7 +715,7 @@ makeReal i1 dot i2 exp =
 
 fortran77Parser :: String -> String -> [ ProgramUnit A0 ]
 fortran77Parser sourceCode filename = 
-  evalParse programParser $ initParseState sourceCode Fortran77 filename
+  groupBlocks $ evalParse programParser $ initParseState sourceCode Fortran77 filename
 
 parseError :: Token -> LexAction a
 parseError _ = fail "Parsing failed."

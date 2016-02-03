@@ -58,17 +58,18 @@ data BaseType a =
 type Program a = [ProgramUnit a]
 
 data ProgramUnit a =
---    program type  | a  | span    | return               | name         | arguments        | body                              | Comments
-      PUMain          a    SrcSpan                          (Maybe Name)                      [(Maybe (Expression a), Block a)]   [Comment a]
-  |   PUSubroutine    a    SrcSpan                          Name           (AList String a)   [(Maybe (Expression a), Block a)]   [Comment a]
-  |   PUFunction      a    SrcSpan   (Maybe (BaseType a))   Name           (AList String a)   [(Maybe (Expression a), Block a)]   [Comment a]
-  |   PUBlockData     a    SrcSpan                          (Maybe Name)                      [(Maybe (Expression a), Block a)]   [Comment a]
+--    program type  | a  | span    | return               | name         | arguments        | body      
+      PUMain          a    SrcSpan                          (Maybe Name)                      [Block a]
+  |   PUSubroutine    a    SrcSpan                          Name           (AList String a)   [Block a]
+  |   PUFunction      a    SrcSpan   (Maybe (BaseType a))   Name           (AList String a)   [Block a]
+  |   PUBlockData     a    SrcSpan                          (Maybe Name)                      [Block a]
   deriving (Eq, Show, Data, Typeable, Generic)
 
-data Block a = BlStatement a SrcSpan (Statement a) ([Comment a])
+data Block a = 
+    BlStatement a SrcSpan (Maybe (Expression a)) (Statement a)
+  | BlIf a SrcSpan (Maybe (Expression a)) [ Maybe (Expression a) ] [ [ Block a ] ]
+  | BlComment a SrcSpan String
   deriving (Eq, Show, Data, Typeable, Generic)
-
-data Comment a = Comment a SrcSpan String deriving (Eq, Show, Data, Typeable, Generic)
 
 data Statement a  = 
     StExternal            a SrcSpan (AList (Expression a) a)
@@ -85,6 +86,10 @@ data Statement a  =
   | StDo                  a SrcSpan (Expression a) (DoSpecification a)
   | StIfLogical           a SrcSpan (Expression a) (Statement a) -- Statement should not further recurse
   | StIfArithmetic        a SrcSpan (Expression a) (Expression a) (Expression a) (Expression a)
+  | StIfThen              a SrcSpan (Expression a)
+  | StElse                a SrcSpan
+  | StElsif               a SrcSpan (Expression a)
+  | StEndif               a SrcSpan
   | StFunction            a SrcSpan Name (AList Name a) (Expression a)
   | StExpressionAssign    a SrcSpan (Expression a) (Expression a)
   | StLabelAssign         a SrcSpan (Expression a) (Expression a)
@@ -219,7 +224,6 @@ instance FirstParameter (ImpList a) a
 instance FirstParameter (ImpElement a) a
 instance FirstParameter (CommonGroup a) a
 instance FirstParameter (DataGroup a) a
-instance FirstParameter (Comment a) a
 instance FirstParameter (FormatItem a) a
 instance FirstParameter (Expression a) a
 instance FirstParameter (DoSpecification a) a
@@ -235,7 +239,6 @@ instance SecondParameter (ImpList a) SrcSpan
 instance SecondParameter (ImpElement a) SrcSpan
 instance SecondParameter (CommonGroup a) SrcSpan
 instance SecondParameter (DataGroup a) SrcSpan
-instance SecondParameter (Comment a) SrcSpan
 instance SecondParameter (FormatItem a) SrcSpan
 instance SecondParameter (Expression a) SrcSpan
 instance SecondParameter (DoSpecification a) SrcSpan
@@ -251,7 +254,6 @@ instance Annotated ImpList
 instance Annotated ImpElement
 instance Annotated CommonGroup
 instance Annotated DataGroup
-instance Annotated Comment
 instance Annotated FormatItem
 instance Annotated Expression
 instance Annotated DoSpecification
@@ -274,7 +276,6 @@ instance Spanned (ImpElement a)
 instance Spanned (Block a)
 instance Spanned (CommonGroup a)
 instance Spanned (DataGroup a)
-instance Spanned (Comment a)
 instance Spanned (FormatItem a)
 instance Spanned (Expression a)
 instance Spanned (DoSpecification a)
@@ -337,24 +338,28 @@ getListSpan :: Spanned a => [a] -> SrcSpan
 getListSpan [x] =  getSpan x
 getListSpan (x:xs) = getTransSpan x (last xs)
 
-class Commented f where
-  setComments :: f a -> [ Comment a ] -> f a
-  getComments :: f a -> [ Comment a ]
+class Labeled f where
+  getLabel :: f a -> Maybe (Expression a)
+  setLabel :: f a -> (Expression a) -> f a
 
-instance Commented Block where
-  setComments (BlStatement a s st _) comments = BlStatement a s st comments
-  getComments (BlStatement _ _ _ c) = c
+instance Labeled Block where
+  getLabel (BlStatement _ _ l _) = l
+  getLabel (BlIf _ _ l _ _) = l
 
-instance Commented ProgramUnit where
-  setComments (PUMain a b c d _) comments = PUMain a b c d comments
-  setComments (PUSubroutine a b c d e _) comments = PUSubroutine a b c d e comments
-  setComments (PUFunction a b c d e f _) comments = PUFunction a b c d e f comments
-  setComments (PUBlockData a b c d _) comments = PUBlockData a b c d comments
+  setLabel (BlStatement a s _ st) l = BlStatement a s (Just l) st
+  setLabel (BlIf a s _ conds bs) l = BlIf a s (Just l) conds bs
 
-  getComments (PUMain _ _ _ _ c) = c
-  getComments (PUSubroutine _ _ _ _ _ c) = c
-  getComments (PUFunction _ _ _ _ _ _ c) = c
-  getComments (PUBlockData _ _ _ _ c) = c
+class Conditioned f where
+  getCondition :: f a -> Maybe (Expression a)
+
+instance Conditioned Block where
+  getCondition (BlStatement _ _ _ s) = getCondition s
+  getCondition _ = Nothing
+
+instance Conditioned Statement where
+  getCondition (StIfThen _ _ c) = Just c
+  getCondition (StElsif _ _ c) = Just c
+  getCondition _ = Nothing
 
 instance Out a => Out (ProgramUnit a)
 instance (Out a, Out t) => Out (AList t a)
@@ -364,7 +369,6 @@ instance Out a => Out (ImpElement a)
 instance Out a => Out (Block a)
 instance Out a => Out (CommonGroup a)
 instance Out a => Out (DataGroup a)
-instance Out a => Out (Comment a)
 instance Out a => Out (FormatItem a)
 instance Out a => Out (Expression a)
 instance Out a => Out (IOElement a)

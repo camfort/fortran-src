@@ -103,7 +103,6 @@ import Forpar.AST
 PROGRAM :: { [ ProgramUnit A0 ] }
 PROGRAM
 : PROGRAM_UNITS { reverse $1 }
-| PROGRAM_UNITS COMMENTS { reverse $1 }
 
 PROGRAM_UNITS :: { [ ProgramUnit A0 ] }
 PROGRAM_UNITS
@@ -117,19 +116,14 @@ PROGRAM_UNIT
 
 MAIN_PROGRAM_UNIT :: { ProgramUnit A0 }
 MAIN_PROGRAM_UNIT
-: BLOCKS end { let blocks = reverse $1 in PUMain () (getTransSpan $1 $2) Nothing blocks (getComments (snd . head $ blocks)) }
+: BLOCKS end { let blocks = reverse $1 in PUMain () (getTransSpan $1 $2) Nothing blocks }
 
 OTHER_PROGRAM_UNIT :: { ProgramUnit A0 }
 OTHER_PROGRAM_UNIT
-: COMMENTS OTHER_PROGRAM_UNIT_LEVEL1 { setComments $2 (reverse $1) }
-| OTHER_PROGRAM_UNIT_LEVEL1 { $1 }
-
-OTHER_PROGRAM_UNIT_LEVEL1 :: { ProgramUnit A0 }
-OTHER_PROGRAM_UNIT_LEVEL1
-: TYPE function NAME '(' ARGS ')' NEWLINE BLOCKS end { PUFunction () (getTransSpan $1 $9) (Just $1) $3 (aReverse $5) (reverse $8) [] }
-| function NAME '(' ARGS ')' NEWLINE BLOCKS end { PUFunction () (getTransSpan $1 $8) Nothing $2 (aReverse $4) (reverse $7) [] }
-| subroutine NAME '(' ARGS ')' NEWLINE BLOCKS end { PUSubroutine () (getTransSpan $1 $8) $2 $4 (reverse $7) [] }
-| blockData NEWLINE BLOCKS end { PUBlockData () (getTransSpan $1 $4) Nothing (reverse $3) [] }
+: TYPE function NAME '(' ARGS ')' NEWLINE BLOCKS end { PUFunction () (getTransSpan $1 $9) (Just $1) $3 (aReverse $5) (reverse $8) }
+| function NAME '(' ARGS ')' NEWLINE BLOCKS end { PUFunction () (getTransSpan $1 $8) Nothing $2 (aReverse $4) (reverse $7) }
+| subroutine NAME '(' ARGS ')' NEWLINE BLOCKS end { PUSubroutine () (getTransSpan $1 $8) $2 $4 (reverse $7) }
+| blockData NEWLINE BLOCKS end { PUBlockData () (getTransSpan $1 $4) Nothing (reverse $3) }
 
 ARGS :: { AList String A0 }
 ARGS
@@ -138,33 +132,16 @@ ARGS
 
 NAME :: { Name } : id { let (TId _ name) = $1 in name }
 
-BLOCKS :: { [ (Maybe (Expression A0), Block A0) ] }
+BLOCKS :: { [ Block A0 ] }
 BLOCKS
-: BLOCKS_LEVEL1 COMMENTS { $1 }
-| BLOCKS_LEVEL1 { $1 }
-
-BLOCKS_LEVEL1 :: { [ (Maybe (Expression A0), Block A0) ] }
-: BLOCKS_LEVEL1 COMMENTS LABELED_BLOCK { (fst $3, setComments (snd $3) (reverse $2)) : $1 }
-| BLOCKS_LEVEL1 LABELED_BLOCK { $2 : $1 }
-| COMMENTS LABELED_BLOCK { [ (fst $2, setComments (snd $2) (reverse $1)) ] }
-| LABELED_BLOCK { [ $1 ] }
-
--- TODO In this version an empty line followed by a block doesn't work.
-LABELED_BLOCK :: { (Maybe (Expression A0), Block A0) }
-LABELED_BLOCK
-: LABEL_IN_6COLUMN BLOCK { (Just $1, $2) }
-| BLOCK { (Nothing, $1) }
+: BLOCKS BLOCK { $2 : $1 }
+| BLOCK { [ $1 ] }
 
 BLOCK :: { Block A0 }
-BLOCK : STATEMENT NEWLINE { BlStatement () (getSpan $1) $1 [] }
-
-COMMENTS :: { [ Comment A0 ] }
-COMMENTS
-: COMMENTS COMMENT { $2 : $1 }
-| COMMENT { [ $1 ] }
-
-COMMENT :: { Comment A0 }
-COMMENT : comment NEWLINE { let (TComment s c) = $1 in Comment () s c }
+BLOCK 
+: LABEL_IN_6COLUMN STATEMENT NEWLINE { BlStatement () (getTransSpan $1 $2) (Just $1) $2 }
+| STATEMENT NEWLINE { BlStatement () (getSpan $1) Nothing $1 }
+| comment NEWLINE { let (TComment s c) = $1 in BlComment () s c }
 
 NEWLINE :: { Token } 
 NEWLINE

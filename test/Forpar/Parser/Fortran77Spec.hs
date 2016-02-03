@@ -56,15 +56,15 @@ spec =
     it "parses main program unit" $ do
       let decl = DeclVariable () u (varGen "x")
       let st = StDeclaration () u (TypeInteger () u) (AList () u [ decl ])
-      let bl = BlStatement () u st []
-      let pu = PUMain () u (Just "hello") [(Nothing, bl)] []
-      pParser exampleProgram1 `shouldBe'` [pu]
+      let bl = BlStatement () u Nothing st
+      let pu = PUMain () u (Just "hello") [ bl ]
+      pParser exampleProgram1 `shouldBe'` [ pu ]
 
     it "parses block data unit" $ do
       let decl = DeclVariable () u (varGen "x")
       let st = StDeclaration () u (TypeInteger () u) (AList () u [ decl ])
-      let bl = BlStatement () u st []
-      let pu = PUBlockData () u (Just "hello") [(Nothing, bl)] []
+      let bl = BlStatement () u Nothing st
+      let pu = PUBlockData () u (Just "hello") [ bl ]
       pParser exampleProgram2 `shouldBe'` [pu]
 
     it "parses 'intrinsic cosh, sin'" $ do
