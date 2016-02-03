@@ -379,16 +379,3 @@ instance Out a => Out (Declarator a)
 instance Out a => Out (DimensionDeclarator a)
 instance Out UnaryOp
 instance Out BinaryOp
-
---------------------------------------------------------------------------------
--- Useful for testing                                                         --
---------------------------------------------------------------------------------
-
--- To be used in testing it reverts the SrcSpans in AST to dummy initial
--- SrcSpan value.
-resetSrcSpan :: Data a => a -> a
-resetSrcSpan = transformBi f
-  where 
-    f x = case cast x :: Maybe SrcSpan of 
-      Just _ -> initSrcSpan
-      Nothing -> x

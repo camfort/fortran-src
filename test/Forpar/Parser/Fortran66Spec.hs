@@ -1,6 +1,7 @@
 module Forpar.Parser.Fortran66Spec(spec) where
 
 import Test.Hspec
+import TestUtil
 
 import Control.Monad.State.Lazy
 import Prelude hiding (LT)
@@ -24,22 +25,6 @@ eParser sourceCode =
 sParser :: String -> Statement ()
 sParser sourceCode = 
   evalParse statementParser $ initParseState sourceCode Fortran66 "<unknown>"
-
-intGen :: Integer -> Expression ()
-intGen i = ExpValue () u $ ValInteger $ show i
-
-labelGen :: Integer -> Expression ()
-labelGen i = ExpValue () u $ ValLabel $ show i
-
-varGen :: String -> Expression ()
-varGen str = ExpValue () u $ ValVariable str
-
-arrGen :: String -> Expression ()
-arrGen str = ExpValue () u $ ValArray str
-
-u = undefined
-
-shouldBe' a b = resetSrcSpan a `shouldBe` resetSrcSpan b
 
 spec :: Spec
 spec = 

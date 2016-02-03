@@ -3,9 +3,10 @@
 
 module Forpar.ParserMonadSpec where
 
+import Test.Hspec
+
 import Forpar.ParserMonad
 import Control.Monad.State.Lazy
-import Test.Hspec
 
 import Forpar.Util.Position
 

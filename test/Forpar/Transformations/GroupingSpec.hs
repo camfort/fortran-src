@@ -1,19 +1,10 @@
 module Forpar.Transformations.GroupingSpec where
 
 import Test.Hspec
+import TestUtil
 
 import Forpar.Transformations.Grouping
 import Forpar.AST
-
-u = undefined
-
-varGen :: String -> Expression ()
-varGen name = ExpValue () u (ValVariable name)
-
-valTrue = ExpValue () u ValTrue
-valFalse = ExpValue () u ValFalse
-
-shouldBe' a b = resetSrcSpan a `shouldBe` resetSrcSpan b
 
 spec :: Spec
 spec =

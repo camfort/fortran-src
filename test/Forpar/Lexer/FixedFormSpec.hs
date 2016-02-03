@@ -2,10 +2,10 @@ module Forpar.Lexer.FixedFormSpec where
 
 import Forpar.ParserMonad
 import Forpar.Lexer.FixedForm
-import Forpar.AST (resetSrcSpan)
 
 import Test.Hspec
 import Test.Hspec.QuickCheck
+import TestUtil
 
 import Control.Monad.State.Lazy
 import Control.Exception
@@ -27,8 +27,6 @@ collectToLex version srcInput = do
     dropUntil2 [_] = Nothing
     dropUntil2 [a,_] = Just a
     dropUntil2 (x:xs) = dropUntil2 xs
-
-u = undefined
 
 spec :: Spec
 spec = 

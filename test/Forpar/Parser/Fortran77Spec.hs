@@ -1,13 +1,12 @@
 module Forpar.Parser.Fortran77Spec where
 
 import Test.Hspec
+import TestUtil
 
 import Forpar.Parser.Fortran77
 import Forpar.Lexer.FixedForm (initParseState)
 import Forpar.ParserMonad (FortranVersion(..), evalParse)
 import Forpar.AST
-
-u = undefined
 
 eParser :: String -> Expression ()
 eParser sourceCode = 
@@ -23,32 +22,6 @@ sParser sourceCode =
 
 pParser :: String -> [ProgramUnit ()]
 pParser source = fortran77Parser source "<unknown>"
-
-varGen :: String -> Expression ()
-varGen str = ExpValue () u $ ValVariable str
-
-parGen :: String -> Expression ()
-parGen str = ExpValue () u $ ValParameter str
-
-intGen :: Integer -> Expression ()
-intGen i = ExpValue () u $ ValInteger $ show i
-
-strGen :: String -> Expression ()
-strGen str = ExpValue () u $ ValString $ str
-
-labelGen :: Integer -> Expression ()
-labelGen i = ExpValue () u $ ValLabel $ show i
-
-arrGen :: String -> Expression ()
-arrGen str = ExpValue () u $ ValArray str
-
-cbNameGen :: String -> Expression ()
-cbNameGen str = ExpValue () u $ ValCommonName str
-
-starVal :: Expression ()
-starVal = ExpValue () u ValStar
-
-shouldBe' a b = resetSrcSpan a `shouldBe` resetSrcSpan b
 
 spec :: Spec
 spec = 
