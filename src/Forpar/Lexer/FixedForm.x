@@ -554,7 +554,7 @@ data Token = TLeftPar             SrcSpan
            | TLabel               SrcSpan String
            | TNewline             SrcSpan
            | TEOF                 SrcSpan
-           deriving (Show, Eq, Data, Typeable, Generic)
+           deriving (Show, Eq, Ord, Data, Typeable, Generic)
 
 instance FirstParameter Token SrcSpan
 instance FirstParameter Token SrcSpan => Spanned Token where

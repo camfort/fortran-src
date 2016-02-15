@@ -22,7 +22,7 @@ data Position = Position
   { posAbsoluteOffset   :: Integer
   , posColumn           :: Integer
   , posLine             :: Integer
-  } deriving (Eq, Data, Typeable)
+  } deriving (Eq, Ord, Data, Typeable)
 
 instance Show Position where
   show (Position _ c l) = (show l) ++ ":" ++ (show c)
@@ -34,7 +34,7 @@ initPosition = Position
   , posLine = 1 
   }
 
-data SrcSpan = SrcSpan Position Position deriving (Eq, Typeable, Data, Generic)
+data SrcSpan = SrcSpan Position Position deriving (Eq, Ord, Typeable, Data, Generic)
 
 instance Show SrcSpan where
   show (SrcSpan s1 s2)= "(" ++ (show s1) ++ "," ++ (show s2) ++ ")"
