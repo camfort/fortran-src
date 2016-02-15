@@ -41,6 +41,8 @@ instance Functor (Flip AList a) where
 aCons :: t -> AList t a -> AList t a
 aCons x (AList a s xs) = AList a s $ x:xs
 
+infixr 5 `aCons`
+
 aReverse :: AList t a -> AList t a
 aReverse (AList a s xs) = AList a s $ reverse xs
 
@@ -102,11 +104,22 @@ data Statement a  =
   | StContinue            a SrcSpan
   | StStop                a SrcSpan (Maybe (Expression a))
   | StPause               a SrcSpan (Maybe (Expression a))
-  | StRead                a SrcSpan (Expression a) (Maybe (Expression a)) (Maybe (AList (IOElement a) a))
-  | StWrite               a SrcSpan (Expression a) (Maybe (Expression a)) (Maybe (AList (IOElement a) a))
-  | StRewind              a SrcSpan (Expression a)
-  | StBackspace           a SrcSpan (Expression a)
-  | StEndfile             a SrcSpan (Expression a)
+  | StRead                a SrcSpan (AList (ControlPair a) a) (Maybe (AList (Expression a) a))
+  | StRead2               a SrcSpan (Expression a) (Maybe (AList (Expression a) a))
+  | StWrite               a SrcSpan (AList (ControlPair a) a) (Maybe (AList (Expression a) a))
+  | StPrint               a SrcSpan (Expression a) (Maybe (AList (Expression a) a))
+  | StOpen                a SrcSpan (AList (ControlPair a) a)
+  | StClose               a SrcSpan (AList (ControlPair a) a)
+  | StInquire             a SrcSpan (AList (ControlPair a) a)
+  | StRewind              a SrcSpan (AList (ControlPair a) a)
+  | StRewind2             a SrcSpan (Expression a)
+  | StBackspace           a SrcSpan (AList (ControlPair a) a)
+  | StBackspace2          a SrcSpan (Expression a)
+  | StEndfile             a SrcSpan (AList (ControlPair a) a)
+  | StEndfile2            a SrcSpan (Expression a)
+  deriving (Eq, Show, Data, Typeable, Generic)
+
+data ControlPair a = ControlPair a SrcSpan (Maybe String) (Expression a)
   deriving (Eq, Show, Data, Typeable, Generic)
 
 data ImpList a = ImpList a SrcSpan (BaseType a) (AList (ImpElement a) a)
@@ -136,11 +149,6 @@ data FormatItem a =
   | FIScaleFactor           a             SrcSpan   Integer
   deriving (Eq, Show, Data, Typeable, Generic)
 
-data IOElement a = 
-    IOExpression (Expression a)
-  | IOTuple a SrcSpan (AList (IOElement a) a) (DoSpecification a)
-  deriving (Eq, Show, Data, Typeable, Generic)
-
 data DoSpecification a = 
   DoSpecification a SrcSpan (Statement a) (Expression a) (Maybe (Expression a))
   deriving (Eq, Show, Data, Typeable, Generic)
@@ -152,6 +160,7 @@ data Expression a =
   | ExpSubscript     a SrcSpan (Expression a) (AList (Expression a) a)
   | ExpSubstring     a SrcSpan (Expression a) (Maybe (Expression a)) (Maybe (Expression a))
   | ExpFunctionCall  a SrcSpan (Expression a) (AList (Expression a) a)
+  | ExpImpliedDo     a SrcSpan (AList (Expression a) a) (DoSpecification a)
   deriving (Eq, Show, Data, Typeable, Generic)
 
 -- All recursive Values 
@@ -230,6 +239,7 @@ instance FirstParameter (DoSpecification a) a
 instance FirstParameter (BaseType a) a
 instance FirstParameter (Declarator a) a
 instance FirstParameter (DimensionDeclarator a) a
+instance FirstParameter (ControlPair a) a
 
 instance SecondParameter (AList t a) SrcSpan
 instance SecondParameter (ProgramUnit a) SrcSpan
@@ -245,6 +255,7 @@ instance SecondParameter (DoSpecification a) SrcSpan
 instance SecondParameter (BaseType a) SrcSpan
 instance SecondParameter (Declarator a) SrcSpan
 instance SecondParameter (DimensionDeclarator a) SrcSpan
+instance SecondParameter (ControlPair a) SrcSpan
 
 instance Annotated (AList t)
 instance Annotated ProgramUnit
@@ -260,13 +271,7 @@ instance Annotated DoSpecification
 instance Annotated BaseType
 instance Annotated Declarator
 instance Annotated DimensionDeclarator
-
-instance Annotated IOElement where
-  getAnnotation (IOExpression value) = getAnnotation value
-  getAnnotation (IOTuple a _ _ _) = a
-
-  setAnnotation e (IOExpression value) = IOExpression $ setAnnotation e value
-  setAnnotation e (IOTuple _ s b c) = IOTuple e s b c
+instance Annotated ControlPair
 
 instance Spanned (AList t a)
 instance Spanned (ProgramUnit a)
@@ -282,17 +287,16 @@ instance Spanned (DoSpecification a)
 instance Spanned (BaseType a)
 instance Spanned (Declarator a)
 instance Spanned (DimensionDeclarator a)
-
-instance Spanned (IOElement a) where
-  getSpan (IOExpression value) = getSpan value
-  getSpan (IOTuple _ s _ _) = s
-
-  setSpan s (IOExpression value) = IOExpression $ setSpan s value
-  setSpan s (IOTuple a _ b c) = IOTuple a s b c
+instance Spanned (ControlPair a)
 
 instance Spanned a => Spanned ([a]) where
   getSpan xs = getListSpan xs
   setSpan _ _ = error "Cannot set span to an array"
+
+instance (Spanned a, Spanned b) => Spanned (a, Maybe b) where
+  getSpan (x, Just y) = getTransSpan x y
+  getSpan (x,_) = getSpan x
+  setSpan _ = undefined
 
 instance (Spanned a, Spanned b) => Spanned (Maybe a, b) where
   getSpan (Just x,y) = getTransSpan x y
@@ -371,11 +375,11 @@ instance Out a => Out (CommonGroup a)
 instance Out a => Out (DataGroup a)
 instance Out a => Out (FormatItem a)
 instance Out a => Out (Expression a)
-instance Out a => Out (IOElement a)
 instance Out a => Out (DoSpecification a)
 instance Out a => Out (Value a)
 instance Out a => Out (BaseType a)
 instance Out a => Out (Declarator a)
 instance Out a => Out (DimensionDeclarator a)
+instance Out a => Out (ControlPair a)
 instance Out UnaryOp
 instance Out BinaryOp

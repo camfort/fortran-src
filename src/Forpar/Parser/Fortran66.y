@@ -185,11 +185,11 @@ OTHER_EXECUTABLE_STATEMENT
 | stop { StStop () (getSpan $1) Nothing }
 | pause INTEGER_LITERAL { StPause () (getTransSpan $1 $2) $ Just $2 }
 | pause { StPause () (getSpan $1) Nothing }
-| rewind UNIT { StRewind () (getTransSpan $1 $2) $2 }
-| backspace UNIT { StBackspace () (getTransSpan $1 $2) $2 }
-| endfile UNIT { StEndfile () (getTransSpan $1 $2) $2 }
-| write READ_WRITE_ARGUMENTS { let (unit, form, list) = $2 in StWrite () (getTransSpan $1 $2) unit form list }
-| read READ_WRITE_ARGUMENTS { let (unit, form, list) = $2 in StRead () (getTransSpan $1 $2) unit form list }
+| rewind UNIT { StRewind2 () (getTransSpan $1 $2) $2 }
+| backspace UNIT { StBackspace2 () (getTransSpan $1 $2) $2 }
+| endfile UNIT { StEndfile2 () (getTransSpan $1 $2) $2 }
+| write READ_WRITE_ARGUMENTS { let (cilist, iolist) = $2 in StWrite () (getTransSpan $1 $2) cilist iolist }
+| read READ_WRITE_ARGUMENTS { let (cilist, iolist) = $2 in StRead () (getTransSpan $1 $2) cilist iolist }
 
 EXPRESSION_ASSIGNMENT_STATEMENT :: { Statement A0 }
 EXPRESSION_ASSIGNMENT_STATEMENT : ELEMENT '=' EXPRESSION { StExpressionAssign () (getTransSpan $1 $3) $1 $3 }
@@ -204,31 +204,31 @@ NONEXECUTABLE_STATEMENT
 | format FORMAT_ITEMS ')' { StFormat () (getTransSpan $1 $3) (aReverse $2) }
 | TYPE DECLARATORS { StDeclaration () (getTransSpan $1 $2) $1 (aReverse $2) }
 
-READ_WRITE_ARGUMENTS :: { (Expression A0, Maybe (Expression A0), Maybe (AList (IOElement A0) A0)) }
+READ_WRITE_ARGUMENTS :: { (AList (ControlPair A0) A0, Maybe (AList (Expression A0) A0)) }
 READ_WRITE_ARGUMENTS
-: '(' UNIT ')' IO_ELEMENTS { ($2, Nothing, Just (aReverse $4)) }
-| '(' UNIT ',' FORM ')' IO_ELEMENTS { ($2, Just $4, Just (aReverse $6)) }
-| '(' UNIT ')' { ($2, Nothing, Nothing) }
-| '(' UNIT ',' FORM ')' { ($2, Just $4, Nothing) }
+: '(' UNIT ')' IO_ELEMENTS { (AList () (getSpan $2) [ ControlPair () (getSpan $2) Nothing $2 ], Just (aReverse $4)) }
+| '(' UNIT ',' FORM ')' IO_ELEMENTS { (AList () (getTransSpan $2 $4) [ ControlPair () (getSpan $2) Nothing $2, ControlPair () (getSpan $4) Nothing $4 ], Just (aReverse $6)) }
+| '(' UNIT ')' { (AList () (getSpan $2) [ ControlPair () (getSpan $2) Nothing $2 ], Nothing) }
+| '(' UNIT ',' FORM ')' { (AList () (getTransSpan $2 $4) [ ControlPair () (getSpan $2) Nothing $2, ControlPair () (getSpan $4) Nothing $4 ], Nothing) }
 
 -- Not my terminology a VAR or an INT (probably positive) is defined as UNIT.
 UNIT :: { Expression A0 } : INTEGER_LITERAL { $1 } | VARIABLE { $1 }
 
 FORM :: { Expression A0 } : ARRAY { $1 } | LABEL_IN_STATEMENT { $1 }
 
-IO_ELEMENTS :: { AList (IOElement A0) A0 }
+IO_ELEMENTS :: { AList (Expression A0) A0 }
 IO_ELEMENTS
 : IO_ELEMENTS ',' IO_ELEMENT { setSpan (getTransSpan $1 $3) $ $3 `aCons` $1}
 | IO_ELEMENT { AList () (getSpan $1) [ $1 ] }
 
-IO_ELEMENT :: { IOElement A0 }
+IO_ELEMENT :: { Expression A0 }
 IO_ELEMENT
-: VARIABLE { IOExpression $1 }
+: VARIABLE { $1 }
 -- There should also be a caluse for variable names but not way to 
 -- differentiate it at this stage from VARIABLE. Hence, it is omitted to prevent
 -- reduce/reduce conflict.
-| SUBSCRIPT { IOExpression $1 }
-| '(' IO_ELEMENTS ',' DO_SPECIFICATION ')' { IOTuple () (getTransSpan $1 $5) $2 $4 }
+| SUBSCRIPT { $1 }
+| '(' IO_ELEMENTS ',' DO_SPECIFICATION ')' { ExpImpliedDo () (getTransSpan $1 $5) $2 $4 }
 
 ELEMENT :: { Expression A0 }
 ELEMENT

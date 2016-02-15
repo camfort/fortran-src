@@ -26,6 +26,27 @@ pParser source = fortran77Parser source "<unknown>"
 spec :: Spec
 spec = 
   describe "Fortran 77 Parser" $ do
+    describe "IO" $ do
+      it "parses 'print *, 9000" $ do
+        let expectedSt = StPrint () u starVal $ Just (AList () u [ intGen 9000 ])
+        sParser "      print *, 9000" `shouldBe'` expectedSt
+
+      it "parses 'read *, (x, y(i), i = 1, 10, 2)'" $ do
+        let stAssign = StExpressionAssign () u (varGen "i") (intGen 1)
+        let doSpec = DoSpecification () u stAssign (intGen 10) (Just $ intGen 2)
+        let impliedDoVars = AList () u [ varGen "x", ExpSubscript () u (arrGen "y") (AList () u [ varGen "i" ])]
+        let impliedDo = ExpImpliedDo () u impliedDoVars doSpec
+        let iolist = AList () u [ impliedDo ]
+        let expectedSt = StRead2 () u (starVal) (Just iolist)
+        sParser "      read *, (x, i = 1, 10, 2)" `shouldBe'` expectedSt
+
+    it "parses '(x, y(i), i = 1, 10, 2)'" $ do
+      let stAssign = StExpressionAssign () u (varGen "i") (intGen 1)
+      let doSpec = DoSpecification () u stAssign (intGen 10) (Just $ intGen 2)
+      let impliedDoVars = AList () u [ varGen "x", ExpSubscript () u (arrGen "y") (AList () u [ varGen "i" ])]
+      let impliedDo = ExpImpliedDo () u impliedDoVars doSpec
+      eParser "(x, y(i), i = 1, 10, 2)" `shouldBe'` impliedDo
+
     it "parses main program unit" $ do
       let decl = DeclVariable () u (varGen "x")
       let st = StDeclaration () u (TypeInteger () u) (AList () u [ decl ])

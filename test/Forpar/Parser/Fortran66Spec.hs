@@ -175,22 +175,23 @@ spec =
             st = StDeclaration () u (TypeInteger () u) $ AList () u declarators
         sParser "      integer i, j(2,2), k" `shouldBe'` st
 
+      let controlPairs = AList () u [ ControlPair () u Nothing (intGen 6), ControlPair () u Nothing (labelGen 10) ]
+      let writeSt = StWrite () u controlPairs (Just $ AList () u [ varGen "i" ])
+
       describe "WRITE" $ do
         it "parses 'write (6)'" $ do
-          let expectedSt = StWrite () u (intGen 6) Nothing Nothing
+          let expectedSt = StWrite () u (AList () u [ ControlPair () u Nothing (intGen 6) ]) Nothing
           sParser "      write (6)" `shouldBe'` expectedSt
 
         it "parses 'write (6) i'" $ do
-          let expectedSt = StWrite () u (intGen 6) Nothing (Just $ AList () u [IOExpression $ varGen "i"])
+          let expectedSt = StWrite () u (AList () u [ ControlPair () u Nothing (intGen 6) ]) (Just $ AList () u [ varGen "i" ])
           sParser "      write (6) i" `shouldBe'` expectedSt
 
         it "parses 'write (6,10) i'" $ do
-          let expectedSt = StWrite () u (intGen 6) (Just $ labelGen 10) (Just $ AList () u [IOExpression $ varGen "i"])
-          sParser "      write (6,10) i" `shouldBe'` expectedSt
+          sParser "      write (6,10) i" `shouldBe'` writeSt
 
       describe "IF" $ do
         it "parses 'if (10 .LT. x) write (6,10) i'" $ do
-          let writeSt = StWrite () u (intGen 6) (Just $ labelGen 10) (Just $ AList () u [IOExpression $ varGen "i"])
           let cond = ExpBinary () u LT (intGen 10) (varGen "x")
           let expectedSt = StIfLogical () u cond writeSt
           sParser "      if (10 .LT. x) write (6,10) i" `shouldBe'` expectedSt
