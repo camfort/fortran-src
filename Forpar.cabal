@@ -30,6 +30,7 @@ executable forpar
     Forpar.ParserMonad,
     Forpar.Lexer.FixedForm
     Forpar.Parser.Fortran66
+    Forpar.Parser.Fortran77
     Forpar.AST
     Forpar.Util.Position
     Forpar.Util.FirstParameter
@@ -42,7 +43,9 @@ library
     Forpar.ParserMonad,
     Forpar.Lexer.FixedForm
     Forpar.Parser.Fortran66
-    Forpar.Parser.Fortran77,
+    Forpar.Parser.Fortran77
+    Forpar.Transformer
+    Forpar.Transformations.Grouping
     Forpar.AST
     Forpar.Util.Position
     Forpar.Util.FirstParameter

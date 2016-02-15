@@ -41,6 +41,8 @@ instance Functor (Flip AList a) where
 aCons :: t -> AList t a -> AList t a
 aCons x (AList a s xs) = AList a s $ x:xs
 
+infixr 5 `aCons`
+
 aReverse :: AList t a -> AList t a
 aReverse (AList a s xs) = AList a s $ reverse xs
 
@@ -58,30 +60,38 @@ data BaseType a =
 type Program a = [ProgramUnit a]
 
 data ProgramUnit a =
---    program type  | a  | span    | return               | name         | arguments        | body                              | Comments
-      PUMain          a    SrcSpan                          (Maybe Name)                      [(Maybe (Expression a), Block a)]   [Comment a]
-  |   PUSubroutine    a    SrcSpan                          Name           (AList String a)   [(Maybe (Expression a), Block a)]   [Comment a]
-  |   PUFunction      a    SrcSpan   (Maybe (BaseType a))   Name           (AList String a)   [(Maybe (Expression a), Block a)]   [Comment a]
-  |   PUBlockData     a    SrcSpan                          (Maybe Name)                      [(Maybe (Expression a), Block a)]   [Comment a]
+--    program type  | a  | span    | return               | name         | arguments        | body      
+      PUMain          a    SrcSpan                          (Maybe Name)                      [Block a]
+  |   PUSubroutine    a    SrcSpan                          Name           (AList String a)   [Block a]
+  |   PUFunction      a    SrcSpan   (Maybe (BaseType a))   Name           (AList String a)   [Block a]
+  |   PUBlockData     a    SrcSpan                          (Maybe Name)                      [Block a]
   deriving (Eq, Show, Data, Typeable, Generic)
 
-data Block a = BlStatement a SrcSpan (Statement a) ([Comment a])
+data Block a = 
+    BlStatement a SrcSpan (Maybe (Expression a)) (Statement a)
+  | BlIf a SrcSpan (Maybe (Expression a)) [ Maybe (Expression a) ] [ [ Block a ] ]
+  | BlComment a SrcSpan String
   deriving (Eq, Show, Data, Typeable, Generic)
-
-data Comment a = Comment a SrcSpan String deriving (Eq, Show, Data, Typeable, Generic)
 
 data Statement a  = 
     StExternal            a SrcSpan (AList (Expression a) a)
-  | StDimension           a SrcSpan (AList (Expression a) a)
+  | StIntrinsic           a SrcSpan (AList (Expression a) a)
+  | StDimension           a SrcSpan (AList (Declarator a) a)
   | StCommon              a SrcSpan (AList (CommonGroup a) a)
   | StEquivalence         a SrcSpan (AList (AList (Expression a) a) a)
   | StData                a SrcSpan (AList (DataGroup a) a)
   | StFormat              a SrcSpan (AList (FormatItem a) a)
-  | StDeclaration         a SrcSpan (BaseType a) (AList (Expression a) a)
+  | StDeclaration         a SrcSpan (BaseType a) (AList (Declarator a) a)
   | StImplicit            a SrcSpan (Maybe (AList (ImpList a) a))
+  | StParameter           a SrcSpan (AList (Statement a) a)
+  | StEntry               a SrcSpan (Expression a) (Maybe (AList (Expression a) a))
   | StDo                  a SrcSpan (Expression a) (DoSpecification a)
   | StIfLogical           a SrcSpan (Expression a) (Statement a) -- Statement should not further recurse
   | StIfArithmetic        a SrcSpan (Expression a) (Expression a) (Expression a) (Expression a)
+  | StIfThen              a SrcSpan (Expression a)
+  | StElse                a SrcSpan
+  | StElsif               a SrcSpan (Expression a)
+  | StEndif               a SrcSpan
   | StFunction            a SrcSpan Name (AList Name a) (Expression a)
   | StExpressionAssign    a SrcSpan (Expression a) (Expression a)
   | StLabelAssign         a SrcSpan (Expression a) (Expression a)
@@ -89,15 +99,27 @@ data Statement a  =
   | StGotoAssigned        a SrcSpan (Expression a) (AList (Expression a) a)
   | StGotoComputed        a SrcSpan (AList (Expression a) a) (Expression a)
   | StCall                a SrcSpan (Expression a) (Maybe (AList (Expression a) a))
-  | StReturn              a SrcSpan
+  | StReturn              a SrcSpan (Maybe (Expression a))
+  | StSave                a SrcSpan (AList (Expression a) a)
   | StContinue            a SrcSpan
   | StStop                a SrcSpan (Maybe (Expression a))
   | StPause               a SrcSpan (Maybe (Expression a))
-  | StRead                a SrcSpan (Expression a) (Maybe (Expression a)) (Maybe (AList (IOElement a) a))
-  | StWrite               a SrcSpan (Expression a) (Maybe (Expression a)) (Maybe (AList (IOElement a) a))
-  | StRewind              a SrcSpan (Expression a)
-  | StBackspace           a SrcSpan (Expression a)
-  | StEndfile             a SrcSpan (Expression a)
+  | StRead                a SrcSpan (AList (ControlPair a) a) (Maybe (AList (Expression a) a))
+  | StRead2               a SrcSpan (Expression a) (Maybe (AList (Expression a) a))
+  | StWrite               a SrcSpan (AList (ControlPair a) a) (Maybe (AList (Expression a) a))
+  | StPrint               a SrcSpan (Expression a) (Maybe (AList (Expression a) a))
+  | StOpen                a SrcSpan (AList (ControlPair a) a)
+  | StClose               a SrcSpan (AList (ControlPair a) a)
+  | StInquire             a SrcSpan (AList (ControlPair a) a)
+  | StRewind              a SrcSpan (AList (ControlPair a) a)
+  | StRewind2             a SrcSpan (Expression a)
+  | StBackspace           a SrcSpan (AList (ControlPair a) a)
+  | StBackspace2          a SrcSpan (Expression a)
+  | StEndfile             a SrcSpan (AList (ControlPair a) a)
+  | StEndfile2            a SrcSpan (Expression a)
+  deriving (Eq, Show, Data, Typeable, Generic)
+
+data ControlPair a = ControlPair a SrcSpan (Maybe String) (Expression a)
   deriving (Eq, Show, Data, Typeable, Generic)
 
 data ImpList a = ImpList a SrcSpan (BaseType a) (AList (ImpElement a) a)
@@ -109,7 +131,7 @@ data ImpElement a =
   deriving (Eq, Show, Data, Typeable, Generic)
 
 data CommonGroup a = 
-  CommonGroup a SrcSpan (Maybe Name) (AList (Expression a) a)
+  CommonGroup a SrcSpan (Maybe (Expression a)) (AList (Expression a) a)
   deriving (Eq, Show, Data, Typeable, Generic)
 
 data DataGroup a =
@@ -127,11 +149,6 @@ data FormatItem a =
   | FIScaleFactor           a             SrcSpan   Integer
   deriving (Eq, Show, Data, Typeable, Generic)
 
-data IOElement a = 
-    IOExpression (Expression a)
-  | IOTuple a SrcSpan (AList (IOElement a) a) (DoSpecification a)
-  deriving (Eq, Show, Data, Typeable, Generic)
-
 data DoSpecification a = 
   DoSpecification a SrcSpan (Statement a) (Expression a) (Maybe (Expression a))
   deriving (Eq, Show, Data, Typeable, Generic)
@@ -141,7 +158,9 @@ data Expression a =
   | ExpBinary        a SrcSpan BinaryOp (Expression a) (Expression a)
   | ExpUnary         a SrcSpan UnaryOp (Expression a)
   | ExpSubscript     a SrcSpan (Expression a) (AList (Expression a) a)
+  | ExpSubstring     a SrcSpan (Expression a) (Maybe (Expression a)) (Maybe (Expression a))
   | ExpFunctionCall  a SrcSpan (Expression a) (AList (Expression a) a)
+  | ExpImpliedDo     a SrcSpan (AList (Expression a) a) (DoSpecification a)
   deriving (Eq, Show, Data, Typeable, Generic)
 
 -- All recursive Values 
@@ -149,14 +168,29 @@ data Value a =
     ValInteger           String
   | ValReal              String
   | ValComplex           (Expression a) (Expression a)
+  | ValString            String
   | ValHollerith         String
   | ValLabel             String
   | ValVariable          Name
+  | ValParameter         Name
   | ValArray             Name
   | ValTrue              
   | ValFalse             
   | ValFunctionName      Name
   | ValSubroutineName    Name
+  | ValCommonName        Name
+  | ValStar
+  deriving (Eq, Show, Data, Typeable, Generic)
+
+data Declarator a =
+    DeclArray a SrcSpan (Expression a) (AList (DimensionDeclarator a) a)
+  | DeclCharArray a SrcSpan (Expression a) (AList (DimensionDeclarator a) a) (Maybe (Expression a))
+  | DeclVariable a SrcSpan (Expression a)
+  | DeclCharVariable a SrcSpan (Expression a) (Maybe (Expression a))
+  deriving (Eq, Show, Data, Typeable, Generic)
+
+data DimensionDeclarator a = 
+  DimensionDeclarator a SrcSpan (Maybe (Expression a)) (Expression a)
   deriving (Eq, Show, Data, Typeable, Generic)
 
 data UnaryOp = Plus | Minus | Not deriving (Eq, Show, Data, Typeable, Generic)
@@ -167,6 +201,7 @@ data BinaryOp =
   | Multiplication 
   | Division
   | Exponentiation
+  | Concatination
   | GT
   | GTE
   | LT
@@ -175,6 +210,8 @@ data BinaryOp =
   | NE
   | Or
   | And
+  | Equivalent
+  | NotEquivalent
   deriving (Eq, Show, Data, Typeable, Generic)
 
 -- Retrieving SrcSpan and Annotation from nodes
@@ -196,11 +233,13 @@ instance FirstParameter (ImpList a) a
 instance FirstParameter (ImpElement a) a
 instance FirstParameter (CommonGroup a) a
 instance FirstParameter (DataGroup a) a
-instance FirstParameter (Comment a) a
 instance FirstParameter (FormatItem a) a
 instance FirstParameter (Expression a) a
 instance FirstParameter (DoSpecification a) a
 instance FirstParameter (BaseType a) a
+instance FirstParameter (Declarator a) a
+instance FirstParameter (DimensionDeclarator a) a
+instance FirstParameter (ControlPair a) a
 
 instance SecondParameter (AList t a) SrcSpan
 instance SecondParameter (ProgramUnit a) SrcSpan
@@ -210,11 +249,13 @@ instance SecondParameter (ImpList a) SrcSpan
 instance SecondParameter (ImpElement a) SrcSpan
 instance SecondParameter (CommonGroup a) SrcSpan
 instance SecondParameter (DataGroup a) SrcSpan
-instance SecondParameter (Comment a) SrcSpan
 instance SecondParameter (FormatItem a) SrcSpan
 instance SecondParameter (Expression a) SrcSpan
 instance SecondParameter (DoSpecification a) SrcSpan
 instance SecondParameter (BaseType a) SrcSpan
+instance SecondParameter (Declarator a) SrcSpan
+instance SecondParameter (DimensionDeclarator a) SrcSpan
+instance SecondParameter (ControlPair a) SrcSpan
 
 instance Annotated (AList t)
 instance Annotated ProgramUnit
@@ -224,18 +265,13 @@ instance Annotated ImpList
 instance Annotated ImpElement
 instance Annotated CommonGroup
 instance Annotated DataGroup
-instance Annotated Comment
 instance Annotated FormatItem
 instance Annotated Expression
 instance Annotated DoSpecification
 instance Annotated BaseType
-
-instance Annotated IOElement where
-  getAnnotation (IOExpression value) = getAnnotation value
-  getAnnotation (IOTuple a _ _ _) = a
-
-  setAnnotation e (IOExpression value) = IOExpression $ setAnnotation e value
-  setAnnotation e (IOTuple _ s b c) = IOTuple e s b c
+instance Annotated Declarator
+instance Annotated DimensionDeclarator
+instance Annotated ControlPair
 
 instance Spanned (AList t a)
 instance Spanned (ProgramUnit a)
@@ -245,22 +281,22 @@ instance Spanned (ImpElement a)
 instance Spanned (Block a)
 instance Spanned (CommonGroup a)
 instance Spanned (DataGroup a)
-instance Spanned (Comment a)
 instance Spanned (FormatItem a)
 instance Spanned (Expression a)
 instance Spanned (DoSpecification a)
 instance Spanned (BaseType a)
-
-instance Spanned (IOElement a) where
-  getSpan (IOExpression value) = getSpan value
-  getSpan (IOTuple _ s _ _) = s
-
-  setSpan s (IOExpression value) = IOExpression $ setSpan s value
-  setSpan s (IOTuple a _ b c) = IOTuple a s b c
+instance Spanned (Declarator a)
+instance Spanned (DimensionDeclarator a)
+instance Spanned (ControlPair a)
 
 instance Spanned a => Spanned ([a]) where
   getSpan xs = getListSpan xs
   setSpan _ _ = error "Cannot set span to an array"
+
+instance (Spanned a, Spanned b) => Spanned (a, Maybe b) where
+  getSpan (x, Just y) = getTransSpan x y
+  getSpan (x,_) = getSpan x
+  setSpan _ = undefined
 
 instance (Spanned a, Spanned b) => Spanned (Maybe a, b) where
   getSpan (Just x,y) = getTransSpan x y
@@ -306,24 +342,28 @@ getListSpan :: Spanned a => [a] -> SrcSpan
 getListSpan [x] =  getSpan x
 getListSpan (x:xs) = getTransSpan x (last xs)
 
-class Commented f where
-  setComments :: f a -> [ Comment a ] -> f a
-  getComments :: f a -> [ Comment a ]
+class Labeled f where
+  getLabel :: f a -> Maybe (Expression a)
+  setLabel :: f a -> (Expression a) -> f a
 
-instance Commented Block where
-  setComments (BlStatement a s st _) comments = BlStatement a s st comments
-  getComments (BlStatement _ _ _ c) = c
+instance Labeled Block where
+  getLabel (BlStatement _ _ l _) = l
+  getLabel (BlIf _ _ l _ _) = l
 
-instance Commented ProgramUnit where
-  setComments (PUMain a b c d _) comments = PUMain a b c d comments
-  setComments (PUSubroutine a b c d e _) comments = PUSubroutine a b c d e comments
-  setComments (PUFunction a b c d e f _) comments = PUFunction a b c d e f comments
-  setComments (PUBlockData a b c d _) comments = PUBlockData a b c d comments
+  setLabel (BlStatement a s _ st) l = BlStatement a s (Just l) st
+  setLabel (BlIf a s _ conds bs) l = BlIf a s (Just l) conds bs
 
-  getComments (PUMain _ _ _ _ c) = c
-  getComments (PUSubroutine _ _ _ _ _ c) = c
-  getComments (PUFunction _ _ _ _ _ _ c) = c
-  getComments (PUBlockData _ _ _ _ c) = c
+class Conditioned f where
+  getCondition :: f a -> Maybe (Expression a)
+
+instance Conditioned Block where
+  getCondition (BlStatement _ _ _ s) = getCondition s
+  getCondition _ = Nothing
+
+instance Conditioned Statement where
+  getCondition (StIfThen _ _ c) = Just c
+  getCondition (StElsif _ _ c) = Just c
+  getCondition _ = Nothing
 
 instance Out a => Out (ProgramUnit a)
 instance (Out a, Out t) => Out (AList t a)
@@ -333,25 +373,13 @@ instance Out a => Out (ImpElement a)
 instance Out a => Out (Block a)
 instance Out a => Out (CommonGroup a)
 instance Out a => Out (DataGroup a)
-instance Out a => Out (Comment a)
 instance Out a => Out (FormatItem a)
 instance Out a => Out (Expression a)
-instance Out a => Out (IOElement a)
 instance Out a => Out (DoSpecification a)
 instance Out a => Out (Value a)
 instance Out a => Out (BaseType a)
+instance Out a => Out (Declarator a)
+instance Out a => Out (DimensionDeclarator a)
+instance Out a => Out (ControlPair a)
 instance Out UnaryOp
 instance Out BinaryOp
-
---------------------------------------------------------------------------------
--- Useful for testing                                                         --
---------------------------------------------------------------------------------
-
--- To be used in testing it reverts the SrcSpans in AST to dummy initial
--- SrcSpan value.
-resetSrcSpan :: Data a => a -> a
-resetSrcSpan = transformBi f
-  where 
-    f x = case cast x :: Maybe SrcSpan of 
-      Just _ -> initSrcSpan
-      Nothing -> x

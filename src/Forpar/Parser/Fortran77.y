@@ -10,7 +10,10 @@ import Data.Maybe (isNothing, fromJust)
 import Forpar.Util.Position
 import Forpar.ParserMonad
 import Forpar.Lexer.FixedForm
+import Forpar.Transformer (transform, Transformation(..))
 import Forpar.AST
+
+import Debug.Trace
 
 }
 
@@ -27,6 +30,7 @@ import Forpar.AST
   ')'                   { TRightPar _ }
   ','                   { TComma _ }
   '.'                   { TDot _ }
+  ':'                   { TColon _ }
   program               { TProgram _ }
   function              { TFunction _ }
   subroutine            { TSubroutine _ }
@@ -37,14 +41,23 @@ import Forpar.AST
   to                    { TTo _ }
   goto                  { TGoto _ }
   if                    { TIf _ }
+  then                  { TThen _ }
+  else                  { TElse _ }
+  elsif                 { TElsif _ }
+  endif                 { TEndif _ }
   call                  { TCall _ }
   return                { TReturn _ }
+  save                  { TSave _ }
   continue              { TContinue _ }
   stop                  { TStop _ }
   pause                 { TPause _ }
   do                    { TDo _ }
   read                  { TRead _ }
   write                 { TWrite _ }
+  print                 { TPrint _ }
+  open                  { TOpen _ }
+  close                 { TClose _ }
+  inquire               { TInquire _ }
   rewind                { TRewind _ }
   backspace             { TBackspace _ }
   endfile               { TEndfile _ }
@@ -58,7 +71,10 @@ import Forpar.AST
   doublePrecision       { TType _ "doubleprecision" }
   logical               { TType _ "logical" }
   complex               { TType _ "complex" }
+  intrinsic             { TIntrinsic _ }
   implicit              { TImplicit _ }
+  parameter             { TParameter _ }
+  entry                 { TEntry _ }
   none                  { TNone _ }
   data                  { TData _ }
   format                { TFormat _ }
@@ -75,6 +91,8 @@ import Forpar.AST
   '**'                  { TOpExp _ }
   '*'                   { TStar _ }
   '/'                   { TSlash _ }
+  eqv                   { TOpEquivalent _ }
+  neqv                  { TOpNotEquivalent _ }
   or                    { TOpOr _ }
   and                   { TOpAnd _ }
   not                   { TOpNot _ }
@@ -87,15 +105,19 @@ import Forpar.AST
   id                    { TId _ _ }
   comment               { TComment _ _ }
   hollerith             { THollerith _ _ }
+  string                { TString _ _ }
   label                 { TLabel _ _ }
   newline               { TNewline _ }
 
+%left eqv neqv
 %left or
 %left and
 %right not
 
 %nonassoc '>' '<' '>=' '<=' '==' '!='
 %nonassoc RELATIONAL
+
+%left CONCAT
 
 %left '+' '-'
 %left '*' '/'
@@ -107,26 +129,20 @@ import Forpar.AST
 PROGRAM :: { [ ProgramUnit A0 ] }
 PROGRAM
 : PROGRAM_UNITS { reverse $1 }
-| PROGRAM_UNITS COMMENTS { reverse $1 }
 
 PROGRAM_UNITS :: { [ ProgramUnit A0 ] }
 PROGRAM_UNITS
-: PROGRAM_UNITS PROGRAM_UNIT { $2 : $1 } 
-| PROGRAM_UNIT { [ $1 ] } 
+: PROGRAM_UNITS PROGRAM_UNIT NEWLINE { $2 : $1 } 
+| PROGRAM_UNIT NEWLINE { [ $1 ] } 
 
 PROGRAM_UNIT :: { ProgramUnit A0 }
 PROGRAM_UNIT
-: COMMENTS PROGRAM_UNIT_LEVEL1 NEWLINE { setComments $2 (reverse $1) }
-| PROGRAM_UNIT_LEVEL1 NEWLINE { $1 }
-
-PROGRAM_UNIT_LEVEL1 :: { ProgramUnit A0 }
-PROGRAM_UNIT_LEVEL1
-: program NAME NEWLINE BLOCKS end { PUMain () (getTransSpan $1 $5) (Just $2) (reverse $4) [] }
-| TYPE function NAME '(' ARGS ')' NEWLINE BLOCKS end { PUFunction () (getTransSpan $1 $9) (Just $1) $3 (aReverse $5) (reverse $8) [] }
-| function NAME '(' ARGS ')' NEWLINE BLOCKS end { PUFunction () (getTransSpan $1 $8) Nothing $2 (aReverse $4) (reverse $7) [] }
-| subroutine NAME '(' ARGS ')' NEWLINE BLOCKS end { PUSubroutine () (getTransSpan $1 $8) $2 $4 (reverse $7) [] }
-| blockData NEWLINE BLOCKS end { PUBlockData () (getTransSpan $1 $4) Nothing (reverse $3) [] }
-| blockData NAME NEWLINE BLOCKS end { PUBlockData () (getTransSpan $1 $5) (Just $2) (reverse $4) [] }
+: program NAME NEWLINE BLOCKS end { PUMain () (getTransSpan $1 $5) (Just $2) (reverse $4) }
+| TYPE function NAME '(' ARGS ')' NEWLINE BLOCKS end { PUFunction () (getTransSpan $1 $9) (Just $1) $3 (aReverse $5) (reverse $8) }
+| function NAME '(' ARGS ')' NEWLINE BLOCKS end { PUFunction () (getTransSpan $1 $8) Nothing $2 (aReverse $4) (reverse $7) }
+| subroutine NAME '(' ARGS ')' NEWLINE BLOCKS end { PUSubroutine () (getTransSpan $1 $8) $2 $4 (reverse $7) }
+| blockData NEWLINE BLOCKS end { PUBlockData () (getTransSpan $1 $4) Nothing (reverse $3) }
+| blockData NAME NEWLINE BLOCKS end { PUBlockData () (getTransSpan $1 $5) (Just $2) (reverse $4) }
 
 ARGS :: { AList String A0 }
 ARGS
@@ -135,33 +151,16 @@ ARGS
 
 NAME :: { Name } : id { let (TId _ name) = $1 in name }
 
-BLOCKS :: { [ (Maybe (Expression A0), Block A0) ] }
+BLOCKS :: { [ Block A0 ] }
 BLOCKS
-: BLOCKS_LEVEL1 COMMENTS { $1 }
-| BLOCKS_LEVEL1 { $1 }
-
-BLOCKS_LEVEL1 :: { [ (Maybe (Expression A0), Block A0) ] }
-: BLOCKS_LEVEL1 COMMENTS LABELED_BLOCK { (fst $3, setComments (snd $3) (reverse $2)) : $1 }
-| BLOCKS_LEVEL1 LABELED_BLOCK { $2 : $1 }
-| COMMENTS LABELED_BLOCK { [ (fst $2, setComments (snd $2) (reverse $1)) ] }
-| LABELED_BLOCK { [ $1 ] }
-
--- TODO In this version an empty line followed by a block doesn't work.
-LABELED_BLOCK :: { (Maybe (Expression A0), Block A0) }
-LABELED_BLOCK
-: LABEL_IN_6COLUMN BLOCK { (Just $1, $2) }
-| BLOCK { (Nothing, $1) }
+: BLOCKS BLOCK { $2 : $1 }
+| BLOCK { [ $1 ] }
 
 BLOCK :: { Block A0 }
-BLOCK : STATEMENT NEWLINE { BlStatement () (getSpan $1) $1 [] }
-
-COMMENTS :: { [ Comment A0 ] }
-COMMENTS
-: COMMENTS COMMENT { $2 : $1 }
-| COMMENT { [ $1 ] }
-
-COMMENT :: { Comment A0 }
-COMMENT : comment NEWLINE { let (TComment s c) = $1 in Comment () s c }
+BLOCK 
+: LABEL_IN_6COLUMN STATEMENT NEWLINE { BlStatement () (getTransSpan $1 $2) (Just $1) $2 }
+| STATEMENT NEWLINE { BlStatement () (getSpan $1) Nothing $1 }
+| comment NEWLINE { let (TComment s c) = $1 in BlComment () s c }
 
 NEWLINE :: { Token } 
 NEWLINE
@@ -195,19 +194,157 @@ OTHER_EXECUTABLE_STATEMENT
 | assign LABEL_IN_STATEMENT to VARIABLE { StLabelAssign () (getTransSpan $1 $4) $2 $4 }
 | GOTO_STATEMENT { $1 }
 | if '(' EXPRESSION ')' LABEL_IN_STATEMENT ',' LABEL_IN_STATEMENT ',' LABEL_IN_STATEMENT { StIfArithmetic () (getTransSpan $1 $9) $3 $5 $7 $9 }
+| if '(' EXPRESSION ')' then { StIfThen () (getTransSpan $1 $5) $3 }
+| elsif '(' EXPRESSION ')' then { StElsif () (getTransSpan $1 $5) $3 }
+| else { StElse () (getSpan $1) }
+| endif { StEndif () (getSpan $1) }
 | call SUBROUTINE_NAME CALLABLE_EXPRESSIONS { StCall () (getTransSpan $1 $3) $2 $ Just $3 }
 | call SUBROUTINE_NAME { StCall () (getTransSpan $1 $2) $2 Nothing }
-| return { StReturn () $ getSpan $1 }
+| return { StReturn () (getSpan $1) Nothing }
+| return EXPRESSION { StReturn () (getTransSpan $1 $2) $ Just $2 }
+| save SAVE_ARGS { StSave () (getSpan $1) $ aReverse $2 }
 | continue { StContinue () $ getSpan $1 }
-| stop INTEGER_LITERAL { StStop () (getTransSpan $1 $2) $ Just $2 }
+| stop INTEGER_OR_STRING { StStop () (getTransSpan $1 $2) $ Just $2 }
 | stop { StStop () (getSpan $1) Nothing }
-| pause INTEGER_LITERAL { StPause () (getTransSpan $1 $2) $ Just $2 }
+| pause INTEGER_OR_STRING { StPause () (getTransSpan $1 $2) $ Just $2 }
 | pause { StPause () (getSpan $1) Nothing }
-| rewind UNIT { StRewind () (getTransSpan $1 $2) $2 }
-| backspace UNIT { StBackspace () (getTransSpan $1 $2) $2 }
-| endfile UNIT { StEndfile () (getTransSpan $1 $2) $2 }
-| write READ_WRITE_ARGUMENTS { let (unit, form, list) = $2 in StWrite () (getTransSpan $1 $2) unit form list }
-| read READ_WRITE_ARGUMENTS { let (unit, form, list) = $2 in StRead () (getTransSpan $1 $2) unit form list }
+-- IO Statements
+| read CILIST IN_IOLIST { StRead () (getTransSpan $1 $3) $2 (Just $ aReverse $3) }
+| read CILIST { StRead () (getTransSpan $1 $2) $2 Nothing }
+| read FORMAT_ID ',' IN_IOLIST { StRead2 () (getTransSpan $1 $4) $2 (Just $ aReverse $4) }
+| read FORMAT_ID { StRead2 () (getTransSpan $1 $2) $2 Nothing }
+| write CILIST OUT_IOLIST { StWrite () (getTransSpan $1 $3) $2 (Just $ aReverse $3) }
+| write CILIST { StWrite () (getTransSpan $1 $2) $2 Nothing }
+| print FORMAT_ID ',' OUT_IOLIST { StPrint () (getTransSpan $1 $4) $2 (Just $ aReverse $4) }
+| print FORMAT_ID { StPrint () (getTransSpan $1 $2) $2 Nothing }
+| open CILIST { StOpen () (getTransSpan $1 $2) $2 }
+| close CILIST { StClose () (getTransSpan $1 $2) $2 }
+| inquire CILIST { StInquire () (getTransSpan $1 $2) $2 }
+| rewind CILIST { StRewind () (getTransSpan $1 $2) $2 }
+| rewind UNIT { StRewind2 () (getTransSpan $1 $2) $2 }
+| endfile CILIST { StEndfile () (getTransSpan $1 $2) $2 }
+| endfile UNIT { StEndfile2 () (getTransSpan $1 $2) $2 }
+| backspace CILIST { StBackspace () (getTransSpan $1 $2) $2 }
+| backspace UNIT { StBackspace2 () (getTransSpan $1 $2) $2 }
+
+FORMAT_ID :: { Expression A0 }
+FORMAT_ID
+: FORMAT_ID '/' '/' FORMAT_ID %prec CONCAT { ExpBinary () (getTransSpan $1 $4) Concatination $1 $4 }
+| INTEGER_LITERAL               { $1 }
+| STRING                        { $1 }
+-- There should be FUNCTION_CALL here but as far as the parser is concerned it is same as SUBSCRIPT,
+-- hence putting it here would cause a reduce/reduce conflict.
+| SUBSCRIPT                     { $1 }
+| SUBSTRING                     { $1 }
+| VARIABLE                      { $1 }
+| '*' { ExpValue () (getSpan $1) ValStar }
+
+UNIT :: { Expression A0 }
+UNIT
+: INTEGER_LITERAL { $1 }
+| VARIABLE { $1 }
+| SUBSTRING { $1 }
+| SUBSCRIPT { $1 }
+| '*' { ExpValue () (getSpan $1) ValStar }
+
+-- A crude approximation that makes parsing easy. Individual key value pairs
+-- should be checket later on.
+CILIST :: { AList (ControlPair A0) A0 }
+CILIST
+: '(' UNIT ',' FORMAT_ID ',' CILIST_PAIRS ')' { 
+  let { cp1 = ControlPair () (getSpan $2) Nothing $2;
+        cp2 = ControlPair () (getSpan $4) Nothing $4 }
+  in setSpan (getTransSpan $1 $7) $ cp1 `aCons` cp2 `aCons` aReverse $6
+  }
+| '(' UNIT ',' FORMAT_ID ')' { 
+  let { cp1 = ControlPair () (getSpan $2) Nothing $2;
+        cp2 = ControlPair () (getSpan $4) Nothing $4 }
+	in AList () (getTransSpan $1 $5) [ cp1,  cp2 ]
+	}
+| '(' UNIT ',' CILIST_PAIRS ')' { 
+  let cp1 = ControlPair () (getSpan $2) Nothing $2
+	in setSpan (getTransSpan $1 $5) $ cp1 `aCons` aReverse $4
+	}
+| '(' UNIT ')' { 
+  let cp1 = ControlPair () (getSpan $2) Nothing $2
+  in AList () (getTransSpan $1 $3) [ cp1 ]
+  }
+| '(' CILIST_PAIRS ')' { setSpan (getTransSpan $1 $3) $ aReverse $2 }
+
+CILIST_PAIRS :: { AList (ControlPair A0) A0 }
+CILIST_PAIRS
+: CILIST_PAIRS ',' CILIST_PAIR { setSpan (getTransSpan $1 $3) $ $3 `aCons` $1 }
+| CILIST_PAIR { AList () (getSpan $1) [ $1 ] }
+
+CILIST_PAIR :: { ControlPair A0 }
+CILIST_PAIR : id '=' CILIST_ELEMENT { let (TId s id) = $1 in ControlPair () (getTransSpan s $3) (Just id) $3 }
+
+CILIST_ELEMENT :: { Expression A0 }
+CILIST_ELEMENT
+: CI_EXPRESSION { $1 }
+| '*' { ExpValue () (getSpan $1) ValStar }
+
+CI_EXPRESSION :: { Expression A0 }
+CI_EXPRESSION
+: CI_EXPRESSION '+' CI_EXPRESSION { ExpBinary () (getTransSpan $1 $3) Addition $1 $3 }
+| CI_EXPRESSION '-' CI_EXPRESSION { ExpBinary () (getTransSpan $1 $3) Subtraction $1 $3 }
+| CI_EXPRESSION '*' CI_EXPRESSION { ExpBinary () (getTransSpan $1 $3) Multiplication $1 $3 }
+| CI_EXPRESSION '/' CI_EXPRESSION { ExpBinary () (getTransSpan $1 $3) Division $1 $3 }
+| CI_EXPRESSION '**' CI_EXPRESSION { ExpBinary () (getTransSpan $1 $3) Exponentiation $1 $3 }
+| CI_EXPRESSION '/' '/' CI_EXPRESSION %prec CONCAT { ExpBinary () (getTransSpan $1 $4) Concatination $1 $4 }
+| ARITHMETIC_SIGN CI_EXPRESSION %prec NEGATION { ExpUnary () (getTransSpan (fst $1) $2) (snd $1) $2 }
+| CI_EXPRESSION or CI_EXPRESSION { ExpBinary () (getTransSpan $1 $3) Or $1 $3 }
+| CI_EXPRESSION and CI_EXPRESSION { ExpBinary () (getTransSpan $1 $3) And $1 $3 }
+| not CI_EXPRESSION { ExpUnary () (getTransSpan $1 $2) Not $2 }
+| CI_EXPRESSION eqv CI_EXPRESSION { ExpBinary () (getTransSpan $1 $3) Equivalent $1 $3 }
+| CI_EXPRESSION neqv CI_EXPRESSION { ExpBinary () (getTransSpan $1 $3) NotEquivalent $1 $3 }
+| CI_EXPRESSION RELATIONAL_OPERATOR CI_EXPRESSION %prec RELATIONAL { ExpBinary () (getTransSpan $1 $3) $2 $1 $3 }
+| '(' CI_EXPRESSION ')' { setSpan (getTransSpan $1 $3) $2 }
+| INTEGER_LITERAL               { $1 }
+| LOGICAL_LITERAL               { $1 }
+| STRING                        { $1 }
+-- There should be FUNCTION_CALL here but as far as the parser is concerned it is same as SUBSCRIPT,
+-- hence putting it here would cause a reduce/reduce conflict.
+| SUBSCRIPT                     { $1 }
+| SUBSTRING                     { $1 }
+| VARIABLE                      { $1 }
+
+-- Input IOList used in read like statements is much more restrictive as it 
+-- doesn't make sense to read into an integer.
+-- While the output list can be an arbitrary expression. Hence, the grammar
+-- rule separation.
+
+IN_IOLIST :: { AList (Expression A0) A0 }
+IN_IOLIST
+: IN_IOLIST ',' IN_IO_ELEMENT { setSpan (getTransSpan $1 $3) $ $3 `aCons` $1}
+| IN_IO_ELEMENT { AList () (getSpan $1) [ $1 ] }
+
+IN_IO_ELEMENT :: { Expression A0 }
+IN_IO_ELEMENT
+: VARIABLE { $1 }
+| SUBSCRIPT { $1 }
+| SUBSTRING { $1 }
+| '(' IN_IOLIST ',' DO_SPECIFICATION ')' { ExpImpliedDo () (getTransSpan $1 $5) $2 $4 }
+
+OUT_IOLIST :: { AList (Expression A0) A0 }
+OUT_IOLIST
+: OUT_IOLIST ',' EXPRESSION { setSpan (getTransSpan $1 $3) $ $3 `aCons` $1}
+| EXPRESSION { AList () (getSpan $1) [ $1 ] }
+
+SAVE_ARGS :: { AList (Expression A0) A0 }
+SAVE_ARGS
+: SAVE_ARGS_LEVEL1 { $1 }
+| {-EMPTY-} {% getPosition >>= \p -> return $ AList () (SrcSpan p p) [] }
+
+SAVE_ARGS_LEVEL1 :: { AList (Expression A0) A0 }
+SAVE_ARGS_LEVEL1
+: SAVE_ARGS_LEVEL1 ',' SAVE_ARG { setSpan (getTransSpan $1 $3) $ $3 `aCons` $1 }
+| SAVE_ARG { AList () (getSpan $1) [ $1 ] }
+
+SAVE_ARG :: { Expression A0 }
+SAVE_ARG : COMMON_NAME { $1 } | VARIABLE { $1 }
+
+INTEGER_OR_STRING :: { Expression A0 } : STRING { $1 } | INTEGER_LITERAL { $1 }
 
 GOTO_STATEMENT :: { Statement A0 }
 GOTO_STATEMENT
@@ -221,15 +358,49 @@ EXPRESSION_ASSIGNMENT_STATEMENT :: { Statement A0 }
 EXPRESSION_ASSIGNMENT_STATEMENT : ELEMENT '=' EXPRESSION { StExpressionAssign () (getTransSpan $1 $3) $1 $3 }
 
 NONEXECUTABLE_STATEMENT :: { Statement A0 }
-: external PROCEDURES { StExternal () (getTransSpan $1 $2) (aReverse $2) }
-| dimension ARRAY_DECLARATORS { StDimension () (getTransSpan $1 $2) (aReverse $2) }
+NONEXECUTABLE_STATEMENT
+: external FUNCTION_NAMES { StExternal () (getTransSpan $1 $2) (aReverse $2) }
+| intrinsic FUNCTION_NAMES { StIntrinsic () (getTransSpan $1 $2) (aReverse $2) }
+| dimension OTHER_ARRAY_DECLARATORS { StDimension () (getTransSpan $1 $2) (aReverse $2) }
 | common COMMON_GROUPS { StCommon () (getTransSpan $1 $2) (aReverse $2) }
 | equivalence EQUIVALENCE_GROUPS { StEquivalence () (getTransSpan $1 $2) (aReverse $2) }
 | data DATA_GROUPS { StData () (getTransSpan $1 $2) (aReverse $2) }
 | format FORMAT_ITEMS ')' { StFormat () (getTransSpan $1 $3) (aReverse $2) }
-| TYPE DECLARATORS { StDeclaration () (getTransSpan $1 $2) $1 (aReverse $2) }
+| DECLARATION_STATEMENT { $1 }
 | implicit none { StImplicit () (getTransSpan $1 $2) Nothing }
 | implicit IMP_LISTS { StImplicit () (getTransSpan $1 $2) $ Just $ aReverse $2 }
+| parameter '(' PARAMETER_ASSIGNMENTS ')' { StParameter () (getTransSpan $1 $4) $ aReverse $3 }
+| entry FUNCTION_NAME { StEntry () (getTransSpan $1 $2) $2 Nothing }
+| entry FUNCTION_NAME ENTRY_ARGS { StEntry () (getTransSpan $1 $3) $2 $ Just $3 }
+
+ENTRY_ARGS :: { AList (Expression A0) A0 }
+ENTRY_ARGS
+: ENTRY_ARGS_LEVEL1 ')' { setSpan (getTransSpan $1 $2) $ aReverse $1 }
+
+ENTRY_ARGS_LEVEL1 :: { AList (Expression A0) A0 }
+ENTRY_ARGS_LEVEL1
+: ENTRY_ARGS_LEVEL1 ',' ENTRY_ARG { setSpan (getTransSpan $1 $3) $ $3 `aCons` $1 }
+| '(' ENTRY_ARG { AList () (getTransSpan $1 $2) [ $2 ] }
+| '(' { AList () (getSpan $1) [ ] }
+
+ENTRY_ARG :: { Expression A0 }
+ENTRY_ARG
+: VARIABLE { $1 } 
+| '*' { ExpValue () (getSpan $1) ValStar }
+
+PARAMETER_ASSIGNMENTS :: { AList (Statement A0) A0 }
+PARAMETER_ASSIGNMENTS
+: PARAMETER_ASSIGNMENTS ',' PARAMETER_ASSIGNMENT { setSpan (getTransSpan $1 $3) $ $3 `aCons` $1 }
+| PARAMETER_ASSIGNMENT { AList () (getSpan $1) [ $1 ] }
+
+PARAMETER_ASSIGNMENT :: { Statement A0 }
+PARAMETER_ASSIGNMENT
+: PARAMETER '=' CONSTANT_EXPRESSION { StExpressionAssign () (getTransSpan $1 $3) $1 $3 }
+
+DECLARATION_STATEMENT :: { Statement A0 }
+DECLARATION_STATEMENT
+: CHARACTER_TYPE CHARACTER_DECLARATORS { StDeclaration () (getTransSpan $1 $2) $1 $2 }
+| OTHER_TYPE OTHER_DECLARATORS { StDeclaration () (getTransSpan $1 $2) $1 $2 }
 
 IMP_LISTS :: { AList (ImpList A0) A0 }
 IMP_LISTS
@@ -260,32 +431,6 @@ IMP_ELEMENT
              else return $ ImpRange () (getTransSpan $1 $3) id1 id2
              }
 
-READ_WRITE_ARGUMENTS :: { (Expression A0, Maybe (Expression A0), Maybe (AList (IOElement A0) A0)) }
-READ_WRITE_ARGUMENTS
-: '(' UNIT ')' IO_ELEMENTS { ($2, Nothing, Just (aReverse $4)) }
-| '(' UNIT ',' FORM ')' IO_ELEMENTS { ($2, Just $4, Just (aReverse $6)) }
-| '(' UNIT ')' { ($2, Nothing, Nothing) }
-| '(' UNIT ',' FORM ')' { ($2, Just $4, Nothing) }
-
--- Not my terminology a VAR or an INT (probably positive) is defined as UNIT.
-UNIT :: { Expression A0 } : INTEGER_LITERAL { $1 } | VARIABLE { $1 }
-
-FORM :: { Expression A0 } : ARRAY { $1 } | LABEL_IN_STATEMENT { $1 }
-
-IO_ELEMENTS :: { AList (IOElement A0) A0 }
-IO_ELEMENTS
-: IO_ELEMENTS ',' IO_ELEMENT { setSpan (getTransSpan $1 $3) $ $3 `aCons` $1}
-| IO_ELEMENT { AList () (getSpan $1) [ $1 ] }
-
-IO_ELEMENT :: { IOElement A0 }
-IO_ELEMENT
-: VARIABLE { IOExpression $1 }
--- There should also be a caluse for variable names but not way to 
--- differentiate it at this stage from VARIABLE. Hence, it is omitted to prevent
--- reduce/reduce conflict.
-| SUBSCRIPT { IOExpression $1 }
-| '(' IO_ELEMENTS ',' DO_SPECIFICATION ')' { IOTuple () (getTransSpan $1 $5) $2 $4 }
-
 ELEMENT :: { Expression A0 }
 ELEMENT
 : VARIABLE { $1 }
@@ -299,8 +444,7 @@ FORMAT_ITEMS
 | FORMAT_ITEMS FORMAT_ITEM_DELIMETER { setSpan (getTransSpan $1 $2) $ $2 `aCons` $1 }
 | '(' { AList () (getSpan $1) [ ] }
 
-FORMAT_ITEM_DELIMETER :: { FormatItem A0 }
-FORMAT_ITEM_DELIMETER: '/' { FIDelimiter () (getSpan $1) }
+FORMAT_ITEM_DELIMETER :: { FormatItem A0 } : '/' { FIDelimiter () (getSpan $1) }
 
 FORMAT_ITEM :: { FormatItem A0 }
 FORMAT_ITEM
@@ -314,8 +458,8 @@ FORMAT_ITEM
 
 DATA_GROUPS :: { AList (DataGroup A0) A0 }
 DATA_GROUPS
-: DATA_GROUPS ',' DECLARATORS  '/' DATA_ITEMS '/' { setSpan (getTransSpan $1 $6) $ (DataGroup () (getTransSpan $3 $6) (aReverse $3) (aReverse $5)) `aCons` $1 }
-| DECLARATORS  '/' DATA_ITEMS '/' { AList () (getTransSpan $1 $4) [ DataGroup () (getTransSpan $1 $4) (aReverse $1) (aReverse $3) ] }
+: DATA_GROUPS ',' NAME_LIST  '/' DATA_ITEMS '/' { setSpan (getTransSpan $1 $6) $ (DataGroup () (getTransSpan $3 $6) (aReverse $3) (aReverse $5)) `aCons` $1 }
+| NAME_LIST  '/' DATA_ITEMS '/' { AList () (getTransSpan $1 $4) [ DataGroup () (getTransSpan $1 $4) (aReverse $1) (aReverse $3) ] }
 
 DATA_ITEMS :: { AList (Expression A0) A0 }
 DATA_ITEMS
@@ -330,19 +474,14 @@ DATA_ITEM
 DATA_ITEM_LEVEL1 :: { Expression A0 }
 DATA_ITEM_LEVEL1
 : SIGNED_NUMERIC_LITERAL  { $1 }
-| COMPLEX_LITERAL         { $1 }
+--| COMPLEX_LITERAL         { $1 }
+| '(' SIGNED_NUMERIC_LITERAL ',' SIGNED_NUMERIC_LITERAL ')' { ExpValue () (getTransSpan $1 $5) (ValComplex $2 $4)}
 | LOGICAL_LITERAL         { $1 }
-| HOLLERITH               { $1 }
 
 EQUIVALENCE_GROUPS :: { AList (AList (Expression A0) A0) A0 }
 EQUIVALENCE_GROUPS
-: EQUIVALENCE_GROUPS ','  '(' DECLARATORS ')' { setSpan (getTransSpan $1 $5) $ (setSpan (getTransSpan $3 $5) $ aReverse $4) `aCons` $1 }
-| '(' DECLARATORS ')' { let s = (getTransSpan $1 $3) in AList () s [ setSpan s $ aReverse $2 ] }
-
-DECLARATORS :: { AList (Expression A0) A0 }
-DECLARATORS
-: DECLARATORS ',' DECLARATOR { setSpan (getTransSpan $1 $3) $ $3 `aCons` $1 }
-| DECLARATOR { AList () (getSpan $1) [ $1 ] }
+: EQUIVALENCE_GROUPS ','  '(' NAME_LIST ')' { setSpan (getTransSpan $1 $5) $ (setSpan (getTransSpan $3 $5) $ aReverse $4) `aCons` $1 }
+| '(' NAME_LIST ')' { let s = (getTransSpan $1 $3) in AList () s [ setSpan s $ aReverse $2 ] }
 
 COMMON_GROUPS :: { AList (CommonGroup A0) A0 }
 COMMON_GROUPS
@@ -351,43 +490,89 @@ COMMON_GROUPS
 
 COMMON_GROUP :: { CommonGroup A0 }
 COMMON_GROUP
-: '/' id '/' COMMON_ELEMENTS { CommonGroup () (getTransSpan $1 $4) (let (TId _ s) = $2 in Just s) $ aReverse $4 }
-| '/' '/' COMMON_ELEMENTS { CommonGroup () (getTransSpan $1 $3) Nothing $ aReverse $3 }
+: COMMON_NAME NAME_LIST { CommonGroup () (getTransSpan $1 $2) (Just $1) $ aReverse $2 }
+| '/' '/' NAME_LIST { CommonGroup () (getTransSpan $1 $3) Nothing $ aReverse $3 }
 
 INIT_COMMON_GROUP :: { CommonGroup A0 }
 INIT_COMMON_GROUP
-: '/' id '/' COMMON_ELEMENTS { CommonGroup () (getTransSpan $1 $4) (let (TId _ s) = $2 in Just s) $ aReverse $4 }
-| '/' '/' COMMON_ELEMENTS { CommonGroup () (getTransSpan $1 $3) Nothing $ aReverse $3 }
-| COMMON_ELEMENTS { CommonGroup () (getSpan $1) Nothing $ aReverse $1 }
+: COMMON_NAME NAME_LIST { CommonGroup () (getTransSpan $1 $2) (Just $1) $ aReverse $2 }
+| '/' '/' NAME_LIST { CommonGroup () (getTransSpan $1 $3) Nothing $ aReverse $3 }
+| NAME_LIST { CommonGroup () (getSpan $1) Nothing $ aReverse $1 }
 
-COMMON_ELEMENTS :: { AList (Expression A0) A0 }
-COMMON_ELEMENTS
-: COMMON_ELEMENTS ',' DECLARATOR { setSpan (getTransSpan $1 $3) $ $3 `aCons` $1 }
-| DECLARATOR  { AList () (getSpan $1) [ $1 ] }
+COMMON_NAME :: { Expression A0 }
+COMMON_NAME : '/' id '/' { let (TId _ cn) = $2 in ExpValue () (getTransSpan $1 $3) (ValCommonName cn) }
 
--- Array name is also a possibility, but there is no way to differentiate it 
--- from a variable.
--- Also subscript is technically not correct an array with size only specified
--- by positive integer values (specifically no variables) is allowed. Here 
--- subscript is used to simplify the matters.
-DECLARATOR :: { Expression A0 }
-DECLARATOR
-: VARIABLE    { $1 }
-| SUBSCRIPT   { $1 }
+NAME_LIST :: { AList (Expression A0) A0 }
+NAME_LIST
+: NAME_LIST ',' NAME_LIST_ELEMENT { setSpan (getTransSpan $1 $3) $ $3 `aCons` $1 }
+| NAME_LIST_ELEMENT { AList () (getSpan $1) [ $1 ] }
 
--- Technically, it is not a subscript, but the syntax is identical and there is
--- not meaningful differentiation.
-ARRAY_DECLARATORS :: { AList (Expression A0) A0 }
-ARRAY_DECLARATORS
-: ARRAY_DECLARATORS ',' SUBSCRIPT { setSpan (getTransSpan $1 $3) $ $3 `aCons` $1 }
-| SUBSCRIPT { AList () (getSpan $1) [ $1 ] }
+NAME_LIST_ELEMENT :: { Expression A0 } : VARIABLE { $1 } | SUBSTRING { $1 } | SUBSCRIPT { $1 }
+
+CHARACTER_DECLARATORS :: { AList (Declarator A0) A0 }
+CHARACTER_DECLARATORS
+: CHARACTER_DECLARATORS ',' CHARACTER_DECLARATOR { setSpan (getTransSpan $1 $3) $ $3 `aCons` $1 }
+| CHARACTER_DECLARATOR { AList () (getSpan $1) [ $1 ] }
+
+OTHER_DECLARATORS :: { AList (Declarator A0) A0 }
+OTHER_DECLARATORS
+: OTHER_DECLARATORS ',' OTHER_DECLARATOR { setSpan (getTransSpan $1 $3) $ $3 `aCons` $1 }
+| OTHER_DECLARATOR { AList () (getSpan $1) [ $1 ] }
+
+-- Parses arrays as DeclCharVariable, otherwise we get a conflict.
+CHARACTER_DECLARATOR :: { Declarator A0 }
+CHARACTER_DECLARATOR
+: CHARACTER_ARRAY_DECLARATOR { $1 }
+| CHARACTER_VARIABLE_DECLARATOR { $1 }
+| VARIABLE { DeclCharVariable () (getSpan $1) $1 Nothing }
+
+-- Parses arrays as DeclVariable, otherwise we get a conflict.
+OTHER_DECLARATOR :: { Declarator A0 }
+OTHER_DECLARATOR
+: OTHER_ARRAY_DECLARATOR { $1 }
+| OTHER_VARIABLE_DECLARATOR { $1 }
+
+CHARACTER_ARRAY_DECLARATOR :: { Declarator A0 }
+CHARACTER_ARRAY_DECLARATOR
+: ARRAY '(' DIMENSION_DECLARATORS ')' '*' EXPRESSION { DeclCharArray () (getTransSpan $1 $6) $1 (aReverse $3) (Just $6) }
+| ARRAY '(' DIMENSION_DECLARATORS ')' '*' '(' '*' ')' { DeclCharArray () (getTransSpan $1 $8) $1 (aReverse $3) (Just $ ExpValue () (getSpan $7) ValStar) }
+
+OTHER_ARRAY_DECLARATORS :: { AList (Declarator A0) A0 }
+OTHER_ARRAY_DECLARATORS
+: OTHER_ARRAY_DECLARATORS ',' OTHER_ARRAY_DECLARATOR { setSpan (getTransSpan $1 $3) $ $3 `aCons` $1 }
+| OTHER_ARRAY_DECLARATOR { AList () (getSpan $1) [ $1 ] }
+
+OTHER_ARRAY_DECLARATOR :: { Declarator A0 }
+OTHER_ARRAY_DECLARATOR 
+: ARRAY '(' DIMENSION_DECLARATORS ')' { DeclArray () (getTransSpan $1 $4) $1 $ aReverse $3 }
+
+CHARACTER_VARIABLE_DECLARATOR :: { Declarator A0 }
+CHARACTER_VARIABLE_DECLARATOR
+: VARIABLE '*' EXPRESSION { DeclCharVariable () (getTransSpan $1 $3) $1 (Just $3) }
+| VARIABLE '*' '(' '*' ')' { DeclCharVariable () (getTransSpan $1 $5) $1 (Just $ ExpValue () (getSpan $4) ValStar) }
+
+OTHER_VARIABLE_DECLARATOR :: { Declarator A0 }
+OTHER_VARIABLE_DECLARATOR
+: VARIABLE { DeclVariable () (getSpan $1) $1 } 
+
+DIMENSION_DECLARATORS :: { AList (DimensionDeclarator A0) A0 } 
+DIMENSION_DECLARATORS
+: DIMENSION_DECLARATORS ',' DIMENSION_DECLARATOR { setSpan (getTransSpan $1 $3) $ $3 `aCons` $1 }
+| DIMENSION_DECLARATOR { AList () (getSpan $1) [ $1 ] }
+
+DIMENSION_DECLARATOR :: { DimensionDeclarator A0 }
+DIMENSION_DECLARATOR
+: EXPRESSION ':' EXPRESSION { DimensionDeclarator () (getTransSpan $1 $3) (Just $1) $3 }
+| EXPRESSION { DimensionDeclarator () (getSpan $1) Nothing $1 } 
+| EXPRESSION ':' '*' { DimensionDeclarator () (getTransSpan $1 $3) (Just $1) (ExpValue () (getSpan $3) (ValStar)) } 
+| '*' { DimensionDeclarator () (getSpan $1) Nothing (ExpValue () (getSpan $1) (ValStar)) } 
 
 -- Here the procedure should be either a function or subroutine name, but 
 -- since they are syntactically identical at this stage subroutine names
 -- are also emitted as function names.
-PROCEDURES :: { AList (Expression A0) A0 }
-PROCEDURES
-: PROCEDURES ',' FUNCTION_NAME { setSpan (getTransSpan $1 $3) $ $3 `aCons` $1 }
+FUNCTION_NAMES :: { AList (Expression A0) A0 }
+FUNCTION_NAMES
+: FUNCTION_NAMES ',' FUNCTION_NAME { setSpan (getTransSpan $1 $3) $ $3 `aCons` $1 }
 | FUNCTION_NAME { AList () (getSpan $1) [ $1 ] }
 
 CALLABLE_EXPRESSIONS :: { AList (Expression A0) A0 }
@@ -413,20 +598,68 @@ EXPRESSION
 | EXPRESSION '*' EXPRESSION { ExpBinary () (getTransSpan $1 $3) Multiplication $1 $3 }
 | EXPRESSION '/' EXPRESSION { ExpBinary () (getTransSpan $1 $3) Division $1 $3 }
 | EXPRESSION '**' EXPRESSION { ExpBinary () (getTransSpan $1 $3) Exponentiation $1 $3 }
+| EXPRESSION '/' '/' EXPRESSION %prec CONCAT { ExpBinary () (getTransSpan $1 $4) Concatination $1 $4 }
 | ARITHMETIC_SIGN EXPRESSION %prec NEGATION { ExpUnary () (getTransSpan (fst $1) $2) (snd $1) $2 }
 | EXPRESSION or EXPRESSION { ExpBinary () (getTransSpan $1 $3) Or $1 $3 }
 | EXPRESSION and EXPRESSION { ExpBinary () (getTransSpan $1 $3) And $1 $3 }
 | not EXPRESSION { ExpUnary () (getTransSpan $1 $2) Not $2 }
+| EXPRESSION eqv EXPRESSION { ExpBinary () (getTransSpan $1 $3) Equivalent $1 $3 }
+| EXPRESSION neqv EXPRESSION { ExpBinary () (getTransSpan $1 $3) NotEquivalent $1 $3 }
 | EXPRESSION RELATIONAL_OPERATOR EXPRESSION %prec RELATIONAL { ExpBinary () (getTransSpan $1 $3) $2 $1 $3 }
 | '(' EXPRESSION ')' { setSpan (getTransSpan $1 $3) $2 }
-| INTEGER_LITERAL               { $1 }
-| REAL_LITERAL                  { $1 }
-| COMPLEX_LITERAL               { $1 }
-| LOGICAL_LITERAL               { $1 }
-| SUBSCRIPT                     { $1 }
+| NUMERIC_LITERAL                   { $1 }
+| '(' EXPRESSION ',' EXPRESSION ')' { ExpValue () (getTransSpan $1 $5) (ValComplex $2 $4) }
+| LOGICAL_LITERAL                   { $1 }
+| STRING                            { $1 }
 -- There should be FUNCTION_CALL here but as far as the parser is concerned it is same as SUBSCRIPT,
 -- hence putting it here would cause a reduce/reduce conflict.
-| VARIABLE                      { $1 }
+| SUBSCRIPT                         { $1 }
+| SUBSTRING                         { $1 }
+| VARIABLE                          { $1 }
+| IMPLIED_DO                        { $1 }
+
+IMPLIED_DO :: { Expression A0 }
+IMPLIED_DO
+: '(' EXPRESSION ',' DO_SPECIFICATION ')' {
+    let expList = AList () (getSpan $2) [ $2 ]
+	  in ExpImpliedDo () (getTransSpan $1 $5) expList $4
+	 }
+| '(' EXPRESSION ',' EXPRESSION ',' DO_SPECIFICATION ')' { 
+    let expList = AList () (getTransSpan $2 $4) [ $2, $4 ]
+	  in ExpImpliedDo () (getTransSpan $1 $5) expList $6
+	 }
+| '(' EXPRESSION ',' EXPRESSION ',' EXPRESSION_LIST ',' DO_SPECIFICATION ')' { 
+    let { exps =  reverse $6;
+          expList = AList () (getTransSpan $2 exps) ($2 : $4 : reverse $6) }
+    in ExpImpliedDo () (getTransSpan $1 $9) expList $8
+	 }
+
+EXPRESSION_LIST :: { [ Expression A0 ] }
+EXPRESSION_LIST
+: EXPRESSION_LIST ',' EXPRESSION { $3 : $1 }
+| EXPRESSION { [ $1 ] }
+
+STRING :: { Expression A0 } : string { let (TString s cs) = $1 in ExpValue () s (ValString cs) }
+
+CONSTANT_EXPRESSION :: { Expression A0 }
+CONSTANT_EXPRESSION
+: CONSTANT_EXPRESSION '+' CONSTANT_EXPRESSION { ExpBinary () (getTransSpan $1 $3) Addition $1 $3 }
+| CONSTANT_EXPRESSION '-' CONSTANT_EXPRESSION { ExpBinary () (getTransSpan $1 $3) Subtraction $1 $3 }
+| CONSTANT_EXPRESSION '*' CONSTANT_EXPRESSION { ExpBinary () (getTransSpan $1 $3) Multiplication $1 $3 }
+| CONSTANT_EXPRESSION '/' CONSTANT_EXPRESSION { ExpBinary () (getTransSpan $1 $3) Division $1 $3 }
+| CONSTANT_EXPRESSION '**' CONSTANT_EXPRESSION { ExpBinary () (getTransSpan $1 $3) Exponentiation $1 $3 }
+| CONSTANT_EXPRESSION '/' '/' CONSTANT_EXPRESSION %prec CONCAT { ExpBinary () (getTransSpan $1 $4) Concatination $1 $4 }
+| ARITHMETIC_SIGN CONSTANT_EXPRESSION %prec NEGATION { ExpUnary () (getTransSpan (fst $1) $2) (snd $1) $2 }
+| CONSTANT_EXPRESSION or CONSTANT_EXPRESSION { ExpBinary () (getTransSpan $1 $3) Or $1 $3 }
+| CONSTANT_EXPRESSION and CONSTANT_EXPRESSION { ExpBinary () (getTransSpan $1 $3) And $1 $3 }
+| not CONSTANT_EXPRESSION { ExpUnary () (getTransSpan $1 $2) Not $2 }
+| CONSTANT_EXPRESSION RELATIONAL_OPERATOR CONSTANT_EXPRESSION %prec RELATIONAL { ExpBinary () (getTransSpan $1 $3) $2 $1 $3 }
+| '(' CONSTANT_EXPRESSION ')' { setSpan (getTransSpan $1 $3) $2 }
+| NUMERIC_LITERAL               { $1 }
+| '(' CONSTANT_EXPRESSION ',' CONSTANT_EXPRESSION ')' { ExpValue () (getTransSpan $1 $5) (ValComplex $2 $4)}
+| LOGICAL_LITERAL               { $1 }
+| string                        { let (TString s cs) = $1 in ExpValue () s (ValString cs) }
+| PARAMETER                     { $1 } 
 
 ARITHMETIC_CONSTANT_EXPRESSION :: { Expression A0 }
 ARITHMETIC_CONSTANT_EXPRESSION
@@ -437,9 +670,12 @@ ARITHMETIC_CONSTANT_EXPRESSION
 | ARITHMETIC_CONSTANT_EXPRESSION '**' ARITHMETIC_CONSTANT_EXPRESSION { ExpBinary () (getTransSpan $1 $3) Exponentiation $1 $3 }
 | ARITHMETIC_SIGN ARITHMETIC_CONSTANT_EXPRESSION %prec NEGATION { ExpUnary () (getTransSpan (fst $1) $2) (snd $1) $2 }
 | '(' ARITHMETIC_CONSTANT_EXPRESSION ')' { setSpan (getTransSpan $1 $3) $2 }
-| INTEGER_LITERAL               { $1 }
-| REAL_LITERAL                  { $1 }
-| COMPLEX_LITERAL               { $1 }
+| NUMERIC_LITERAL               { $1 }
+| '(' ARITHMETIC_CONSTANT_EXPRESSION ',' ARITHMETIC_CONSTANT_EXPRESSION ')' { ExpValue () (getTransSpan $1 $5) (ValComplex $2 $4)}
+| PARAMETER                     { $1 }
+
+PARAMETER :: { Expression A0 }
+PARAMETER : id { let (TId s par) = $1 in ExpValue () s $ ValParameter par }
 
 RELATIONAL_OPERATOR :: { BinaryOp }
 RELATIONAL_OPERATOR
@@ -450,30 +686,33 @@ RELATIONAL_OPERATOR
 | '<'   { LT }
 | '<='  { LTE }
 
+-- This combined with parsing of INDICIES is a completely evil beast, using 
+-- which we parse everything from array declarators to function statements.
+-- It, however, is a necessary evil at this stage as nicely separating the 
+-- cases leads to conflicts.
+SUBSTRING :: { Expression A0 }
+SUBSTRING
+: SUBSCRIPT '(' EXPRESSION ':' EXPRESSION ')' { ExpSubstring () (getTransSpan $1 $6) $1 (Just $3) (Just $5) }
+| SUBSCRIPT '(' ':' EXPRESSION ')' { ExpSubstring () (getTransSpan $1 $5) $1 Nothing (Just $4) }
+| SUBSCRIPT '(' EXPRESSION ':' ')' { ExpSubstring () (getTransSpan $1 $5) $1 (Just $3) Nothing }
+| SUBSCRIPT '(' ':' ')' { ExpSubstring () (getTransSpan $1 $4) $1 Nothing Nothing }
+| ARRAY '(' EXPRESSION ':' EXPRESSION ')' { ExpSubstring () (getTransSpan $1 $6) $1 (Just $3) (Just $5) }
+| ARRAY '(' ':' EXPRESSION ')' { ExpSubstring () (getTransSpan $1 $5) $1 Nothing (Just $4) }
+| ARRAY '(' EXPRESSION ':' ')' { ExpSubstring () (getTransSpan $1 $5) $1 (Just $3) Nothing }
+| ARRAY '(' ':' ')' { ExpSubstring () (getTransSpan $1 $4) $1 Nothing Nothing }
+
 SUBSCRIPT :: { Expression A0 }
 SUBSCRIPT : ARRAY INDICIES { ExpSubscript () (getTransSpan $1 $2) $1 $2 }
 
 INDICIES :: { AList (Expression A0) A0 }
 INDICIES 
-:  '(' INDICIES_LEVEL1 { setSpan (getTransSpan $1 $2) $2 }
+: INDICIES_LEVEL1 ')' { setSpan (getTransSpan $1 $2) $ aReverse $1 }
 
 INDICIES_LEVEL1 :: { AList (Expression A0) A0  }
 INDICIES_LEVEL1
-: INDEX ',' INDICIES_LEVEL1 { setSpan (getTransSpan $1 $3) $ $1 `aCons` $3 }
-| INDEX ')' { AList () (getTransSpan $1 $2) [ $1 ] }
-| ')' { AList () (getSpan $1) [ ] }
-
-INDEX :: { Expression A0 }
-INDEX
-: INTEGER_LITERAL { $1 }
-| INDEX_LEVEL1 '+' INTEGER_LITERAL { ExpBinary () (getTransSpan $1 $3) Addition $1 $3 } 
-| INDEX_LEVEL1 '-' INTEGER_LITERAL { ExpBinary () (getTransSpan $1 $3) Subtraction $1 $3 } 
-| INDEX_LEVEL1 { $1 }
-
-INDEX_LEVEL1 :: { Expression A0 }
-INDEX_LEVEL1
-: INTEGER_LITERAL '*' VARIABLE { ExpBinary () (getTransSpan $1 $3) Multiplication $1 $3 } 
-| VARIABLE { $1 }
+: INDICIES_LEVEL1 ',' EXPRESSION { setSpan (getTransSpan $1 $3) $ $3 `aCons` $1 }
+| '(' EXPRESSION { AList () (getTransSpan $1 $2) [ $2 ] }
+| '(' { AList () (getSpan $1) [ ] }
 
 ARITHMETIC_SIGN :: { (SrcSpan, UnaryOp) }
 ARITHMETIC_SIGN
@@ -499,17 +738,7 @@ SUBROUTINE_NAME :: { Expression A0 }
 SUBROUTINE_NAME
 : id { ExpValue () (getSpan $1) $ let (TId _ s) = $1 in ValSubroutineName s }
 
-SIGNED_INTEGER_LITERAL :: { Expression A0 }
-SIGNED_INTEGER_LITERAL
-: ARITHMETIC_SIGN INTEGER_LITERAL { ExpUnary () (getTransSpan (fst $1) $2) (snd $1) $2 }
-| INTEGER_LITERAL { $1 }
-
 INTEGER_LITERAL :: { Expression A0 } : int { ExpValue () (getSpan $1) $ let (TInt _ i) = $1 in ValInteger i }
-
-SIGNED_REAL_LITERAL :: { Expression A0 }
-SIGNED_REAL_LITERAL
-: ARITHMETIC_SIGN REAL_LITERAL { ExpUnary () (getTransSpan (fst $1) $2) (snd $1) $2 }
-| REAL_LITERAL { $1 }
 
 REAL_LITERAL :: { Expression A0 } 
 REAL_LITERAL
@@ -528,13 +757,14 @@ EXPONENT
 : exponent { let (TExponent s exp) = $1 in (s, exp) }
 
 SIGNED_NUMERIC_LITERAL :: { Expression A0 }
-SIGNED_NUMERIC_LIETERAL
-: SIGNED_INTEGER_LITERAL { $1 }
-| SIGNED_REAL_LITERAL    { $1 }
+SIGNED_NUMERIC_LITERAL
+: ARITHMETIC_SIGN NUMERIC_LITERAL { ExpUnary () (getTransSpan (fst $1) $2) Minus $2 }
+| NUMERIC_LITERAL { $1 }
 
-COMPLEX_LITERAL :: { Expression A0 }
-COMPLEX_LITERAL
-:  '(' SIGNED_NUMERIC_LITERAL ',' SIGNED_NUMERIC_LITERAL ')' { ExpValue () (getTransSpan $1 $5) (ValComplex $2 $4)}
+NUMERIC_LITERAL :: { Expression A0 }
+NUMERIC_LITERAL
+: INTEGER_LITERAL { $1 }
+| REAL_LITERAL { $1 }
 
 LOGICAL_LITERAL :: { Expression A0 }
 LOGICAL_LITERAL
@@ -558,11 +788,16 @@ LABEL_IN_6COLUMN :: { Expression A0 } : label { ExpValue () (getSpan $1) (let (T
 -- Labels that occur in statements
 LABEL_IN_STATEMENT :: { Expression A0 } : int { ExpValue () (getSpan $1) (let (TInt _ l) = $1 in ValLabel l) }
 
-TYPE :: { BaseType A0 }
-TYPE
+TYPE :: { BaseType A0 } : CHARACTER_TYPE { $1 } | OTHER_TYPE { $1 }
+
+CHARACTER_TYPE :: { BaseType A0 }
+CHARACTER_TYPE
 : character        { TypeCharacter () (getSpan $1) Nothing }
 | character '*' ARITHMETIC_CONSTANT_EXPRESSION  { TypeCharacter () (getTransSpan $1 $3) $ Just $3 }
-| integer          { TypeInteger () (getSpan $1) }
+
+OTHER_TYPE :: { BaseType A0 }
+OTHER_TYPE
+: integer          { TypeInteger () (getSpan $1) }
 | real             { TypeReal () (getSpan $1) }
 | doublePrecision  { TypeDoublePrecision () (getSpan $1) }
 | logical          { TypeLogical () (getSpan $1) }
@@ -586,7 +821,7 @@ makeReal i1 dot i2 exp =
 
 fortran77Parser :: String -> String -> [ ProgramUnit A0 ]
 fortran77Parser sourceCode filename = 
-  evalParse programParser $ initParseState sourceCode Fortran77 filename
+  transform [ GroupIf ] $ evalParse programParser $ initParseState sourceCode Fortran77 filename
 
 parseError :: Token -> LexAction a
 parseError _ = fail "Parsing failed."

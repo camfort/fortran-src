@@ -103,7 +103,6 @@ import Forpar.AST
 PROGRAM :: { [ ProgramUnit A0 ] }
 PROGRAM
 : PROGRAM_UNITS { reverse $1 }
-| PROGRAM_UNITS COMMENTS { reverse $1 }
 
 PROGRAM_UNITS :: { [ ProgramUnit A0 ] }
 PROGRAM_UNITS
@@ -117,19 +116,14 @@ PROGRAM_UNIT
 
 MAIN_PROGRAM_UNIT :: { ProgramUnit A0 }
 MAIN_PROGRAM_UNIT
-: BLOCKS end { let blocks = reverse $1 in PUMain () (getTransSpan $1 $2) Nothing blocks (getComments (snd . head $ blocks)) }
+: BLOCKS end { let blocks = reverse $1 in PUMain () (getTransSpan $1 $2) Nothing blocks }
 
 OTHER_PROGRAM_UNIT :: { ProgramUnit A0 }
 OTHER_PROGRAM_UNIT
-: COMMENTS OTHER_PROGRAM_UNIT_LEVEL1 { setComments $2 (reverse $1) }
-| OTHER_PROGRAM_UNIT_LEVEL1 { $1 }
-
-OTHER_PROGRAM_UNIT_LEVEL1 :: { ProgramUnit A0 }
-OTHER_PROGRAM_UNIT_LEVEL1
-: TYPE function NAME '(' ARGS ')' NEWLINE BLOCKS end { PUFunction () (getTransSpan $1 $9) (Just $1) $3 (aReverse $5) (reverse $8) [] }
-| function NAME '(' ARGS ')' NEWLINE BLOCKS end { PUFunction () (getTransSpan $1 $8) Nothing $2 (aReverse $4) (reverse $7) [] }
-| subroutine NAME '(' ARGS ')' NEWLINE BLOCKS end { PUSubroutine () (getTransSpan $1 $8) $2 $4 (reverse $7) [] }
-| blockData NEWLINE BLOCKS end { PUBlockData () (getTransSpan $1 $4) Nothing (reverse $3) [] }
+: TYPE function NAME '(' ARGS ')' NEWLINE BLOCKS end { PUFunction () (getTransSpan $1 $9) (Just $1) $3 (aReverse $5) (reverse $8) }
+| function NAME '(' ARGS ')' NEWLINE BLOCKS end { PUFunction () (getTransSpan $1 $8) Nothing $2 (aReverse $4) (reverse $7) }
+| subroutine NAME '(' ARGS ')' NEWLINE BLOCKS end { PUSubroutine () (getTransSpan $1 $8) $2 $4 (reverse $7) }
+| blockData NEWLINE BLOCKS end { PUBlockData () (getTransSpan $1 $4) Nothing (reverse $3) }
 
 ARGS :: { AList String A0 }
 ARGS
@@ -138,33 +132,16 @@ ARGS
 
 NAME :: { Name } : id { let (TId _ name) = $1 in name }
 
-BLOCKS :: { [ (Maybe (Expression A0), Block A0) ] }
+BLOCKS :: { [ Block A0 ] }
 BLOCKS
-: BLOCKS_LEVEL1 COMMENTS { $1 }
-| BLOCKS_LEVEL1 { $1 }
-
-BLOCKS_LEVEL1 :: { [ (Maybe (Expression A0), Block A0) ] }
-: BLOCKS_LEVEL1 COMMENTS LABELED_BLOCK { (fst $3, setComments (snd $3) (reverse $2)) : $1 }
-| BLOCKS_LEVEL1 LABELED_BLOCK { $2 : $1 }
-| COMMENTS LABELED_BLOCK { [ (fst $2, setComments (snd $2) (reverse $1)) ] }
-| LABELED_BLOCK { [ $1 ] }
-
--- TODO In this version an empty line followed by a block doesn't work.
-LABELED_BLOCK :: { (Maybe (Expression A0), Block A0) }
-LABELED_BLOCK
-: LABEL_IN_6COLUMN BLOCK { (Just $1, $2) }
-| BLOCK { (Nothing, $1) }
+: BLOCKS BLOCK { $2 : $1 }
+| BLOCK { [ $1 ] }
 
 BLOCK :: { Block A0 }
-BLOCK : STATEMENT NEWLINE { BlStatement () (getSpan $1) $1 [] }
-
-COMMENTS :: { [ Comment A0 ] }
-COMMENTS
-: COMMENTS COMMENT { $2 : $1 }
-| COMMENT { [ $1 ] }
-
-COMMENT :: { Comment A0 }
-COMMENT : comment NEWLINE { let (TComment s c) = $1 in Comment () s c }
+BLOCK 
+: LABEL_IN_6COLUMN STATEMENT NEWLINE { BlStatement () (getTransSpan $1 $2) (Just $1) $2 }
+| STATEMENT NEWLINE { BlStatement () (getSpan $1) Nothing $1 }
+| comment NEWLINE { let (TComment s c) = $1 in BlComment () s c }
 
 NEWLINE :: { Token } 
 NEWLINE
@@ -202,23 +179,24 @@ OTHER_EXECUTABLE_STATEMENT
 | if '(' EXPRESSION ')' LABEL_IN_STATEMENT ',' LABEL_IN_STATEMENT ',' LABEL_IN_STATEMENT { StIfArithmetic () (getTransSpan $1 $9) $3 $5 $7 $9 }
 | call SUBROUTINE_NAME CALLABLE_EXPRESSIONS { StCall () (getTransSpan $1 $3) $2 $ Just $3 }
 | call SUBROUTINE_NAME { StCall () (getTransSpan $1 $2) $2 Nothing }
-| return { StReturn () $ getSpan $1 }
+| return { StReturn () (getSpan $1) Nothing }
 | continue { StContinue () $ getSpan $1 }
 | stop INTEGER_LITERAL { StStop () (getTransSpan $1 $2) $ Just $2 }
 | stop { StStop () (getSpan $1) Nothing }
 | pause INTEGER_LITERAL { StPause () (getTransSpan $1 $2) $ Just $2 }
 | pause { StPause () (getSpan $1) Nothing }
-| rewind UNIT { StRewind () (getTransSpan $1 $2) $2 }
-| backspace UNIT { StBackspace () (getTransSpan $1 $2) $2 }
-| endfile UNIT { StEndfile () (getTransSpan $1 $2) $2 }
-| write READ_WRITE_ARGUMENTS { let (unit, form, list) = $2 in StWrite () (getTransSpan $1 $2) unit form list }
-| read READ_WRITE_ARGUMENTS { let (unit, form, list) = $2 in StRead () (getTransSpan $1 $2) unit form list }
+| rewind UNIT { StRewind2 () (getTransSpan $1 $2) $2 }
+| backspace UNIT { StBackspace2 () (getTransSpan $1 $2) $2 }
+| endfile UNIT { StEndfile2 () (getTransSpan $1 $2) $2 }
+| write READ_WRITE_ARGUMENTS { let (cilist, iolist) = $2 in StWrite () (getTransSpan $1 $2) cilist iolist }
+| read READ_WRITE_ARGUMENTS { let (cilist, iolist) = $2 in StRead () (getTransSpan $1 $2) cilist iolist }
 
 EXPRESSION_ASSIGNMENT_STATEMENT :: { Statement A0 }
 EXPRESSION_ASSIGNMENT_STATEMENT : ELEMENT '=' EXPRESSION { StExpressionAssign () (getTransSpan $1 $3) $1 $3 }
 
 NONEXECUTABLE_STATEMENT :: { Statement A0 }
-: external PROCEDURES { StExternal () (getTransSpan $1 $2) (aReverse $2) }
+NONEXECUTABLE_STATEMENT
+: external FUNCTION_NAMES { StExternal () (getTransSpan $1 $2) (aReverse $2) }
 | dimension ARRAY_DECLARATORS { StDimension () (getTransSpan $1 $2) (aReverse $2) }
 | common COMMON_GROUPS { StCommon () (getTransSpan $1 $2) (aReverse $2) }
 | equivalence EQUIVALENCE_GROUPS { StEquivalence () (getTransSpan $1 $2) (aReverse $2) }
@@ -226,31 +204,31 @@ NONEXECUTABLE_STATEMENT :: { Statement A0 }
 | format FORMAT_ITEMS ')' { StFormat () (getTransSpan $1 $3) (aReverse $2) }
 | TYPE DECLARATORS { StDeclaration () (getTransSpan $1 $2) $1 (aReverse $2) }
 
-READ_WRITE_ARGUMENTS :: { (Expression A0, Maybe (Expression A0), Maybe (AList (IOElement A0) A0)) }
+READ_WRITE_ARGUMENTS :: { (AList (ControlPair A0) A0, Maybe (AList (Expression A0) A0)) }
 READ_WRITE_ARGUMENTS
-: '(' UNIT ')' IO_ELEMENTS { ($2, Nothing, Just (aReverse $4)) }
-| '(' UNIT ',' FORM ')' IO_ELEMENTS { ($2, Just $4, Just (aReverse $6)) }
-| '(' UNIT ')' { ($2, Nothing, Nothing) }
-| '(' UNIT ',' FORM ')' { ($2, Just $4, Nothing) }
+: '(' UNIT ')' IO_ELEMENTS { (AList () (getSpan $2) [ ControlPair () (getSpan $2) Nothing $2 ], Just (aReverse $4)) }
+| '(' UNIT ',' FORM ')' IO_ELEMENTS { (AList () (getTransSpan $2 $4) [ ControlPair () (getSpan $2) Nothing $2, ControlPair () (getSpan $4) Nothing $4 ], Just (aReverse $6)) }
+| '(' UNIT ')' { (AList () (getSpan $2) [ ControlPair () (getSpan $2) Nothing $2 ], Nothing) }
+| '(' UNIT ',' FORM ')' { (AList () (getTransSpan $2 $4) [ ControlPair () (getSpan $2) Nothing $2, ControlPair () (getSpan $4) Nothing $4 ], Nothing) }
 
 -- Not my terminology a VAR or an INT (probably positive) is defined as UNIT.
 UNIT :: { Expression A0 } : INTEGER_LITERAL { $1 } | VARIABLE { $1 }
 
 FORM :: { Expression A0 } : ARRAY { $1 } | LABEL_IN_STATEMENT { $1 }
 
-IO_ELEMENTS :: { AList (IOElement A0) A0 }
+IO_ELEMENTS :: { AList (Expression A0) A0 }
 IO_ELEMENTS
 : IO_ELEMENTS ',' IO_ELEMENT { setSpan (getTransSpan $1 $3) $ $3 `aCons` $1}
 | IO_ELEMENT { AList () (getSpan $1) [ $1 ] }
 
-IO_ELEMENT :: { IOElement A0 }
+IO_ELEMENT :: { Expression A0 }
 IO_ELEMENT
-: VARIABLE { IOExpression $1 }
+: VARIABLE { $1 }
 -- There should also be a caluse for variable names but not way to 
 -- differentiate it at this stage from VARIABLE. Hence, it is omitted to prevent
 -- reduce/reduce conflict.
-| SUBSCRIPT { IOExpression $1 }
-| '(' IO_ELEMENTS ',' DO_SPECIFICATION ')' { IOTuple () (getTransSpan $1 $5) $2 $4 }
+| SUBSCRIPT { $1 }
+| '(' IO_ELEMENTS ',' DO_SPECIFICATION ')' { ExpImpliedDo () (getTransSpan $1 $5) $2 $4 }
 
 ELEMENT :: { Expression A0 }
 ELEMENT
@@ -265,8 +243,7 @@ FORMAT_ITEMS
 | FORMAT_ITEMS FORMAT_ITEM_DELIMETER { setSpan (getTransSpan $1 $2) $ $2 `aCons` $1 }
 | '(' { AList () (getSpan $1) [ ] }
 
-FORMAT_ITEM_DELIMETER :: { FormatItem A0 }
-FORMAT_ITEM_DELIMETER: '/' { FIDelimiter () (getSpan $1) }
+FORMAT_ITEM_DELIMETER :: { FormatItem A0 } : '/' { FIDelimiter () (getSpan $1) }
 
 FORMAT_ITEM :: { FormatItem A0 }
 FORMAT_ITEM
@@ -280,8 +257,8 @@ FORMAT_ITEM
 
 DATA_GROUPS :: { AList (DataGroup A0) A0 }
 DATA_GROUPS
-: DATA_GROUPS ',' DECLARATORS  '/' DATA_ITEMS '/' { setSpan (getTransSpan $1 $6) $ (DataGroup () (getTransSpan $3 $6) (aReverse $3) (aReverse $5)) `aCons` $1 }
-| DECLARATORS  '/' DATA_ITEMS '/' { AList () (getTransSpan $1 $4) [ DataGroup () (getTransSpan $1 $4) (aReverse $1) (aReverse $3) ] }
+: DATA_GROUPS ',' NAME_LIST  '/' DATA_ITEMS '/' { setSpan (getTransSpan $1 $6) $ (DataGroup () (getTransSpan $3 $6) (aReverse $3) (aReverse $5)) `aCons` $1 }
+| NAME_LIST  '/' DATA_ITEMS '/' { AList () (getTransSpan $1 $4) [ DataGroup () (getTransSpan $1 $4) (aReverse $1) (aReverse $3) ] }
 
 DATA_ITEMS :: { AList (Expression A0) A0 }
 DATA_ITEMS
@@ -302,13 +279,8 @@ DATA_ITEM_LEVEL1
 
 EQUIVALENCE_GROUPS :: { AList (AList (Expression A0) A0) A0 }
 EQUIVALENCE_GROUPS
-: EQUIVALENCE_GROUPS ','  '(' DECLARATORS ')' { setSpan (getTransSpan $1 $5) $ (setSpan (getTransSpan $3 $5) $ aReverse $4) `aCons` $1 }
-| '(' DECLARATORS ')' { let s = (getTransSpan $1 $3) in AList () s [ setSpan s $ aReverse $2 ] }
-
-DECLARATORS :: { AList (Expression A0) A0 }
-DECLARATORS
-: DECLARATORS ',' DECLARATOR { setSpan (getTransSpan $1 $3) $ $3 `aCons` $1 }
-| DECLARATOR { AList () (getSpan $1) [ $1 ] }
+: EQUIVALENCE_GROUPS ','  '(' NAME_LIST ')' { setSpan (getTransSpan $1 $5) $ (setSpan (getTransSpan $3 $5) $ aReverse $4) `aCons` $1 }
+| '(' NAME_LIST ')' { let s = (getTransSpan $1 $3) in AList () s [ setSpan s $ aReverse $2 ] }
 
 COMMON_GROUPS :: { AList (CommonGroup A0) A0 }
 COMMON_GROUPS
@@ -317,43 +289,64 @@ COMMON_GROUPS
 
 COMMON_GROUP :: { CommonGroup A0 }
 COMMON_GROUP
-: '/' id '/' COMMON_ELEMENTS { CommonGroup () (getTransSpan $1 $4) (let (TId _ s) = $2 in Just s) $ aReverse $4 }
-| '/' '/' COMMON_ELEMENTS { CommonGroup () (getTransSpan $1 $3) Nothing $ aReverse $3 }
+: '/' COMMON_NAME '/' NAME_LIST { CommonGroup () (getTransSpan $1 $4) (Just $2) $ aReverse $4 }
+| '/' '/' NAME_LIST { CommonGroup () (getTransSpan $1 $3) Nothing $ aReverse $3 }
 
 INIT_COMMON_GROUP :: { CommonGroup A0 }
 INIT_COMMON_GROUP
-: '/' id '/' COMMON_ELEMENTS { CommonGroup () (getTransSpan $1 $4) (let (TId _ s) = $2 in Just s) $ aReverse $4 }
-| '/' '/' COMMON_ELEMENTS { CommonGroup () (getTransSpan $1 $3) Nothing $ aReverse $3 }
-| COMMON_ELEMENTS { CommonGroup () (getSpan $1) Nothing $ aReverse $1 }
+: '/' COMMON_NAME '/' NAME_LIST { CommonGroup () (getTransSpan $1 $4) (Just $2) $ aReverse $4 }
+| '/' '/' NAME_LIST { CommonGroup () (getTransSpan $1 $3) Nothing $ aReverse $3 }
+| NAME_LIST { CommonGroup () (getSpan $1) Nothing $ aReverse $1 }
 
-COMMON_ELEMENTS :: { AList (Expression A0) A0 }
-COMMON_ELEMENTS
-: COMMON_ELEMENTS ',' DECLARATOR { setSpan (getTransSpan $1 $3) $ $3 `aCons` $1 }
-| DECLARATOR  { AList () (getSpan $1) [ $1 ] }
+COMMON_NAME :: { Expression A0 }
+COMMON_NAME : id { let (TId s cn) = $1 in ExpValue () s (ValCommonName cn) }
 
--- Array name is also a possibility, but there is no way to differentiate it 
--- from a variable.
--- Also subscript is technically not correct an array with size only specified
--- by positive integer values (specifically no variables) is allowed. Here 
--- subscript is used to simplify the matters.
-DECLARATOR :: { Expression A0 }
+NAME_LIST :: { AList (Expression A0) A0 }
+NAME_LIST
+: NAME_LIST ',' NAME_LIST_ELEMENT { setSpan (getTransSpan $1 $3) $ $3 `aCons` $1 }
+| NAME_LIST_ELEMENT { AList () (getSpan $1) [ $1 ] }
+
+NAME_LIST_ELEMENT :: { Expression A0 } : VARIABLE { $1 } | SUBSCRIPT { $1 }
+
+DECLARATORS :: { AList (Declarator A0) A0 }
+DECLARATORS
+: DECLARATORS ',' DECLARATOR { setSpan (getTransSpan $1 $3) $ $3 `aCons` $1 }
+| DECLARATOR { AList () (getSpan $1) [ $1 ] }
+
+-- Parses arrays as DeclVariable, otherwise we get a conflict.
+DECLARATOR :: { Declarator A0 }
 DECLARATOR
-: VARIABLE    { $1 }
-| SUBSCRIPT   { $1 }
+: ARRAY_DECLARATOR { $1 }
+| VARIABLE_DECLARATOR { $1 }
 
--- Technically, it is not a subscript, but the syntax is identical and there is
--- not meaningful differentiation.
-ARRAY_DECLARATORS :: { AList (Expression A0) A0 }
+ARRAY_DECLARATORS :: { AList (Declarator A0) A0 }
 ARRAY_DECLARATORS
-: ARRAY_DECLARATORS ',' SUBSCRIPT { setSpan (getTransSpan $1 $3) $ $3 `aCons` $1 }
-| SUBSCRIPT { AList () (getSpan $1) [ $1 ] }
+: ARRAY_DECLARATORS ',' ARRAY_DECLARATOR { setSpan (getTransSpan $1 $3) $ $3 `aCons` $1 }
+| ARRAY_DECLARATOR { AList () (getSpan $1) [ $1 ] }
+
+ARRAY_DECLARATOR :: { Declarator A0 }
+ARRAY_DECLARATOR 
+: ARRAY '(' DIMENSION_DECLARATORS ')' { DeclArray () (getTransSpan $1 $4) $1 $ aReverse $3 }
+
+DIMENSION_DECLARATORS :: { AList (DimensionDeclarator A0) A0 } 
+DIMENSION_DECLARATORS
+: DIMENSION_DECLARATORS ',' DIMENSION_DECLARATOR { setSpan (getTransSpan $1 $3) $ $3 `aCons` $1 }
+| DIMENSION_DECLARATOR { AList () (getSpan $1) [ $1 ] }
+
+DIMENSION_DECLARATOR :: { DimensionDeclarator A0 }
+DIMENSION_DECLARATOR
+: EXPRESSION { DimensionDeclarator () (getSpan $1) Nothing $1 } 
+
+VARIABLE_DECLARATOR :: { Declarator A0 }
+VARIABLE_DECLARATOR
+: VARIABLE { DeclVariable () (getSpan $1) $1 } 
 
 -- Here the procedure should be either a function or subroutine name, but 
 -- since they are syntactically identical at this stage subroutine names
 -- are also emitted as function names.
-PROCEDURES :: { AList (Expression A0) A0 }
-PROCEDURES
-: PROCEDURES ',' FUNCTION_NAME { setSpan (getTransSpan $1 $3) $ $3 `aCons` $1 }
+FUNCTION_NAMES :: { AList (Expression A0) A0 }
+FUNCTION_NAMES
+: FUNCTION_NAMES ',' FUNCTION_NAME { setSpan (getTransSpan $1 $3) $ $3 `aCons` $1 }
 | FUNCTION_NAME { AList () (getSpan $1) [ $1 ] }
 
 CALLABLE_EXPRESSIONS :: { AList (Expression A0) A0 }
