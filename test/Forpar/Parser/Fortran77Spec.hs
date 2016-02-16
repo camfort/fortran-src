@@ -31,6 +31,15 @@ spec =
         let expectedSt = StPrint () u starVal $ Just (AList () u [ intGen 9000 ])
         sParser "      print *, 9000" `shouldBe'` expectedSt
 
+      it "parses 'write (UNIT=6, FORMAT=*)" $ do
+        let cp1 = ControlPair () u (Just $ "unit") (intGen 6)
+        let cp2 = ControlPair () u (Just $ "format") starVal
+        let expectedSt = StWrite () u (AList () u [cp1, cp2]) Nothing
+        sParser "      write (UNIT=6, FORMAT=*)" `shouldBe'` expectedSt
+
+      it "parses 'endfile i" $ do
+        sParser "      endfile i" `shouldBe'` StEndfile2 () u (varGen "i")
+
       it "parses 'read *, (x, y(i), i = 1, 10, 2)'" $ do
         let stAssign = StExpressionAssign () u (varGen "i") (intGen 1)
         let doSpec = DoSpecification () u stAssign (intGen 10) (Just $ intGen 2)
@@ -38,7 +47,7 @@ spec =
         let impliedDo = ExpImpliedDo () u impliedDoVars doSpec
         let iolist = AList () u [ impliedDo ]
         let expectedSt = StRead2 () u (starVal) (Just iolist)
-        sParser "      read *, (x, i = 1, 10, 2)" `shouldBe'` expectedSt
+        sParser "      read *, (x, y(i), i = 1, 10, 2)" `shouldBe'` expectedSt
 
     it "parses '(x, y(i), i = 1, 10, 2)'" $ do
       let stAssign = StExpressionAssign () u (varGen "i") (intGen 1)

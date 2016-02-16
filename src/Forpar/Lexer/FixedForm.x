@@ -10,7 +10,7 @@ module Forpar.Lexer.FixedForm where
 
 import Data.Word (Word8)
 import Data.Char (toLower, isDigit)
-import Data.List (isPrefixOf, isSuffixOf, any)
+import Data.List (isPrefixOf, any)
 import Data.Maybe (fromJust, isNothing)
 import Data.Data
 import Data.Typeable
@@ -70,7 +70,7 @@ tokens :-
   <st,iif> "."                                { addSpan TDot }
   <st,iif> ":" / { fortran77P }               { addSpan TColon }
 
-  <keyword> @id / { equalFollowsP }           { toSC st >> addSpanAndMatch TId }
+  <keyword> @id / { idP }                     { toSC st >> addSpanAndMatch TId }
 
   -- Tokens related to procedures and subprograms
   <keyword> "program"                         { toSC st >> addSpan TProgram }
@@ -184,22 +184,39 @@ tokens :-
 -- Predicated lexer helpers
 --------------------------------------------------------------------------------
 
-equalFollowsP :: FortranVersion -> AlexInput -> Int -> AlexInput -> Bool
-equalFollowsP fv _ _ ai = isNotSuffixOf "od" && isNotSuffixOf "fi" && evalParse (lexer f) ps
+idP :: FortranVersion -> AlexInput -> Int -> AlexInput -> Bool
+idP fv _ _ ai = not (doP ai) && equalFollowsP fv ai
+
+doP :: AlexInput -> Bool
+doP ai = isPrefixOf "do" (reverse . lexemeMatch . aiLexeme $ ai)
+
+equalFollowsP :: FortranVersion -> AlexInput -> Bool
+equalFollowsP fv ai = evalParse (lexer $ f False 0) ps
   where
-    isNotSuffixOf suffix = not $ isSuffixOf suffix match
-    match = lexemeMatch . aiLexeme $ ai
     ps = ParseState
       { psAlexInput = ai { aiStartCode = st}
       , psVersion = fv
       , psFilename = "<unknown>"
       , psParanthesesCount = 0 }
-    f t = 
+    f False 0 t = 
       case t of 
         TNewline _ -> return False
         TEOF _ -> return False
         TOpAssign _ -> return True
-        _ -> lexer f
+        TLeftPar _ -> lexer $ f True 1 
+        _ -> return False
+    f True 0 t = 
+      case t of
+        TOpAssign _ -> return True
+        _ -> return False
+    f True n t = 
+      case t of
+        TNewline _ -> return False
+        TEOF _ -> return False
+        TLeftPar _ -> lexer $ f True (n + 1)
+        TRightPar _ -> lexer $ f True (n - 1)
+        _ -> lexer $ f True n
+
 
 commentP :: FortranVersion -> AlexInput -> Int -> AlexInput -> Bool
 commentP _ aiOld _ aiNew = atColP 1 aiOld && _endsWithLine
@@ -738,7 +755,7 @@ lexer' = do
     AlexEOF -> return $ Just $ TEOF $ SrcSpan (getPos alexInput) (getPos alexInput)
     AlexError _ -> return Nothing
     AlexSkip newAlex _ -> putAlex newAlex >> lexer'
-    AlexToken newAlex _ action -> do
+    AlexToken newAlex startCode action -> do
       putAlex newAlex
       maybeToken <- action
       case maybeToken of

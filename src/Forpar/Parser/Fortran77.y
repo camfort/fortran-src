@@ -324,7 +324,7 @@ IN_IO_ELEMENT
 : VARIABLE { $1 }
 | SUBSCRIPT { $1 }
 | SUBSTRING { $1 }
-| '(' IN_IOLIST ',' DO_SPECIFICATION ')' { ExpImpliedDo () (getTransSpan $1 $5) $2 $4 }
+| '(' IN_IOLIST ',' DO_SPECIFICATION ')' { ExpImpliedDo () (getTransSpan $1 $5) (aReverse $2) $4 }
 
 OUT_IOLIST :: { AList (Expression A0) A0 }
 OUT_IOLIST

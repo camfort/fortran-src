@@ -1,14 +1,16 @@
+{-# LANGUAGE FlexibleInstances #-}
+
 module Main where
 
 import System.Console.GetOpt
 
 import System.Environment
 import Text.PrettyPrint.GenericPretty (pp)
-import Data.List (isInfixOf, isSuffixOf)
+import Data.List (isInfixOf, isSuffixOf, intersperse)
 import Data.Char (toLower)
 
 import Forpar.ParserMonad (FortranVersion(..))
-import Forpar.Lexer.FixedForm (collectFixedTokens)
+import Forpar.Lexer.FixedForm (collectFixedTokens, Token(..))
 import Forpar.Parser.Fortran66 (fortran66Parser)
 import Forpar.Parser.Fortran77 (fortran77Parser)
 
@@ -104,3 +106,15 @@ instance Read FortranVersion where
         tryTypes [] = []
         tryTypes ((attempt,result):xs) = 
           if isInfixOf attempt value then [(result, "")] else tryTypes xs
+
+instance {-# OVERLAPPING #-}Show [ Token ] where
+  show xs = unlines . lines' $ xs
+    where
+      lines' [] = []
+      lines' xs = 
+        let (x, xs') = break isNewline xs 
+        in case xs' of
+             (nl@(TNewline _):xs'') -> ('\t' : (concat . intersperse ", " . map show $ x ++ [nl])) : lines' xs''
+             xs'' -> [ show xs'' ]
+      isNewline (TNewline _) = True
+      isNewline _ = False
