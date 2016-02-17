@@ -1,4 +1,4 @@
-module Forpar.Transformations.Grouping (groupIf) where
+module Forpar.Transformation.Grouping (groupIf) where
 
 import Forpar.AST
 

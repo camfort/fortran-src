@@ -45,7 +45,7 @@ library
     Forpar.Parser.Fortran66
     Forpar.Parser.Fortran77
     Forpar.Transformer
-    Forpar.Transformations.Grouping
+    Forpar.Transformation.Grouping
     Forpar.AST
     Forpar.Util.Position
     Forpar.Util.FirstParameter

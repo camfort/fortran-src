@@ -1,9 +1,9 @@
-module Forpar.Transformations.GroupingSpec where
+module Forpar.Transformation.GroupingSpec where
 
 import Test.Hspec
 import TestUtil
 
-import Forpar.Transformations.Grouping
+import Forpar.Transformation.Grouping
 import Forpar.AST
 
 spec :: Spec

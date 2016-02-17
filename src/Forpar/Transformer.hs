@@ -2,7 +2,7 @@ module Forpar.Transformer (Transformation(..), transform) where
 
 import Data.Maybe (fromJust)
 
-import Forpar.Transformations.Grouping
+import Forpar.Transformation.Grouping
 import Forpar.AST (ProgramFile)
 
 data Transformation = 
