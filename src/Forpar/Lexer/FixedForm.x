@@ -54,7 +54,7 @@ $special = [\ \=\+\-\*\/\(\)\,\.\$]
 
 tokens :-
 
-  <0> "c" / { commentP }                      { lexComment Nothing }
+  <0> [c!\*d] / { commentP }                   { lexComment Nothing }
   <0> @label / { withinLabelColsP }           { addSpanAndMatch TLabel }
   <0> . / { \_ ai _ _ -> atColP 6 ai }        { toSC keyword }
   <0> " "                                     ;
