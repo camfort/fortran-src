@@ -76,6 +76,11 @@ spec =
       let st = StIntrinsic () u (AList () u [ fun1, fun2 ])
       sParser "      intrinsic cosh, sin" `shouldBe'` st
 
+    it "parses 'intrinsic real" $ do
+      let fun = ExpValue () u (ValFunctionName "real")
+      let st = StIntrinsic () u (AList () u [ fun ])
+      sParser "      intrinsic real" `shouldBe'` st
+
     describe "CHARACTER" $ do
       it "parses character literal assignment" $ do
         let rhs = ExpValue () u (ValString "hello 'baby")

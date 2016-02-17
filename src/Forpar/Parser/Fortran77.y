@@ -192,13 +192,12 @@ LOGICAL_IF_STATEMENT : if '(' EXPRESSION ')' OTHER_EXECUTABLE_STATEMENT { StIfLo
 DO_STATEMENT :: { Statement A0 }
 DO_STATEMENT
 : do LABEL_IN_STATEMENT DO_SPECIFICATION { StDo () (getTransSpan $1 $3) $2 $3 }
+| do LABEL_IN_STATEMENT ',' DO_SPECIFICATION { StDo () (getTransSpan $1 $4) $2 $4 }
 
 DO_SPECIFICATION :: { DoSpecification A0 }
 DO_SPECIFICATION
-: EXPRESSION_ASSIGNMENT_STATEMENT ',' INT_OR_VAR ',' INT_OR_VAR { DoSpecification () (getTransSpan $1 $5) $1 $3 (Just $5) }
-| EXPRESSION_ASSIGNMENT_STATEMENT ',' INT_OR_VAR                { DoSpecification () (getTransSpan $1 $3) $1 $3 Nothing }
-
-INT_OR_VAR :: { Expression A0 } : INTEGER_LITERAL { $1 } | VARIABLE { $1 }
+: EXPRESSION_ASSIGNMENT_STATEMENT ',' EXPRESSION ',' EXPRESSION { DoSpecification () (getTransSpan $1 $5) $1 $3 (Just $5) }
+| EXPRESSION_ASSIGNMENT_STATEMENT ',' EXPRESSION                { DoSpecification () (getTransSpan $1 $3) $1 $3 Nothing }
 
 OTHER_EXECUTABLE_STATEMENT :: { Statement A0 }
 OTHER_EXECUTABLE_STATEMENT

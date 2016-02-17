@@ -18,6 +18,7 @@ import qualified Data.Bits
 
 import Control.Exception
 import Control.Monad.State
+import Control.Monad (liftM2)
 
 import GHC.Exts
 import GHC.Generics
@@ -119,8 +120,10 @@ tokens :-
   <keyword> "equivalence"                     { toSC st >> addSpan TEquivalence  }
   <keyword> "external"                        { toSC st >> addSpan TExternal  }
   <keyword> "intrinsic" / { fortran77P }      { toSC st >> addSpan TIntrinsic  }
-  <keyword,st> @datatype                      { typeSCChange >> addSpanAndMatch TType }
-  <keyword,st> "character" / { fortran77P }   { toSC st >> addSpanAndMatch TType }
+  <keyword> @datatype                         { typeSCChange >> addSpanAndMatch TType }
+  <st> @datatype / { implicitTypeP }          { addSpanAndMatch TType }
+  <keyword> "character" / { fortran77P }      { toSC st >> addSpanAndMatch TType }
+  <st> "character" / { implicitTypeP }        { addSpanAndMatch TType }
   <keyword> "implicit" / { fortran77P }       { toSC st >> addSpan TImplicit  }
   <st> "none" / { fortran77P }                { addSpan TNone  }
   <keyword> "parameter" / { fortran77P }      { toSC st >> addSpan TParameter  }
@@ -183,6 +186,16 @@ tokens :-
 --------------------------------------------------------------------------------
 -- Predicated lexer helpers
 --------------------------------------------------------------------------------
+
+implicitTypeP :: FortranVersion -> AlexInput -> Int -> AlexInput -> Bool
+implicitTypeP a b c d = implicitStP a b c d
+
+implicitStP :: FortranVersion -> AlexInput -> Int -> AlexInput -> Bool
+implicitStP fv _ _ ai = checkPreviousTokensInLine f ai
+  where
+    f (TImplicit _) = True
+    f _ = False
+
 
 idP :: FortranVersion -> AlexInput -> Int -> AlexInput -> Bool
 idP fv _ _ ai = not (doP ai) && equalFollowsP fv ai
@@ -320,6 +333,19 @@ updatePreviousToken :: Maybe Token -> LexAction ()
 updatePreviousToken maybeToken = do
   ai <- getAlex
   putAlex $ ai { aiPreviousToken = maybeToken }
+
+addToPreviousTokensInLine :: Token -> LexAction ()
+addToPreviousTokensInLine token = do
+  ai <- getAlex
+  putAlex $  
+    case token of 
+      TNewline _ -> updatePrevTokens ai [ ]
+      t -> updatePrevTokens ai $ t : aiPreviousTokensInLine ai
+  where
+    updatePrevTokens ai tokens = ai { aiPreviousTokensInLine = tokens }
+
+checkPreviousTokensInLine :: (Token -> Bool) -> AlexInput -> Bool
+checkPreviousTokensInLine prop ai = any prop $ aiPreviousTokensInLine ai
 
 getLexemeSpan :: LexAction SrcSpan
 getLexemeSpan = do
@@ -618,6 +644,7 @@ data AlexInput = AlexInput
   , aiWhiteSensitiveCharCount   :: Int
   , aiStartCode                 :: Int
   , aiPreviousToken             :: Maybe Token
+  , aiPreviousTokensInLine      :: [ Token ]
   } deriving (Show)
 
 instance Loc AlexInput where
@@ -637,7 +664,8 @@ vanillaAlexInput = AlexInput
   , aiLexeme = initLexeme
   , aiWhiteSensitiveCharCount = 6
   , aiStartCode = 0
-  , aiPreviousToken = Nothing }
+  , aiPreviousToken = Nothing 
+  , aiPreviousTokensInLine = [ ] }
 
 updateLexeme :: Maybe Char -> Position -> AlexInput -> AlexInput
 updateLexeme maybeChar p ai =
@@ -773,7 +801,10 @@ lexer' = do
       putAlex newAlex
       maybeToken <- action
       case maybeToken of
-        Just _ -> updatePreviousToken maybeToken >> return maybeToken
+        Just token -> do
+          updatePreviousToken maybeToken 
+          addToPreviousTokensInLine token
+          return maybeToken
         Nothing -> lexer'
 
 alexScanUser :: FortranVersion -> AlexInput -> Int -> AlexReturn (LexAction (Maybe Token))
