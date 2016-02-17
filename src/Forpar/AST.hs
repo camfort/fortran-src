@@ -57,7 +57,8 @@ data BaseType a =
   deriving (Eq, Show, Data, Typeable, Generic)
 
 -- Program structure definition
-type Program a = [ProgramUnit a]
+data ProgramFile a = ProgramFile [ ([ Block a ], ProgramUnit a) ] [ Block a ]
+  deriving (Eq, Show, Data, Typeable, Generic)
 
 data ProgramUnit a =
 --    program type  | a  | span    | return               | name         | arguments        | body      
@@ -365,6 +366,7 @@ instance Conditioned Statement where
   getCondition (StElsif _ _ c) = Just c
   getCondition _ = Nothing
 
+instance Out a => Out (ProgramFile a)
 instance Out a => Out (ProgramUnit a)
 instance (Out a, Out t) => Out (AList t a)
 instance Out a => Out (Statement a)

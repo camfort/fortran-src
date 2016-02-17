@@ -20,7 +20,7 @@ sParser :: String -> Statement ()
 sParser sourceCode = 
   evalParse statementParser $ initParseState sourceCode Fortran77 "<unknown>"
 
-pParser :: String -> [ProgramUnit ()]
+pParser :: String -> ProgramFile ()
 pParser source = fortran77Parser source "<unknown>"
 
 spec :: Spec
@@ -60,15 +60,15 @@ spec =
       let decl = DeclVariable () u (varGen "x")
       let st = StDeclaration () u (TypeInteger () u) (AList () u [ decl ])
       let bl = BlStatement () u Nothing st
-      let pu = PUMain () u (Just "hello") [ bl ]
-      pParser exampleProgram1 `shouldBe'` [ pu ]
+      let pu = ProgramFile [ ([ ], PUMain () u (Just "hello") [ bl ]) ] [ ]
+      pParser exampleProgram1 `shouldBe'` pu
 
     it "parses block data unit" $ do
       let decl = DeclVariable () u (varGen "x")
       let st = StDeclaration () u (TypeInteger () u) (AList () u [ decl ])
       let bl = BlStatement () u Nothing st
-      let pu = PUBlockData () u (Just "hello") [ bl ]
-      pParser exampleProgram2 `shouldBe'` [pu]
+      let pu = ProgramFile [ ([ ], PUBlockData () u (Just "hello") [ bl ]) ] [ ]
+      pParser exampleProgram2 `shouldBe'` pu
 
     it "parses 'intrinsic cosh, sin'" $ do
       let fun1 = ExpValue () u (ValFunctionName "cosh")

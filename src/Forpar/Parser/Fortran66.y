@@ -100,30 +100,30 @@ import Forpar.AST
 
 %%
 
-PROGRAM :: { [ ProgramUnit A0 ] }
+PROGRAM :: { ProgramFile A0 }
 PROGRAM
-: PROGRAM_UNITS { reverse $1 }
+: PROGRAM_UNITS { ProgramFile (reverse $1) [ ] }
+| PROGRAM_UNITS BLOCKS { ProgramFile (reverse $1) (reverse $2) }
 
-PROGRAM_UNITS :: { [ ProgramUnit A0 ] }
+PROGRAM_UNITS :: { [ ([ Block A0 ], ProgramUnit A0) ] }
 PROGRAM_UNITS
-: PROGRAM_UNITS PROGRAM_UNIT { $2 : $1 } 
-| PROGRAM_UNIT { [ $1 ] } 
-
-PROGRAM_UNIT :: { ProgramUnit A0 }
-PROGRAM_UNIT
-: MAIN_PROGRAM_UNIT NEWLINE { $1 }
-| OTHER_PROGRAM_UNIT NEWLINE { $1 }
+: PROGRAM_UNITS MAIN_PROGRAM_UNIT { ([ ], $2) : $1 } 
+| PROGRAM_UNITS OTHER_PROGRAM_UNIT { ([ ], $2) : $1 } 
+| PROGRAM_UNITS BLOCKS OTHER_PROGRAM_UNIT { (reverse $2, $3) : $1 } 
+| MAIN_PROGRAM_UNIT { [ ([ ], $1) ] } 
+| OTHER_PROGRAM_UNIT { [ ([ ], $1) ] } 
+| BLOCKS OTHER_PROGRAM_UNIT { [ (reverse $1, $2) ] } 
 
 MAIN_PROGRAM_UNIT :: { ProgramUnit A0 }
 MAIN_PROGRAM_UNIT
-: BLOCKS end { let blocks = reverse $1 in PUMain () (getTransSpan $1 $2) Nothing blocks }
+: BLOCKS end NEWLINE { let blocks = reverse $1 in PUMain () (getTransSpan $1 $2) Nothing blocks }
 
 OTHER_PROGRAM_UNIT :: { ProgramUnit A0 }
 OTHER_PROGRAM_UNIT
-: TYPE function NAME '(' ARGS ')' NEWLINE BLOCKS end { PUFunction () (getTransSpan $1 $9) (Just $1) $3 (aReverse $5) (reverse $8) }
-| function NAME '(' ARGS ')' NEWLINE BLOCKS end { PUFunction () (getTransSpan $1 $8) Nothing $2 (aReverse $4) (reverse $7) }
-| subroutine NAME '(' ARGS ')' NEWLINE BLOCKS end { PUSubroutine () (getTransSpan $1 $8) $2 $4 (reverse $7) }
-| blockData NEWLINE BLOCKS end { PUBlockData () (getTransSpan $1 $4) Nothing (reverse $3) }
+: TYPE function NAME '(' ARGS ')' NEWLINE BLOCKS end NEWLINE { PUFunction () (getTransSpan $1 $9) (Just $1) $3 (aReverse $5) (reverse $8) }
+| function NAME '(' ARGS ')' NEWLINE BLOCKS end NEWLINE { PUFunction () (getTransSpan $1 $8) Nothing $2 (aReverse $4) (reverse $7) }
+| subroutine NAME '(' ARGS ')' NEWLINE BLOCKS end NEWLINE { PUSubroutine () (getTransSpan $1 $8) $2 $4 (reverse $7) }
+| blockData NEWLINE BLOCKS end NEWLINE { PUBlockData () (getTransSpan $1 $4) Nothing (reverse $3) }
 
 ARGS :: { AList String A0 }
 ARGS
@@ -142,6 +142,17 @@ BLOCK
 : LABEL_IN_6COLUMN STATEMENT NEWLINE { BlStatement () (getTransSpan $1 $2) (Just $1) $2 }
 | STATEMENT NEWLINE { BlStatement () (getSpan $1) Nothing $1 }
 | comment NEWLINE { let (TComment s c) = $1 in BlComment () s c }
+
+{-
+COMMENT_BLOCKS :: { [ Block A0 ] }
+COMMENT_BLOCKS
+: COMMENT_BLOCKS COMMENT_BLOCK { $2 : $1 }
+| COMMENT_BLOCK { [ $1 ] }
+
+COMMENT_BLOCK :: { Block A0 }
+COMMENT_BLOCK
+: comment NEWLINE { let (TComment s c) = $1 in BlComment () s c }
+-}
 
 NEWLINE :: { Token } 
 NEWLINE
@@ -528,7 +539,7 @@ makeReal i1 dot i2 exp =
       expStr  = case exp of { Just (_, s) -> s ; _ -> "" } in
     ExpValue () span2 (ValReal $ i1Str ++ dotStr ++ i2Str ++ expStr)
 
-fortran66Parser :: String -> String -> [ ProgramUnit A0 ]
+fortran66Parser :: String -> String -> ProgramFile A0
 fortran66Parser sourceCode filename = 
   evalParse programParser $ initParseState sourceCode Fortran66 filename
 

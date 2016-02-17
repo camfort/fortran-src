@@ -126,14 +126,17 @@ import Debug.Trace
 
 %%
 
-PROGRAM :: { [ ProgramUnit A0 ] }
+PROGRAM :: { ProgramFile A0 }
 PROGRAM
-: PROGRAM_UNITS { reverse $1 }
+: PROGRAM_UNITS { ProgramFile (reverse $1) [ ] }
+| PROGRAM_UNITS COMMENT_BLOCKS { ProgramFile (reverse $1) (reverse $2) }
 
-PROGRAM_UNITS :: { [ ProgramUnit A0 ] }
+PROGRAM_UNITS :: { [ ([ Block A0 ], ProgramUnit A0) ] }
 PROGRAM_UNITS
-: PROGRAM_UNITS PROGRAM_UNIT NEWLINE { $2 : $1 } 
-| PROGRAM_UNIT NEWLINE { [ $1 ] } 
+: PROGRAM_UNITS PROGRAM_UNIT NEWLINE { ([ ], $2) : $1 } 
+| PROGRAM_UNITS COMMENT_BLOCKS PROGRAM_UNIT NEWLINE { (reverse $2, $3) : $1 } 
+| PROGRAM_UNIT NEWLINE { [ ([ ], $1) ] } 
+| COMMENT_BLOCKS PROGRAM_UNIT NEWLINE { [ (reverse $1, $2) ] } 
 
 PROGRAM_UNIT :: { ProgramUnit A0 }
 PROGRAM_UNIT
@@ -160,7 +163,16 @@ BLOCK :: { Block A0 }
 BLOCK 
 : LABEL_IN_6COLUMN STATEMENT NEWLINE { BlStatement () (getTransSpan $1 $2) (Just $1) $2 }
 | STATEMENT NEWLINE { BlStatement () (getSpan $1) Nothing $1 }
-| comment NEWLINE { let (TComment s c) = $1 in BlComment () s c }
+| COMMENT_BLOCK { $1 }
+
+COMMENT_BLOCKS :: { [ Block A0 ] }
+COMMENT_BLOCKS
+: COMMENT_BLOCKS COMMENT_BLOCK { $2 : $1 }
+| COMMENT_BLOCK { [ $1 ] }
+
+COMMENT_BLOCK :: { Block A0 }
+COMMENT_BLOCK
+: comment NEWLINE { let (TComment s c) = $1 in BlComment () s c }
 
 NEWLINE :: { Token } 
 NEWLINE
@@ -819,7 +831,7 @@ makeReal i1 dot i2 exp =
       expStr  = case exp of { Just (_, s) -> s ; _ -> "" } in
     ExpValue () span2 (ValReal $ i1Str ++ dotStr ++ i2Str ++ expStr)
 
-fortran77Parser :: String -> String -> [ ProgramUnit A0 ]
+fortran77Parser :: String -> String -> ProgramFile A0 
 fortran77Parser sourceCode filename = 
   transform [ GroupIf ] $ evalParse programParser $ initParseState sourceCode Fortran77 filename
 

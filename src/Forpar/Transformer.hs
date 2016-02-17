@@ -3,17 +3,17 @@ module Forpar.Transformer (Transformation(..), transform) where
 import Data.Maybe (fromJust)
 
 import Forpar.Transformations.Grouping
-import Forpar.AST (ProgramUnit)
+import Forpar.AST (ProgramFile)
 
 data Transformation = 
   GroupIf
   deriving (Eq)
 
-transformationMapping :: [ (Transformation, [ ProgramUnit a ] -> [ ProgramUnit a ]) ]
+transformationMapping :: [ (Transformation, ProgramFile a -> ProgramFile a) ]
 transformationMapping = 
   [ (GroupIf, groupIf) ]
   
-transform :: [ Transformation ] -> [ ProgramUnit a ] -> [ ProgramUnit a ]
+transform :: [ Transformation ] -> ProgramFile a -> ProgramFile a
 transform trs pus = 
     foldr (\t acc -> t acc) pus transformations 
   where

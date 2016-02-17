@@ -119,7 +119,7 @@ tokens :-
   <keyword> "equivalence"                     { toSC st >> addSpan TEquivalence  }
   <keyword> "external"                        { toSC st >> addSpan TExternal  }
   <keyword> "intrinsic" / { fortran77P }      { toSC st >> addSpan TIntrinsic  }
-  <keyword,st> @datatype                      { toSC st >> addSpanAndMatch TType }
+  <keyword,st> @datatype                      { typeSCChange >> addSpanAndMatch TType }
   <keyword,st> "character" / { fortran77P }   { toSC st >> addSpanAndMatch TType }
   <keyword> "implicit" / { fortran77P }       { toSC st >> addSpan TImplicit  }
   <st> "none" / { fortran77P }                { addSpan TNone  }
@@ -191,7 +191,7 @@ doP :: AlexInput -> Bool
 doP ai = isPrefixOf "do" (reverse . lexemeMatch . aiLexeme $ ai)
 
 equalFollowsP :: FortranVersion -> AlexInput -> Bool
-equalFollowsP fv ai = evalParse (lexer $ f False 0) ps
+equalFollowsP fv ai = evalParse (lexerM $ f False 0) ps
   where
     ps = ParseState
       { psAlexInput = ai { aiStartCode = st}
@@ -200,22 +200,22 @@ equalFollowsP fv ai = evalParse (lexer $ f False 0) ps
       , psParanthesesCount = 0 }
     f False 0 t = 
       case t of 
-        TNewline _ -> return False
-        TEOF _ -> return False
-        TOpAssign _ -> return True
-        TLeftPar _ -> lexer $ f True 1 
+        Just (TNewline _) -> return False
+        Just (TEOF _) -> return False
+        Just (TOpAssign _) -> return True
+        Just (TLeftPar _) -> lexerM $ f True 1 
         _ -> return False
     f True 0 t = 
       case t of
-        TOpAssign _ -> return True
+        Just (TOpAssign _) -> return True
         _ -> return False
     f True n t = 
       case t of
-        TNewline _ -> return False
-        TEOF _ -> return False
-        TLeftPar _ -> lexer $ f True (n + 1)
-        TRightPar _ -> lexer $ f True (n - 1)
-        _ -> lexer $ f True n
+        Just (TNewline _) -> return False
+        Just (TEOF _) -> return False
+        Just (TLeftPar _) -> lexerM $ f True (n + 1)
+        Just (TRightPar _) -> lexerM $ f True (n - 1)
+        _ -> lexerM $ f True n
 
 
 commentP :: FortranVersion -> AlexInput -> Int -> AlexInput -> Bool
@@ -481,6 +481,17 @@ maybeToKeyword = do
   then toSC keyword
   else return Nothing
 
+typeSCChange :: LexAction (Maybe Token)
+typeSCChange = do 
+  ps <- get  
+  let hypotheticalPs = ps { psAlexInput = (psAlexInput ps) { aiStartCode = keyword } }
+  let isFunction = evalParse (lexerM f) hypotheticalPs
+  if isFunction 
+  then return Nothing
+  else toSC st
+  where
+    f t = case t of { Just (TFunction _) -> return True; _ -> return False }
+
 toSC :: Int -> LexAction (Maybe Token)
 toSC startCode = do
   ai <- getAlex
@@ -744,6 +755,9 @@ lexer cont = do
    case mToken of
      Just token -> cont token
      Nothing -> fail "Unrecognised token. "
+
+lexerM :: ((Maybe Token) -> LexAction a) -> LexAction a
+lexerM cont = lexer' >>= \mToken -> cont mToken
 
 lexer' :: LexAction (Maybe Token)
 lexer' = do
