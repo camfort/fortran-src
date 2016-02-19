@@ -20,7 +20,7 @@ sParser :: String -> Statement ()
 sParser sourceCode = 
   evalParse statementParser $ initParseState sourceCode Fortran77 "<unknown>"
 
-pParser :: String -> [ProgramUnit ()]
+pParser :: String -> ProgramFile ()
 pParser source = fortran77Parser source "<unknown>"
 
 spec :: Spec
@@ -31,6 +31,15 @@ spec =
         let expectedSt = StPrint () u starVal $ Just (AList () u [ intGen 9000 ])
         sParser "      print *, 9000" `shouldBe'` expectedSt
 
+      it "parses 'write (UNIT=6, FORMAT=*)" $ do
+        let cp1 = ControlPair () u (Just $ "unit") (intGen 6)
+        let cp2 = ControlPair () u (Just $ "format") starVal
+        let expectedSt = StWrite () u (AList () u [cp1, cp2]) Nothing
+        sParser "      write (UNIT=6, FORMAT=*)" `shouldBe'` expectedSt
+
+      it "parses 'endfile i" $ do
+        sParser "      endfile i" `shouldBe'` StEndfile2 () u (varGen "i")
+
       it "parses 'read *, (x, y(i), i = 1, 10, 2)'" $ do
         let stAssign = StExpressionAssign () u (varGen "i") (intGen 1)
         let doSpec = DoSpecification () u stAssign (intGen 10) (Just $ intGen 2)
@@ -38,7 +47,7 @@ spec =
         let impliedDo = ExpImpliedDo () u impliedDoVars doSpec
         let iolist = AList () u [ impliedDo ]
         let expectedSt = StRead2 () u (starVal) (Just iolist)
-        sParser "      read *, (x, i = 1, 10, 2)" `shouldBe'` expectedSt
+        sParser "      read *, (x, y(i), i = 1, 10, 2)" `shouldBe'` expectedSt
 
     it "parses '(x, y(i), i = 1, 10, 2)'" $ do
       let stAssign = StExpressionAssign () u (varGen "i") (intGen 1)
@@ -51,21 +60,26 @@ spec =
       let decl = DeclVariable () u (varGen "x")
       let st = StDeclaration () u (TypeInteger () u) (AList () u [ decl ])
       let bl = BlStatement () u Nothing st
-      let pu = PUMain () u (Just "hello") [ bl ]
-      pParser exampleProgram1 `shouldBe'` [ pu ]
+      let pu = ProgramFile [ ([ ], PUMain () u (Just "hello") [ bl ]) ] [ ]
+      pParser exampleProgram1 `shouldBe'` pu
 
     it "parses block data unit" $ do
       let decl = DeclVariable () u (varGen "x")
       let st = StDeclaration () u (TypeInteger () u) (AList () u [ decl ])
       let bl = BlStatement () u Nothing st
-      let pu = PUBlockData () u (Just "hello") [ bl ]
-      pParser exampleProgram2 `shouldBe'` [pu]
+      let pu = ProgramFile [ ([ ], PUBlockData () u (Just "hello") [ bl ]) ] [ ]
+      pParser exampleProgram2 `shouldBe'` pu
 
     it "parses 'intrinsic cosh, sin'" $ do
       let fun1 = ExpValue () u (ValFunctionName "cosh")
       let fun2 = ExpValue () u (ValFunctionName "sin")
       let st = StIntrinsic () u (AList () u [ fun1, fun2 ])
       sParser "      intrinsic cosh, sin" `shouldBe'` st
+
+    it "parses 'intrinsic real" $ do
+      let fun = ExpValue () u (ValFunctionName "real")
+      let st = StIntrinsic () u (AList () u [ fun ])
+      sParser "      intrinsic real" `shouldBe'` st
 
     describe "CHARACTER" $ do
       it "parses character literal assignment" $ do

@@ -18,6 +18,7 @@ import qualified Data.Bits
 
 import Control.Exception
 import Control.Monad.State
+import Control.Monad (liftM2)
 
 import GHC.Exts
 import GHC.Generics
@@ -54,7 +55,7 @@ $special = [\ \=\+\-\*\/\(\)\,\.\$]
 
 tokens :-
 
-  <0> "c" / { commentP }                      { lexComment Nothing }
+  <0> [c!\*d] / { commentP }                   { lexComment Nothing }
   <0> @label / { withinLabelColsP }           { addSpanAndMatch TLabel }
   <0> . / { \_ ai _ _ -> atColP 6 ai }        { toSC keyword }
   <0> " "                                     ;
@@ -70,7 +71,7 @@ tokens :-
   <st,iif> "."                                { addSpan TDot }
   <st,iif> ":" / { fortran77P }               { addSpan TColon }
 
-  <keyword> @id / { equalFollowsP }           { toSC st >> addSpanAndMatch TId }
+  <keyword> @id / { idP }                     { toSC st >> addSpanAndMatch TId }
 
   -- Tokens related to procedures and subprograms
   <keyword> "program"                         { toSC st >> addSpan TProgram }
@@ -119,8 +120,10 @@ tokens :-
   <keyword> "equivalence"                     { toSC st >> addSpan TEquivalence  }
   <keyword> "external"                        { toSC st >> addSpan TExternal  }
   <keyword> "intrinsic" / { fortran77P }      { toSC st >> addSpan TIntrinsic  }
-  <keyword,st> @datatype                      { toSC st >> addSpanAndMatch TType }
-  <keyword,st> "character" / { fortran77P }   { toSC st >> addSpanAndMatch TType }
+  <keyword> @datatype                         { typeSCChange >> addSpanAndMatch TType }
+  <st> @datatype / { implicitTypeP }          { addSpanAndMatch TType }
+  <keyword> "character" / { fortran77P }      { toSC st >> addSpanAndMatch TType }
+  <st> "character" / { implicitTypeP }        { addSpanAndMatch TType }
   <keyword> "implicit" / { fortran77P }       { toSC st >> addSpan TImplicit  }
   <st> "none" / { fortran77P }                { addSpan TNone  }
   <keyword> "parameter" / { fortran77P }      { toSC st >> addSpan TParameter  }
@@ -184,22 +187,49 @@ tokens :-
 -- Predicated lexer helpers
 --------------------------------------------------------------------------------
 
-equalFollowsP :: FortranVersion -> AlexInput -> Int -> AlexInput -> Bool
-equalFollowsP fv _ _ ai = isNotSuffixOf "od" && isNotSuffixOf "fi" && evalParse (lexer f) ps
+implicitTypeP :: FortranVersion -> AlexInput -> Int -> AlexInput -> Bool
+implicitTypeP a b c d = implicitStP a b c d
+
+implicitStP :: FortranVersion -> AlexInput -> Int -> AlexInput -> Bool
+implicitStP fv _ _ ai = checkPreviousTokensInLine f ai
   where
-    isNotSuffixOf suffix = not $ isSuffixOf suffix match
-    match = lexemeMatch . aiLexeme $ ai
+    f (TImplicit _) = True
+    f _ = False
+
+
+idP :: FortranVersion -> AlexInput -> Int -> AlexInput -> Bool
+idP fv _ _ ai = not (doP ai) && equalFollowsP fv ai
+
+doP :: AlexInput -> Bool
+doP ai = isPrefixOf "do" (reverse . lexemeMatch . aiLexeme $ ai)
+
+equalFollowsP :: FortranVersion -> AlexInput -> Bool
+equalFollowsP fv ai = evalParse (lexerM $ f False 0) ps
+  where
     ps = ParseState
       { psAlexInput = ai { aiStartCode = st}
       , psVersion = fv
       , psFilename = "<unknown>"
       , psParanthesesCount = 0 }
-    f t = 
+    f False 0 t = 
       case t of 
-        TNewline _ -> return False
-        TEOF _ -> return False
-        TOpAssign _ -> return True
-        _ -> lexer f
+        Just (TNewline _) -> return False
+        Just (TEOF _) -> return False
+        Just (TOpAssign _) -> return True
+        Just (TLeftPar _) -> lexerM $ f True 1 
+        _ -> return False
+    f True 0 t = 
+      case t of
+        Just (TOpAssign _) -> return True
+        _ -> return False
+    f True n t = 
+      case t of
+        Just (TNewline _) -> return False
+        Just (TEOF _) -> return False
+        Just (TLeftPar _) -> lexerM $ f True (n + 1)
+        Just (TRightPar _) -> lexerM $ f True (n - 1)
+        _ -> lexerM $ f True n
+
 
 commentP :: FortranVersion -> AlexInput -> Int -> AlexInput -> Bool
 commentP _ aiOld _ aiNew = atColP 1 aiOld && _endsWithLine
@@ -303,6 +333,19 @@ updatePreviousToken :: Maybe Token -> LexAction ()
 updatePreviousToken maybeToken = do
   ai <- getAlex
   putAlex $ ai { aiPreviousToken = maybeToken }
+
+addToPreviousTokensInLine :: Token -> LexAction ()
+addToPreviousTokensInLine token = do
+  ai <- getAlex
+  putAlex $  
+    case token of 
+      TNewline _ -> updatePrevTokens ai [ ]
+      t -> updatePrevTokens ai $ t : aiPreviousTokensInLine ai
+  where
+    updatePrevTokens ai tokens = ai { aiPreviousTokensInLine = tokens }
+
+checkPreviousTokensInLine :: (Token -> Bool) -> AlexInput -> Bool
+checkPreviousTokensInLine prop ai = any prop $ aiPreviousTokensInLine ai
 
 getLexemeSpan :: LexAction SrcSpan
 getLexemeSpan = do
@@ -464,6 +507,17 @@ maybeToKeyword = do
   then toSC keyword
   else return Nothing
 
+typeSCChange :: LexAction (Maybe Token)
+typeSCChange = do 
+  ps <- get  
+  let hypotheticalPs = ps { psAlexInput = (psAlexInput ps) { aiStartCode = keyword } }
+  let isFunction = evalParse (lexerM f) hypotheticalPs
+  if isFunction 
+  then return Nothing
+  else toSC st
+  where
+    f t = case t of { Just (TFunction _) -> return True; _ -> return False }
+
 toSC :: Int -> LexAction (Maybe Token)
 toSC startCode = do
   ai <- getAlex
@@ -590,6 +644,7 @@ data AlexInput = AlexInput
   , aiWhiteSensitiveCharCount   :: Int
   , aiStartCode                 :: Int
   , aiPreviousToken             :: Maybe Token
+  , aiPreviousTokensInLine      :: [ Token ]
   } deriving (Show)
 
 instance Loc AlexInput where
@@ -609,7 +664,8 @@ vanillaAlexInput = AlexInput
   , aiLexeme = initLexeme
   , aiWhiteSensitiveCharCount = 6
   , aiStartCode = 0
-  , aiPreviousToken = Nothing }
+  , aiPreviousToken = Nothing 
+  , aiPreviousTokensInLine = [ ] }
 
 updateLexeme :: Maybe Char -> Position -> AlexInput -> AlexInput
 updateLexeme maybeChar p ai =
@@ -728,6 +784,9 @@ lexer cont = do
      Just token -> cont token
      Nothing -> fail "Unrecognised token. "
 
+lexerM :: ((Maybe Token) -> LexAction a) -> LexAction a
+lexerM cont = lexer' >>= \mToken -> cont mToken
+
 lexer' :: LexAction (Maybe Token)
 lexer' = do
   resetLexeme
@@ -738,11 +797,14 @@ lexer' = do
     AlexEOF -> return $ Just $ TEOF $ SrcSpan (getPos alexInput) (getPos alexInput)
     AlexError _ -> return Nothing
     AlexSkip newAlex _ -> putAlex newAlex >> lexer'
-    AlexToken newAlex _ action -> do
+    AlexToken newAlex startCode action -> do
       putAlex newAlex
       maybeToken <- action
       case maybeToken of
-        Just _ -> updatePreviousToken maybeToken >> return maybeToken
+        Just token -> do
+          updatePreviousToken maybeToken 
+          addToPreviousTokensInLine token
+          return maybeToken
         Nothing -> lexer'
 
 alexScanUser :: FortranVersion -> AlexInput -> Int -> AlexReturn (LexAction (Maybe Token))

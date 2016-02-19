@@ -1,9 +1,9 @@
-module Forpar.Transformations.GroupingSpec where
+module Forpar.Transformation.GroupingSpec where
 
 import Test.Hspec
 import TestUtil
 
-import Forpar.Transformations.Grouping
+import Forpar.Transformation.Grouping
 import Forpar.AST
 
 spec :: Spec
@@ -17,12 +17,12 @@ spec =
 
 -- if (.true.) then
 -- end if
-example1 = [ PUMain () u (Just "example1") example1Blocks ]
+example1 = ProgramFile [ ([ ], PUMain () u (Just "example1") example1Blocks) ] []
 example1Blocks = 
   [ BlStatement () u Nothing (StIfThen () u (ExpValue () u ValTrue))
   , BlStatement () u Nothing (StEndif () u) ]
 
-expectedExample1 = [ PUMain () u (Just "example1") expectedExample1Blocks ]
+expectedExample1 = ProgramFile [ ([ ], PUMain () u (Just "example1") expectedExample1Blocks) ] [ ]
 expectedExample1Blocks = [ BlIf () u Nothing [ Just $ ExpValue () u ValTrue ] [ [ BlStatement () u Nothing (StEndif () u) ] ] ]
 
 -- if (.true.) then
@@ -34,7 +34,7 @@ expectedExample1Blocks = [ BlIf () u Nothing [ Just $ ExpValue () u ValTrue ] [ 
 --   if (.false.) then
 --   endif
 -- end if
-example2 = [ PUMain () u (Just "example2") example1Blocks ]
+example2 = ProgramFile [ ([ ], PUMain () u (Just "example2") example2Blocks) ] [ ]
 example2Blocks = 
   [ BlStatement () u Nothing (StIfThen () u valTrue)
   , BlStatement () u Nothing (StDeclaration () u (TypeInteger () u) (AList () u [ DeclVariable () u (varGen "x") ]))
@@ -46,8 +46,8 @@ example2Blocks =
   , BlStatement () u Nothing (StEndif () u)
   , BlStatement () u Nothing (StEndif () u) ]
 
-expectedExample2 = [ PUMain () u (Just "example2") expectedExample1Blocks ]
-expectedExample2Blocks = [ BlIf () u Nothing [ Just $ valTrue, Just $ valFalse, Nothing ] blockGroups ]
+expectedExample2 = ProgramFile [ ([ ], PUMain () u (Just "example2") expectedExample2Blocks) ] [ ]
+expectedExample2Blocks = [ BlIf () u Nothing [ Just $ valTrue, Just $ valTrue, Nothing ] blockGroups ]
 blockGroups =
   [ [ BlStatement () u Nothing (StDeclaration () u (TypeInteger () u) (AList () u [ DeclVariable () u (varGen "x") ]))
     , innerIf ]

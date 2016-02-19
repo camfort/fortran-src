@@ -1,9 +1,9 @@
-module Forpar.Transformations.Grouping (groupIf) where
+module Forpar.Transformation.Grouping (groupIf) where
 
 import Forpar.AST
 
-groupIf :: [ ProgramUnit a ] -> [ ProgramUnit a ]
-groupIf pus = map aux pus 
+groupIf :: ProgramFile a -> ProgramFile a
+groupIf (ProgramFile pus e) = ProgramFile (zip (map fst pus) . map aux . map snd $ pus) e
   where
     aux pu =
       case pu of

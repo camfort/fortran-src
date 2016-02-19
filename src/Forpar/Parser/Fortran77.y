@@ -126,14 +126,17 @@ import Debug.Trace
 
 %%
 
-PROGRAM :: { [ ProgramUnit A0 ] }
+PROGRAM :: { ProgramFile A0 }
 PROGRAM
-: PROGRAM_UNITS { reverse $1 }
+: PROGRAM_UNITS { ProgramFile (reverse $1) [ ] }
+| PROGRAM_UNITS COMMENT_BLOCKS { ProgramFile (reverse $1) (reverse $2) }
 
-PROGRAM_UNITS :: { [ ProgramUnit A0 ] }
+PROGRAM_UNITS :: { [ ([ Block A0 ], ProgramUnit A0) ] }
 PROGRAM_UNITS
-: PROGRAM_UNITS PROGRAM_UNIT NEWLINE { $2 : $1 } 
-| PROGRAM_UNIT NEWLINE { [ $1 ] } 
+: PROGRAM_UNITS PROGRAM_UNIT NEWLINE { ([ ], $2) : $1 } 
+| PROGRAM_UNITS COMMENT_BLOCKS PROGRAM_UNIT NEWLINE { (reverse $2, $3) : $1 } 
+| PROGRAM_UNIT NEWLINE { [ ([ ], $1) ] } 
+| COMMENT_BLOCKS PROGRAM_UNIT NEWLINE { [ (reverse $1, $2) ] } 
 
 PROGRAM_UNIT :: { ProgramUnit A0 }
 PROGRAM_UNIT
@@ -160,7 +163,16 @@ BLOCK :: { Block A0 }
 BLOCK 
 : LABEL_IN_6COLUMN STATEMENT NEWLINE { BlStatement () (getTransSpan $1 $2) (Just $1) $2 }
 | STATEMENT NEWLINE { BlStatement () (getSpan $1) Nothing $1 }
-| comment NEWLINE { let (TComment s c) = $1 in BlComment () s c }
+| COMMENT_BLOCK { $1 }
+
+COMMENT_BLOCKS :: { [ Block A0 ] }
+COMMENT_BLOCKS
+: COMMENT_BLOCKS COMMENT_BLOCK { $2 : $1 }
+| COMMENT_BLOCK { [ $1 ] }
+
+COMMENT_BLOCK :: { Block A0 }
+COMMENT_BLOCK
+: comment NEWLINE { let (TComment s c) = $1 in BlComment () s c }
 
 NEWLINE :: { Token } 
 NEWLINE
@@ -180,13 +192,12 @@ LOGICAL_IF_STATEMENT : if '(' EXPRESSION ')' OTHER_EXECUTABLE_STATEMENT { StIfLo
 DO_STATEMENT :: { Statement A0 }
 DO_STATEMENT
 : do LABEL_IN_STATEMENT DO_SPECIFICATION { StDo () (getTransSpan $1 $3) $2 $3 }
+| do LABEL_IN_STATEMENT ',' DO_SPECIFICATION { StDo () (getTransSpan $1 $4) $2 $4 }
 
 DO_SPECIFICATION :: { DoSpecification A0 }
 DO_SPECIFICATION
-: EXPRESSION_ASSIGNMENT_STATEMENT ',' INT_OR_VAR ',' INT_OR_VAR { DoSpecification () (getTransSpan $1 $5) $1 $3 (Just $5) }
-| EXPRESSION_ASSIGNMENT_STATEMENT ',' INT_OR_VAR                { DoSpecification () (getTransSpan $1 $3) $1 $3 Nothing }
-
-INT_OR_VAR :: { Expression A0 } : INTEGER_LITERAL { $1 } | VARIABLE { $1 }
+: EXPRESSION_ASSIGNMENT_STATEMENT ',' EXPRESSION ',' EXPRESSION { DoSpecification () (getTransSpan $1 $5) $1 $3 (Just $5) }
+| EXPRESSION_ASSIGNMENT_STATEMENT ',' EXPRESSION                { DoSpecification () (getTransSpan $1 $3) $1 $3 Nothing }
 
 OTHER_EXECUTABLE_STATEMENT :: { Statement A0 }
 OTHER_EXECUTABLE_STATEMENT
@@ -324,7 +335,7 @@ IN_IO_ELEMENT
 : VARIABLE { $1 }
 | SUBSCRIPT { $1 }
 | SUBSTRING { $1 }
-| '(' IN_IOLIST ',' DO_SPECIFICATION ')' { ExpImpliedDo () (getTransSpan $1 $5) $2 $4 }
+| '(' IN_IOLIST ',' DO_SPECIFICATION ')' { ExpImpliedDo () (getTransSpan $1 $5) (aReverse $2) $4 }
 
 OUT_IOLIST :: { AList (Expression A0) A0 }
 OUT_IOLIST
@@ -819,7 +830,7 @@ makeReal i1 dot i2 exp =
       expStr  = case exp of { Just (_, s) -> s ; _ -> "" } in
     ExpValue () span2 (ValReal $ i1Str ++ dotStr ++ i2Str ++ expStr)
 
-fortran77Parser :: String -> String -> [ ProgramUnit A0 ]
+fortran77Parser :: String -> String -> ProgramFile A0 
 fortran77Parser sourceCode filename = 
   transform [ GroupIf ] $ evalParse programParser $ initParseState sourceCode Fortran77 filename
 
