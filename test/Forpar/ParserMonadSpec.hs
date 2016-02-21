@@ -11,7 +11,11 @@ import Control.Monad.State.Lazy
 import Forpar.Util.Position
 
 vanillaParseState :: ParseState String
-vanillaParseState = ParseState { psAlexInput = "", psVersion = Fortran66, psFilename = "<unknown>" }
+vanillaParseState = ParseState 
+  { psAlexInput = ""
+  , psVersion = Fortran66
+  , psFilename = "<unknown>"
+  , psParanthesesCount = 0 }
 
 instance Loc String where
   getPos = error "Never needed"
@@ -34,7 +38,11 @@ instance LastToken SomeInput String where
   getLastToken  = error "Never needed"
 
 vanillaSomeInput :: ParseState SomeInput
-vanillaSomeInput = ParseState { psAlexInput = initSomeInput, psVersion = Fortran66, psFilename = "some.f" }
+vanillaSomeInput = ParseState
+  { psAlexInput = initSomeInput
+  , psVersion = Fortran66
+  , psFilename = "some.f"
+  , psParanthesesCount = 0 }
 
 spec :: Spec
 spec =

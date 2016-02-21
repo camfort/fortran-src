@@ -44,6 +44,7 @@ library
     Forpar.Lexer.FixedForm
     Forpar.Parser.Fortran66
     Forpar.Parser.Fortran77
+    Forpar.Analysis.Types
     Forpar.Transformer
     Forpar.Transformation.Grouping
     Forpar.AST
@@ -65,7 +66,8 @@ library
     newtype >= 0.2,
     uniplate >= 1.6,
     GenericPretty >= 1.2,
-    pretty >= 1.1
+    pretty >= 1.1,
+    containers >= 0.5
   hs-source-dirs:      src
   ghc-options: -fno-warn-tabs
   default-language:    Haskell2010
@@ -79,6 +81,7 @@ test-suite spec
     array >= 0.5,
     newtype >= 0.2,
     uniplate >= 1.6,
+    containers >= 0.5,
     forpar
   hs-source-dirs: test
   main-is: Spec.hs
