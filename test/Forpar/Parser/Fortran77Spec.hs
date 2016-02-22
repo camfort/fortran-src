@@ -37,7 +37,7 @@ spec =
         let expectedSt = StWrite () u (AList () u [cp1, cp2]) Nothing
         sParser "      write (UNIT=6, FORMAT=*)" `shouldBe'` expectedSt
 
-      it "parses 'endfile i" $ do
+      it "parses 'endfile i" $
         sParser "      endfile i" `shouldBe'` StEndfile2 () u (varGen "i")
 
       it "parses 'read *, (x, y(i), i = 1, 10, 2)'" $ do
@@ -46,7 +46,7 @@ spec =
         let impliedDoVars = AList () u [ varGen "x", ExpSubscript () u (arrGen "y") (AList () u [ varGen "i" ])]
         let impliedDo = ExpImpliedDo () u impliedDoVars doSpec
         let iolist = AList () u [ impliedDo ]
-        let expectedSt = StRead2 () u (starVal) (Just iolist)
+        let expectedSt = StRead2 () u starVal (Just iolist)
         sParser "      read *, (x, y(i), i = 1, 10, 2)" `shouldBe'` expectedSt
 
     it "parses '(x, y(i), i = 1, 10, 2)'" $ do
@@ -127,10 +127,10 @@ spec =
         sParser "      GOTO (10, 20, 30), 42 * 24" `shouldBe'` st
 
       let gotoSt = StGotoAssigned () u (varGen "v") (AList () u [labelGen 10, labelGen 20, labelGen 30])
-      it "parses assigned GOTO with comma" $ do
+      it "parses assigned GOTO with comma" $
         sParser "      GOTO v, (10, 20, 30)" `shouldBe'` gotoSt
 
-      it "parses assigned GOTO without comma" $ do
+      it "parses assigned GOTO without comma" $
         sParser "      GOTO v (10, 20, 30)" `shouldBe'` gotoSt
 
     describe "IMPLICIT" $ do
@@ -162,7 +162,7 @@ spec =
         let st = StSave () u (AList () u saveArgs)
         sParser "      save /cb/, var, /key/" `shouldBe'` st
 
-      it "parses 'save'" $ do
+      it "parses 'save'" $
         sParser "      save" `shouldBe'` StSave () u (AList () u [])
 
     it "parses '.true. .eqv. f(42) .neqv. x'" $ do

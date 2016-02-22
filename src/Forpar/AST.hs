@@ -221,10 +221,10 @@ class Annotated f where
   setAnnotation :: a -> f a -> f a
 
   default getAnnotation :: (FirstParameter (f a) a) => f a -> a
-  getAnnotation a = getFirstParameter a 
+  getAnnotation = getFirstParameter 
 
   default setAnnotation :: (FirstParameter (f a) a) => a -> f a -> f a
-  setAnnotation e a = setFirstParameter e a 
+  setAnnotation = setFirstParameter 
 
 instance FirstParameter (AList t a) a
 instance FirstParameter (ProgramUnit a) a
@@ -290,8 +290,8 @@ instance Spanned (Declarator a)
 instance Spanned (DimensionDeclarator a)
 instance Spanned (ControlPair a)
 
-instance Spanned a => Spanned ([a]) where
-  getSpan xs = getListSpan xs
+instance Spanned a => Spanned [a] where
+  getSpan = getListSpan
   setSpan _ _ = error "Cannot set span to an array"
 
 instance (Spanned a, Spanned b) => Spanned (a, Maybe b) where
@@ -365,6 +365,23 @@ instance Conditioned Statement where
   getCondition (StIfThen _ _ c) = Just c
   getCondition (StElsif _ _ c) = Just c
   getCondition _ = Nothing
+
+data ProgramUnitName =
+    Named String
+  | NamelessBlockData
+  | NamelessMain
+  deriving (Ord, Eq, Show)
+
+class Named a where
+  getName :: a -> ProgramUnitName
+
+instance Named (ProgramUnit a) where
+  getName (PUMain _ _ Nothing _) = NamelessMain
+  getName (PUMain _ _ (Just n) _) = Named n
+  getName (PUSubroutine _ _ n _ _) = Named n
+  getName (PUFunction _ _ _ n _ _) = Named n
+  getName (PUBlockData _ _ Nothing _) = NamelessBlockData
+  getName (PUBlockData _ _ (Just n) _) = Named n
 
 instance Out a => Out (ProgramFile a)
 instance Out a => Out (ProgramUnit a)
