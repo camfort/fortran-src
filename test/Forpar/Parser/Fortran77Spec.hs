@@ -87,10 +87,10 @@ spec =
         let st = StExpressionAssign () u (varGen "xyz") rhs
         sParser "      xyz = 'hello ''baby'" `shouldBe'` st
 
-      it "string concatination" $ do
+      it "string concatenation" $ do
         let str1 = ExpValue () u (ValString "hello ")
         let str2 = ExpValue () u (ValString "world")
-        let exp = ExpBinary () u Concatination str1 str2
+        let exp = ExpBinary () u Concatenation str1 str2
         eParser "'hello ' // 'world'" `shouldBe'` exp
 
     describe "Subscript like" $ do
@@ -147,7 +147,7 @@ spec =
 
     it "parses 'parameter (pi = 3.14, b = 'X' // 'O', d = k) '" $ do
       let sts = [ StExpressionAssign () u (parGen "pi") (ExpValue () u (ValReal "3.14"))
-                , StExpressionAssign () u (parGen "b") (ExpBinary () u Concatination (strGen "x") (strGen "o"))
+                , StExpressionAssign () u (parGen "b") (ExpBinary () u Concatenation (strGen "x") (strGen "o"))
                 , StExpressionAssign () u (parGen "d") (parGen "k") ] 
       let st = StParameter () u (AList () u sts)
       sParser "      parameter (pi = 3.14, b = 'X' // 'O', d = k)" `shouldBe'` st

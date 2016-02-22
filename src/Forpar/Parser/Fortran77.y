@@ -240,7 +240,7 @@ OTHER_EXECUTABLE_STATEMENT
 
 FORMAT_ID :: { Expression A0 }
 FORMAT_ID
-: FORMAT_ID '/' '/' FORMAT_ID %prec CONCAT { ExpBinary () (getTransSpan $1 $4) Concatination $1 $4 }
+: FORMAT_ID '/' '/' FORMAT_ID %prec CONCAT { ExpBinary () (getTransSpan $1 $4) Concatenation $1 $4 }
 | INTEGER_LITERAL               { $1 }
 | STRING                        { $1 }
 -- There should be FUNCTION_CALL here but as far as the parser is concerned it is same as SUBSCRIPT,
@@ -302,7 +302,7 @@ CI_EXPRESSION
 | CI_EXPRESSION '*' CI_EXPRESSION { ExpBinary () (getTransSpan $1 $3) Multiplication $1 $3 }
 | CI_EXPRESSION '/' CI_EXPRESSION { ExpBinary () (getTransSpan $1 $3) Division $1 $3 }
 | CI_EXPRESSION '**' CI_EXPRESSION { ExpBinary () (getTransSpan $1 $3) Exponentiation $1 $3 }
-| CI_EXPRESSION '/' '/' CI_EXPRESSION %prec CONCAT { ExpBinary () (getTransSpan $1 $4) Concatination $1 $4 }
+| CI_EXPRESSION '/' '/' CI_EXPRESSION %prec CONCAT { ExpBinary () (getTransSpan $1 $4) Concatenation $1 $4 }
 | ARITHMETIC_SIGN CI_EXPRESSION %prec NEGATION { ExpUnary () (getTransSpan (fst $1) $2) (snd $1) $2 }
 | CI_EXPRESSION or CI_EXPRESSION { ExpBinary () (getTransSpan $1 $3) Or $1 $3 }
 | CI_EXPRESSION and CI_EXPRESSION { ExpBinary () (getTransSpan $1 $3) And $1 $3 }
@@ -609,7 +609,7 @@ EXPRESSION
 | EXPRESSION '*' EXPRESSION { ExpBinary () (getTransSpan $1 $3) Multiplication $1 $3 }
 | EXPRESSION '/' EXPRESSION { ExpBinary () (getTransSpan $1 $3) Division $1 $3 }
 | EXPRESSION '**' EXPRESSION { ExpBinary () (getTransSpan $1 $3) Exponentiation $1 $3 }
-| EXPRESSION '/' '/' EXPRESSION %prec CONCAT { ExpBinary () (getTransSpan $1 $4) Concatination $1 $4 }
+| EXPRESSION '/' '/' EXPRESSION %prec CONCAT { ExpBinary () (getTransSpan $1 $4) Concatenation $1 $4 }
 | ARITHMETIC_SIGN EXPRESSION %prec NEGATION { ExpUnary () (getTransSpan (fst $1) $2) (snd $1) $2 }
 | EXPRESSION or EXPRESSION { ExpBinary () (getTransSpan $1 $3) Or $1 $3 }
 | EXPRESSION and EXPRESSION { ExpBinary () (getTransSpan $1 $3) And $1 $3 }
@@ -659,7 +659,7 @@ CONSTANT_EXPRESSION
 | CONSTANT_EXPRESSION '*' CONSTANT_EXPRESSION { ExpBinary () (getTransSpan $1 $3) Multiplication $1 $3 }
 | CONSTANT_EXPRESSION '/' CONSTANT_EXPRESSION { ExpBinary () (getTransSpan $1 $3) Division $1 $3 }
 | CONSTANT_EXPRESSION '**' CONSTANT_EXPRESSION { ExpBinary () (getTransSpan $1 $3) Exponentiation $1 $3 }
-| CONSTANT_EXPRESSION '/' '/' CONSTANT_EXPRESSION %prec CONCAT { ExpBinary () (getTransSpan $1 $4) Concatination $1 $4 }
+| CONSTANT_EXPRESSION '/' '/' CONSTANT_EXPRESSION %prec CONCAT { ExpBinary () (getTransSpan $1 $4) Concatenation $1 $4 }
 | ARITHMETIC_SIGN CONSTANT_EXPRESSION %prec NEGATION { ExpUnary () (getTransSpan (fst $1) $2) (snd $1) $2 }
 | CONSTANT_EXPRESSION or CONSTANT_EXPRESSION { ExpBinary () (getTransSpan $1 $3) Or $1 $3 }
 | CONSTANT_EXPRESSION and CONSTANT_EXPRESSION { ExpBinary () (getTransSpan $1 $3) And $1 $3 }

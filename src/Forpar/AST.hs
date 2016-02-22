@@ -39,6 +39,9 @@ infixr 5 `aCons`
 aReverse :: AList t a -> AList t a
 aReverse (AList a s xs) = AList a s $ reverse xs
 
+aStrip :: AList t a -> [t a]
+aStrip (AList _ _ l) = l
+
 -- Basic AST nodes
 data BaseType a =
     TypeInteger         a SrcSpan
@@ -195,7 +198,7 @@ data BinaryOp =
   | Multiplication
   | Division
   | Exponentiation
-  | Concatination
+  | Concatenation
   | GT
   | GTE
   | LT
