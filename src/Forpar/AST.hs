@@ -93,7 +93,7 @@ data Statement a  =
   | StElse                a SrcSpan
   | StElsif               a SrcSpan (Expression a)
   | StEndif               a SrcSpan
-  | StFunction            a SrcSpan Name (AList Name a) (Expression a)
+  | StFunction            a SrcSpan (Expression a) (AList (Expression a) a) (Expression a)
   | StExpressionAssign    a SrcSpan (Expression a) (Expression a)
   | StLabelAssign         a SrcSpan (Expression a) (Expression a)
   | StGotoUnconditional   a SrcSpan (Expression a)

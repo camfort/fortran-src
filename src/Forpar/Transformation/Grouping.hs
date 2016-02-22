@@ -1,9 +1,12 @@
 module Forpar.Transformation.Grouping (groupIf) where
 
 import Forpar.AST
+import Forpar.Transformation.TransformMonad
 
-groupIf :: ProgramFile a -> ProgramFile a
-groupIf (ProgramFile pus e) = ProgramFile (zip (map fst pus) . map aux . map snd $ pus) e
+groupIf :: Transform ()
+groupIf = do
+    ProgramFile pus e <- getProgramFile
+    putProgramFile $ ProgramFile (zip (map fst pus) . map aux . map snd $ pus) e
   where
     aux pu =
       case pu of
@@ -19,7 +22,7 @@ groupIf' bs@((BlStatement _ _ _ (StIfThen _ _ _)):_) =
 groupIf' (b:bs) = b : groupIf' bs
 
 extractIfBlock :: [ Block a ] -> (Block a, [ Block a ])
-extractIfBlock ((bif@(BlStatement a _ _ (StIfThen _ _ _)):bs)) = 
+extractIfBlock (bif@(BlStatement a _ _ (StIfThen _ _ _)):bs) = 
   let gbs = groupIf' bs 
       (conds, blocks, rest) = collectIfComponents (bif:gbs)
       lastBlock = last . last $ blocks

@@ -7,7 +7,8 @@ module Forpar.Analysis.Types ( inferTypes
 
 import Forpar.AST
 
-import Data.Map (findWithDefault, insert, empty, Map)
+import Prelude hiding (lookup)
+import Data.Map (findWithDefault, insert, empty, lookup, Map)
 import Control.Monad.State.Lazy
 import Data.Generics.Uniplate.Data
 
@@ -67,6 +68,13 @@ putProgramFile pf = get >>= (\ts -> put $ ts { tsProgramFile = pf })
 
 getMapping :: TypeMapping (Map TypeScope (Map String IDType))
 getMapping = fmap tsMapping get
+
+queryIDType :: TypeScope -> String -> TypeMapping (Maybe IDType)
+queryIDType ts s = do
+  mapping <- getMapping
+  return $ do
+    inner <- lookup ts mapping
+    lookup s inner
 
 putMapping :: Map TypeScope (Map String IDType) -> TypeMapping ()
 putMapping mapping = get >>= (\ts -> put $ ts { tsMapping = mapping })
@@ -133,19 +141,36 @@ inferLocal :: TypeMapping ()
 inferLocal = do
   (ProgramFile comAndPus _) <- getProgramFile
   let pus = map snd comAndPus
-  inferInProgramFile pus
+  mapM_ inferInProgramFile pus
 
-inferInProgramFile :: [ ProgramUnit () ] -> TypeMapping ()
-inferInProgramFile [ ] = return ()
-inferInProgramFile (pu:pus) = do
+inferInProgramFile :: ProgramUnit () -> TypeMapping ()
+inferInProgramFile pu = do
   let declPairs = [ (bt, vars) | (StDeclaration _ _ bt (AList () _ vars)) <- universeBi pu ] 
   inferFromDeclarations puName declPairs
   let paramSts = [ paramSt | paramSt@StParameter{} <- universeBi pu]
   inferFromParameters puName paramSts
   let dimSts = [ dim | dim@StDimension{} <- universeBi pu]
   inferFromDimensions puName dimSts
+  inferFromFuncStatements pu
   where
     puName = Local $ getName pu
+
+inferFromFuncStatements :: ProgramUnit () -> TypeMapping ()
+inferFromFuncStatements pu = do
+  let lhsNames = [ s | StExpressionAssign () _ (ExpSubscript () _ (ExpValue () _ (ValArray s)) _) _ <- universeBi pu ]
+  idts <- mapM (queryIDType puName) lhsNames
+  let filteredNames = map fst $ filter p $ zip lhsNames idts
+  mapM_ (\n -> addConstructToMapping puName n CTFunction) filteredNames
+  let lhsNames = [ s | StFunction () _ (ExpValue () _ (ValFunctionName s)) _ _ <- universeBi pu ]
+  mapM_ (\n -> addConstructToMapping puName n CTFunction) lhsNames
+  where
+    puName = Local $ getName pu
+    -- Predicate makes sure Dimension or Type statements did not register
+    -- this Array seeming LHS value as an Array. In which case it can only
+    -- be a Function Statement.
+    p (_, Nothing) = True
+    p (_, (Just (IDType _ Nothing))) = True
+    p _ = False
 
 inferFromDimensions :: TypeScope -> [ Statement () ] -> TypeMapping ()
 inferFromDimensions ts dimSts = do

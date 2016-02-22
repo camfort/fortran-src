@@ -25,7 +25,8 @@ executable forpar
     newtype >= 0.2,
     uniplate >= 1.6,
     GenericPretty >= 1.2,
-    pretty >= 1.1
+    pretty >= 1.1,
+    containers >= 0.5
   other-modules:
     Forpar.ParserMonad,
     Forpar.Lexer.FixedForm
@@ -46,7 +47,9 @@ library
     Forpar.Parser.Fortran77
     Forpar.Analysis.Types
     Forpar.Transformer
+    Forpar.Transformation.TransformMonad
     Forpar.Transformation.Grouping
+    Forpar.Transformation.Disambiguation.Function
     Forpar.AST
     Forpar.Util.Position
     Forpar.Util.FirstParameter

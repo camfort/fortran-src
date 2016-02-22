@@ -41,6 +41,13 @@ spec = do
       mapping ! "x" `shouldBe` IDType Nothing (Just CTArray)
       mapping ! "y" `shouldBe` IDType Nothing (Just CTArray)
 
+    it "infers from function statements" $ do
+      let mapping = inferTypes ex6 ! (Local $ Named "main")
+      mapping ! "a" `shouldBe` IDType (Just VTInteger) (Just CTArray)
+      mapping ! "b" `shouldBe` IDType (Just VTInteger) (Just CTArray)
+      mapping ! "c" `shouldBe` IDType (Just VTInteger) (Just CTFunction)
+      mapping ! "d" `shouldBe` IDType Nothing (Just CTFunction)
+
 ex1 = ProgramFile [ ([ ], ex1pu1) ] [ ]
 ex1pu1 = PUFunction () u (Just $ TypeInteger () u) "f1" (AList () u []) []
 
@@ -73,3 +80,31 @@ ex5pu1bs =
   [ BlStatement () u Nothing (StDimension () u (AList () u
       [ DeclArray () u (arrGen "x") (AList () u [ DimensionDeclarator () u Nothing (intGen 1) ])
       , DeclArray () u (arrGen "y") (AList () u [ DimensionDeclarator () u Nothing (intGen 1) ]) ])) ]
+
+{-
+- program Main
+- integer a, b(1), c
+- dimension a(1)
+- a(1) = 1
+- b(1) = 1
+- c(x) = 1
+- d(x) = 1
+- end
+-}
+ex6 = ProgramFile [ ([ ], ex6pu1)] [ ]
+ex6pu1 = PUMain () u (Just "main") ex6pu1bs
+ex6pu1bs =
+  [ BlStatement () u Nothing (StDeclaration () u (TypeInteger () u) (AList () u 
+      [ DeclVariable () u (varGen "a")
+      , DeclArray () u (arrGen "b") (AList () u [ DimensionDeclarator () u Nothing (intGen 1) ])
+      , DeclVariable () u (varGen "c") ]))
+  , BlStatement () u Nothing (StDimension () u (AList () u
+      [ DeclArray () u (arrGen "a") (AList () u [ DimensionDeclarator () u Nothing (intGen 1 ) ]) ]))
+  , BlStatement () u Nothing (StExpressionAssign () u 
+      (ExpSubscript () u (arrGen "a") (AList () u [ intGen 1 ])) (intGen 1))
+  , BlStatement () u Nothing (StExpressionAssign () u 
+      (ExpSubscript () u (arrGen "b") (AList () u [ intGen 1 ])) (intGen 1))
+  , BlStatement () u Nothing (StExpressionAssign () u 
+      (ExpSubscript () u (arrGen "c") (AList () u [ intGen 1 ])) (intGen 1))
+  , BlStatement () u Nothing (StExpressionAssign () u 
+      (ExpSubscript () u (arrGen "d") (AList () u [ intGen 1 ])) (intGen 1)) ]
