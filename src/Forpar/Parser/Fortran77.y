@@ -133,10 +133,10 @@ PROGRAM
 
 PROGRAM_UNITS :: { [ ([ Block A0 ], ProgramUnit A0) ] }
 PROGRAM_UNITS
-: PROGRAM_UNITS PROGRAM_UNIT NEWLINE { ([ ], $2) : $1 } 
-| PROGRAM_UNITS COMMENT_BLOCKS PROGRAM_UNIT NEWLINE { (reverse $2, $3) : $1 } 
-| PROGRAM_UNIT NEWLINE { [ ([ ], $1) ] } 
-| COMMENT_BLOCKS PROGRAM_UNIT NEWLINE { [ (reverse $1, $2) ] } 
+: PROGRAM_UNITS PROGRAM_UNIT NEWLINE { ([ ], $2) : $1 }
+| PROGRAM_UNITS COMMENT_BLOCKS PROGRAM_UNIT NEWLINE { (reverse $2, $3) : $1 }
+| PROGRAM_UNIT NEWLINE { [ ([ ], $1) ] }
+| COMMENT_BLOCKS PROGRAM_UNIT NEWLINE { [ (reverse $1, $2) ] }
 
 PROGRAM_UNIT :: { ProgramUnit A0 }
 PROGRAM_UNIT
@@ -147,10 +147,10 @@ PROGRAM_UNIT
 | blockData NEWLINE BLOCKS end { PUBlockData () (getTransSpan $1 $4) Nothing (reverse $3) }
 | blockData NAME NEWLINE BLOCKS end { PUBlockData () (getTransSpan $1 $5) (Just $2) (reverse $4) }
 
-ARGS :: { AList String A0 }
+ARGS :: { AList Value A0 }
 ARGS
-: ARGS ',' id { let (TId s arg) = $3 in setSpan s $ arg `aCons` $1}
-| id { let (TId s arg) = $1 in AList () s [ arg ] }
+: ARGS ',' id { let (TId s arg) = $3 in setSpan s $ ValVariable arg `aCons` $1}
+| id { let (TId s arg) = $1 in AList () s [ ValVariable arg ] }
 
 NAME :: { Name } : id { let (TId _ name) = $1 in name }
 
@@ -160,7 +160,7 @@ BLOCKS
 | BLOCK { [ $1 ] }
 
 BLOCK :: { Block A0 }
-BLOCK 
+BLOCK
 : LABEL_IN_6COLUMN STATEMENT NEWLINE { BlStatement () (getTransSpan $1 $2) (Just $1) $2 }
 | STATEMENT NEWLINE { BlStatement () (getSpan $1) Nothing $1 }
 | COMMENT_BLOCK { $1 }
@@ -174,7 +174,7 @@ COMMENT_BLOCK :: { Block A0 }
 COMMENT_BLOCK
 : comment NEWLINE { let (TComment s c) = $1 in BlComment () s c }
 
-NEWLINE :: { Token } 
+NEWLINE :: { Token }
 NEWLINE
 : NEWLINE newline { $1 }
 | newline { $1 }
@@ -260,29 +260,29 @@ UNIT
 
 -- A crude approximation that makes parsing easy. Individual key value pairs
 -- should be checket later on.
-CILIST :: { AList (ControlPair A0) A0 }
+CILIST :: { AList ControlPair A0 }
 CILIST
-: '(' UNIT ',' FORMAT_ID ',' CILIST_PAIRS ')' { 
+: '(' UNIT ',' FORMAT_ID ',' CILIST_PAIRS ')' {
   let { cp1 = ControlPair () (getSpan $2) Nothing $2;
         cp2 = ControlPair () (getSpan $4) Nothing $4 }
   in setSpan (getTransSpan $1 $7) $ cp1 `aCons` cp2 `aCons` aReverse $6
   }
-| '(' UNIT ',' FORMAT_ID ')' { 
+| '(' UNIT ',' FORMAT_ID ')' {
   let { cp1 = ControlPair () (getSpan $2) Nothing $2;
         cp2 = ControlPair () (getSpan $4) Nothing $4 }
-	in AList () (getTransSpan $1 $5) [ cp1,  cp2 ]
-	}
-| '(' UNIT ',' CILIST_PAIRS ')' { 
+        in AList () (getTransSpan $1 $5) [ cp1,  cp2 ]
+        }
+| '(' UNIT ',' CILIST_PAIRS ')' {
   let cp1 = ControlPair () (getSpan $2) Nothing $2
-	in setSpan (getTransSpan $1 $5) $ cp1 `aCons` aReverse $4
-	}
-| '(' UNIT ')' { 
+        in setSpan (getTransSpan $1 $5) $ cp1 `aCons` aReverse $4
+        }
+| '(' UNIT ')' {
   let cp1 = ControlPair () (getSpan $2) Nothing $2
   in AList () (getTransSpan $1 $3) [ cp1 ]
   }
 | '(' CILIST_PAIRS ')' { setSpan (getTransSpan $1 $3) $ aReverse $2 }
 
-CILIST_PAIRS :: { AList (ControlPair A0) A0 }
+CILIST_PAIRS :: { AList ControlPair A0 }
 CILIST_PAIRS
 : CILIST_PAIRS ',' CILIST_PAIR { setSpan (getTransSpan $1 $3) $ $3 `aCons` $1 }
 | CILIST_PAIR { AList () (getSpan $1) [ $1 ] }
@@ -320,12 +320,12 @@ CI_EXPRESSION
 | SUBSTRING                     { $1 }
 | VARIABLE                      { $1 }
 
--- Input IOList used in read like statements is much more restrictive as it 
+-- Input IOList used in read like statements is much more restrictive as it
 -- doesn't make sense to read into an integer.
 -- While the output list can be an arbitrary expression. Hence, the grammar
 -- rule separation.
 
-IN_IOLIST :: { AList (Expression A0) A0 }
+IN_IOLIST :: { AList Expression A0 }
 IN_IOLIST
 : IN_IOLIST ',' IN_IO_ELEMENT { setSpan (getTransSpan $1 $3) $ $3 `aCons` $1}
 | IN_IO_ELEMENT { AList () (getSpan $1) [ $1 ] }
@@ -337,17 +337,17 @@ IN_IO_ELEMENT
 | SUBSTRING { $1 }
 | '(' IN_IOLIST ',' DO_SPECIFICATION ')' { ExpImpliedDo () (getTransSpan $1 $5) (aReverse $2) $4 }
 
-OUT_IOLIST :: { AList (Expression A0) A0 }
+OUT_IOLIST :: { AList Expression A0 }
 OUT_IOLIST
 : OUT_IOLIST ',' EXPRESSION { setSpan (getTransSpan $1 $3) $ $3 `aCons` $1}
 | EXPRESSION { AList () (getSpan $1) [ $1 ] }
 
-SAVE_ARGS :: { AList (Expression A0) A0 }
+SAVE_ARGS :: { AList Expression A0 }
 SAVE_ARGS
 : SAVE_ARGS_LEVEL1 { $1 }
 | {-EMPTY-} {% getPosition >>= \p -> return $ AList () (SrcSpan p p) [] }
 
-SAVE_ARGS_LEVEL1 :: { AList (Expression A0) A0 }
+SAVE_ARGS_LEVEL1 :: { AList Expression A0 }
 SAVE_ARGS_LEVEL1
 : SAVE_ARGS_LEVEL1 ',' SAVE_ARG { setSpan (getTransSpan $1 $3) $ $3 `aCons` $1 }
 | SAVE_ARG { AList () (getSpan $1) [ $1 ] }
@@ -384,11 +384,11 @@ NONEXECUTABLE_STATEMENT
 | entry FUNCTION_NAME { StEntry () (getTransSpan $1 $2) $2 Nothing }
 | entry FUNCTION_NAME ENTRY_ARGS { StEntry () (getTransSpan $1 $3) $2 $ Just $3 }
 
-ENTRY_ARGS :: { AList (Expression A0) A0 }
+ENTRY_ARGS :: { AList Expression A0 }
 ENTRY_ARGS
 : ENTRY_ARGS_LEVEL1 ')' { setSpan (getTransSpan $1 $2) $ aReverse $1 }
 
-ENTRY_ARGS_LEVEL1 :: { AList (Expression A0) A0 }
+ENTRY_ARGS_LEVEL1 :: { AList Expression A0 }
 ENTRY_ARGS_LEVEL1
 : ENTRY_ARGS_LEVEL1 ',' ENTRY_ARG { setSpan (getTransSpan $1 $3) $ $3 `aCons` $1 }
 | '(' ENTRY_ARG { AList () (getTransSpan $1 $2) [ $2 ] }
@@ -396,10 +396,10 @@ ENTRY_ARGS_LEVEL1
 
 ENTRY_ARG :: { Expression A0 }
 ENTRY_ARG
-: VARIABLE { $1 } 
+: VARIABLE { $1 }
 | '*' { ExpValue () (getSpan $1) ValStar }
 
-PARAMETER_ASSIGNMENTS :: { AList (Statement A0) A0 }
+PARAMETER_ASSIGNMENTS :: { AList Statement A0 }
 PARAMETER_ASSIGNMENTS
 : PARAMETER_ASSIGNMENTS ',' PARAMETER_ASSIGNMENT { setSpan (getTransSpan $1 $3) $ $3 `aCons` $1 }
 | PARAMETER_ASSIGNMENT { AList () (getSpan $1) [ $1 ] }
@@ -413,7 +413,7 @@ DECLARATION_STATEMENT
 : CHARACTER_TYPE CHARACTER_DECLARATORS { StDeclaration () (getTransSpan $1 $2) $1 $2 }
 | OTHER_TYPE OTHER_DECLARATORS { StDeclaration () (getTransSpan $1 $2) $1 $2 }
 
-IMP_LISTS :: { AList (ImpList A0) A0 }
+IMP_LISTS :: { AList ImpList A0 }
 IMP_LISTS
 : IMP_LISTS ',' IMP_LIST { setSpan (getTransSpan $1 $3) $ $3 `aCons` $1 }
 | IMP_LIST { AList () (getSpan $1) [ $1 ] }
@@ -421,7 +421,7 @@ IMP_LISTS
 IMP_LIST :: { ImpList A0 }
 IMP_LIST : TYPE '(' IMP_ELEMENTS ')' { ImpList () (getTransSpan $1 $4) $1 $ aReverse $3 }
 
-IMP_ELEMENTS :: { AList (ImpElement A0) A0 }
+IMP_ELEMENTS :: { AList ImpElement A0 }
 IMP_ELEMENTS
 : IMP_ELEMENTS ',' IMP_ELEMENT { setSpan (getTransSpan $1 $3) $ $3 `aCons` $1 }
 | IMP_ELEMENT { AList () (getSpan $1) [ $1 ] }
@@ -429,16 +429,16 @@ IMP_ELEMENTS
 IMP_ELEMENT :: { ImpElement A0 }
 IMP_ELEMENT
 : id {% do
-      let (TId s id) = $1 
-      if length id /= 1 
-      then fail "Implicit argument must be a character." 
+      let (TId s id) = $1
+      if length id /= 1
+      then fail "Implicit argument must be a character."
       else return $ ImpCharacter () s id
      }
 | id '-' id {% do
              let (TId _ id1) = $1
              let (TId _ id2) = $3
              if length id1 /= 1 || length id2 /= 1
-             then fail "Implicit argument must be a character." 
+             then fail "Implicit argument must be a character."
              else return $ ImpRange () (getTransSpan $1 $3) id1 id2
              }
 
@@ -447,7 +447,7 @@ ELEMENT
 : VARIABLE { $1 }
 | SUBSCRIPT { $1 }
 
-FORMAT_ITEMS :: { AList (FormatItem A0) A0 }
+FORMAT_ITEMS :: { AList FormatItem A0 }
 FORMAT_ITEMS
 : FORMAT_ITEMS ',' FORMAT_ITEM { setSpan (getTransSpan $1 $3) $ $3 `aCons` $1 }
 | FORMAT_ITEMS ',' FORMAT_ITEM_DELIMETER { setSpan (getTransSpan $1 $3) $ $3 `aCons` $1 }
@@ -467,12 +467,12 @@ FORMAT_ITEM
 | blankDescriptor { let (TBlankDescriptor s w) = $1 in FIBlankDescriptor () s w }
 | scaleFactor { let (TScaleFactor s sf) = $1 in FIScaleFactor () s sf }
 
-DATA_GROUPS :: { AList (DataGroup A0) A0 }
+DATA_GROUPS :: { AList DataGroup A0 }
 DATA_GROUPS
 : DATA_GROUPS ',' NAME_LIST  '/' DATA_ITEMS '/' { setSpan (getTransSpan $1 $6) $ (DataGroup () (getTransSpan $3 $6) (aReverse $3) (aReverse $5)) `aCons` $1 }
 | NAME_LIST  '/' DATA_ITEMS '/' { AList () (getTransSpan $1 $4) [ DataGroup () (getTransSpan $1 $4) (aReverse $1) (aReverse $3) ] }
 
-DATA_ITEMS :: { AList (Expression A0) A0 }
+DATA_ITEMS :: { AList Expression A0 }
 DATA_ITEMS
 : DATA_ITEMS ',' DATA_ITEM { setSpan (getTransSpan $1 $3) $ $3 `aCons` $1}
 | DATA_ITEM { AList () (getSpan $1) [ $1 ] }
@@ -489,12 +489,12 @@ DATA_ITEM_LEVEL1
 | '(' SIGNED_NUMERIC_LITERAL ',' SIGNED_NUMERIC_LITERAL ')' { ExpValue () (getTransSpan $1 $5) (ValComplex $2 $4)}
 | LOGICAL_LITERAL         { $1 }
 
-EQUIVALENCE_GROUPS :: { AList (AList (Expression A0) A0) A0 }
+EQUIVALENCE_GROUPS :: { AList (AList Expression) A0 }
 EQUIVALENCE_GROUPS
 : EQUIVALENCE_GROUPS ','  '(' NAME_LIST ')' { setSpan (getTransSpan $1 $5) $ (setSpan (getTransSpan $3 $5) $ aReverse $4) `aCons` $1 }
 | '(' NAME_LIST ')' { let s = (getTransSpan $1 $3) in AList () s [ setSpan s $ aReverse $2 ] }
 
-COMMON_GROUPS :: { AList (CommonGroup A0) A0 }
+COMMON_GROUPS :: { AList CommonGroup A0 }
 COMMON_GROUPS
 : COMMON_GROUPS COMMON_GROUP { setSpan (getTransSpan $1 $2) $ $2 `aCons` $1 }
 | INIT_COMMON_GROUP { AList () (getSpan $1) [ $1 ] }
@@ -513,19 +513,19 @@ INIT_COMMON_GROUP
 COMMON_NAME :: { Expression A0 }
 COMMON_NAME : '/' id '/' { let (TId _ cn) = $2 in ExpValue () (getTransSpan $1 $3) (ValCommonName cn) }
 
-NAME_LIST :: { AList (Expression A0) A0 }
+NAME_LIST :: { AList Expression A0 }
 NAME_LIST
 : NAME_LIST ',' NAME_LIST_ELEMENT { setSpan (getTransSpan $1 $3) $ $3 `aCons` $1 }
 | NAME_LIST_ELEMENT { AList () (getSpan $1) [ $1 ] }
 
 NAME_LIST_ELEMENT :: { Expression A0 } : VARIABLE { $1 } | SUBSTRING { $1 } | SUBSCRIPT { $1 }
 
-CHARACTER_DECLARATORS :: { AList (Declarator A0) A0 }
+CHARACTER_DECLARATORS :: { AList Declarator A0 }
 CHARACTER_DECLARATORS
 : CHARACTER_DECLARATORS ',' CHARACTER_DECLARATOR { setSpan (getTransSpan $1 $3) $ $3 `aCons` $1 }
 | CHARACTER_DECLARATOR { AList () (getSpan $1) [ $1 ] }
 
-OTHER_DECLARATORS :: { AList (Declarator A0) A0 }
+OTHER_DECLARATORS :: { AList Declarator A0 }
 OTHER_DECLARATORS
 : OTHER_DECLARATORS ',' OTHER_DECLARATOR { setSpan (getTransSpan $1 $3) $ $3 `aCons` $1 }
 | OTHER_DECLARATOR { AList () (getSpan $1) [ $1 ] }
@@ -548,13 +548,13 @@ CHARACTER_ARRAY_DECLARATOR
 : ARRAY '(' DIMENSION_DECLARATORS ')' '*' EXPRESSION { DeclCharArray () (getTransSpan $1 $6) $1 (aReverse $3) (Just $6) }
 | ARRAY '(' DIMENSION_DECLARATORS ')' '*' '(' '*' ')' { DeclCharArray () (getTransSpan $1 $8) $1 (aReverse $3) (Just $ ExpValue () (getSpan $7) ValStar) }
 
-OTHER_ARRAY_DECLARATORS :: { AList (Declarator A0) A0 }
+OTHER_ARRAY_DECLARATORS :: { AList Declarator A0 }
 OTHER_ARRAY_DECLARATORS
 : OTHER_ARRAY_DECLARATORS ',' OTHER_ARRAY_DECLARATOR { setSpan (getTransSpan $1 $3) $ $3 `aCons` $1 }
 | OTHER_ARRAY_DECLARATOR { AList () (getSpan $1) [ $1 ] }
 
 OTHER_ARRAY_DECLARATOR :: { Declarator A0 }
-OTHER_ARRAY_DECLARATOR 
+OTHER_ARRAY_DECLARATOR
 : ARRAY '(' DIMENSION_DECLARATORS ')' { DeclArray () (getTransSpan $1 $4) $1 $ aReverse $3 }
 
 CHARACTER_VARIABLE_DECLARATOR :: { Declarator A0 }
@@ -564,9 +564,9 @@ CHARACTER_VARIABLE_DECLARATOR
 
 OTHER_VARIABLE_DECLARATOR :: { Declarator A0 }
 OTHER_VARIABLE_DECLARATOR
-: VARIABLE { DeclVariable () (getSpan $1) $1 } 
+: VARIABLE { DeclVariable () (getSpan $1) $1 }
 
-DIMENSION_DECLARATORS :: { AList (DimensionDeclarator A0) A0 } 
+DIMENSION_DECLARATORS :: { AList DimensionDeclarator A0 }
 DIMENSION_DECLARATORS
 : DIMENSION_DECLARATORS ',' DIMENSION_DECLARATOR { setSpan (getTransSpan $1 $3) $ $3 `aCons` $1 }
 | DIMENSION_DECLARATOR { AList () (getSpan $1) [ $1 ] }
@@ -574,26 +574,26 @@ DIMENSION_DECLARATORS
 DIMENSION_DECLARATOR :: { DimensionDeclarator A0 }
 DIMENSION_DECLARATOR
 : EXPRESSION ':' EXPRESSION { DimensionDeclarator () (getTransSpan $1 $3) (Just $1) $3 }
-| EXPRESSION { DimensionDeclarator () (getSpan $1) Nothing $1 } 
-| EXPRESSION ':' '*' { DimensionDeclarator () (getTransSpan $1 $3) (Just $1) (ExpValue () (getSpan $3) (ValStar)) } 
-| '*' { DimensionDeclarator () (getSpan $1) Nothing (ExpValue () (getSpan $1) (ValStar)) } 
+| EXPRESSION { DimensionDeclarator () (getSpan $1) Nothing $1 }
+| EXPRESSION ':' '*' { DimensionDeclarator () (getTransSpan $1 $3) (Just $1) (ExpValue () (getSpan $3) (ValStar)) }
+| '*' { DimensionDeclarator () (getSpan $1) Nothing (ExpValue () (getSpan $1) (ValStar)) }
 
--- Here the procedure should be either a function or subroutine name, but 
+-- Here the procedure should be either a function or subroutine name, but
 -- since they are syntactically identical at this stage subroutine names
 -- are also emitted as function names.
-FUNCTION_NAMES :: { AList (Expression A0) A0 }
+FUNCTION_NAMES :: { AList Expression A0 }
 FUNCTION_NAMES
 : FUNCTION_NAMES ',' FUNCTION_NAME { setSpan (getTransSpan $1 $3) $ $3 `aCons` $1 }
 | FUNCTION_NAME { AList () (getSpan $1) [ $1 ] }
 
-CALLABLE_EXPRESSIONS :: { AList (Expression A0) A0 }
+CALLABLE_EXPRESSIONS :: { AList Expression A0 }
 CALLABLE_EXPRESSIONS
 :  CALLABLE_EXPRESSIONS_LEVEL1 ')' { setSpan (getTransSpan $1 $2) $ aReverse $1 }
 
-CALLABLE_EXPRESSIONS_LEVEL1 :: { AList (Expression A0) A0 }
+CALLABLE_EXPRESSIONS_LEVEL1 :: { AList Expression A0 }
 CALLABLE_EXPRESSIONS_LEVEL1
 : CALLABLE_EXPRESSIONS_LEVEL1 ',' CALLABLE_EXPRESSION { setSpan (getTransSpan $1 $3) $ $3 `aCons` $1 }
-| '(' CALLABLE_EXPRESSION { AList () (getTransSpan $1 $2) [ $2 ] } 
+| '(' CALLABLE_EXPRESSION { AList () (getTransSpan $1 $2) [ $2 ] }
 | '(' { AList () (getSpan $1) [ ] }
 
 -- Expression all by itself subsumes all other callable expressions.
@@ -633,17 +633,17 @@ IMPLIED_DO :: { Expression A0 }
 IMPLIED_DO
 : '(' EXPRESSION ',' DO_SPECIFICATION ')' {
     let expList = AList () (getSpan $2) [ $2 ]
-	  in ExpImpliedDo () (getTransSpan $1 $5) expList $4
-	 }
-| '(' EXPRESSION ',' EXPRESSION ',' DO_SPECIFICATION ')' { 
+          in ExpImpliedDo () (getTransSpan $1 $5) expList $4
+         }
+| '(' EXPRESSION ',' EXPRESSION ',' DO_SPECIFICATION ')' {
     let expList = AList () (getTransSpan $2 $4) [ $2, $4 ]
-	  in ExpImpliedDo () (getTransSpan $1 $5) expList $6
-	 }
-| '(' EXPRESSION ',' EXPRESSION ',' EXPRESSION_LIST ',' DO_SPECIFICATION ')' { 
+          in ExpImpliedDo () (getTransSpan $1 $5) expList $6
+         }
+| '(' EXPRESSION ',' EXPRESSION ',' EXPRESSION_LIST ',' DO_SPECIFICATION ')' {
     let { exps =  reverse $6;
           expList = AList () (getTransSpan $2 exps) ($2 : $4 : reverse $6) }
     in ExpImpliedDo () (getTransSpan $1 $9) expList $8
-	 }
+         }
 
 EXPRESSION_LIST :: { [ Expression A0 ] }
 EXPRESSION_LIST
@@ -670,7 +670,7 @@ CONSTANT_EXPRESSION
 | '(' CONSTANT_EXPRESSION ',' CONSTANT_EXPRESSION ')' { ExpValue () (getTransSpan $1 $5) (ValComplex $2 $4)}
 | LOGICAL_LITERAL               { $1 }
 | string                        { let (TString s cs) = $1 in ExpValue () s (ValString cs) }
-| PARAMETER                     { $1 } 
+| PARAMETER                     { $1 }
 
 ARITHMETIC_CONSTANT_EXPRESSION :: { Expression A0 }
 ARITHMETIC_CONSTANT_EXPRESSION
@@ -697,9 +697,9 @@ RELATIONAL_OPERATOR
 | '<'   { LT }
 | '<='  { LTE }
 
--- This combined with parsing of INDICIES is a completely evil beast, using 
+-- This combined with parsing of INDICIES is a completely evil beast, using
 -- which we parse everything from array declarators to function statements.
--- It, however, is a necessary evil at this stage as nicely separating the 
+-- It, however, is a necessary evil at this stage as nicely separating the
 -- cases leads to conflicts.
 SUBSTRING :: { Expression A0 }
 SUBSTRING
@@ -715,11 +715,11 @@ SUBSTRING
 SUBSCRIPT :: { Expression A0 }
 SUBSCRIPT : ARRAY INDICIES { ExpSubscript () (getTransSpan $1 $2) $1 $2 }
 
-INDICIES :: { AList (Expression A0) A0 }
-INDICIES 
+INDICIES :: { AList Expression A0 }
+INDICIES
 : INDICIES_LEVEL1 ')' { setSpan (getTransSpan $1 $2) $ aReverse $1 }
 
-INDICIES_LEVEL1 :: { AList (Expression A0) A0  }
+INDICIES_LEVEL1 :: { AList Expression A0  }
 INDICIES_LEVEL1
 : INDICIES_LEVEL1 ',' EXPRESSION { setSpan (getTransSpan $1 $3) $ $3 `aCons` $1 }
 | '(' EXPRESSION { AList () (getTransSpan $1 $2) [ $2 ] }
@@ -751,7 +751,7 @@ SUBROUTINE_NAME
 
 INTEGER_LITERAL :: { Expression A0 } : int { ExpValue () (getSpan $1) $ let (TInt _ i) = $1 in ValInteger i }
 
-REAL_LITERAL :: { Expression A0 } 
+REAL_LITERAL :: { Expression A0 }
 REAL_LITERAL
 : int EXPONENT { makeReal (Just $1) Nothing Nothing (Just $2) }
 | int '.' MAYBE_EXPONENT { makeReal (Just $1) (Just $2) Nothing $3 }
@@ -784,11 +784,11 @@ LOGICAL_LITERAL
 
 HOLLERITH :: { Expression A0 } : hollerith { ExpValue () (getSpan $1) $ let (THollerith _ h) = $1 in ValHollerith h }
 
-LABELS_IN_STATEMENT :: { AList (Expression A0) A0 }
+LABELS_IN_STATEMENT :: { AList Expression A0 }
 LABELS_IN_STATEMENT
 : LABELS_IN_STATEMENT_LEVEL1 ')' { setSpan (getTransSpan $1 $2) $ aReverse $1 }
 
-LABELS_IN_STATEMENT_LEVEL1 :: { AList (Expression A0) A0 }
+LABELS_IN_STATEMENT_LEVEL1 :: { AList Expression A0 }
 LABELS_IN_STATEMENT_LEVEL1
 : LABELS_IN_STATEMENT_LEVEL1 ',' LABEL_IN_STATEMENT { setSpan (getTransSpan $1 $3) $ $3 `aCons` $1 }
 | '(' LABEL_IN_STATEMENT { AList () (getTransSpan $1 $2) [ $2 ] }
@@ -819,10 +819,10 @@ OTHER_TYPE
 type A0 = ()
 
 makeReal :: Maybe Token -> Maybe Token -> Maybe Token -> Maybe (SrcSpan, String) -> Expression A0
-makeReal i1 dot i2 exp = 
+makeReal i1 dot i2 exp =
   let span1   = getSpan (i1, dot, i2)
-      span2   = case exp of 
-                  Just e -> getTransSpan span1 (fst e) 
+      span2   = case exp of
+                  Just e -> getTransSpan span1 (fst e)
                   Nothing -> span1
       i1Str   = case i1 of { Just (TInt _ s) -> s ; _ -> "" }
       dotStr  = case dot of { Just (TDot _) -> "." ; _ -> "" }
@@ -830,8 +830,8 @@ makeReal i1 dot i2 exp =
       expStr  = case exp of { Just (_, s) -> s ; _ -> "" } in
     ExpValue () span2 (ValReal $ i1Str ++ dotStr ++ i2Str ++ expStr)
 
-fortran77Parser :: String -> String -> ProgramFile A0 
-fortran77Parser sourceCode filename = 
+fortran77Parser :: String -> String -> ProgramFile A0
+fortran77Parser sourceCode filename =
   transform [ GroupIf, DisambiguateFunction ] $ evalParse programParser $ initParseState sourceCode Fortran77 filename
 
 parseError :: Token -> LexAction a
