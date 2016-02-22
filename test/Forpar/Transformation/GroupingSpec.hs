@@ -3,16 +3,18 @@ module Forpar.Transformation.GroupingSpec where
 import Test.Hspec
 import TestUtil
 
-import Forpar.Transformation.Grouping
+import Forpar.Transformer
 import Forpar.AST
+
+groupIf = transform [ GroupIf ]
 
 spec :: Spec
 spec =
   describe "Block IF-THEN and related statements" $ do
-    it "groups example1" $ do
+    it "groups example1" $
       groupIf example1 `shouldBe'` expectedExample1
 
-    it "groups example2" $ do
+    it "groups example2" $
       groupIf example2 `shouldBe'` expectedExample2
 
 -- if (.true.) then

@@ -10,6 +10,7 @@ import Data.Maybe (isNothing, fromJust)
 import Forpar.Util.Position
 import Forpar.ParserMonad
 import Forpar.Lexer.FixedForm
+import Forpar.Transformer (transform, Transformation(..))
 import Forpar.AST
 
 }
@@ -541,7 +542,7 @@ makeReal i1 dot i2 exp =
 
 fortran66Parser :: String -> String -> ProgramFile A0
 fortran66Parser sourceCode filename = 
-  evalParse programParser $ initParseState sourceCode Fortran66 filename
+  transform [ DisambiguateFunction ] $ evalParse programParser $ initParseState sourceCode Fortran66 filename
 
 parseError :: Token -> LexAction a
 parseError _ = fail "Parsing failed."

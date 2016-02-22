@@ -1,20 +1,27 @@
-module Forpar.Transformer (Transformation(..), transform) where
+module Forpar.Transformer ( transform
+                          , Transformation(..) ) where
 
+import Control.Monad
 import Data.Maybe (fromJust)
+import Data.Map (Map)
 
+import Forpar.Analysis.Types (IDType, TypeScope, inferTypes)
+import Forpar.Transformation.TransformMonad (Transform, runTransform)
+import Forpar.Transformation.Disambiguation.Function
 import Forpar.Transformation.Grouping
-import Forpar.AST (ProgramFile)
+import Forpar.AST (ProgramFile, ProgramUnitName)
 
 data Transformation = 
-  GroupIf
+    GroupIf
+  | DisambiguateFunction
   deriving (Eq)
 
-transformationMapping :: [ (Transformation, ProgramFile a -> ProgramFile a) ]
+transformationMapping :: [ (Transformation, Transform ()) ]
 transformationMapping = 
-  [ (GroupIf, groupIf) ]
+  [ (GroupIf, groupIf)
+  , (DisambiguateFunction, disambiguateFunction) ]
   
-transform :: [ Transformation ] -> ProgramFile a -> ProgramFile a
-transform trs pus = 
-    foldr (\t acc -> t acc) pus transformations 
+transform :: [ Transformation ] -> ProgramFile () -> ProgramFile ()
+transform trs = runTransform trans
   where
-    transformations = map (\t -> fromJust $ lookup t transformationMapping) trs
+    trans = mapM_ (\t -> fromJust $ lookup t transformationMapping) trs
