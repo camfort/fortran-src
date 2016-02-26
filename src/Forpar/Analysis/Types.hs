@@ -11,6 +11,8 @@ import Prelude hiding (lookup)
 import Data.Map (findWithDefault, insert, empty, lookup, Map)
 import Control.Monad.State.Lazy
 import Data.Generics.Uniplate.Data
+import Data.Generics.Uniplate.Operations
+import Data.Data
 
 import Debug.Trace
 
@@ -43,58 +45,58 @@ data ConstructType =
   | CTParameter
   deriving (Show, Eq)
 
-data IDType = IDType 
+data IDType = IDType
   { idVType :: Maybe ValueType
   , idCType :: Maybe ConstructType }
   deriving (Show, Eq)
 
 data TypeScope = Global | Local ProgramUnitName deriving (Ord,Eq,Show)
 
-data TypeState = TypeState
-  { tsProgramFile :: ProgramFile ()
+data TypeState a = TypeState
+  { tsProgramFile :: ProgramFile a
   , tsMapping :: Map TypeScope (Map String IDType) }
 
-type TypeMapping = State TypeState
+type TypeMapping a = State (TypeState a)
 
 --------------------------------------------------------------------------------
 -- Monadic helpers
 --------------------------------------------------------------------------------
 
-getProgramFile :: TypeMapping (ProgramFile ())
+getProgramFile :: Data a => TypeMapping a (ProgramFile a)
 getProgramFile = fmap tsProgramFile get
 
-putProgramFile :: ProgramFile () -> TypeMapping ()
+putProgramFile :: Data a => ProgramFile a -> TypeMapping a ()
 putProgramFile pf = get >>= (\ts -> put $ ts { tsProgramFile = pf })
 
-getMapping :: TypeMapping (Map TypeScope (Map String IDType))
+getMapping :: Data a => TypeMapping a (Map TypeScope (Map String IDType))
 getMapping = fmap tsMapping get
 
-queryIDType :: TypeScope -> String -> TypeMapping (Maybe IDType)
+queryIDType :: Data a => TypeScope -> String -> TypeMapping a (Maybe IDType)
 queryIDType ts s = do
   mapping <- getMapping
   return $ do
     inner <- lookup ts mapping
     lookup s inner
 
-putMapping :: Map TypeScope (Map String IDType) -> TypeMapping ()
+putMapping :: Data a => Map TypeScope (Map String IDType) -> TypeMapping a ()
 putMapping mapping = get >>= (\ts -> put $ ts { tsMapping = mapping })
 
-addToMapping :: TypeScope -> String -> ValueType -> ConstructType -> TypeMapping ()
+addToMapping :: Data a => TypeScope -> String -> ValueType -> ConstructType -> TypeMapping a ()
 addToMapping ts s vt ct = addToMappingViaFunc ts s typeFunction
   where
     typeFunction idt = idt { idVType = Just vt, idCType = Just ct }
 
-addValueToMapping :: TypeScope -> String -> ValueType -> TypeMapping ()
+addValueToMapping :: Data a => TypeScope -> String -> ValueType -> TypeMapping a ()
 addValueToMapping ts s vt = addToMappingViaFunc ts s typeFunction
   where
     typeFunction idt = idt { idVType = Just vt }
 
-addConstructToMapping :: TypeScope -> String -> ConstructType -> TypeMapping ()
+addConstructToMapping :: Data a => TypeScope -> String -> ConstructType -> TypeMapping a ()
 addConstructToMapping ts s ct = addToMappingViaFunc ts s typeFunction
   where
     typeFunction idt = idt { idCType = Just ct }
 
-addToMappingViaFunc :: TypeScope -> String -> (IDType -> IDType) -> TypeMapping ()
+addToMappingViaFunc :: Data a => TypeScope -> String -> (IDType -> IDType) -> TypeMapping a ()
 addToMappingViaFunc ts s tf = do
   mapping <- getMapping
   let innerMapping = findWithDefault empty ts mapping
@@ -108,18 +110,18 @@ addToMappingViaFunc ts s tf = do
 -- Inference mechanism
 --------------------------------------------------------------------------------
 
-inferTypes :: ProgramFile () -> Map TypeScope (Map String IDType)
+inferTypes :: Data a => ProgramFile a -> Map TypeScope (Map String IDType)
 inferTypes pf = tsMapping . execState (inferGlobal >> inferLocal) $ state
   where
     state = TypeState pf empty
 
-inferGlobal :: TypeMapping ()
+inferGlobal :: Data a => TypeMapping a ()
 inferGlobal = do
   (ProgramFile comAndPus _) <- getProgramFile
   let pus = map snd comAndPus
   mapM_ inferSubprograms pus
 
-inferSubprograms :: ProgramUnit () -> TypeMapping ()
+inferSubprograms :: Data a => ProgramUnit a -> TypeMapping a ()
 inferSubprograms pu =
   case pu of
     (PUFunction _ _ mbt n _ _) -> do
@@ -130,22 +132,24 @@ inferSubprograms pu =
       addEntries (\idt -> idt { idCType = Just CTSubroutine })
     _ -> return ()
   where
+    addEntries :: Data a => (IDType -> IDType) -> TypeMapping a ()
     addEntries func = do
-      let entryExps = [ e | StEntry () _ e _<- universeBi pu ]
-      let entryNames = [ n | n :: String <- universeBi entryExps ]
+      let statements = universeBi :: Data a => ProgramUnit a -> [Statement a]
+      let entryExps = [ e | (StEntry _ _ e _) <- statements pu ]
+      let entryNames = [ n | n :: String <- universeBi entryExps :: [String] ]
       mapM_ (\n' -> addToMappingViaFunc Global n' func) entryNames
     updateForFunction mvt it = it { idCType = Just CTFunction
                                   , idVType = mvt }
 
-inferLocal :: TypeMapping ()
+inferLocal :: Data a => TypeMapping a ()
 inferLocal = do
   (ProgramFile comAndPus _) <- getProgramFile
   let pus = map snd comAndPus
   mapM_ inferInProgramFile pus
 
-inferInProgramFile :: ProgramUnit () -> TypeMapping ()
+inferInProgramFile :: Data a => ProgramUnit a -> TypeMapping a ()
 inferInProgramFile pu = do
-  let declPairs = [ (bt, vars) | (StDeclaration _ _ bt (AList () _ vars)) <- universeBi pu ] 
+  let declPairs = [ (bt, vars) | (StDeclaration _ _ bt (AList _ _ vars)) <- universeBi pu ]
   inferFromDeclarations puName declPairs
   let paramSts = [ paramSt | paramSt@StParameter{} <- universeBi pu]
   inferFromParameters puName paramSts
@@ -155,13 +159,14 @@ inferInProgramFile pu = do
   where
     puName = Local $ getName pu
 
-inferFromFuncStatements :: ProgramUnit () -> TypeMapping ()
+inferFromFuncStatements :: Data a => ProgramUnit a -> TypeMapping a ()
 inferFromFuncStatements pu = do
-  let lhsNames = [ s | StExpressionAssign () _ (ExpSubscript () _ (ExpValue () _ (ValArray s)) _) _ <- universeBi pu ]
+  let statements = universeBi :: Data a => ProgramUnit a -> [Statement a]
+  let lhsNames = [ s | StExpressionAssign _ _ (ExpSubscript _ _ (ExpValue _ _ (ValArray s)) _) _ <- statements pu ]
   idts <- mapM (queryIDType puName) lhsNames
   let filteredNames = map fst $ filter p $ zip lhsNames idts
   mapM_ (\n -> addConstructToMapping puName n CTFunction) filteredNames
-  let lhsNames = [ s | StFunction () _ (ExpValue () _ (ValFunctionName s)) _ _ <- universeBi pu ]
+  let lhsNames = [ s | StFunction _ _ (ExpValue _ _ (ValFunctionName s)) _ _ <- statements pu ]
   mapM_ (\n -> addConstructToMapping puName n CTFunction) lhsNames
   where
     puName = Local $ getName pu
@@ -172,18 +177,20 @@ inferFromFuncStatements pu = do
     p (_, (Just (IDType _ Nothing))) = True
     p _ = False
 
-inferFromDimensions :: TypeScope -> [ Statement () ] -> TypeMapping ()
+inferFromDimensions :: Data a => TypeScope -> [ Statement a ] -> TypeMapping a ()
 inferFromDimensions ts dimSts = do
-  let arrayExps = [ exp | DeclArray () _ exp _ <- universeBi dimSts]
-  let arrayNames = [ s | ExpValue () _ (ValArray s) <- arrayExps ]
+  let decls = universeBi :: Data a => [Statement a] -> [Declarator a]
+  let arrayExps = [ exp | DeclArray _ _ exp _ <- decls dimSts]
+  let arrayNames = [ s | ExpValue _ _ (ValArray s) <- arrayExps ]
   mapM_ (\n -> addConstructToMapping ts n CTArray) arrayNames
 
-inferFromParameters :: TypeScope -> [ Statement () ] -> TypeMapping ()
+inferFromParameters :: Data a => TypeScope -> [ Statement a ] -> TypeMapping a ()
 inferFromParameters ts paramSts = do
-  let paramNames = [ s | (ValParameter s :: Value ()) <- universeBi paramSts ]
+  let values = universeBi :: Data a => [Statement a] -> [Value a]
+  let paramNames = [ s | (ValParameter s :: Value a) <- values paramSts ]
   mapM_ (\n -> addConstructToMapping ts n CTParameter) paramNames
 
-inferFromDeclarations :: TypeScope -> [ (BaseType (), [ Declarator () ]) ] -> TypeMapping ()
+inferFromDeclarations :: Data a => TypeScope -> [ (BaseType a, [ Declarator a ]) ] -> TypeMapping a ()
 inferFromDeclarations _ [ ] = return ()
 inferFromDeclarations ts ((bt, decls):ds) = do
   addDecls decls
@@ -207,15 +214,17 @@ inferFromDeclarations ts ((bt, decls):ds) = do
 -- Utility methods
 --------------------------------------------------------------------------------
 
-genImplicitMapping :: ProgramUnit () -> (Char -> Maybe ValueType)
+genImplicitMapping :: Data a => ProgramUnit a -> (Char -> Maybe ValueType)
 genImplicitMapping pu
   | null impSts = globalImplicitMapping -- Apply default type mappings
   | containsNone impSts = const Nothing -- If IMPLICIT NONE is in
   | otherwise = -- Try all possible mappings.
     tryImps $ map impElToFun impPairs
   where
-    impSts = [ imp | imp@(StImplicit () _ _) <- universeBi pu ]
-    impPairs = join . join . map couple $ [ (toValueType bt,xs) | (ImpList () _ bt (AList () _ xs)) <- universeBi pu ]
+    statements = universeBi :: Data a => ProgramUnit a -> [Statement a]
+    impSts = [ imp | imp@(StImplicit _ _ _) <- statements pu ]
+    implists = universeBi :: Data a => ProgramUnit a -> [ImpList a]
+    impPairs = join . join . map couple $ ([ (toValueType bt,xs) | ((ImpList _ _ bt (AList _ _ xs))) <- implists pu ])
     couple (a, []) = []
     couple (a, x:xs) = [ (a,x) ] : couple (a, xs)
     containsNone imps = length [ x | x@(StImplicit _ _ Nothing) <- impSts ] == 1
