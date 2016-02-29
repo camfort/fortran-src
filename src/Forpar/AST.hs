@@ -370,14 +370,21 @@ data ProgramUnitName =
 
 class Named a where
   getName :: a -> ProgramUnitName
+  setName :: ProgramUnitName -> a -> a
 
 instance Named (ProgramUnit a) where
-  getName (PUMain _ _ Nothing _) = NamelessMain
-  getName (PUMain _ _ (Just n) _) = Named n
-  getName (PUSubroutine _ _ n _ _) = Named n
-  getName (PUFunction _ _ _ n _ _) = Named n
-  getName (PUBlockData _ _ Nothing _) = NamelessBlockData
+  getName (PUMain _ _ Nothing _)       = NamelessMain
+  getName (PUMain _ _ (Just n) _)      = Named n
+  getName (PUSubroutine _ _ n _ _)     = Named n
+  getName (PUFunction _ _ _ n _ _)     = Named n
+  getName (PUBlockData _ _ Nothing _)  = NamelessBlockData
   getName (PUBlockData _ _ (Just n) _) = Named n
+  setName (Named n) (PUMain       a s _ b)     = (PUMain       a s (Just n) b)
+  setName _         (PUMain       a s _ b)     = (PUMain       a s Nothing b)
+  setName (Named n) (PUSubroutine a s _ p b)   = (PUSubroutine a s n p b)
+  setName (Named n) (PUFunction   a s r _ p b) = (PUFunction   a s r n p b)
+  setName (Named n) (PUBlockData  a s _ b)     = (PUBlockData  a s (Just n) b)
+  setName _         (PUBlockData  a s _ b)     = (PUBlockData  a s Nothing b)
 
 instance Out a => Out (ProgramFile a)
 instance Out a => Out (ProgramUnit a)
