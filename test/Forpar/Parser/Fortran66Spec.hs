@@ -81,7 +81,7 @@ spec =
           eParser "3 + -2 + 42" `shouldBe'` expectedExp
 
         it "parses 'f(y, 24)'" $ do
-          let expectedExp = ExpSubscript () u (arrGen "f") (AList () u [ExpValue () u (ValVariable "y"), intGen 24])
+          let expectedExp = ExpSubscript () u (arrGen "f") (AList () u [ExpValue () u (ValVariable () "y"), intGen 24])
           eParser "f(y, 24)" `shouldBe'` expectedExp
 
         it "parses '3 + 4 * 12'" $ do

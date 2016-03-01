@@ -168,7 +168,7 @@ data Value a =
   | ValString            String
   | ValHollerith         String
   | ValLabel             String
-  | ValVariable          Name
+  | ValVariable          a Name
   | ValParameter         Name
   | ValArray             Name
   | ValTrue

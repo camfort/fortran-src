@@ -207,7 +207,7 @@ inferFromDeclarations ts ((bt, decls):ds) = do
         DeclVariable _ _ e -> addValueToMapping ts (expToId e) vt
         DeclCharVariable _ _ e _ -> addValueToMapping ts (expToId e) vt
       addDecls ds'
-    expToId (ExpValue _ _ (ValVariable s)) = s
+    expToId (ExpValue _ _ (ValVariable _ s)) = s
     expToId (ExpValue _ _ (ValArray s)) = s
 
 --------------------------------------------------------------------------------

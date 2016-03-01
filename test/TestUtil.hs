@@ -13,7 +13,7 @@ valTrue = ExpValue () u ValTrue
 valFalse = ExpValue () u ValFalse
 
 varGen :: String -> Expression ()
-varGen str = ExpValue () u $ ValVariable str
+varGen str = ExpValue () u $ ValVariable () str
 
 parGen :: String -> Expression ()
 parGen str = ExpValue () u $ ValParameter str

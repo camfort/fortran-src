@@ -128,8 +128,8 @@ OTHER_PROGRAM_UNIT
 
 ARGS :: { AList Value A0 }
 ARGS
-: ARGS ',' id { let (TId s arg) = $3 in setSpan s $ ValVariable arg `aCons` $1}
-| id { let (TId s arg) = $1 in AList () s [ ValVariable arg ] }
+: ARGS ',' id { let (TId s arg) = $3 in setSpan s $ ValVariable () arg `aCons` $1}
+| id { let (TId s arg) = $1 in AList () s [ ValVariable () arg ] }
 
 NAME :: { Name } : id { let (TId _ name) = $1 in name }
 
@@ -444,7 +444,7 @@ ARITHMETIC_SIGN
 -- This at least reduces reduce/reduce conflicts.
 VARIABLE :: { Expression A0 }
 VARIABLE
-: id { ExpValue () (getSpan $1) $ let (TId _ s) = $1 in ValVariable s }
+: id { ExpValue () (getSpan $1) $ let (TId _ s) = $1 in ValVariable () s }
 
 ARRAY :: { Expression A0 }
 ARRAY : id { ExpValue () (getSpan $1) $ let (TId _ s) = $1 in ValArray s }

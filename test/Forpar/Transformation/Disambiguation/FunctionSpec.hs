@@ -82,7 +82,7 @@ expectedEx1pu1bs =
 -}
 ex2 = ProgramFile [ ([ ], ex2pu1), ([ ], ex2pu2) ] [ ]
 ex2pu1 = PUMain () u Nothing ex2pu1bs
-ex2pu2 = PUFunction () u Nothing "y" (AList () u [ ValVariable "i", ValVariable "j" ]) [ ]
+ex2pu2 = PUFunction () u Nothing "y" (AList () u [ ValVariable () "i", ValVariable () "j" ]) [ ]
 ex2pu1bs =
     {-
   [ BlStatement () u Nothing

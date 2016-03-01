@@ -79,7 +79,7 @@ programUnit pu = do
                         _ -> []
   -- if there are parameters, create a renaming environment for them
   pu' <- if null vars then return pu else do
-    env <- flip mapM vars $ \ (ValVariable v) -> do
+    env <- flip mapM vars $ \ (ValVariable _ v) -> do
              uniqNum <- getUniqNum
              return (v, name ++ "_" ++ v ++ show uniqNum)
     -- also put function name, if applicable, on the renaming environment
@@ -113,7 +113,7 @@ blstmtList st@(BlStatement _ _ _ (StDeclaration a s ty valist):_) = do
   scope <- gets (head . scopeStack)
   let vs = aStrip valist
   -- create a renaming environment for the variables
-  env <- flip mapM vs $ \ (DeclVariable _ _ (ExpValue _ _ (ValVariable v))) -> do -- FIXME: arrays
+  env <- flip mapM vs $ \ (DeclVariable _ _ (ExpValue _ _ (ValVariable _ v))) -> do -- FIXME: arrays
     uniqNum <- getUniqNum
     return (v, scope ++ "_" ++ v ++ show uniqNum)
   -- push the renaming environment on the stack and rename the vars
@@ -127,10 +127,10 @@ blstmtList st@(BlStatement _ _ _ (StDeclaration a s ty valist):_) = do
 blstmtList bs = return bs
 
 value :: Data a => RenamerFunc (Value a)
-value v@(ValVariable ('_':_)) = return v -- FIXME: hack (already renamed)
-value (ValVariable v) = do
+value v@(ValVariable _ ('_':_)) = return v -- FIXME: hack (already renamed)
+value (ValVariable a v) = do
   env <- gets (head . environ)
-  return $ ValVariable (fromMaybe v (v `lookup` env))
+  return $ ValVariable a (fromMaybe v (v `lookup` env))
 value v = return v
 
 --------------------------------------------------
@@ -141,7 +141,7 @@ unrename (pf, nm) = trPU fPU (trV fV pf)
     trV :: Data a => (Value a -> Value a) -> ProgramFile a -> ProgramFile a
     trV = transformBi
     fV :: Data a => Value a -> Value a
-    fV (ValVariable v) = ValVariable $ fromMaybe v (v `lookup` nm)
+    fV (ValVariable a v) = ValVariable a $ fromMaybe v (v `lookup` nm)
     fV x               = x
 
     trPU :: Data a => (ProgramUnit a -> ProgramUnit a) -> ProgramFile a -> ProgramFile a
