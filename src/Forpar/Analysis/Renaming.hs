@@ -1,7 +1,18 @@
-{-# LANGUAGE ScopedTypeVariables #-}
-module Forpar.Analysis.Renaming where
+{-# LANGUAGE ScopedTypeVariables, DeriveDataTypeable #-}
+
+-- |
+-- Analyse variables/function names and produce unique names that can
+-- be used to replace the original names while maintaining program
+-- equivalence (a.k.a. alpha-conversion). The advantage of the unique
+-- names is that scoping issues can be ignored when doing further
+-- analysis.
+
+module Forpar.Analysis.Renaming
+  ( analyseRenames, rename, extractNameMap, renameAndStrip, unrename, NameMap )
+where
 
 import Forpar.AST
+import Forpar.Analysis
 import Forpar.Analysis.Types
 
 import Prelude hiding (lookup)
@@ -30,12 +41,6 @@ testparse f = do
 
 --------------------------------------------------
 
-variables f = [ v | v@ValVariable {} <- universeBi f ]
-
-declVariables f = [ v | v@DeclVariable {} <- universeBi f ]
-
---------------------------------------------------
-
 type Renamer a = State RenameState a
 type NameMap = Map String String
 data RenameState = RenameState { scopeStack :: [String]
@@ -44,6 +49,7 @@ data RenameState = RenameState { scopeStack :: [String]
                                , nameMap :: NameMap }
   deriving (Show, Eq)
 
+getUniqNum :: Renamer Int
 getUniqNum = do
   uniqNum <- gets (head . uniqNums)
   modify $ \ s -> s { uniqNums = drop 1 (uniqNums s) }
@@ -59,11 +65,47 @@ type RenamerFunc t = t -> Renamer t
 
 --------------------------------------------------
 
-rename :: Data a => ProgramFile a -> (ProgramFile a, NameMap)
-rename pf = (pf', nameMap s')
-  where (pf', s') = runRenamer (transPU programUnit pf) renameState0
+-- | Annotate unique names for variable and function declarations and uses.
+analyseRenames :: Data a => ProgramFile (Analysis a) -> ProgramFile (Analysis a)
+analyseRenames pf = pf'
+  where (pf', _) = runRenamer (transPU programUnit pf) renameState0
 
-programUnit :: Data a => RenamerFunc (ProgramUnit a)
+-- | Take the unique name annotations and substitute them into the actual AST.
+rename :: Data a => ProgramFile (Analysis a) -> ProgramFile (Analysis a)
+rename pf = trPU fPU . trV fV $ pf
+  where
+    trV :: Data a => (Value a -> Value a) -> ProgramFile a -> ProgramFile a
+    trV = transformBi
+    fV :: Data a => Value (Analysis a) -> Value (Analysis a)
+    fV (ValVariable a v) = ValVariable a $ fromMaybe v (uniqueName a)
+    fV x                 = x
+
+    trPU :: Data a => (ProgramUnit a -> ProgramUnit a) -> ProgramFile a -> ProgramFile a
+    trPU = transformBi
+    fPU :: Data a => ProgramUnit (Analysis a) -> ProgramUnit (Analysis a)
+    fPU (PUFunction a s ty n args b) = PUFunction a s ty (fromMaybe n (uniqueName a)) args b
+    fPU x                            = x
+
+-- | Create a map of unique name => original name for each variable
+-- and function in the program.
+extractNameMap :: Data a => ProgramFile (Analysis a) -> NameMap
+extractNameMap pf = vMap `union` puMap
+  where
+    vMap  = fromList [ (un, n) | ValVariable (Analysis { uniqueName = Just un }) n <- uniV pf ]
+    puMap = fromList [ (un, n) | PUFunction (Analysis { uniqueName = Just un }) _ _ n _ _ <- uniPU pf ]
+
+    uniV :: Data a => ProgramFile a -> [Value a]
+    uniV = universeBi
+    uniPU :: Data a => ProgramFile a -> [ProgramUnit a]
+    uniPU = universeBi
+
+-- | Perform the rename, stripAnalysis, and extractNameMap functions.
+renameAndStrip :: Data a => ProgramFile (Analysis a) -> (ProgramFile a, NameMap)
+renameAndStrip pf = (stripAnalysis (rename pf), extractNameMap pf)
+
+--------------------------------------------------
+
+programUnit :: Data a => RenamerFunc (ProgramUnit (Analysis a))
 programUnit pu = do
   uniqNum <- getUniqNum
   scope <- gets (head . scopeStack)
@@ -99,16 +141,16 @@ programUnit pu = do
   -- pop the scope
   modify $ \ s -> s { scopeStack = drop 1 (scopeStack s) }
 
-  -- if there's a name, make it unique
-  return $ setName (Named name) pu''
+  -- set the unique name annotation of the program unit
+  return $ setAnnotation ((getAnnotation pu'') { uniqueName = Just name }) pu''
 
-block :: Data a => RenamerFunc (Block a)
+block :: Data a => RenamerFunc (Block (Analysis a))
 block b = transPU_B programUnit b
 
 -- declList :: Data a => RenamerFunc [Declarator a]
 -- declList dl = undefined
 
-blstmtList :: Data a => RenamerFunc [Block a]
+blstmtList :: Data a => RenamerFunc [Block (Analysis a)]
 blstmtList st@(BlStatement _ _ _ (StDeclaration a s ty valist):_) = do
   scope <- gets (head . scopeStack)
   let vs = aStrip valist
@@ -126,17 +168,17 @@ blstmtList st@(BlStatement _ _ _ (StDeclaration a s ty valist):_) = do
   return st'
 blstmtList bs = return bs
 
-value :: Data a => RenamerFunc (Value a)
-value v@(ValVariable _ ('_':_)) = return v -- FIXME: hack (already renamed)
+value :: Data a => RenamerFunc (Value (Analysis a))
+value v@(ValVariable (Analysis { uniqueName = Just _ }) _) = return v
 value (ValVariable a v) = do
   env <- gets (head . environ)
-  return $ ValVariable a (fromMaybe v (v `lookup` env))
+  return $ ValVariable (a { uniqueName = v `lookup` env }) v
 value v = return v
 
 --------------------------------------------------
 
 unrename :: Data a => (ProgramFile a, NameMap) -> ProgramFile a
-unrename (pf, nm) = trPU fPU (trV fV pf)
+unrename (pf, nm) = trPU fPU . trV fV $ pf
   where
     trV :: Data a => (Value a -> Value a) -> ProgramFile a -> ProgramFile a
     trV = transformBi

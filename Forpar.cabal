@@ -45,7 +45,9 @@ library
     Forpar.Lexer.FixedForm
     Forpar.Parser.Fortran66
     Forpar.Parser.Fortran77
+    Forpar.Analysis
     Forpar.Analysis.Types
+    Forpar.Analysis.Renaming
     Forpar.Transformer
     Forpar.Transformation.TransformMonad
     Forpar.Transformation.Grouping
