@@ -12,11 +12,13 @@ module Forpar.Analysis.Renaming
 where
 
 import Forpar.AST
+import Forpar.Util.Position
 import Forpar.Analysis
 import Forpar.Analysis.Types
 
 import Prelude hiding (lookup)
 import Data.Maybe (maybe, fromMaybe)
+import qualified Data.List as L
 import Data.Map (findWithDefault, insert, union, empty, lookup, Map, fromList)
 import Control.Monad.State.Lazy
 import Data.Generics.Uniplate.Data
@@ -25,19 +27,6 @@ import Data.Data
 import Data.Tuple
 
 import Text.PrettyPrint.GenericPretty
-
---------------------------------------------------
-
-import qualified Debug.Trace as D
-import qualified Forpar.Parser.Fortran77 as F77 -- temp
-
--- testparse "test1.f"
-testparse f = do
-  inp <- readFile f
-  return $ forparse inp f
-  where
-    forparse :: String -> String -> ProgramFile ()
-    forparse contents f = F77.fortran77Parser contents f
 
 --------------------------------------------------
 
@@ -55,6 +44,9 @@ getUniqNum = do
   modify $ \ s -> s { uniqNums = drop 1 (uniqNums s) }
   return uniqNum
 
+mungeName (Named s) = s
+mungeName n = show n
+
 renameState0 = RenameState { scopeStack = ["_"]
                            , uniqNums = [1..]
                            , environ = [empty]
@@ -69,6 +61,8 @@ type RenamerFunc t = t -> Renamer t
 analyseRenames :: Data a => ProgramFile (Analysis a) -> ProgramFile (Analysis a)
 analyseRenames pf = pf'
   where (pf', _) = runRenamer (transPU programUnit pf) renameState0
+        transPU :: Data a => RenamerFunc (ProgramUnit a) -> RenamerFunc (ProgramFile a)
+        transPU = transformBiM -- work from the bottom up
 
 -- | Take the unique name annotations and substitute them into the actual AST.
 rename :: Data a => ProgramFile (Analysis a) -> ProgramFile (Analysis a)
@@ -78,6 +72,7 @@ rename pf = trPU fPU . trV fV $ pf
     trV = transformBi
     fV :: Data a => Value (Analysis a) -> Value (Analysis a)
     fV (ValVariable a v) = ValVariable a $ fromMaybe v (uniqueName a)
+    fV (ValArray a v)    = ValArray a $ fromMaybe v (uniqueName a)
     fV x                 = x
 
     trPU :: Data a => (ProgramUnit a -> ProgramUnit a) -> ProgramFile a -> ProgramFile a
@@ -89,9 +84,10 @@ rename pf = trPU fPU . trV fV $ pf
 -- | Create a map of unique name => original name for each variable
 -- and function in the program.
 extractNameMap :: Data a => ProgramFile (Analysis a) -> NameMap
-extractNameMap pf = vMap `union` puMap
+extractNameMap pf = vMap `union` aMap `union` puMap
   where
     vMap  = fromList [ (un, n) | ValVariable (Analysis { uniqueName = Just un }) n <- uniV pf ]
+    aMap  = fromList [ (un, n) | ValArray (Analysis { uniqueName = Just un }) n <- uniV pf ]
     puMap = fromList [ (un, n) | PUFunction (Analysis { uniqueName = Just un }) _ _ n _ _ <- uniPU pf ]
 
     uniV :: Data a => ProgramFile a -> [Value a]
@@ -103,7 +99,29 @@ extractNameMap pf = vMap `union` puMap
 renameAndStrip :: Data a => ProgramFile (Analysis a) -> (ProgramFile a, NameMap)
 renameAndStrip pf = (stripAnalysis (rename pf), extractNameMap pf)
 
+-- | Take a renamed program and its corresponding NameMap, and undo the renames.
+unrename :: Data a => (ProgramFile a, NameMap) -> ProgramFile a
+unrename (pf, nm) = trPU fPU . trV fV $ pf
+  where
+    trV :: Data a => (Value a -> Value a) -> ProgramFile a -> ProgramFile a
+    trV = transformBi
+    fV :: Data a => Value a -> Value a
+    fV (ValVariable a v) = ValVariable a $ fromMaybe v (v `lookup` nm)
+    fV (ValArray a v)    = ValArray a $ fromMaybe v (v `lookup` nm)
+    fV x                 = x
+
+    trPU :: Data a => (ProgramUnit a -> ProgramUnit a) -> ProgramFile a -> ProgramFile a
+    trPU = transformBi
+    fPU :: Data a => ProgramUnit a -> ProgramUnit a
+    fPU (PUFunction a s ty n args b) = PUFunction a s ty (fromMaybe n (n `lookup` nm)) args b
+    fPU x               = x
+
 --------------------------------------------------
+
+-- extract name from declaration
+declName (DeclVariable _ _ (ExpValue _ _ (ValVariable _ v))) = v
+declName (DeclArray _ _ (ExpValue _ _ (ValArray _ v)) _) = v
+declName _ = error "unfinished"
 
 programUnit :: Data a => RenamerFunc (ProgramUnit (Analysis a))
 programUnit pu = do
@@ -115,53 +133,92 @@ programUnit pu = do
   -- push the new scope onto stack
   modify $ \ s -> s { scopeStack = name:scopeStack s }
 
-  -- if there are parameters, find them
-  let vars = case pu of PUFunction _ _ _ _ vs _ -> aStrip vs
-                        PUSubroutine _ _ _ vs _ -> aStrip vs
-                        _ -> []
-  -- if there are parameters, create a renaming environment for them
-  pu' <- if null vars then return pu else do
-    env <- flip mapM vars $ \ (ValVariable _ v) -> do
-             uniqNum <- getUniqNum
-             return (v, name ++ "_" ++ v ++ show uniqNum)
-    -- also put function name, if applicable, on the renaming environment
-    let fenv = (case pu of PUFunction _ _ _ n _ _ -> [(n, name)]; _ -> []) ++ env
-    -- push the renaming environment on the stack and rename the vars
-    -- also keep track of the renames in the nameMap
-    modify $ \ s -> s { environ = fromList fenv:environ s
-                      , nameMap = fromList (map swap fenv) `union` nameMap s }
-    pu' <- transV_PU value pu
-    -- pop and go back to where we were
-    modify $ \ s -> s { environ = drop 1 (environ s) }
-    return pu'
+  -- the function name is declared as a variable in this scope, needs
+  -- a unique name.  also get a list of parameters if applicable:
+  -- parameters are declared using block statements but are also
+  -- mentioned in the function declaration; these two declaration
+  -- places need to match.
 
-  -- search for block statement declarations within the program unit
+  -- e.g.
+  --    FUNCTION f(x)
+  --      INTEGER x
+  --      f = x + 1
+  --    END
+
+  (pu', m_params) <- case pu of
+    PUFunction _ _ _ n params _ -> do
+      -- put function name on the renaming environment
+      let fenv = [(n, name)]
+      -- push the renaming environment on the stack and rename the
+      -- uses of the function name.  also keep track of the renames in
+      -- the nameMap.
+      modify $ \ s -> s { environ = fromList fenv:environ s
+                        , nameMap = fromList (map swap fenv) `union` nameMap s }
+
+      let transV_PU :: Data a => RenamerFunc (Value a) -> RenamerFunc (ProgramUnit a)
+          transV_PU = descendBiM
+
+      pu' <- transV_PU value pu
+
+      -- pop env stack and go back to where we were
+      modify $ \ s -> s { environ = drop 1 (environ s) }
+      return (pu', Just params)
+    PUSubroutine _ _ _ params _ -> return (pu, Just params)
+    _ -> return (pu, Nothing)
+
+  -- search for block statement declarations within the program unit and process them
+  let transBS_PU :: Data a => RenamerFunc [Block a] -> RenamerFunc (ProgramUnit a)
+      transBS_PU = transformBiM
+
   pu'' <- transBS_PU blstmtList pu'
+
+  -- now rename the parameters, if applicable, using the unique names
+  -- determined while processing the block statements
+
+  let uniS_PU :: Data a => ProgramUnit a -> [Statement a]
+      uniS_PU = universeBi
+
+  let f (DeclVariable _ _ (ExpValue _ _ (ValVariable (Analysis { uniqueName = Just un }) n))) = [(n, un)]
+      f (DeclArray _ _ (ExpValue _ _ (ValArray (Analysis { uniqueName = Just un }) n)) _)     = [(n, un)]
+      f d = []
+
+  pu''' <- case m_params of
+    Just params -> do
+      -- get a list of the renames that were performed in this program unit body
+      let renames = concat [ f =<< aStrip dalist | StDeclaration _ _ _ dalist <- uniS_PU pu'' ]
+      -- for each parameter, apply the first rename found
+      let params' = flip aMap params $ \ (ValVariable a n) ->
+                      ValVariable (a { uniqueName = L.lookup n renames }) n
+      -- and put it back into its place
+      return $ case pu'' of
+        PUFunction a s t n params b -> PUFunction a s t n params' b
+        PUSubroutine a s n params b -> PUSubroutine a s n params' b
+    _ -> return pu''
 
   -- pop the scope
   modify $ \ s -> s { scopeStack = drop 1 (scopeStack s) }
 
   -- set the unique name annotation of the program unit
-  return $ setAnnotation ((getAnnotation pu'') { uniqueName = Just name }) pu''
-
-block :: Data a => RenamerFunc (Block (Analysis a))
-block b = transPU_B programUnit b
-
--- declList :: Data a => RenamerFunc [Declarator a]
--- declList dl = undefined
+  return $ setAnnotation ((getAnnotation pu''') { uniqueName = Just name }) pu'''
 
 blstmtList :: Data a => RenamerFunc [Block (Analysis a)]
 blstmtList st@(BlStatement _ _ _ (StDeclaration a s ty valist):_) = do
   scope <- gets (head . scopeStack)
+  -- D.trace ("\n\nvalist: "++show (fmap uniqueName valist)) $ return ()
   let vs = aStrip valist
   -- create a renaming environment for the variables
-  env <- flip mapM vs $ \ (DeclVariable _ _ (ExpValue _ _ (ValVariable _ v))) -> do -- FIXME: arrays
-    uniqNum <- getUniqNum
-    return (v, scope ++ "_" ++ v ++ show uniqNum)
+  env <- flip mapM vs $ \ decl -> do
+      let v = declName decl
+      uniqNum <- getUniqNum
+      return (v, scope ++ "_" ++ v ++ show uniqNum)
   -- push the renaming environment on the stack and rename the vars
   -- also keep track of the renames in the nameMap
   modify $ \ s -> s { environ = fromList env:environ s
                     , nameMap = fromList (map swap env) `union` nameMap s }
+
+  let transV_BS :: Data a => RenamerFunc (Value a) -> RenamerFunc [Block a]
+      transV_BS = descendBiM
+
   st' <- transV_BS value st
   -- pop the renaming environment
   modify $ \ s -> s { environ = drop 1 (environ s) }
@@ -173,56 +230,7 @@ value v@(ValVariable (Analysis { uniqueName = Just _ }) _) = return v
 value (ValVariable a v) = do
   env <- gets (head . environ)
   return $ ValVariable (a { uniqueName = v `lookup` env }) v
+value (ValArray a v) = do
+  env <- gets (head . environ)
+  return $ ValArray (a { uniqueName = v `lookup` env }) v
 value v = return v
-
---------------------------------------------------
-
-unrename :: Data a => (ProgramFile a, NameMap) -> ProgramFile a
-unrename (pf, nm) = trPU fPU . trV fV $ pf
-  where
-    trV :: Data a => (Value a -> Value a) -> ProgramFile a -> ProgramFile a
-    trV = transformBi
-    fV :: Data a => Value a -> Value a
-    fV (ValVariable a v) = ValVariable a $ fromMaybe v (v `lookup` nm)
-    fV x               = x
-
-    trPU :: Data a => (ProgramUnit a -> ProgramUnit a) -> ProgramFile a -> ProgramFile a
-    trPU = transformBi
-    fPU :: Data a => ProgramUnit a -> ProgramUnit a
-    fPU (PUFunction a s ty n args b) = PUFunction a s ty (fromMaybe n (n `lookup` nm)) args b
-    fPU x               = x
-
---------------------------------------------------
-
-mungeName (Named s) = s
-mungeName n = show n
-
-transPU :: Data a => RenamerFunc (ProgramUnit a) -> RenamerFunc (ProgramFile a)
-transPU = transformBiM
-
-transSS :: Data a => RenamerFunc [Statement a] -> RenamerFunc (ProgramUnit a)
-transSS = descendBiM
-
-transSS_PF :: Data a => RenamerFunc [Statement a] -> RenamerFunc (ProgramFile a)
-transSS_PF = descendBiM
-
-transPU_B :: Data a => RenamerFunc (ProgramUnit a) -> RenamerFunc (Block a)
-transPU_B = descendBiM
-
-transBS_PU :: Data a => RenamerFunc [Block a] -> RenamerFunc (ProgramUnit a)
-transBS_PU = transformBiM
-
-transV_PF :: Data a => RenamerFunc (Value a) -> RenamerFunc (ProgramFile a)
-transV_PF = transformBiM
-
-transV_PU :: Data a => RenamerFunc (Value a) -> RenamerFunc (ProgramUnit a)
-transV_PU = descendBiM
-
-transV_SS :: Data a => RenamerFunc (Value a) -> RenamerFunc [Statement a]
-transV_SS = descendBiM
-
-transV_BS :: Data a => RenamerFunc (Value a) -> RenamerFunc [Block a]
-transV_BS = descendBiM
-
-transB :: Data a => RenamerFunc (Block a) -> RenamerFunc (ProgramUnit a)
-transB = descendBiM
