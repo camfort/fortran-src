@@ -42,6 +42,9 @@ aReverse (AList a s xs) = AList a s $ reverse xs
 aStrip :: AList t a -> [t a]
 aStrip (AList _ _ l) = l
 
+aMap :: (t a -> t a) -> AList t a -> AList t a
+aMap f (AList a s xs) = AList a s (map f xs)
+
 -- Basic AST nodes
 data BaseType a =
     TypeInteger         a SrcSpan
