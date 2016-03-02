@@ -173,7 +173,7 @@ data Value a =
   | ValLabel             String
   | ValVariable          a Name
   | ValParameter         Name
-  | ValArray             Name
+  | ValArray             a Name
   | ValTrue
   | ValFalse
   | ValFunctionName      Name

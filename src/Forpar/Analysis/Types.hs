@@ -162,7 +162,7 @@ inferInProgramFile pu = do
 inferFromFuncStatements :: Data a => ProgramUnit a -> TypeMapping a ()
 inferFromFuncStatements pu = do
   let statements = universeBi :: Data a => ProgramUnit a -> [Statement a]
-  let lhsNames = [ s | StExpressionAssign _ _ (ExpSubscript _ _ (ExpValue _ _ (ValArray s)) _) _ <- statements pu ]
+  let lhsNames = [ s | StExpressionAssign _ _ (ExpSubscript _ _ (ExpValue _ _ (ValArray _ s)) _) _ <- statements pu ]
   idts <- mapM (queryIDType puName) lhsNames
   let filteredNames = map fst $ filter p $ zip lhsNames idts
   mapM_ (\n -> addConstructToMapping puName n CTFunction) filteredNames
@@ -181,7 +181,7 @@ inferFromDimensions :: Data a => TypeScope -> [ Statement a ] -> TypeMapping a (
 inferFromDimensions ts dimSts = do
   let decls = universeBi :: Data a => [Statement a] -> [Declarator a]
   let arrayExps = [ exp | DeclArray _ _ exp _ <- decls dimSts]
-  let arrayNames = [ s | ExpValue _ _ (ValArray s) <- arrayExps ]
+  let arrayNames = [ s | ExpValue _ _ (ValArray _ s) <- arrayExps ]
   mapM_ (\n -> addConstructToMapping ts n CTArray) arrayNames
 
 inferFromParameters :: Data a => TypeScope -> [ Statement a ] -> TypeMapping a ()
@@ -208,7 +208,7 @@ inferFromDeclarations ts ((bt, decls):ds) = do
         DeclCharVariable _ _ e _ -> addValueToMapping ts (expToId e) vt
       addDecls ds'
     expToId (ExpValue _ _ (ValVariable _ s)) = s
-    expToId (ExpValue _ _ (ValArray s)) = s
+    expToId (ExpValue _ _ (ValArray _ s)) = s
 
 --------------------------------------------------------------------------------
 -- Utility methods

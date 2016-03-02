@@ -739,7 +739,7 @@ VARIABLE
 : id { ExpValue () (getSpan $1) $ let (TId _ s) = $1 in ValVariable () s }
 
 ARRAY :: { Expression A0 }
-ARRAY : id { ExpValue () (getSpan $1) $ let (TId _ s) = $1 in ValArray s }
+ARRAY : id { ExpValue () (getSpan $1) $ let (TId _ s) = $1 in ValArray () s }
 
 FUNCTION_NAME :: { Expression A0 }
 FUNCTION_NAME

@@ -19,22 +19,22 @@ disambiguateFunction = do
   disambiguateFunctionStatements
   disambiguateFunctionCalls
 
-disambiguateFunctionStatements :: Transform () 
+disambiguateFunctionStatements :: Transform ()
 disambiguateFunctionStatements = do
   pf <- getProgramFile
   mapping <- getTypes
   putProgramFile $ descendBi (transform' mapping) pf
   where
-    transform' mapping (pu :: ProgramUnit ()) = 
+    transform' mapping (pu :: ProgramUnit ()) =
       descendBi (transform'' $ mapping ! Local (getName pu)) pu
-    transform'' 
-      innerMapping 
-      st@(StExpressionAssign () s 
+    transform''
+      innerMapping
+      st@(StExpressionAssign () s
         (ExpSubscript () _
-          (ExpValue () s'' (ValArray n)) indicies) 
+          (ExpValue () s'' (ValArray () n)) indicies)
         e2)
       | Just (IDType _ (Just CTFunction)) <- lookup n innerMapping =
-          StFunction () s 
+          StFunction () s
             (ExpValue () s'' (ValFunctionName n))
             indicies
             e2
@@ -47,20 +47,20 @@ disambiguateFunctionCalls = do
   mapping <- getTypes
   putProgramFile $ descendBi (transform' mapping) pf
   where
-    transform' mapping (pu :: ProgramUnit ()) = 
+    transform' mapping (pu :: ProgramUnit ()) =
       descendBi (transform'' (lookup Global mapping) (mapping ! Local (getName pu))) pu
-    transform'' 
+    transform''
         mGlobalMapping
-        innerMapping 
-        exp@(ExpSubscript () s (ExpValue () s' (ValArray n)) l)
+        innerMapping
+        exp@(ExpSubscript () s (ExpValue () s' (ValArray () n)) l)
       -- Check if it is a function statement
-      -- | Just (IDType _ (Just CTFunction)) <- lookup n innerMapping 
-      | Just (IDType _ (Just CTFunction)) <- lookup n innerMapping 
+      -- | Just (IDType _ (Just CTFunction)) <- lookup n innerMapping
+      | Just (IDType _ (Just CTFunction)) <- lookup n innerMapping
       = ExpFunctionCall () s (ExpValue () s' (ValFunctionName n)) l
       -- Check if it is a function subprogram
       | isJust mGlobalMapping
       , Just (IDType _ (Just CTFunction)) <- lookup n (fromJust mGlobalMapping)
       = ExpFunctionCall () s (ExpValue () s' (ValFunctionName n)) l
       | otherwise = exp
-    transform'' mGlobalMapping localMapping (x :: Expression ()) = 
+    transform'' mGlobalMapping localMapping (x :: Expression ()) =
       descend (transform'' mGlobalMapping localMapping) x

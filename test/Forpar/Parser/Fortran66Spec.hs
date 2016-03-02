@@ -211,7 +211,7 @@ spec =
           sParser "      f = 1" `shouldBe'` expectedSt
 
         it "parses 'f = a(1,2)'" $ do
-          let rhs = ExpSubscript () u (ExpValue () u (ValArray "a")) (AList () u [intGen 1, intGen 2])
+          let rhs = ExpSubscript () u (ExpValue () u (ValArray () "a")) (AList () u [intGen 1, intGen 2])
           let expectedSt = StExpressionAssign () u (varGen "f") rhs
           sParser "      f = a(1,2)" `shouldBe'` expectedSt
 

@@ -28,7 +28,7 @@ labelGen :: Integer -> Expression ()
 labelGen i = ExpValue () u $ ValLabel $ show i
 
 arrGen :: String -> Expression ()
-arrGen str = ExpValue () u $ ValArray str
+arrGen str = ExpValue () u $ ValArray () str
 
 cbNameGen :: String -> Expression ()
 cbNameGen str = ExpValue () u $ ValCommonName str
