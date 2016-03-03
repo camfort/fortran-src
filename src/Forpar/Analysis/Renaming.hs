@@ -19,7 +19,7 @@ import Forpar.Analysis.Types
 import Prelude hiding (lookup)
 import Data.Maybe (maybe, fromMaybe)
 import qualified Data.List as L
-import Data.Map (findWithDefault, insert, union, empty, lookup, Map, fromList)
+import Data.Map (findWithDefault, insert, union, empty, lookup, member, Map, fromList)
 import Control.Monad.State.Lazy
 import Data.Generics.Uniplate.Data
 import Data.Generics.Uniplate.Operations
@@ -59,7 +59,7 @@ type RenamerFunc t = t -> Renamer t
 
 -- | Annotate unique names for variable and function declarations and uses.
 analyseRenames :: Data a => ProgramFile (Analysis a) -> ProgramFile (Analysis a)
-analyseRenames pf = pf'
+analyseRenames pf = globaliseFuncsAndSubs pf'
   where (pf', _) = runRenamer (transPU programUnit pf) renameState0
         transPU :: Data a => RenamerFunc (ProgramUnit a) -> RenamerFunc (ProgramFile a)
         transPU = transformBiM -- work from the bottom up
@@ -234,3 +234,26 @@ value (ValArray a v) = do
   env <- gets (head . environ)
   return $ ValArray (a { uniqueName = v `lookup` env }) v
 value v = return v
+
+--------------------------------------------------
+
+funcsAndSubs :: Data a => ProgramFile (Analysis a) -> NameMap
+funcsAndSubs pf =
+  fromList $
+    [ (n, un) | PUFunction (Analysis { uniqueName = Just un }) _ _ n _ _ <- uniPU_PF pf ] ++
+    [ (n, un) | PUSubroutine (Analysis { uniqueName = Just un }) _ n _ _ <- uniPU_PF pf ]
+  where
+    uniPU_PF :: Data a => ProgramFile a -> [ProgramUnit a]
+    uniPU_PF = universeBi
+
+globaliseFuncsAndSubs :: Data a => ProgramFile (Analysis a) -> ProgramFile (Analysis a)
+globaliseFuncsAndSubs pf = fst $ runRenamer (transV fV pf) renameState0
+  where
+    nm = funcsAndSubs pf
+
+    transV :: Data a => RenamerFunc (Value a) -> RenamerFunc (ProgramFile a)
+    transV = transformBiM -- work from the bottom up
+
+    fV :: Data a => RenamerFunc (Value (Analysis a))
+    fV (ValVariable a v) | v `member` nm = return $ ValVariable (a { uniqueName = v `lookup` nm }) v
+    fV v = return v

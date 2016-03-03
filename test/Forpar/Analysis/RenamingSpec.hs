@@ -42,6 +42,9 @@ spec = do
       let entry = analyseRenames . initAnalysis $ ex3
       [ 1 | ValVariable (Analysis { uniqueName = Nothing }) _ <- uniV_PF entry ] `shouldSatisfy` null
       [ 1 | ValArray (Analysis { uniqueName = Nothing }) _ <- uniV_PF entry ]    `shouldSatisfy` null
+    it "functions 1" $ do
+      let entry = extractNameMap . analyseRenames . initAnalysis $ ex3
+      length (filter (=="f1") (elems entry)) `shouldBe` 1
 
   describe "Identity" $ do
     it "unrename-rename 1" $ do
@@ -55,6 +58,10 @@ spec = do
     it "unrename-rename 3" $ do
       let entry = unrename . renameAndStrip . analyseRenames . initAnalysis $ ex3
       entry `shouldBe` ex3
+
+    it "unrename-rename 4" $ do
+      let entry = unrename . renameAndStrip . analyseRenames . initAnalysis $ ex4
+      entry `shouldBe` ex4
 
   describe "Shadowing" $ do
     it "shadowing 1" $ do
@@ -105,3 +112,14 @@ ex3pu1bs =
   , BlStatement () u Nothing (StExpressionAssign () u
       (varGen "d") (ExpBinary () u Addition (varGen "d") (intGen 1))) ]
 ex3pu2 = PUFunction () u (Just $ TypeInteger () u) "f1" (AList () u [ValVariable () "d", ValVariable () "b"]) (ex3pu1bs ++ [ BlStatement () u Nothing (StExpressionAssign () u (varGen "f1") (varGen "d")) ])
+
+ex4 = ProgramFile [ ([ ], ex4pu1), ([ ], ex4pu2)] [ ]
+ex4pu1 = PUMain () u (Just "main") ex4pu1bs
+ex4pu1bs =
+  [ BlStatement () u Nothing (StDeclaration () u (TypeInteger () u) (AList () u
+      [ DeclVariable () u (varGen "f1"), DeclVariable () u (varGen "r") ]))
+  , BlStatement () u Nothing (StExpressionAssign () u
+      (ExpValue () u (ValVariable () "r"))
+      (ExpFunctionCall () u (ExpValue () u (ValFunctionName "f1"))
+                            (AList () u [intGen 1]))) ]
+ex4pu2 = PUFunction () u (Just $ TypeInteger () u) "f1" (AList () u [ValVariable () "x"]) ([ BlStatement () u Nothing (StExpressionAssign () u (varGen "f1") (varGen "x")) ])
