@@ -349,6 +349,7 @@ class Labeled f where
 instance Labeled Block where
   getLabel (BlStatement _ _ l _) = l
   getLabel (BlIf _ _ l _ _) = l
+  getLabel _ = Nothing
 
   setLabel (BlStatement a s _ st) l = BlStatement a s (Just l) st
   setLabel (BlIf a s _ conds bs) l = BlIf a s (Just l) conds bs
