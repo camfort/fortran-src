@@ -141,7 +141,7 @@ programUnit pu = do
 
   -- e.g.
   --    FUNCTION f(x)
-  --      INTEGER x
+  --      INTEGER x, f
   --      f = x + 1
   --    END
 
@@ -227,6 +227,7 @@ blstmtList bs = return bs
 
 value :: Data a => RenamerFunc (Value (Analysis a))
 value v@(ValVariable (Analysis { uniqueName = Just _ }) _) = return v
+value v@(ValArray (Analysis { uniqueName = Just _ }) _) = return v
 value (ValVariable a v) = do
   env <- gets (head . environ)
   return $ ValVariable (a { uniqueName = v `lookup` env }) v
@@ -237,6 +238,7 @@ value v = return v
 
 --------------------------------------------------
 
+-- list of functions/subroutines and their uniquenames
 funcsAndSubs :: Data a => ProgramFile (Analysis a) -> NameMap
 funcsAndSubs pf =
   fromList $
@@ -246,6 +248,7 @@ funcsAndSubs pf =
     uniPU_PF :: Data a => ProgramFile a -> [ProgramUnit a]
     uniPU_PF = universeBi
 
+-- ensure that function and subroutine references use the same name globally
 globaliseFuncsAndSubs :: Data a => ProgramFile (Analysis a) -> ProgramFile (Analysis a)
 globaliseFuncsAndSubs pf = fst $ runRenamer (transV fV pf) renameState0
   where
