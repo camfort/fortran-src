@@ -13,6 +13,11 @@ import Forpar.ParserMonad (FortranVersion(..))
 import Forpar.Lexer.FixedForm (collectFixedTokens, Token(..))
 import Forpar.Parser.Fortran66 (fortran66Parser)
 import Forpar.Parser.Fortran77 (fortran77Parser)
+import Forpar.Analysis.Types (TypeScope(..), inferTypes, IDType(..))
+
+import qualified Data.Map as M
+import Control.Monad
+import Text.Printf
 
 programName = "Forpar"
 
@@ -21,13 +26,13 @@ main = do
   args <- getArgs
   (opts, parsedArgs) <- compileArgs args
   if length parsedArgs /= 1
-  then fail $ usageInfo programName options 
+  then fail $ usageInfo programName options
   else do
     let path = parsedArgs !! 0
     contents <- readFile path
     let version = case fortranVersion opts of { Just v -> v; Nothing -> deduceVersion path }
     case action opts of
-      Lex -> 
+      Lex ->
         if version `elem` [Fortran66, Fortran77]
         then do
             let tokens = collectFixedTokens version contents
@@ -38,22 +43,31 @@ main = do
         then fail "for now"
         else ioError $ userError $ usageInfo programName options
       Parse ->
-        case version of 
+        case version of
           Fortran66 -> pp $ fortran66Parser contents path
           Fortran77 -> pp $ fortran77Parser contents path
+      Typecheck ->
+        case version of
+          Fortran66 -> printTypes . inferTypes $ fortran66Parser contents path
+          Fortran77 -> printTypes . inferTypes $ fortran77Parser contents path
 
-data Action = Lex | Parse
+printTypes tenv = forM_ (M.toList tenv) $ \ (scope, tmap) -> do
+  putStrLn $ "Scope: " ++ (case scope of Global -> "Global"; Local n -> show n)
+  forM_ (M.toList tmap) $ \ (name, IDType { idVType = vt, idCType = ct }) ->
+    printf "%s\t\t%s %s\n" name (drop 2 $ maybe "  -" show vt) (drop 2 $ maybe "   " show ct)
+
+data Action = Lex | Parse | Typecheck
 
 instance Read Action where
-  readsPrec _ value = 
+  readsPrec _ value =
     let options = [ ("lex", Lex) , ("parse", Parse) ] in
       tryTypes options
       where
         tryTypes [] = []
-        tryTypes ((attempt,result):xs) = 
+        tryTypes ((attempt,result):xs) =
           if map toLower value == attempt then [(result, "")] else tryTypes xs
 
-data Options = Options 
+data Options = Options
   { fortranVersion  :: Maybe FortranVersion
   , action   :: Action }
 
@@ -61,17 +75,22 @@ initOptions = Options Nothing Parse
 
 options :: [OptDescr (Options -> Options)]
 options =
-  [ Option ['v'] 
-      ["fortranVersion"] 
-      (ReqArg (\v opts -> opts { fortranVersion = Just $ read v }) "VERSION") 
+  [ Option ['v']
+      ["fortranVersion"]
+      (ReqArg (\v opts -> opts { fortranVersion = Just $ read v }) "VERSION")
       "fortran fortranVersion to be used"
   , Option ['a']
       ["action"]
       (ReqArg (\a opts -> opts { action = read a }) "ACTION")
-      "lex or parse action" ]
+      "lex or parse action"
+  , Option ['t']
+      ["typecheck"]
+      (NoArg $ \ opts -> opts { action = Typecheck })
+      "parse and run typechecker"
+  ]
 
 compileArgs :: [ String ] -> IO (Options, [ String ])
-compileArgs args = 
+compileArgs args =
   case getOpt Permute options args of
     (o, n, []) -> return $ (foldl (flip id) initOptions o, n)
     (_, _, errors) -> ioError $ userError $ concat errors ++ usageInfo header options
@@ -94,7 +113,7 @@ deduceVersion path
     isExtensionOf = flip isSuffixOf $ map toLower path
 
 instance Read FortranVersion where
-  readsPrec _ value = 
+  readsPrec _ value =
     let options = [ ("66", Fortran66)
                   , ("77", Fortran77)
                   , ("90", Fortran90)
@@ -104,15 +123,15 @@ instance Read FortranVersion where
       tryTypes options
       where
         tryTypes [] = []
-        tryTypes ((attempt,result):xs) = 
+        tryTypes ((attempt,result):xs) =
           if isInfixOf attempt value then [(result, "")] else tryTypes xs
 
 instance {-# OVERLAPPING #-}Show [ Token ] where
   show xs = unlines . lines' $ xs
     where
       lines' [] = []
-      lines' xs = 
-        let (x, xs') = break isNewline xs 
+      lines' xs =
+        let (x, xs') = break isNewline xs
         in case xs' of
              (nl@(TNewline _):xs'') -> ('\t' : (concat . intersperse ", " . map show $ x ++ [nl])) : lines' xs''
              xs'' -> [ show xs'' ]
