@@ -55,7 +55,7 @@ $special = [\ \=\+\-\*\/\(\)\,\.\$]
 
 tokens :-
 
-  <0> [c!\*d] / { commentP }                   { lexComment Nothing }
+  <0> [c!\*d] / { commentP }                  { lexComment Nothing }
   <0> @label / { withinLabelColsP }           { addSpanAndMatch TLabel }
   <0> . / { \_ ai _ _ -> atColP 6 ai }        { toSC keyword }
   <0> " "                                     ;
@@ -307,16 +307,6 @@ incWhiteSensitiveCharCount = do
   let wsc = aiWhiteSensitiveCharCount ai
   putAlex $ ai { aiWhiteSensitiveCharCount = wsc + 1 }
 
-incPar :: LexAction ()
-incPar = do
-  ps <- get
-  put $ ps { psParanthesesCount = psParanthesesCount ps + 1}
-
-decPar :: LexAction ()
-decPar = do
-  ps <- get
-  put $ ps { psParanthesesCount = psParanthesesCount ps - 1}
-
 resetWhiteSensitiveCharCount :: LexAction ()
 resetWhiteSensitiveCharCount = do
   ai <- getAlex
@@ -327,7 +317,7 @@ instance Spanned Lexeme where
     let ms = lexemeStart lexeme 
         me = lexemeEnd lexeme in
       SrcSpan (fromJust ms) (fromJust me)
-  setSpan _ = error "Should not be called"
+  setSpan _ = error "Lexeme span cannot be set."
 
 updatePreviousToken :: Maybe Token -> LexAction ()
 updatePreviousToken maybeToken = do
@@ -821,8 +811,7 @@ initParseState srcInput fortranVersion filename =
       { psAlexInput = undefined
       , psVersion = fortranVersion
       , psFilename = filename 
-      , psParanthesesCount = 0
-      }
+      , psParanthesesCount = 0 }
     
 collectFixedTokens :: FortranVersion -> String -> Maybe [Token]
 collectFixedTokens version srcInput = 

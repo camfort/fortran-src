@@ -20,17 +20,17 @@ import Forpar.Util.Position
 -- Helper datatype definitions
 -------------------------------------------------------------------------------
 
-data FortranVersion = Fortran66 
-                    | Fortran77 
-                    | Fortran90 
+data FortranVersion = Fortran66
+                    | Fortran77
+                    | Fortran90
                     | Fortran95
-                    | Fortran2003 
+                    | Fortran2003
                     | Fortran2008
                     deriving (Ord, Eq, Show)
 
-data ParseState a = ParseState 
+data ParseState a = ParseState
   { psAlexInput :: a
-  , psParanthesesCount :: Integer 
+  , psParanthesesCount :: Integer
   , psVersion :: FortranVersion  -- To differentiate lexing behaviour
   , psFilename :: String -- To save correct source location in AST
   }
@@ -42,8 +42,8 @@ data ParseError a b = ParseError
   , errMsg        :: String }
 
 instance Show b => Show (ParseError a b) where
-  show err = 
-    let lastTokenMsg = 
+  show err =
+    let lastTokenMsg =
           (case errLastToken err of
             Just a -> "Last parsed token: " ++ show a ++ "."
             Nothing -> "Not token had been lexed.") in
@@ -65,12 +65,12 @@ data Parse b c a = Parse { unParse :: ParseState b -> ParseResult b c a }
 instance (Loc b, LastToken b c, Show c) => Monad (Parse b c) where
   return a = Parse $ \s -> ParseOk a s
 
-  (Parse m) >>= f = Parse $ \s -> 
-    case m s of 
+  (Parse m) >>= f = Parse $ \s ->
+    case m s of
       ParseOk a s' -> unParse (f a) s'
       ParseFailed e -> ParseFailed e
 
-  fail msg = Parse $ \s -> ParseFailed $ ParseError 
+  fail msg = Parse $ \s -> ParseFailed ParseError
     { errPos        = (getPos . psAlexInput) s
     , errLastToken  = (getLastToken . psAlexInput) s
     , errFilename   = psFilename s
@@ -94,7 +94,7 @@ instance (Loc b, LastToken b c, Show c) => MonadError (ParseError b c) (Parse b 
     case m s of
       ParseFailed e -> unParse (f e) s
       m' -> m'
-  
+
 -------------------------------------------------------------------------------
 -- Parser helper functions
 -------------------------------------------------------------------------------
@@ -124,12 +124,22 @@ getSrcSpan loc1 = do
   loc2 <- getPosition
   return $ SrcSpan loc1 loc2
 
+incPar :: (Loc a, LastToken a b, Show b) => Parse a b ()
+incPar = do
+  ps <- get
+  put $ ps { psParanthesesCount = psParanthesesCount ps + 1}
+
+decPar :: (Loc a, LastToken a b, Show b) => Parse a b ()
+decPar = do
+  ps <- get
+  put $ ps { psParanthesesCount = psParanthesesCount ps - 1}
+
 -------------------------------------------------------------------------------
 -- Generic token collection and functions
 -------------------------------------------------------------------------------
 
 runParse :: (Loc b, LastToken b c, Show c) => Parse b c a -> ParseState b -> (a, ParseState b)
-runParse lexer initState = 
+runParse lexer initState =
   case unParse lexer initState of
     ParseOk a s -> (a, s)
     ParseFailed e -> error $ show e
@@ -144,7 +154,7 @@ class Tok a where
   eofToken :: a -> Bool
 
 collectTokens :: forall a b . (Loc b, Tok a, LastToken b a, Show a) => Parse b a (Maybe a) -> ParseState b -> Maybe [a]
-collectTokens lexer initState = 
+collectTokens lexer initState =
     evalParse (_collectTokens initState) undefined
   where
     _collectTokens :: (Loc b, Tok a, LastToken b a, Show a) => ParseState b -> Parse b a (Maybe [a])
