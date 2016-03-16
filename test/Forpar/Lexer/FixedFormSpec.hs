@@ -31,25 +31,25 @@ collectToLex version srcInput = do
 spec :: Spec
 spec = 
   describe "Fortran Fixed Form Lexer" $ do
-    describe "Fortran 77" $ do
+    describe "Fortran 77" $
       describe "String" $ do
-        it "lexes 'hello'" $ do
+        it "lexes 'hello'" $
           resetSrcSpan (lex77 "      c = 'hello'") `shouldBe` resetSrcSpan (Just $ TString u "hello")
 
-        it "lexes 'he''llo'" $ do
+        it "lexes 'he''llo'" $
           resetSrcSpan (lex77 "      c = 'he''llo'") `shouldBe` resetSrcSpan (Just $ TString u "he'llo")
 
-        it "lexes 'he''''ll''o'" $ do
+        it "lexes 'he''''ll''o'" $
           resetSrcSpan (lex77 "      c = 'he''''ll''o'") `shouldBe` resetSrcSpan (Just $ TString u "he''ll'o")
 
-        it "lexes '''hello'''" $ do
+        it "lexes '''hello'''" $
           resetSrcSpan (lex77 "      c = '''hello'''") `shouldBe` resetSrcSpan (Just $ TString u "'hello'")
 
-        it "lexes 'hello world'" $ do
+        it "lexes 'hello world'" $
           resetSrcSpan (lex77 "      c = 'hello world'") `shouldBe` resetSrcSpan (Just $ TString u "hello world")
 
-        it "lexes 'hello world'" $ do
-          resetSrcSpan (collectFixedTokens Fortran77 "      c = 'x' // 'o'") `shouldBe` resetSrcSpan (Just $ [TId u "c", TOpAssign u, TString u "x", TSlash u, TSlash u, TString u "o", TEOF u])
+        it "lexes 'hello world'" $
+          resetSrcSpan (collectFixedTokens Fortran77 "      c = 'x' // 'o'") `shouldBe` resetSrcSpan (Just [TId u "c", TOpAssign u, TString u "x", TSlash u, TSlash u, TString u "o", TEOF u])
 
     describe "Fortran 66" $ do
       prop "lexes Label, Comment, Newline or EOF in the first six columns or returns Nothing " $
@@ -61,83 +61,83 @@ spec =
                 Just (TNewline _) -> True
                 _ -> False
 
-      it "lexes alphanumeric identifier" $ do
-        resetSrcSpan (collectFixedTokens Fortran66 "      e42 =") `shouldBe` resetSrcSpan (Just $ [TId u "e42", TOpAssign u, TEOF u] )
+      it "lexes alphanumeric identifier" $
+        resetSrcSpan (collectFixedTokens Fortran66 "      e42 =") `shouldBe` resetSrcSpan (Just [TId u "e42", TOpAssign u, TEOF u] )
 
-      it "lexes exponent" $ do
-        resetSrcSpan (collectFixedTokens Fortran66 "      a = 42 e42") `shouldBe` resetSrcSpan (Just $ [TId u "a", TOpAssign u, TInt u "42", TExponent u "e42", TEOF u])
+      it "lexes exponent" $
+        resetSrcSpan (collectFixedTokens Fortran66 "      a = 42 e42") `shouldBe` resetSrcSpan (Just [TId u "a", TOpAssign u, TInt u "42", TExponent u "e42", TEOF u])
 
-      it "lexes 'function'" $ do
+      it "lexes 'function'" $ 
         resetSrcSpan (lex66 "      function") `shouldBe` resetSrcSpan (Just $ TFunction u)
 
-      it "lexes 'end'" $ do
+      it "lexes 'end'" $ 
         resetSrcSpan (lex66 "      end") `shouldBe` resetSrcSpan (Just $ TEnd u)
     
-      it "lexes identifier" $ do
+      it "lexes identifier" $
         resetSrcSpan (lex66 "      a = mistr") `shouldBe` resetSrcSpan (Just $ TId u "mistr")
 
-      it "lexes comment if first column is C" $ do
+      it "lexes comment if first column is C" $
         resetSrcSpan (lex66 "c this is a comment") `shouldBe` resetSrcSpan (Just $ TComment u " this is a comment")
 
-      it "lexes empty comment" $ do
+      it "lexes empty comment" $
         resetSrcSpan (lex66 "c") `shouldBe` resetSrcSpan (Just $ TComment u "")
 
-      it "lexes comment with one char" $ do
+      it "lexes comment with one char" $
         resetSrcSpan (lex66 "ca") `shouldBe` resetSrcSpan (Just $ TComment u "a")
 
-      it "should not lex from the next line" $ do
+      it "should not lex from the next line" $
         resetSrcSpan (lex66 "cxxx\nselam") `shouldNotBe` resetSrcSpan (Just $ TComment u "xxxselam")
 
-      it "lexes three tokens"  $ do
+      it "lexes three tokens"  $
         resetSrcSpan (collectFixedTokens Fortran66 "      function end format") `shouldBe` resetSrcSpan (Just [TFunction u, TId u "endfor", TId u "mat", TEOF u])
 
-      it "lexes multiple comments in a line" $ do
+      it "lexes multiple comments in a line" $
         resetSrcSpan (collectFixedTokens Fortran66 "csomething\ncsomething else\n\nc\ncc\n") `shouldBe` 
           resetSrcSpan (Just [TComment u "something", TNewline u, TComment u "something else", TNewline u, TNewline u, TComment u "", TNewline u, TComment u "c", TNewline u, TEOF u])
 
-      it "lexes example1" $ do
+      it "lexes example1" $
         resetSrcSpan (collectFixedTokens Fortran66 example1) `shouldBe` resetSrcSpan (Just example1Expectation)
     
-      it "lexes end of file" $ do
+      it "lexes end of file" $
         resetSrcSpan (lex66 "") `shouldBe` Nothing
 
-      it "lexes '3 + 2'" $ do
+      it "lexes '3 + 2'" $
         resetSrcSpan (collectFixedTokens Fortran66 "      a = 3 + 2") `shouldBe` resetSrcSpan (Just [TId u "a", TOpAssign u, TInt u "3", TOpPlus u , TInt u "2", TEOF u])
 
-      it "should lex continuation lines properly" $ do
+      it "should lex continuation lines properly" $
         resetSrcSpan (collectFixedTokens Fortran66 continuationExample) `shouldBe` resetSrcSpan (Just [ TType u "integer", TId u "ix", TNewline u, TId u "ix", TOpAssign u, TInt u "42", TNewline u, TEnd u, TNewline u, TEOF u ])
 
       describe "lexing format items" $ do
-        it "lexes '10x'" $ do
+        it "lexes '10x'" $
           resetSrcSpan (lex66 "      format 10x") `shouldBe` resetSrcSpan (Just $ TBlankDescriptor u 10)
 
-        it "lexes '10a1'" $ do
+        it "lexes '10a1'" $
           resetSrcSpan (lex66 "      format 10a1") `shouldBe` resetSrcSpan (Just $ TFieldDescriptorAIL u (Just 10) 'a' 1)
 
-        it "lexes 'a1'" $ do
+        it "lexes 'a1'" $
           resetSrcSpan (lex66 "      format a1") `shouldBe` resetSrcSpan (Just $ TFieldDescriptorAIL u Nothing 'a' 1)
 
-        it "lexes '20g10.3'" $ do
+        it "lexes '20g10.3'" $
           resetSrcSpan (lex66 "      format 20g10.3") `shouldBe` resetSrcSpan (Just $ TFieldDescriptorDEFG u (Just 20) 'g' 10 3)
 
-        it "lexes '-10p'" $ do
+        it "lexes '-10p'" $
           resetSrcSpan (lex66 "      format -10p") `shouldBe` resetSrcSpan (Just $ TScaleFactor u (-10))
 
-    describe "lexN" $ do
-      it "`lexN 5` parses lexes next five characters" $ do
+    describe "lexN" $
+      it "`lexN 5` parses lexes next five characters" $
         (lexemeMatch . aiLexeme) (evalParse (lexN 5 >> getAlex) (initParseState "helloWorld" Fortran66 "")) `shouldBe` reverse "hello"
 
     describe "lexHollerith" $ do
-      it "lexes Hollerith '7hmistral'" $ do
+      it "lexes Hollerith '7hmistral'" $
         resetSrcSpan (lex66 "      format 7hmistral") `shouldBe` resetSrcSpan (Just $ THollerith u "mistral")
 
-      it "becomes case sensitive" $ do
+      it "becomes case sensitive" $
         resetSrcSpan (lex66 "      format 5h a= 1") `shouldBe` resetSrcSpan (Just $ THollerith u " a= 1")
 
-    it "lexes if statement '        IF (IY) 5,6,6'" $ do
+    it "lexes if statement '        IF (IY) 5,6,6'" $
       resetSrcSpan (collectFixedTokens Fortran66 "      IF (IY) 5,6,6") `shouldBe` resetSrcSpan (Just [TIf u, TLeftPar u, TId u "iy", TRightPar u, TInt u "5", TComma u, TInt u "6", TComma u, TInt u "6", TEOF u])
 
-    it "lexes if then statement '      if (x) then'" $ do
+    it "lexes if then statement '      if (x) then'" $
       resetSrcSpan (collectFixedTokens Fortran77 "      if (x) then") `shouldBe` resetSrcSpan (Just [TIf u, TLeftPar u, TId u "x", TRightPar u, TThen u, TEOF u])
 
 example1 = unlines [
