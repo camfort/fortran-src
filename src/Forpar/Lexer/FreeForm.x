@@ -926,7 +926,7 @@ instance TypeSpec [ Token ] where
       case last rest of
         TRightPar{} -> True
         _ -> False
-    | length tks > 4 = isTypeSpec . tail $ tokens
+    | length tokens > 4 = isTypeSpec . tail $ tokens
     | otherwise = False
 
 --------------------------------------------------------------------------------
