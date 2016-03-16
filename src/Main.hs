@@ -6,11 +6,13 @@ import System.Console.GetOpt
 
 import System.Environment
 import Text.PrettyPrint.GenericPretty (pp)
-import Data.List (isInfixOf, isSuffixOf, intersperse)
+import Data.List (isInfixOf, isSuffixOf, intercalate)
 import Data.Char (toLower)
+import Data.Maybe (fromMaybe)
 
 import Forpar.ParserMonad (FortranVersion(..))
-import Forpar.Lexer.FixedForm (collectFixedTokens, Token(..))
+import qualified Forpar.Lexer.FixedForm as FixedForm (collectFixedTokens, Token(..))
+import qualified Forpar.Lexer.FreeForm as FreeForm (collectFreeTokens, Token(..))
 import Forpar.Parser.Fortran66 (fortran66Parser)
 import Forpar.Parser.Fortran77 (fortran77Parser)
 import Forpar.Analysis.Types (TypeScope(..), inferTypes, IDType(..))
@@ -28,24 +30,23 @@ main = do
   if length parsedArgs /= 1
   then fail $ usageInfo programName options
   else do
-    let path = parsedArgs !! 0
+    let path = head parsedArgs
     contents <- readFile path
-    let version = case fortranVersion opts of { Just v -> v; Nothing -> deduceVersion path }
+    let version = fromMaybe (deduceVersion path) (fortranVersion opts)
     case action opts of
-      Lex ->
-        if version `elem` [Fortran66, Fortran77]
-        then do
-            let tokens = collectFixedTokens version contents
-            case tokens of
-              Just tokens' -> putStrLn $ show tokens'
-              Nothing -> putStrLn "Cannot lex the file"
-        else if version `elem` [Fortran90, Fortran2003, Fortran2008]
-        then fail "for now"
-        else ioError $ userError $ usageInfo programName options
-      Parse ->
-        case version of
-          Fortran66 -> pp $ fortran66Parser contents path
-          Fortran77 -> pp $ fortran77Parser contents path
+      Lex | version `elem` [ Fortran66, Fortran77 ] -> do
+        let tokens = FixedForm.collectFixedTokens version contents
+        case tokens of
+          Just tokens' -> print tokens'
+          Nothing -> putStrLn "Cannot lex the file"
+      Lex | version `elem` [Fortran90, Fortran2003, Fortran2008] -> do
+        let tokens = FreeForm.collectFreeTokens version contents
+        case tokens of
+          Just tokens' -> print tokens'
+          Nothing -> putStrLn "Cannot lex the file"
+      Lex -> ioError $ userError $ usageInfo programName options
+      Parse | version == Fortran66 -> pp $ fortran66Parser contents path
+      Parse | version == Fortran77 -> pp $ fortran77Parser contents path
       Typecheck ->
         case version of
           Fortran66 -> printTypes . inferTypes $ fortran66Parser contents path
@@ -92,7 +93,7 @@ options =
 compileArgs :: [ String ] -> IO (Options, [ String ])
 compileArgs args =
   case getOpt Permute options args of
-    (o, n, []) -> return $ (foldl (flip id) initOptions o, n)
+    (o, n, []) -> return (foldl (flip id) initOptions o, n)
     (_, _, errors) -> ioError $ userError $ concat errors ++ usageInfo header options
   where
     header = "Usage: forpar [OPTION...] <lex|parse> <file>"
@@ -124,16 +125,28 @@ instance Read FortranVersion where
       where
         tryTypes [] = []
         tryTypes ((attempt,result):xs) =
-          if isInfixOf attempt value then [(result, "")] else tryTypes xs
+          if attempt `isInfixOf` value then [(result, "")] else tryTypes xs
 
-instance {-# OVERLAPPING #-}Show [ Token ] where
-  show xs = unlines . lines' $ xs
+instance {-# OVERLAPPING #-} Show [ FixedForm.Token ] where
+  show = unlines . lines'
     where
       lines' [] = []
       lines' xs =
         let (x, xs') = break isNewline xs
         in case xs' of
-             (nl@(TNewline _):xs'') -> ('\t' : (concat . intersperse ", " . map show $ x ++ [nl])) : lines' xs''
+             (nl@(FixedForm.TNewline _):xs'') -> ('\t' : (intercalate ", " . map show $ x ++ [nl])) : lines' xs''
              xs'' -> [ show xs'' ]
-      isNewline (TNewline _) = True
+      isNewline (FixedForm.TNewline _) = True
+      isNewline _ = False
+
+instance {-# OVERLAPPING #-} Show [ FreeForm.Token ] where
+  show = unlines . lines'
+    where
+      lines' [] = []
+      lines' xs =
+        let (x, xs') = break isNewline xs
+        in case xs' of
+             (nl@(FreeForm.TNewline _):xs'') -> ('\t' : (intercalate ", " . map show $ x ++ [nl])) : lines' xs''
+             xs'' -> [ show xs'' ]
+      isNewline (FreeForm.TNewline _) = True
       isNewline _ = False
