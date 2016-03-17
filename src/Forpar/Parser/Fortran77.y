@@ -833,7 +833,7 @@ makeReal i1 dot i2 exp =
 
 fortran77Parser :: String -> String -> ProgramFile A0
 fortran77Parser sourceCode filename =
-  transform [ GroupIf, DisambiguateFunction ] $ evalParse programParser $ initParseState sourceCode Fortran77 filename
+  transform [ GroupIf, DisambiguateFunction, DisambiguateArray ] $ evalParse programParser $ initParseState sourceCode Fortran77 filename
 
 parseError :: Token -> LexAction a
 parseError _ = fail "Parsing failed."

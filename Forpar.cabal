@@ -57,6 +57,7 @@ library
     Forpar.Transformation.TransformMonad
     Forpar.Transformation.Grouping
     Forpar.Transformation.Disambiguation.Function
+    Forpar.Transformation.Disambiguation.Array
     Forpar.AST
     Forpar.Util.Position
     Forpar.Util.FirstParameter
