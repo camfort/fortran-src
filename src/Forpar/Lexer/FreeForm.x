@@ -65,7 +65,6 @@ $expLetter = [ed]
 --------------------------------------------------------------------------------
 -- 0           | For statement starters
 -- scI         | For statements that can come after logical IF
--- scA         | For attributes
 -- scC         | To be used in lexCharacter, it only appears to force Happy to
 --             | resolve it.
 -- scN         | For everything else
@@ -134,18 +133,30 @@ tokens :-
 "len"                                             { addSpan TLen }
 
 -- Attributes
-<0,scA> "public"                                    { addSpan TPublic }
-<0,scA> "private"                                   { addSpan TPrivate }
-<0,scA> "parameter"                                 { addSpan TParameter }
-<0,scA> "allocatable"                               { addSpan TAllocatable }
-<0,scA> "dimension"                                 { addSpan TDimension }
-<0,scA> "external"                                  { addSpan TExternal }
-<0,scA> "intent"                                    { addSpan TIntent }
-<0,scA> "intrinsic"                                 { addSpan TIntrinsic }
-<0,scA> "optional"                                  { addSpan TOptional }
-<0,scA> "pointer"                                   { addSpan TPointer }
-<0,scA> "save"                                      { addSpan TSave }
-<0,scA> "target"                                    { addSpan TTarget }
+<0> "public"                                    { addSpan TPublic }
+<scN> "public" / { attributeP }                                  { addSpan TPublic }
+<0> "private"                                   { addSpan TPrivate }
+<scN> "private" / { attributeP }                                  { addSpan TPrivate }
+<0> "parameter"                                 { addSpan TParameter }
+<scN> "parameter" / { attributeP }                                 { addSpan TParameter }
+<0> "allocatable"                               { addSpan TAllocatable }
+<scN> "allocatable" / { attributeP }                               { addSpan TAllocatable }
+<0> "dimension"                                 { addSpan TDimension }
+<scN> "dimension" / { attributeP }                                 { addSpan TDimension }
+<0> "external"                                  { addSpan TExternal }
+<scN> "external" / { attributeP }                                  { addSpan TExternal }
+<0> "intent"                                    { addSpan TIntent }
+<scN> "intent" / { attributeP }                                    { addSpan TIntent }
+<0> "intrinsic"                                 { addSpan TIntrinsic }
+<scN> "intrinsic" / { attributeP }                                 { addSpan TIntrinsic }
+<0> "optional"                                  { addSpan TOptional }
+<scN> "optional" / { attributeP }                                  { addSpan TOptional }
+<0> "pointer"                                   { addSpan TPointer }
+<scN> "pointer" / { attributeP }                                   { addSpan TPointer }
+<0> "save"                                      { addSpan TSave }
+<scN> "save" / { attributeP }                                      { addSpan TSave }
+<0> "target"                                    { addSpan TTarget }
+<scN> "target" / { attributeP }                                    { addSpan TTarget }
 
 -- Attribute values
 <scN> "in"\ *"out" / { followsIntentP }             { addSpan TInOut }
@@ -274,6 +285,19 @@ partOfExpOrPointerAssignmentP fv _ _ ai = evalParse (lexerM $ f False 0) ps
       | otherwise =
         error "Error while executing part of expression assignment predicate."
 
+attributeP :: FortranVersion -> AlexInput -> Int -> AlexInput -> Bool
+attributeP _ _ _ ai =  followsComma && precedesDoubleColon && startsWithTypeSpec
+  where
+    precedesDoubleColon = not . flip seenConstr ai . fillConstr $ TDoubleColon
+    followsComma
+      | Just TComma{} <- aiPreviousToken ai = True
+      | otherwise = False
+    startsWithTypeSpec
+      | (token:_) <- prevTokens =
+        isTypeSpec token || fillConstr TType == toConstr token
+      | otherwise = False
+    prevTokens = reverse . aiPreviousTokensInLine $ ai
+
 constructNameP :: FortranVersion -> AlexInput -> Int -> AlexInput -> Bool
 constructNameP fv _ _ ai =
   case nextTokenConstr fv ai of
@@ -290,11 +314,15 @@ genericSpecP _ _ _ ai = Just True == do
   else Nothing
 
 typeSpecP :: FortranVersion -> AlexInput -> Int -> AlexInput -> Bool
-typeSpecP _ _ _ ai =
-    case prevTokens of
-      prevToken:_ -> isTypeSpec prevToken || (isTypeSpec . reverse $ prevTokens)
-      _ -> False
+typeSpecP _ _ _ ai
+  | (prevToken:_) <- prevTokens
+  , isTypeSpec prevToken = True
+  | otherwise = isTypeSpecImmediatelyBefore $ reverse prevTokens
   where
+    isTypeSpecImmediatelyBefore tokens@(x:xs)
+      | isTypeSpec tokens = True
+      | otherwise = isTypeSpecImmediatelyBefore xs
+    isTypeSpecImmediatelyBefore [] = False
     prevTokens = aiPreviousTokensInLine ai
 
 resultP :: FortranVersion -> AlexInput -> Int -> AlexInput -> Bool
@@ -920,7 +948,7 @@ instance TypeSpec Token where
 instance TypeSpec [ Token ] where
   isTypeSpec tokens
     | [ TType{}, TLeftPar{}, _, TRightPar{} ] <- tokens = True
-  -- This is an approximation but should hold for almost all legal programs.
+    -- This is an approximation but should hold for almost all legal programs.
     | (typeToken:TLeftPar{}:rest) <- tokens =
       isTypeSpec typeToken &&
       case last rest of
@@ -931,7 +959,6 @@ instance TypeSpec [ Token ] where
         [ TIntegerLiteral{} ] -> True
         (TLeftPar{}:rest') | TRightPar{} <- last rest' -> True
         _ -> False
-    | length tokens > 4 = isTypeSpec . tail $ tokens
     | otherwise = False
 
 --------------------------------------------------------------------------------

@@ -11,7 +11,7 @@ import Forpar.Lexer.FreeForm (collectFreeTokens, Token(..))
 import Debug.Trace
 
 collectF90 :: String -> [ Token ]
-collectF90 = traceShowId . fromJust . collectFreeTokens Fortran90
+collectF90 = fromJust . collectFreeTokens Fortran90
 
 spec :: Spec
 spec =
@@ -99,3 +99,28 @@ spec =
                     fmap ($u) [ TRecursive, TFunction, flip TId "fx", TLeftPar
                               , flip TId "array", TRightPar, TResult, TLeftPar
                               , flip TId "c_sum", TRightPar, TEOF ]
+
+      describe "Attribute" $ do
+        it "lexes PARAMETER attribute" $
+          shouldBe' (collectF90 "integer, parameter :: x") $
+                    fmap ($u) [ TInteger, TComma, TParameter, TDoubleColon
+                              , flip TId "x", TEOF ]
+
+        it "lexes INTENT attribute" $
+          shouldBe' (collectF90 "integer, intent (inout) :: x") $
+                    fmap ($u) [ TInteger, TComma, TIntent, TLeftPar, TInOut
+                              , TRightPar, TDoubleColon , flip TId "x", TEOF ]
+
+        it "lexes DIMENSION attribute" $
+          shouldBe' (collectF90 "double precision, dimension (3:10) :: x") $
+                    fmap ($u) [ TDoublePrecision, TComma, TDimension, TLeftPar
+                              , flip TIntegerLiteral "3", TColon
+                              , flip TIntegerLiteral "10" , TRightPar
+                              , TDoubleColon , flip TId "x", TEOF ]
+
+        it "lexes variable declaration with multiple attributes" $
+          shouldBe' (collectF90 "double precision, save, dimension(2), allocatable :: y") $
+                    fmap ($u) [ TDoublePrecision, TComma, TSave, TComma
+                              , TDimension, TLeftPar, flip TIntegerLiteral "2"
+                              , TRightPar, TComma, TAllocatable, TDoubleColon
+                              , flip TId "y", TEOF ]
