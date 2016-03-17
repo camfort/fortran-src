@@ -187,8 +187,9 @@ programUnit pu = do
       -- get a list of the renames that were performed in this program unit body
       let renames = concat [ f =<< aStrip dalist | StDeclaration _ _ _ dalist <- uniS_PU pu'' ]
       -- for each parameter, apply the first rename found
-      let params' = flip aMap params $ \ (ValVariable a n) ->
-                      ValVariable (a { uniqueName = L.lookup n renames }) n
+      let params' = flip aMap params $ \ p -> case p of
+                      ValVariable a n -> ValVariable (a { uniqueName = L.lookup n renames }) n
+                      ValArray a n    -> ValArray (a { uniqueName = L.lookup n renames }) n
       -- and put it back into its place
       return $ case pu'' of
         PUFunction a s t n params b -> PUFunction a s t n params' b
