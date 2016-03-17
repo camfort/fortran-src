@@ -55,7 +55,7 @@ $expLetter = [ed]
              | @digitString \_ @kindParam
 @altRealLiteral = @digitString \.
 
-@characterLiteralBeg = @kindParam \_ (\'|\")
+@characterLiteralBeg = (@kindParam \_)? (\'|\")
 
 @bool = ".true." | ".false."
 @logicalLiteral = @bool (\_ @kindParam)?
@@ -640,7 +640,12 @@ takeNChars n ai =
     _dropN = posAbsoluteOffset . aiPosition $ ai
 
 currentChar :: AlexInput -> Char
-currentChar = toLower . head . takeNChars 1
+currentChar ai
+  -- case sensitivity matters only in character literals
+  | (scActual . aiStartCode) ai == scC = _currentChar
+  | otherwise = toLower _currentChar
+  where
+  _currentChar = head . takeNChars 1 $ ai
 
 alexAdvance :: AlexInput -> AlexInput
 alexAdvance ai =

@@ -124,3 +124,13 @@ spec =
                               , TDimension, TLeftPar, flip TIntegerLiteral "2"
                               , TRightPar, TComma, TAllocatable, TDoubleColon
                               , flip TId "y", TEOF ]
+      describe "Character" $ do
+        it "lexes single quote literal" $
+          shouldBe' (collectF90 "character c = 'heL\"Lo ''daRLing'") $
+                    fmap ($u) [ TCharacter, flip TId "c", TOpAssign
+                              , flip TString "heL\"Lo 'daRLing", TEOF ]
+
+        it "lexes double quote literal" $
+          shouldBe' (collectF90 "character c = \"heL'Lo \"\"daRLing\"") $
+                    fmap ($u) [ TCharacter, flip TId "c", TOpAssign
+                              , flip TString "heL'Lo \"daRLing", TEOF ]
