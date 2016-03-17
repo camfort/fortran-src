@@ -1,3 +1,4 @@
+-- -*- Mode: Haskell -*-
 {
 module Forpar.Parser.Fortran77(expressionParser,
                                statementParser,
