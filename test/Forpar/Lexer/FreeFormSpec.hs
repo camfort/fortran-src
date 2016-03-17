@@ -33,7 +33,7 @@ spec =
 
         it "treats 'if' as ID if used in assignment" $
           shouldBe' (collectF90 "if = 20") $
-                    fmap ($u) [ flip TId "if", TOpAssign 
+                    fmap ($u) [ flip TId "if", TOpAssign
                               , flip TIntegerLiteral "20", TEOF ]
 
         it "'result' is an identifier in spec. context" $
@@ -49,6 +49,14 @@ spec =
         it "lexes simple type tokens in function" $
           shouldBe' (collectF90 "character function x") $
                     fmap ($u) [ TCharacter, TFunction, flip TId "x", TEOF ]
+
+        it "lexes character type with F77 length syntax (1)" $
+          shouldBe' (collectF90 "character * (*) function x") $
+                    fmap ($u) [ TCharacter, TStar, TLeftPar, TStar, TRightPar, TFunction, flip TId "x", TEOF ]
+
+        it "lexes character type with F77 length syntax (2)" $
+          shouldBe' (collectF90 "character * 20 function x") $
+                    fmap ($u) [ TCharacter, TStar, flip TIntegerLiteral "20", TFunction, flip TId "x", TEOF ]
 
         it "lexes derived type tokens in function" $
           shouldBe' (collectF90 "type (x) function x") $

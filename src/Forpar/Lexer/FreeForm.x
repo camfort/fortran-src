@@ -926,6 +926,11 @@ instance TypeSpec [ Token ] where
       case last rest of
         TRightPar{} -> True
         _ -> False
+    | (TCharacter{}:TStar{}:rest) <- tokens =
+      case rest of
+        [ TIntegerLiteral{} ] -> True
+        (TLeftPar{}:rest') | TRightPar{} <- last rest' -> True
+        _ -> False
     | length tokens > 4 = isTypeSpec . tail $ tokens
     | otherwise = False
 
