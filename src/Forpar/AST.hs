@@ -370,7 +370,7 @@ data ProgramUnitName =
     Named String
   | NamelessBlockData
   | NamelessMain
-  deriving (Ord, Eq, Show)
+  deriving (Ord, Eq, Show, Data, Typeable, Generic)
 
 class Named a where
   getName :: a -> ProgramUnitName
