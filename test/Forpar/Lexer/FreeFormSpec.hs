@@ -134,3 +134,44 @@ spec =
           shouldBe' (collectF90 "character c = \"heL'Lo \"\"daRLing\"") $
                     fmap ($u) [ TCharacter, flip TId "c", TOpAssign
                               , flip TString "heL'Lo \"daRLing", TEOF ]
+
+      describe "Module" $ do
+        it "lexes module statement" $
+          shouldBe' (collectF90 "module Hello_mod") $
+                    fmap ($u) [ TModule, flip TId "hello_mod", TEOF ]
+
+        it "lexes use statement" $
+          shouldBe' (collectF90 "use Hello_mod, hello => hi") $
+                    fmap ($u) [ TUse, flip TId "hello_mod", TComma
+                              , flip TId "hello", TArrow, flip TId "hi", TEOF ]
+
+        it "lexes use statement with only" $
+          shouldBe' (collectF90 "use Hello_mod, only: a, b => c") $
+                    fmap ($u) [ TUse, flip TId "hello_mod", TComma, TOnly
+                              , TColon, flip TId "a", TComma, flip TId "b"
+                              , TArrow, flip TId "c", TEOF ]
+
+      describe "Label" $
+        it "lexes simple label" $
+          shouldBe' (collectF90 "010 print *, 'hello'") $
+                    fmap ($u) [ flip TLabel "010", TPrint, TStar, TComma
+                              , flip TString "hello", TEOF ]
+
+      describe "Conditional" $ do
+        it "lexes block if statement" $
+          shouldBe' (collectF90 "if (a > b) then") $
+                    fmap ($u) [ TIf, TLeftPar, flip TId "a", TOpGT, flip TId "b"
+                              , TRightPar, TThen, TEOF ]
+
+        it "lexes arithmetic if statement" $
+          shouldBe' (collectF90 "if (a) 10, 11, 12") $
+                    fmap ($u) [ TIf, TLeftPar, flip TId "a", TRightPar
+                              , flip TIntegerLiteral "10", TComma
+                              , flip TIntegerLiteral "11", TComma
+                              , flip TIntegerLiteral "12" , TEOF ]
+
+        it "lexes logical if statement" $
+          shouldBe' (collectF90 "if (a > b) print *, 'hello'") $
+                    fmap ($u) [ TIf, TLeftPar, flip TId "a", TOpGT, flip TId "b"
+                              , TRightPar, TPrint, TStar, TComma
+                              , flip TString "hello", TEOF ]

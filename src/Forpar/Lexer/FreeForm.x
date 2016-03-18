@@ -76,8 +76,9 @@ tokens :-
 <0,scN> (\n\r|\r\n|\n)                              { toSC 0 >> addSpan TNewline }
 <0,scN,scI> [\t\ ]+                                 ;
 
-<scN> "("                                           { addSpan TLeftPar }
-<scN> ")"                                           { addSpan TRightPar }
+<scN> "("                                           { incPar >> addSpan TLeftPar }
+<scN> ")" / { ifConditionEndP }                     { decPar >> toSC scI >> addSpan TRightPar }
+<scN> ")"                                           { decPar >> addSpan TRightPar }
 <scN> ","                                           { addSpan TComma }
 <scN> ";"                                           { addSpan TSemiColon }
 <scN> ":"                                           { addSpan TColon }
@@ -168,7 +169,7 @@ tokens :-
 <0> "end"\ *"do"                                  { addSpan TEndDo }
 <0> "while"                                       { addSpan TWhile }
 <0> "if"                                          { addSpan TIf }
-<scN> "then" / { ifStP }                            { addSpan TThen }
+<scI> "then"                                      { addSpan TThen }
 <0> "else"                                        { addSpan TElse }
 <0> "else"\ *"if"                                 { addSpan TElsif }
 <0> "end"\ *"if"                                  { addSpan TEndIf }
@@ -215,8 +216,8 @@ tokens :-
 <0,scI> "end"\ *"file"                              { addSpan TEndfile }
 
 -- Literals
-<0> @label                                        { addSpanAndMatch TLabel }
-<scN> @intLiteralConst                              { addSpanAndMatch TIntegerLiteral  }
+<0> @label                                        { toSC 0 >> addSpanAndMatch TLabel }
+<scN,scI> @intLiteralConst                              { addSpanAndMatch TIntegerLiteral  }
 <scN> @bozLiteralConst                              { addSpanAndMatch TBozLiteral  }
 
 <scN> @realLiteral                                  { addSpanAndMatch TRealLiteral }
@@ -239,9 +240,9 @@ tokens :-
 <scN> ".neqv."                                      { addSpan TOpNotEquivalent }
 <scN> (".eq."|"==")                                 { addSpan TOpEQ }
 <scN> (".ne."|"/=")                                 { addSpan TOpNE }
-<scN> (".lt."|"<=")                                 { addSpan TOpLT }
+<scN> (".lt."|"<")                                 { addSpan TOpLT }
 <scN> (".le."|"<=")                                 { addSpan TOpLE }
-<scN> (".gt."|">=")                                 { addSpan TOpGT }
+<scN> (".gt."|">")                                 { addSpan TOpGT }
 <scN> (".ge."|">=")                                 { addSpan TOpGE }
 <scN> "." $letter+ "."                              { addSpanAndMatch TOpCustom }
 
@@ -253,8 +254,15 @@ tokens :-
 -- Predicated lexer helpers
 --------------------------------------------------------------------------------
 
-partOfExpOrPointerAssignmentP :: FortranVersion -> AlexInput -> Int -> AlexInput -> Bool
-partOfExpOrPointerAssignmentP fv _ _ ai = evalParse (lexerM $ f False 0) ps
+ifConditionEndP :: User -> AlexInput -> Int -> AlexInput -> Bool
+ifConditionEndP (User _ paranthesesCount) _ _ ai
+    | (TIf{}:_) <- prevTokens = paranthesesCount == 1
+    | otherwise = False
+  where
+    prevTokens = reverse . aiPreviousTokensInLine $ ai
+
+partOfExpOrPointerAssignmentP :: User -> AlexInput -> Int -> AlexInput -> Bool
+partOfExpOrPointerAssignmentP (User fv _) _ _ ai = evalParse (lexerM $ f False 0) ps
   where
     ps = ParseState
       { psAlexInput = ai { aiStartCode = StartCode scN Return }
@@ -285,7 +293,7 @@ partOfExpOrPointerAssignmentP fv _ _ ai = evalParse (lexerM $ f False 0) ps
       | otherwise =
         error "Error while executing part of expression assignment predicate."
 
-attributeP :: FortranVersion -> AlexInput -> Int -> AlexInput -> Bool
+attributeP :: User -> AlexInput -> Int -> AlexInput -> Bool
 attributeP _ _ _ ai =  followsComma && precedesDoubleColon && startsWithTypeSpec
   where
     precedesDoubleColon = not . flip seenConstr ai . fillConstr $ TDoubleColon
@@ -298,13 +306,13 @@ attributeP _ _ _ ai =  followsComma && precedesDoubleColon && startsWithTypeSpec
       | otherwise = False
     prevTokens = reverse . aiPreviousTokensInLine $ ai
 
-constructNameP :: FortranVersion -> AlexInput -> Int -> AlexInput -> Bool
-constructNameP fv _ _ ai =
+constructNameP :: User -> AlexInput -> Int -> AlexInput -> Bool
+constructNameP (User fv _) _ _ ai =
   case nextTokenConstr fv ai of
     Just constr -> constr == fillConstr TColon
     _ -> False
 
-genericSpecP :: FortranVersion -> AlexInput -> Int -> AlexInput -> Bool
+genericSpecP :: User -> AlexInput -> Int -> AlexInput -> Bool
 genericSpecP _ _ _ ai = Just True == do
   constr <- prevTokenConstr ai
   if constr `elem` fmap fillConstr [ TInterface, TPublic, TPrivate ]
@@ -313,7 +321,7 @@ genericSpecP _ _ _ ai = Just True == do
   then return $ seenConstr (fillConstr TPublic) ai || seenConstr (fillConstr TPrivate) ai
   else Nothing
 
-typeSpecP :: FortranVersion -> AlexInput -> Int -> AlexInput -> Bool
+typeSpecP :: User -> AlexInput -> Int -> AlexInput -> Bool
 typeSpecP _ _ _ ai
   | (prevToken:_) <- prevTokens
   , isTypeSpec prevToken = True
@@ -325,13 +333,13 @@ typeSpecP _ _ _ ai
     isTypeSpecImmediatelyBefore [] = False
     prevTokens = aiPreviousTokensInLine ai
 
-resultP :: FortranVersion -> AlexInput -> Int -> AlexInput -> Bool
+resultP :: User -> AlexInput -> Int -> AlexInput -> Bool
 resultP _ _ _ ai =
     (flip seenConstr ai . fillConstr $ TFunction) &&
     prevTokenConstr ai == (Just $ fillConstr TRightPar)
 
-notPrecedingDotP :: FortranVersion -> AlexInput -> Int -> AlexInput -> Bool
-notPrecedingDotP fv ai _ _ =
+notPrecedingDotP :: User -> AlexInput -> Int -> AlexInput -> Bool
+notPrecedingDotP (User fv _) ai _ _ =
   case nextTokenConstr fv ai of
     Just constr -> not $ constr `elem` dotConstructors
     Nothing -> True
@@ -342,27 +350,24 @@ notPrecedingDotP fv ai _ _ =
         , TOpEQ, TOpNE, TOpLT, TOpLE, TOpGT
         , TOpGE, flip TOpCustom undefined ]
 
-followsIntentP :: FortranVersion -> AlexInput -> Int -> AlexInput -> Bool
+followsIntentP :: User -> AlexInput -> Int -> AlexInput -> Bool
 followsIntentP _ _ _ ai =
   (map toConstr . take 2 . aiPreviousTokensInLine) ai ==
   map fillConstr [ TLeftPar, TIntent ]
 
-useStP :: FortranVersion -> AlexInput -> Int -> AlexInput -> Bool
+useStP :: User -> AlexInput -> Int -> AlexInput -> Bool
 useStP _ _ _ ai = seenConstr (toConstr $ TUse undefined) ai
 
-moduleStP :: FortranVersion -> AlexInput -> Int -> AlexInput -> Bool
+moduleStP :: User -> AlexInput -> Int -> AlexInput -> Bool
 moduleStP _ _ _ ai = prevTokenConstr ai == (Just $ fillConstr TModule)
 
-ifStP :: FortranVersion -> AlexInput -> Int -> AlexInput -> Bool
-ifStP _ _ _ ai = seenConstr (fillConstr TIf) ai
-
-caseStP :: FortranVersion -> AlexInput -> Int -> AlexInput -> Bool
+caseStP :: User -> AlexInput -> Int -> AlexInput -> Bool
 caseStP _ _ _ ai = prevTokenConstr ai == (Just $ fillConstr TCase)
 
-assignStP :: FortranVersion -> AlexInput -> Int -> AlexInput -> Bool
+assignStP :: User -> AlexInput -> Int -> AlexInput -> Bool
 assignStP _ _ _ ai = seenConstr (fillConstr TAssign) ai
 
-implicitStP :: FortranVersion -> AlexInput -> Int -> AlexInput -> Bool
+implicitStP :: User -> AlexInput -> Int -> AlexInput -> Bool
 implicitStP _ _ _ ai = prevTokenConstr ai == (Just $ fillConstr TImplicit)
 
 prevTokenConstr :: AlexInput -> Maybe Constr
@@ -604,6 +609,9 @@ updateLexeme char p ai =
       newEnd = Just p in
     ai { aiLexeme = Lexeme newMatch newStart newEnd }
 
+-- Fortran version and parantheses count to be used by alexScanUser
+data User = User FortranVersion Integer
+
 --------------------------------------------------------------------------------
 -- Definitions needed for alexScanUser
 --------------------------------------------------------------------------------
@@ -764,7 +772,9 @@ lexer' = do
   normaliseStartCode
   newAlex <- getAlex
   version <- getVersion
-  case alexScanUser version newAlex startCode of
+  paranthesesCount <- getParanthesesCount
+  let user = User version paranthesesCount
+  case alexScanUser user newAlex startCode of
     AlexEOF -> return $ Just $ TEOF $ SrcSpan (getPos alex) (getPos alex)
     AlexError _ -> return Nothing
     AlexSkip newAlex _ -> do
@@ -780,7 +790,7 @@ lexer' = do
           return maybeToken
         Nothing -> lexer'
 
-alexScanUser :: FortranVersion -> AlexInput -> Int -> AlexReturn (LexAction (Maybe Token))
+alexScanUser :: User -> AlexInput -> Int -> AlexReturn (LexAction (Maybe Token))
 
 --------------------------------------------------------------------------------
 -- Tokens

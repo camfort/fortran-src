@@ -124,6 +124,9 @@ getSrcSpan loc1 = do
   loc2 <- getPosition
   return $ SrcSpan loc1 loc2
 
+getParanthesesCount :: (Loc a, LastToken a b, Show b) => Parse a b Integer
+getParanthesesCount = psParanthesesCount <$> get
+
 incPar :: (Loc a, LastToken a b, Show b) => Parse a b ()
 incPar = do
   ps <- get
