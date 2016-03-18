@@ -42,6 +42,15 @@ spec =
                               , TEOF ]
 
       describe "Types" $ do
+        it "lexes length and kind selectors" $
+          shouldBe' (collectF90 "integer (KIND=1, LEN=1) :: kind, len") $
+                    fmap ($u) [ TInteger, TLeftPar, TKind, TOpAssign
+                              , flip TIntegerLiteral "1", TComma, TLen
+                              , TOpAssign, flip TIntegerLiteral "1", TRightPar
+                              , TDoubleColon , flip TId "kind", TComma
+                              , flip TId "len", TEOF ]
+
+
         it "lexes simple type tokens" $
           shouldBe' (collectF90 "character x") $
                     fmap ($u) [ TCharacter, flip TId "x", TEOF ]

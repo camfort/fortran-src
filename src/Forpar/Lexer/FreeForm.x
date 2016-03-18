@@ -129,9 +129,8 @@ tokens :-
 <0> "character"                                   { addSpan TCharacter }
 <0> "complex"                                     { addSpan TComplex }
 
--- Selector
-"kind"                                            { addSpan TKind }
-"len"                                             { addSpan TLen }
+<scN> "kind" / { selectorP }                      { addSpan TKind }
+<scN> "len" / { selectorP }                       { addSpan TLen }
 
 -- Attributes
 <0> "public"                                      { addSpan TPublic }
@@ -254,6 +253,18 @@ tokens :-
 -- Predicated lexer helpers
 --------------------------------------------------------------------------------
 
+selectorP :: User -> AlexInput -> Int -> AlexInput -> Bool
+selectorP (User fv _) _ _ ai =
+    traceShowId commaOrLeftPar && traceShowId nextTokenIsOpAssign && (traceShowId . precedesDoubleColon $ ai)
+  where
+    nextTokenIsOpAssign = nextTokenConstr fv ai == (Just . fillConstr $ TOpAssign)
+    commaOrLeftPar =
+        case previousToken of
+          Just TLeftPar{} -> True
+          Just TComma{} -> True
+          _ -> False
+    previousToken = aiPreviousToken ai
+
 ifConditionEndP :: User -> AlexInput -> Int -> AlexInput -> Bool
 ifConditionEndP (User _ paranthesesCount) _ _ ai
     | (TIf{}:_) <- prevTokens = paranthesesCount == 1
@@ -293,10 +304,12 @@ partOfExpOrPointerAssignmentP (User fv _) _ _ ai = evalParse (lexerM $ f False 0
       | otherwise =
         error "Error while executing part of expression assignment predicate."
 
+precedesDoubleColon :: AlexInput -> Bool
+precedesDoubleColon ai = not . flip seenConstr ai . fillConstr $ TDoubleColon
+
 attributeP :: User -> AlexInput -> Int -> AlexInput -> Bool
-attributeP _ _ _ ai =  followsComma && precedesDoubleColon && startsWithTypeSpec
+attributeP _ _ _ ai =  followsComma && precedesDoubleColon ai && startsWithTypeSpec
   where
-    precedesDoubleColon = not . flip seenConstr ai . fillConstr $ TDoubleColon
     followsComma
       | Just TComma{} <- aiPreviousToken ai = True
       | otherwise = False
@@ -374,11 +387,7 @@ prevTokenConstr :: AlexInput -> Maybe Constr
 prevTokenConstr ai = toConstr <$> aiPreviousToken ai
 
 nextTokenConstr :: FortranVersion -> AlexInput -> Maybe Constr
-nextTokenConstr fv ai = do
-    token <- evalParse lexer' parseState
-    case token of
-      TNewline{} -> return $ toConstr token
-      _ -> Nothing
+nextTokenConstr fv ai = toConstr <$> evalParse lexer' parseState
   where
     parseState = ParseState
       { psAlexInput = ai
