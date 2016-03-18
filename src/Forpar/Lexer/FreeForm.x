@@ -71,34 +71,34 @@ $expLetter = [ed]
 --------------------------------------------------------------------------------
 tokens :-
 
-<0,scN> "!"                                         { lexComment }
+<0,scN> "!"                                       { lexComment }
 
-<0,scN> (\n\r|\r\n|\n)                              { toSC 0 >> addSpan TNewline }
-<0,scN,scI> [\t\ ]+                                 ;
+<0,scN> (\n\r|\r\n|\n)                            { toSC 0 >> addSpan TNewline }
+<0,scN,scI> [\t\ ]+                               ;
 
-<scN> "("                                           { incPar >> addSpan TLeftPar }
-<scN> ")" / { ifConditionEndP }                     { decPar >> toSC scI >> addSpan TRightPar }
-<scN> ")"                                           { decPar >> addSpan TRightPar }
-<scN> ","                                           { addSpan TComma }
-<scN> ";"                                           { addSpan TSemiColon }
-<scN> ":"                                           { addSpan TColon }
-<scN> "::"                                          { addSpan TDoubleColon }
-<scN> "="                                           { addSpan TOpAssign}
-<scN> "=>"                                          { addSpan TArrow }
-<scN> "%"                                           { addSpan TPercent }
+<scN> "("                                         { incPar >> addSpan TLeftPar }
+<scN> ")" / { ifConditionEndP }                   { decPar >> toSC scI >> addSpan TRightPar }
+<scN> ")"                                         { decPar >> addSpan TRightPar }
+<scN> ","                                         { addSpan TComma }
+<scN> ";"                                         { addSpan TSemiColon }
+<scN> ":"                                         { addSpan TColon }
+<scN> "::"                                        { addSpan TDoubleColon }
+<scN> "="                                         { addSpan TOpAssign}
+<scN> "=>"                                        { addSpan TArrow }
+<scN> "%"                                         { addSpan TPercent }
 
-<0,scI> @name / { partOfExpOrPointerAssignmentP }   { addSpanAndMatch TId }
+<0,scI> @name / { partOfExpOrPointerAssignmentP } { addSpanAndMatch TId }
 <0> @name / { constructNameP }                    { addSpanAndMatch TId }
 
 -- Program units
 <0> "program"                                     { addSpan TProgram }
 <0> "end"\ *"program"                             { addSpan TEndProgram }
 <0> "function"                                    { addSpan TFunction }
-<scN> "function" / { typeSpecP }                              { addSpan TFunction }
+<scN> "function" / { typeSpecP }                  { addSpan TFunction }
 <0> "end"\ *"function"                            { addSpan TEndFunction }
-<scN> "result" / { resultP }                        { addSpan TResult }
+<scN> "result" / { resultP }                      { addSpan TResult }
 <0> "recursive"                                   { toSC 0 >> addSpan TRecursive }
-<scN> "recursive" / { typeSpecP }                { toSC 0 >> addSpan TRecursive }
+<scN> "recursive" / { typeSpecP }                 { toSC 0 >> addSpan TRecursive }
 <0> "subroutine"                                  { addSpan TSubroutine }
 <0> "end"\ *"subroutine"                          { addSpan TEndSubroutine }
 <0> "block"\ *"data"                              { addSpan TBlockData }
@@ -107,14 +107,14 @@ tokens :-
 <0> "end"\ *"module"                              { addSpan TEndModule }
 <0> "contains"                                    { addSpan TContains }
 <0> "use"                                         { addSpan TUse }
-<scN> "only" / { useStP }                           { addSpan TOnly }
+<scN> "only" / { useStP }                         { addSpan TOnly }
 <0> "interface"                                   { addSpan TInterface }
 <0> "end"\ *"interface"                           { addSpan TEndInterface }
-<scN> "procedure" / { moduleStP }                   { addSpan TProcedure }
-<scN> "assignment" / { genericSpecP }               { addSpan TAssignment }
-<scN> "operator" / { genericSpecP }                 { addSpan TOperator }
-<0,scI> "call"                                      { addSpan TCall }
-<0,scI> "return"                                    { addSpan TReturn }
+<scN> "procedure" / { moduleStP }                 { addSpan TProcedure }
+<scN> "assignment" / { genericSpecP }             { addSpan TAssignment }
+<scN> "operator" / { genericSpecP }               { addSpan TOperator }
+<0,scI> "call"                                    { addSpan TCall }
+<0,scI> "return"                                  { addSpan TReturn }
 
 -- Type def related
 <0> "type"                                        { addSpan TType }
@@ -122,47 +122,47 @@ tokens :-
 <0> "sequence"                                    { addSpan TSequence }
 
 -- Intrinsic types
-<0> "integer"                                         { addSpan TInteger }
-<0> "real"                                            { addSpan TReal }
-<0> "double"\ *"precision"                            { addSpan TDoublePrecision }
-<0> "logical"                                         { addSpan TLogical }
-<0> "character"                                      { addSpan TCharacter }
-<0> "complex"                                         { addSpan TComplex }
+<0> "integer"                                     { addSpan TInteger }
+<0> "real"                                        { addSpan TReal }
+<0> "double"\ *"precision"                        { addSpan TDoublePrecision }
+<0> "logical"                                     { addSpan TLogical }
+<0> "character"                                   { addSpan TCharacter }
+<0> "complex"                                     { addSpan TComplex }
 
 -- Selector
 "kind"                                            { addSpan TKind }
 "len"                                             { addSpan TLen }
 
 -- Attributes
-<0> "public"                                    { addSpan TPublic }
-<scN> "public" / { attributeP }                                  { addSpan TPublic }
-<0> "private"                                   { addSpan TPrivate }
-<scN> "private" / { attributeP }                                  { addSpan TPrivate }
-<0> "parameter"                                 { addSpan TParameter }
-<scN> "parameter" / { attributeP }                                 { addSpan TParameter }
-<0> "allocatable"                               { addSpan TAllocatable }
-<scN> "allocatable" / { attributeP }                               { addSpan TAllocatable }
-<0> "dimension"                                 { addSpan TDimension }
-<scN> "dimension" / { attributeP }                                 { addSpan TDimension }
-<0> "external"                                  { addSpan TExternal }
-<scN> "external" / { attributeP }                                  { addSpan TExternal }
-<0> "intent"                                    { addSpan TIntent }
-<scN> "intent" / { attributeP }                                    { addSpan TIntent }
-<0> "intrinsic"                                 { addSpan TIntrinsic }
-<scN> "intrinsic" / { attributeP }                                 { addSpan TIntrinsic }
-<0> "optional"                                  { addSpan TOptional }
-<scN> "optional" / { attributeP }                                  { addSpan TOptional }
-<0> "pointer"                                   { addSpan TPointer }
-<scN> "pointer" / { attributeP }                                   { addSpan TPointer }
-<0> "save"                                      { addSpan TSave }
-<scN> "save" / { attributeP }                                      { addSpan TSave }
-<0> "target"                                    { addSpan TTarget }
-<scN> "target" / { attributeP }                                    { addSpan TTarget }
+<0> "public"                                      { addSpan TPublic }
+<scN> "public" / { attributeP }                   { addSpan TPublic }
+<0> "private"                                     { addSpan TPrivate }
+<scN> "private" / { attributeP }                  { addSpan TPrivate }
+<0> "parameter"                                   { addSpan TParameter }
+<scN> "parameter" / { attributeP }                { addSpan TParameter }
+<0> "allocatable"                                 { addSpan TAllocatable }
+<scN> "allocatable" / { attributeP }              { addSpan TAllocatable }
+<0> "dimension"                                   { addSpan TDimension }
+<scN> "dimension" / { attributeP }                { addSpan TDimension }
+<0> "external"                                    { addSpan TExternal }
+<scN> "external" / { attributeP }                 { addSpan TExternal }
+<0> "intent"                                      { addSpan TIntent }
+<scN> "intent" / { attributeP }                   { addSpan TIntent }
+<0> "intrinsic"                                   { addSpan TIntrinsic }
+<scN> "intrinsic" / { attributeP }                { addSpan TIntrinsic }
+<0> "optional"                                    { addSpan TOptional }
+<scN> "optional" / { attributeP }                 { addSpan TOptional }
+<0> "pointer"                                     { addSpan TPointer }
+<scN> "pointer" / { attributeP }                  { addSpan TPointer }
+<0> "save"                                        { addSpan TSave }
+<scN> "save" / { attributeP }                     { addSpan TSave }
+<0> "target"                                      { addSpan TTarget }
+<scN> "target" / { attributeP }                   { addSpan TTarget }
 
 -- Attribute values
-<scN> "in"\ *"out" / { followsIntentP }             { addSpan TInOut }
-<scN> "in" / { followsIntentP }                     { addSpan TIn }
-<scN> "out" / { followsIntentP }                    { addSpan TOut }
+<scN> "in"\ *"out" / { followsIntentP }           { addSpan TInOut }
+<scN> "in" / { followsIntentP }                   { addSpan TIn }
+<scN> "out" / { followsIntentP }                  { addSpan TOut }
 
 -- Control flow
 <0> "do"                                          { addSpan TDo }
@@ -176,77 +176,77 @@ tokens :-
 <0> "select"\ *"case"                             { addSpan TSelectCase }
 <0> "case"                                        { addSpan TCase }
 <0> "end"\ *"select"                              { addSpan TEndSelect }
-<scN> "default" / { caseStP }                       { addSpan TDefault }
-<0,scI> "cycle"                                     { addSpan TCycle }
-<0,scI> "exit"                                      { addSpan TExit }
-<0,scI> "go"\ *"to"                                 { addSpan TGoto }
-<0,scI> "assign"                                    { addSpan TAssign }
-<scN> "to" / { assignStP }                          { addSpan TTo }
-<0,scI> "continue"                                  { addSpan TContinue }
-<0,scI> "stop"                                      { addSpan TStop }
-<0,scI> "pause"                                     { addSpan TPause }
+<scN> "default" / { caseStP }                     { addSpan TDefault }
+<0,scI> "cycle"                                   { addSpan TCycle }
+<0,scI> "exit"                                    { addSpan TExit }
+<0,scI> "go"\ *"to"                               { addSpan TGoto }
+<0,scI> "assign"                                  { addSpan TAssign }
+<scN> "to" / { assignStP }                        { addSpan TTo }
+<0,scI> "continue"                                { addSpan TContinue }
+<0,scI> "stop"                                    { addSpan TStop }
+<0,scI> "pause"                                   { addSpan TPause }
 
 -- Where construct
-<0,scI> "where"                                     { addSpan TWhere }
+<0,scI> "where"                                   { addSpan TWhere }
 <0> "elsewhere"                                   { addSpan TElsewhere }
 <0> "end"\ *"where"                               { addSpan TEndWhere }
 
 -- Beginning keyword
 <0> "data"                                        { addSpan TData }
-<0,scI> "allocate"                                  { addSpan TAllocate }
-<0,scI> "deallocate"                                { addSpan TDeallocate }
-<0,scI> "nullify"                                   { addSpan TNullify }
+<0,scI> "allocate"                                { addSpan TAllocate }
+<0,scI> "deallocate"                              { addSpan TDeallocate }
+<0,scI> "nullify"                                 { addSpan TNullify }
 <0> "namelist"                                    { addSpan TNamelist }
 <0> "implicit"                                    { addSpan TImplicit }
 <0> "equivalence"                                 { addSpan TEquivalence }
 <0> "common"                                      { addSpan TCommon }
 <0> "end"                                         { addSpan TEnd }
 
-<scN> "none" / { implicitStP }                      { addSpan TNone }
+<scN> "none" / { implicitStP }                    { addSpan TNone }
 
 -- I/O
-<0,scI> "open"                                      { addSpan TOpen }
-<0,scI> "close"                                     { addSpan TClose }
-<0,scI> "read"                                      { addSpan TRead }
-<0,scI> "write"                                     { addSpan TWrite }
-<0,scI> "print"                                     { addSpan TPrint }
-<0,scI> "backspace"                                 { addSpan TBackspace }
-<0,scI> "rewind"                                    { addSpan TRewind }
-<0,scI> "inquire"                                   { addSpan TInquire }
-<0,scI> "end"\ *"file"                              { addSpan TEndfile }
+<0,scI> "open"                                    { addSpan TOpen }
+<0,scI> "close"                                   { addSpan TClose }
+<0,scI> "read"                                    { addSpan TRead }
+<0,scI> "write"                                   { addSpan TWrite }
+<0,scI> "print"                                   { addSpan TPrint }
+<0,scI> "backspace"                               { addSpan TBackspace }
+<0,scI> "rewind"                                  { addSpan TRewind }
+<0,scI> "inquire"                                 { addSpan TInquire }
+<0,scI> "end"\ *"file"                            { addSpan TEndfile }
 
 -- Literals
 <0> @label                                        { toSC 0 >> addSpanAndMatch TLabel }
-<scN,scI> @intLiteralConst                              { addSpanAndMatch TIntegerLiteral  }
-<scN> @bozLiteralConst                              { addSpanAndMatch TBozLiteral  }
+<scN,scI> @intLiteralConst                        { addSpanAndMatch TIntegerLiteral  }
+<scN> @bozLiteralConst                            { addSpanAndMatch TBozLiteral  }
 
-<scN> @realLiteral                                  { addSpanAndMatch TRealLiteral }
-<scN> @altRealLiteral / { notPrecedingDotP }        { addSpanAndMatch TRealLiteral }
+<scN> @realLiteral                                { addSpanAndMatch TRealLiteral }
+<scN> @altRealLiteral / { notPrecedingDotP }      { addSpanAndMatch TRealLiteral }
 
-<scN,scC> @characterLiteralBeg                        { lexCharacter }
+<scN,scC> @characterLiteralBeg                    { lexCharacter }
 
-<scN> @logicalLiteral                               { addSpanAndMatch TLogicalLiteral }
+<scN> @logicalLiteral                             { addSpanAndMatch TLogicalLiteral }
 
 -- Operators
-<scN> "**"                                          { addSpan TOpExp }
-<scN> "+"                                           { addSpan TOpPlus }
-<scN> "-"                                           { addSpan TOpMinus }
-<scN> "*"                                           { addSpan TStar }
-<scN> "/"                                           { addSpan TSlash }
-<scN> ".or."                                        { addSpan TOpOr }
-<scN> ".and."                                       { addSpan TOpAnd }
-<scN> ".not."                                       { addSpan TOpNot }
-<scN> ".eqv."                                       { addSpan TOpEquivalent }
-<scN> ".neqv."                                      { addSpan TOpNotEquivalent }
-<scN> (".eq."|"==")                                 { addSpan TOpEQ }
-<scN> (".ne."|"/=")                                 { addSpan TOpNE }
-<scN> (".lt."|"<")                                 { addSpan TOpLT }
-<scN> (".le."|"<=")                                 { addSpan TOpLE }
-<scN> (".gt."|">")                                 { addSpan TOpGT }
-<scN> (".ge."|">=")                                 { addSpan TOpGE }
-<scN> "." $letter+ "."                              { addSpanAndMatch TOpCustom }
+<scN> "**"                                        { addSpan TOpExp }
+<scN> "+"                                         { addSpan TOpPlus }
+<scN> "-"                                         { addSpan TOpMinus }
+<scN> "*"                                         { addSpan TStar }
+<scN> "/"                                         { addSpan TSlash }
+<scN> ".or."                                      { addSpan TOpOr }
+<scN> ".and."                                     { addSpan TOpAnd }
+<scN> ".not."                                     { addSpan TOpNot }
+<scN> ".eqv."                                     { addSpan TOpEquivalent }
+<scN> ".neqv."                                    { addSpan TOpNotEquivalent }
+<scN> (".eq."|"==")                               { addSpan TOpEQ }
+<scN> (".ne."|"/=")                               { addSpan TOpNE }
+<scN> (".lt."|"<")                                { addSpan TOpLT }
+<scN> (".le."|"<=")                               { addSpan TOpLE }
+<scN> (".gt."|">")                                { addSpan TOpGT }
+<scN> (".ge."|">=")                               { addSpan TOpGE }
+<scN> "." $letter+ "."                            { addSpanAndMatch TOpCustom }
 
-<scN> @name                                         { addSpanAndMatch TId }
+<scN> @name                                       { addSpanAndMatch TId }
 
 {
 
