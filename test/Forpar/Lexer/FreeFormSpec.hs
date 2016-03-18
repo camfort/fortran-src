@@ -184,3 +184,42 @@ spec =
                     fmap ($u) [ TIf, TLeftPar, flip TId "a", TOpGT, flip TId "b"
                               , TRightPar, TPrint, TStar, TComma
                               , flip TString "hello", TEOF ]
+
+      describe "Lexes numeric values" $ do
+        let pseudoAssign token = fmap ($u)
+                                      [ flip TId "i", TOpAssign, token, TEOF ]
+
+        it "lexes integer" $
+          shouldBe' (collectF90 "i = 42") $
+                    pseudoAssign $ flip TIntegerLiteral "42"
+
+        it "lexes binary constant" $
+          shouldBe' (collectF90 "i = b'0101011") $
+                    pseudoAssign $ flip TBozLiteral "b'0101011"
+
+        it "lexes hexadecimal constant" $
+          shouldBe' (collectF90 "i = z'cafebabe") $
+                    pseudoAssign $ flip TBozLiteral "z'cafebabe"
+
+        describe "Real" $ do
+          it "lexes real (1)" $
+            shouldBe' (collectF90 "i = 10.5e2") $
+                      pseudoAssign $ flip TRealLiteral "10.5e2"
+
+          it "lexes real (2)" $
+            shouldBe' (collectF90 "i = 10.") $
+                      pseudoAssign $ flip TRealLiteral "10."
+
+          it "lexes real (3)" $
+            shouldBe' (collectF90 "i = .42") $
+                      pseudoAssign $ flip TRealLiteral ".42"
+
+          it "lexes real (3)" $
+            shouldBe' (collectF90 "i = 42d-3") $
+                      pseudoAssign $ flip TRealLiteral "42d-3"
+
+          it "resolves disambiguity when xxx. follows relational operator" $
+            shouldBe' (collectF90 "if (10.EQ. 20)") $
+                      fmap ($u) [ TIf, TLeftPar, flip TIntegerLiteral "10"
+                                , TOpEQ, flip TIntegerLiteral "20"
+                                , TRightPar, TEOF ]

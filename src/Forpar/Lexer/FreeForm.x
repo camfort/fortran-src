@@ -28,7 +28,7 @@ import Debug.Trace
 
 $digit = 0-9
 $octalDigit = 0-7
-$hexDigit = [a-e $digit]
+$hexDigit = [a-f $digit]
 $bit = 0-1
 
 $letter = a-z
@@ -47,12 +47,15 @@ $alphanumeric = [$letter $digit \_]
 @bozLiteralConst = (@binary|@octal|@hex)
 
 $expLetter = [ed]
-@exponent = [\-\+] @digitString
+@exponent = [\-\+]? @digitString
 @significand = @digitString? \. @digitString
 @realLiteral = @significand ($expLetter @exponent)? (\_ @kindParam)?
-             | @digitString $expLetter @exponent \_ @kindParam?
+             | @digitString $expLetter @exponent (\_ @kindParam)?
+             -- The following two complements @altRealLiteral the reason they
+             -- are included in the general case is to reduce the number of
+             -- semantic predicates to be made while lexing.
              | @digitString \. $expLetter @exponent (\_ @kindParam)?
-             | @digitString \_ @kindParam
+             | @digitString \. \_ @kindParam
 @altRealLiteral = @digitString \.
 
 @characterLiteralBeg = (@kindParam \_)? (\'|\")
@@ -254,10 +257,10 @@ tokens :-
 --------------------------------------------------------------------------------
 
 selectorP :: User -> AlexInput -> Int -> AlexInput -> Bool
-selectorP (User fv _) _ _ ai =
+selectorP user _ _ ai =
     traceShowId commaOrLeftPar && traceShowId nextTokenIsOpAssign && (traceShowId . precedesDoubleColon $ ai)
   where
-    nextTokenIsOpAssign = nextTokenConstr fv ai == (Just . fillConstr $ TOpAssign)
+    nextTokenIsOpAssign = nextTokenConstr user ai == (Just . fillConstr $ TOpAssign)
     commaOrLeftPar =
         case previousToken of
           Just TLeftPar{} -> True
@@ -320,8 +323,8 @@ attributeP _ _ _ ai =  followsComma && precedesDoubleColon ai && startsWithTypeS
     prevTokens = reverse . aiPreviousTokensInLine $ ai
 
 constructNameP :: User -> AlexInput -> Int -> AlexInput -> Bool
-constructNameP (User fv _) _ _ ai =
-  case nextTokenConstr fv ai of
+constructNameP user _ _ ai =
+  case nextTokenConstr user ai of
     Just constr -> constr == fillConstr TColon
     _ -> False
 
@@ -352,16 +355,8 @@ resultP _ _ _ ai =
     prevTokenConstr ai == (Just $ fillConstr TRightPar)
 
 notPrecedingDotP :: User -> AlexInput -> Int -> AlexInput -> Bool
-notPrecedingDotP (User fv _) ai _ _ =
-  case nextTokenConstr fv ai of
-    Just constr -> not $ constr `elem` dotConstructors
-    Nothing -> True
-  where
-    dotConstructors =
-      fillConstr <$>
-        [ TOpOr, TOpAnd, TOpNot, TOpEquivalent, TOpNotEquivalent
-        , TOpEQ, TOpNE, TOpLT, TOpLE, TOpGT
-        , TOpGE, flip TOpCustom undefined ]
+notPrecedingDotP user _ _ ai = not $
+  nextTokenConstr user ai == (Just $ toConstr (TId undefined undefined))
 
 followsIntentP :: User -> AlexInput -> Int -> AlexInput -> Bool
 followsIntentP _ _ _ ai =
@@ -386,12 +381,12 @@ implicitStP _ _ _ ai = prevTokenConstr ai == (Just $ fillConstr TImplicit)
 prevTokenConstr :: AlexInput -> Maybe Constr
 prevTokenConstr ai = toConstr <$> aiPreviousToken ai
 
-nextTokenConstr :: FortranVersion -> AlexInput -> Maybe Constr
-nextTokenConstr fv ai = toConstr <$> evalParse lexer' parseState
+nextTokenConstr :: User -> AlexInput -> Maybe Constr
+nextTokenConstr (User fv pc) ai = toConstr <$> evalParse lexer' parseState
   where
     parseState = ParseState
       { psAlexInput = ai
-      , psParanthesesCount = 0
+      , psParanthesesCount = pc
       , psVersion = fv
       , psFilename = "<unknown>" }
 
@@ -443,7 +438,10 @@ instance Spanned Lexeme where
   getSpan lexeme =
     let ms = lexemeStart lexeme
         me = lexemeEnd lexeme in
-      SrcSpan (fromJust ms) (fromJust me)
+      case ms of
+        Just s -> SrcSpan s (fromJust me)
+        Nothing -> error $ "Span access on nonexistant lexeme"
+                           ++  lexemeMatch lexeme
   setSpan _ = error "Lexeme span cannot be set."
 
 updatePreviousToken :: Maybe Token -> LexAction ()
