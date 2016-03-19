@@ -662,26 +662,36 @@ currentChar ai
   where
   _currentChar = head . takeNChars 1 $ ai
 
-alexAdvance :: AlexInput -> AlexInput
-alexAdvance ai =
-  case alexGetByte ai of
-    Just (_,ai') -> ai'
-    Nothing -> error "File has prematurely ended."
+advanceWithoutContinuation :: AlexInput -> AlexInput
+advanceWithoutContinuation ai
+  -- When all characters are already read
+  | posAbsoluteOffset _position == (toInteger . length . aiSourceInput) ai =
+    error "File has ended prematurely during a continuation."
+  -- Read genuine character and advance. Also covers white sensitivity.
+  | otherwise =
+    ai { aiPosition =
+           case _curChar of
+             '\n'  -> advance Newline _position
+             _     -> advance Char _position
+       , aiPreviousChar = _curChar }
+  where
+    _curChar = currentChar ai
+    _position = aiPosition ai
 
 isContinuation :: AlexInput -> Bool
 isContinuation ai = (scActual . aiStartCode) ai /= scC && _isContinuation ai 0
   where
     _isContinuation ai 0 =
-      if currentChar ai == '&'
-      then _isContinuation (alexAdvance ai) 1
+      if trace "0p" (currentChar ai) == '&'
+      then _isContinuation (advanceWithoutContinuation ai) 1
       else False
     _isContinuation ai 1 =
-      case currentChar ai of
-        ' ' -> _isContinuation (alexAdvance ai) 1
-        '\t' -> _isContinuation (alexAdvance ai) 1
-        '\r' -> _isContinuation (alexAdvance ai) 1
+      case trace "1p" (currentChar ai) of
+        ' ' -> _isContinuation (advanceWithoutContinuation ai) 1
+        '\t' -> _isContinuation (advanceWithoutContinuation ai) 1
+        '\r' -> _isContinuation (advanceWithoutContinuation ai) 1
         '!' -> True
-        '\n' -> True
+        '\n' -> traceShowId True
         _ -> False
 
 -- Here's the skip continuation automaton:
@@ -709,35 +719,35 @@ skipContinuation :: AlexInput -> AlexInput
 skipContinuation ai = _skipCont ai 0
   where
     _skipCont ai 0 =
-      if currentChar ai == '&'
-      then _skipCont (alexAdvance ai) 1
+      if trace "0" (currentChar ai) == '&'
+      then _skipCont (advanceWithoutContinuation ai) 1
       else error "This case is excluded by isContinuation."
     _skipCont ai 1 =
-      let _curChar = currentChar ai in
+      let _curChar = trace "1" (currentChar ai) in
         if _curChar `elem` [' ', '\t', '\r']
-        then _skipCont (alexAdvance ai) 1
+        then _skipCont (advanceWithoutContinuation ai) 1
         else if _curChar == '!'
-        then _skipCont (alexAdvance ai) 2
+        then _skipCont (advanceWithoutContinuation ai) 2
         else if _curChar == '\n'
-        then _skipCont (alexAdvance ai) 3
+        then _skipCont (advanceWithoutContinuation ai) 3
         else
           error $
             join [ "Did not expect non-blank/non-comment character after "
                  , "continuation symbol (&)." ]
     _skipCont ai 2 =
-      if currentChar ai == '\n'
-      then _skipCont (alexAdvance ai) 3
-      else _skipCont (alexAdvance ai) 2
+      if trace "2" (currentChar ai) == '\n'
+      then _skipCont (advanceWithoutContinuation ai) 3
+      else _skipCont (advanceWithoutContinuation ai) 2
     _skipCont ai 3 =
-      let _curChar = currentChar ai in
+      let _curChar = trace "3" (currentChar ai) in
         if _curChar `elem` [' ', '\t', '\r', '\n']
-        then _skipCont (alexAdvance ai) 3
+        then _skipCont (advanceWithoutContinuation ai) 3
         else if _curChar == '!'
-        then _skipCont (alexAdvance ai) 2
+        then _skipCont (advanceWithoutContinuation ai) 2
         else if _curChar == '&'
         -- This state accepts as if there were no spaces between the broken
         -- line and whatever comes after second &. This is implicitly state (4)
-        then alexAdvance ai
+        then advanceWithoutContinuation ai
         -- This state accepts but the broken line delimits the previous token.
         -- This is implicitly state (5). To achieve this, it returns the
         -- previous ai, which either has whitespace or newline, so it will

@@ -13,6 +13,8 @@ import Debug.Trace
 collectF90 :: String -> [ Token ]
 collectF90 = fromJust . collectFreeTokens Fortran90
 
+pseudoAssign token = fmap ($u) [ flip TId "i", TOpAssign, token, TEOF ]
+
 spec :: Spec
 spec =
   describe "Fortran Free Form Lexer" $
@@ -186,9 +188,6 @@ spec =
                               , flip TString "hello", TEOF ]
 
       describe "Lexes numeric values" $ do
-        let pseudoAssign token = fmap ($u)
-                                      [ flip TId "i", TOpAssign, token, TEOF ]
-
         it "lexes integer" $
           shouldBe' (collectF90 "i = 42") $
                     pseudoAssign $ flip TIntegerLiteral "42"
@@ -223,3 +222,28 @@ spec =
                       fmap ($u) [ TIf, TLeftPar, flip TIntegerLiteral "10"
                                 , TOpEQ, flip TIntegerLiteral "20"
                                 , TRightPar, TEOF ]
+
+      describe "Continuation" $ do
+        it "Single continuation char without space" $
+          shouldBe' (collectF90 "i = &\n42") $
+                    pseudoAssign $ flip TIntegerLiteral "42"
+
+        it "Single continuation char with space" $
+          shouldBe' (collectF90 "i = &   \n \t   42") $
+                    pseudoAssign $ flip TIntegerLiteral "42"
+
+        it "Double continuation (1)" $
+          shouldBe' (collectF90 "i = &\n  & 42") $
+                    pseudoAssign $ flip TIntegerLiteral "42"
+
+        it "Double continuation (2)" $
+          shouldBe' (collectF90 "i = 4&\n  &2") $
+                    pseudoAssign $ flip TIntegerLiteral "42"
+
+        it "Continuation with comment" $
+          shouldBe' (collectF90 "i = 4&\n  ! hello\n  &2") $
+                    pseudoAssign $ flip TIntegerLiteral "42"
+
+        it "Continuation with inline comment" $
+          shouldBe' (collectF90 "i = &  ! hi \n  42") $
+                    pseudoAssign $ flip TIntegerLiteral "42"
