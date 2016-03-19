@@ -258,7 +258,7 @@ tokens :-
 
 selectorP :: User -> AlexInput -> Int -> AlexInput -> Bool
 selectorP user _ _ ai =
-    traceShowId commaOrLeftPar && traceShowId nextTokenIsOpAssign && (traceShowId . precedesDoubleColon $ ai)
+    commaOrLeftPar && nextTokenIsOpAssign && precedesDoubleColon ai
   where
     nextTokenIsOpAssign = nextTokenConstr user ai == (Just . fillConstr $ TOpAssign)
     commaOrLeftPar =
@@ -682,16 +682,16 @@ isContinuation :: AlexInput -> Bool
 isContinuation ai = (scActual . aiStartCode) ai /= scC && _isContinuation ai 0
   where
     _isContinuation ai 0 =
-      if trace "0p" (currentChar ai) == '&'
+      if currentChar ai == '&'
       then _isContinuation (advanceWithoutContinuation ai) 1
       else False
     _isContinuation ai 1 =
-      case trace "1p" (currentChar ai) of
+      case currentChar ai of
         ' ' -> _isContinuation (advanceWithoutContinuation ai) 1
         '\t' -> _isContinuation (advanceWithoutContinuation ai) 1
         '\r' -> _isContinuation (advanceWithoutContinuation ai) 1
         '!' -> True
-        '\n' -> traceShowId True
+        '\n' -> True
         _ -> False
 
 -- Here's the skip continuation automaton:
@@ -719,11 +719,11 @@ skipContinuation :: AlexInput -> AlexInput
 skipContinuation ai = _skipCont ai 0
   where
     _skipCont ai 0 =
-      if trace "0" (currentChar ai) == '&'
+      if currentChar ai == '&'
       then _skipCont (advanceWithoutContinuation ai) 1
       else error "This case is excluded by isContinuation."
     _skipCont ai 1 =
-      let _curChar = trace "1" (currentChar ai) in
+      let _curChar = currentChar ai in
         if _curChar `elem` [' ', '\t', '\r']
         then _skipCont (advanceWithoutContinuation ai) 1
         else if _curChar == '!'
@@ -735,11 +735,11 @@ skipContinuation ai = _skipCont ai 0
             join [ "Did not expect non-blank/non-comment character after "
                  , "continuation symbol (&)." ]
     _skipCont ai 2 =
-      if trace "2" (currentChar ai) == '\n'
+      if currentChar ai == '\n'
       then _skipCont (advanceWithoutContinuation ai) 3
       else _skipCont (advanceWithoutContinuation ai) 2
     _skipCont ai 3 =
-      let _curChar = trace "3" (currentChar ai) in
+      let _curChar = currentChar ai in
         if _curChar `elem` [' ', '\t', '\r', '\n']
         then _skipCont (advanceWithoutContinuation ai) 3
         else if _curChar == '!'
