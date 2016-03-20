@@ -28,9 +28,14 @@ data FortranVersion = Fortran66
                     | Fortran2008
                     deriving (Ord, Eq, Show)
 
+data ParanthesesCount = ParanthesesCount
+  { pcActual :: Integer
+  , pcHasReached0 :: Bool }
+  deriving (Eq)
+
 data ParseState a = ParseState
   { psAlexInput :: a
-  , psParanthesesCount :: Integer
+  , psParanthesesCount :: ParanthesesCount
   , psVersion :: FortranVersion  -- To differentiate lexing behaviour
   , psFilename :: String -- To save correct source location in AST
   }
@@ -124,18 +129,28 @@ getSrcSpan loc1 = do
   loc2 <- getPosition
   return $ SrcSpan loc1 loc2
 
-getParanthesesCount :: (Loc a, LastToken a b, Show b) => Parse a b Integer
+getParanthesesCount :: (Loc a, LastToken a b, Show b) => Parse a b ParanthesesCount
 getParanthesesCount = psParanthesesCount <$> get
+
+resetPar :: (Loc a, LastToken a b, Show b) => Parse a b ()
+resetPar = do
+  ps <- get
+  put $ ps { psParanthesesCount = ParanthesesCount 0 False }
 
 incPar :: (Loc a, LastToken a b, Show b) => Parse a b ()
 incPar = do
   ps <- get
-  put $ ps { psParanthesesCount = psParanthesesCount ps + 1}
+  let pc = psParanthesesCount ps
+  let count = pcActual pc
+  put $ ps { psParanthesesCount = pc { pcActual = count + 1 } }
 
 decPar :: (Loc a, LastToken a b, Show b) => Parse a b ()
 decPar = do
   ps <- get
-  put $ ps { psParanthesesCount = psParanthesesCount ps - 1}
+  let pc = psParanthesesCount ps
+  let newCount = pcActual pc - 1
+  let reached0 = pcHasReached0 pc || newCount == 0
+  put $ ps { psParanthesesCount = ParanthesesCount newCount reached0 }
 
 -------------------------------------------------------------------------------
 -- Generic token collection and functions

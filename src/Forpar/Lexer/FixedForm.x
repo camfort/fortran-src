@@ -60,7 +60,7 @@ tokens :-
   <0> . / { \_ ai _ _ -> atColP 6 ai }        { toSC keyword }
   <0> " "                                     ;
 
-  <0,st,keyword,iif> \n                       { toSC 0 >> addSpan TNewline }
+  <0,st,keyword,iif> \n                       { resetPar >> toSC 0 >> addSpan TNewline }
   <0,st,keyword,iif> \r                       ;
 
   <st> "("                                    { addSpan TLeftPar }
@@ -135,7 +135,7 @@ tokens :-
   -- Tokens related to format statement
   <keyword> "format"                          { toSC st >> addSpan TFormat  }
 
-  -- Tokens needed to parse integers, reals, double precision and complex 
+  -- Tokens needed to parse integers, reals, double precision and complex
   -- constants
   <st,iif> @exponent / { exponentP }          { addSpanAndMatch TExponent }
   <st,iif,keyword> @integerConst              { addSpanAndMatch TInt }
@@ -210,26 +210,25 @@ equalFollowsP fv ai = evalParse (lexerM $ f False 0) ps
       { psAlexInput = ai { aiStartCode = st}
       , psVersion = fv
       , psFilename = "<unknown>"
-      , psParanthesesCount = 0 }
-    f False 0 t = 
-      case t of 
+      , psParanthesesCount = ParanthesesCount 0 False }
+    f False 0 t =
+      case t of
         Just (TNewline _) -> return False
         Just (TEOF _) -> return False
         Just (TOpAssign _) -> return True
-        Just (TLeftPar _) -> lexerM $ f True 1 
+        Just (TLeftPar _) -> lexerM $ f True 1
         _ -> return False
-    f True 0 t = 
+    f True 0 t =
       case t of
         Just (TOpAssign _) -> return True
         _ -> return False
-    f True n t = 
+    f True n t =
       case t of
         Just (TNewline _) -> return False
         Just (TEOF _) -> return False
         Just (TLeftPar _) -> lexerM $ f True (n + 1)
         Just (TRightPar _) -> lexerM $ f True (n - 1)
         _ -> lexerM $ f True n
-
 
 commentP :: FortranVersion -> AlexInput -> Int -> AlexInput -> Bool
 commentP _ aiOld _ aiNew = atColP 1 aiOld && _endsWithLine
@@ -249,7 +248,7 @@ atColP n ai = (posColumn . aiPosition) ai == n
 -- integer token. Anything other previous token will prevent matching the input
 -- as an exponent token.
 exponentP :: FortranVersion -> AlexInput -> Int -> AlexInput -> Bool
-exponentP _ _ _ ai = 
+exponentP _ _ _ ai =
   case aiPreviousToken ai of
     Just (TInt _ _) -> True
     Just (TDot _) -> True
@@ -313,8 +312,8 @@ resetWhiteSensitiveCharCount = do
   putAlex $ ai { aiWhiteSensitiveCharCount = 0 }
 
 instance Spanned Lexeme where
-  getSpan lexeme = 
-    let ms = lexemeStart lexeme 
+  getSpan lexeme =
+    let ms = lexemeStart lexeme
         me = lexemeEnd lexeme in
       SrcSpan (fromJust ms) (fromJust me)
   setSpan _ = error "Lexeme span cannot be set."
@@ -327,8 +326,8 @@ updatePreviousToken maybeToken = do
 addToPreviousTokensInLine :: Token -> LexAction ()
 addToPreviousTokensInLine token = do
   ai <- getAlex
-  putAlex $  
-    case token of 
+  putAlex $
+    case token of
       TNewline _ -> updatePrevTokens ai [ ]
       t -> updatePrevTokens ai $ t : aiPreviousTokensInLine ai
   where
@@ -355,13 +354,13 @@ lexComment mc = do
   let modifiedAlex = alex { aiWhiteSensitiveCharCount = 1 }
   case mc of
     Just '\n' -> return $ Just $ TComment s $ tail m
-    Just _ -> 
+    Just _ ->
       case alexGetByte modifiedAlex of
         Just (_, newAlex) -> do
           putAlex newAlex
           lexComment Nothing
         Nothing -> fail "Comment abruptly ended."
-    Nothing -> 
+    Nothing ->
       case alexGetByte modifiedAlex of
         Just (_, newAlex) -> lexComment (Just $ (head . lexemeMatch . aiLexeme) newAlex)
         Nothing -> return $ Just $ TComment s $ tail m
@@ -424,7 +423,7 @@ lexHollerith = do
   let len = read $ init match' -- Get n of "nH" from string
   putMatch ""
   ai <- getAlex
-  putAlex $ ai { aiWhiteSensitiveCharCount = len } 
+  putAlex $ ai { aiWhiteSensitiveCharCount = len }
   lexed <- lexN len
   s <- getLexemeSpan
   return $ do
@@ -438,7 +437,7 @@ lexN n = do
   let len = length match'
   if n == len
   then return $ Just match'
-  else 
+  else
     case alexGetByte alex of
       Just (_, newAlex) -> do
         putAlex newAlex
@@ -478,7 +477,7 @@ lexScaleFactor = do
   return $ Just $ TScaleFactor s $ (read width) * sign
 
 takeRepeatDescriptorWidth :: String -> (Maybe Integer, Char, Integer, String)
-takeRepeatDescriptorWidth str = 
+takeRepeatDescriptorWidth str =
   let (repeatStr, rest) = takeNumber str
       repeat = if repeatStr == [] then Nothing else Just $ (read repeatStr :: Integer)
       descriptor = head rest
@@ -492,17 +491,17 @@ takeNumber str = span isDigit str
 maybeToKeyword :: LexAction (Maybe Token)
 maybeToKeyword = do
   decPar
-  ps <- get
-  if psParanthesesCount ps == 0
+  pcActual <- pcActual . psParanthesesCount <$> get
+  if pcActual == 0
   then toSC keyword
   else return Nothing
 
 typeSCChange :: LexAction (Maybe Token)
-typeSCChange = do 
-  ps <- get  
+typeSCChange = do
+  ps <- get
   let hypotheticalPs = ps { psAlexInput = (psAlexInput ps) { aiStartCode = keyword } }
   let isFunction = evalParse (lexerM f) hypotheticalPs
-  if isFunction 
+  if isFunction
   then return Nothing
   else toSC st
   where
@@ -560,7 +559,7 @@ data Token = TLeftPar             SrcSpan
            | TEquivalence         SrcSpan
            | TExternal            SrcSpan
            | TIntrinsic           SrcSpan
-           | TType                SrcSpan String 
+           | TType                SrcSpan String
            | TEntry               SrcSpan
            | TImplicit            SrcSpan
            | TNone                SrcSpan
@@ -613,10 +612,10 @@ instance Tok Token where
 -- AlexInput & related definitions
 --------------------------------------------------------------------------------
 
-data Lexeme = Lexeme 
+data Lexeme = Lexeme
   { lexemeMatch :: String
-  , lexemeStart :: Maybe Position 
-  , lexemeEnd   :: Maybe Position 
+  , lexemeStart :: Maybe Position
+  , lexemeEnd   :: Maybe Position
   } deriving (Show)
 
 initLexeme :: Lexeme
@@ -625,7 +624,7 @@ initLexeme = Lexeme
   , lexemeStart = Nothing
   , lexemeEnd   = Nothing }
 
-data AlexInput = AlexInput 
+data AlexInput = AlexInput
   { aiSourceInput               :: String
   , aiPosition                  :: Position
   , aiBytes                     :: [Word8]
@@ -646,7 +645,7 @@ instance LastToken AlexInput Token where
 type LexAction a = Parse AlexInput Token a
 
 vanillaAlexInput :: AlexInput
-vanillaAlexInput = AlexInput 
+vanillaAlexInput = AlexInput
   { aiSourceInput = ""
   , aiPosition = initPosition
   , aiBytes = []
@@ -654,14 +653,14 @@ vanillaAlexInput = AlexInput
   , aiLexeme = initLexeme
   , aiWhiteSensitiveCharCount = 6
   , aiStartCode = 0
-  , aiPreviousToken = Nothing 
+  , aiPreviousToken = Nothing
   , aiPreviousTokensInLine = [ ] }
 
 updateLexeme :: Maybe Char -> Position -> AlexInput -> AlexInput
 updateLexeme maybeChar p ai =
   let lexeme = aiLexeme ai
       match = lexemeMatch lexeme
-      newMatch = 
+      newMatch =
         case maybeChar of
           Just c -> toLower c : match
           Nothing -> match
@@ -677,17 +676,17 @@ updateLexeme maybeChar p ai =
 data Move = Continuation | Char | Newline
 
 alexGetByte :: AlexInput -> Maybe (Word8, AlexInput)
-alexGetByte ai 
+alexGetByte ai
   -- The process of reading individual bytes of the character
   | _bytes /= [] = Just (head _bytes, ai { aiBytes = tail _bytes })
   -- When all characters are already read
   | posAbsoluteOffset _position == (toInteger . length . aiSourceInput) ai = Nothing
   -- Skip the continuation line altogether
-  | isContinuation ai && _isWhiteInsensitive = skip Continuation ai 
+  | isContinuation ai && _isWhiteInsensitive = skip Continuation ai
   -- If we are not parsing a Hollerith skip whitespace
   | _curChar == ' ' && _isWhiteInsensitive = skip Char ai
   -- Read genuine character and advance. Also covers white sensitivity.
-  | otherwise = 
+  | otherwise =
       let (_b:_bs) = (utf8Encode . toLower) _curChar in
         Just(_b, updateLexeme (Just _curChar) _position
           ai {
@@ -697,7 +696,7 @@ alexGetByte ai
                 _     -> advance Char _position,
             aiBytes = _bs,
             aiPreviousChar = _curChar,
-            aiWhiteSensitiveCharCount = 
+            aiWhiteSensitiveCharCount =
               if _isWhiteInsensitive
               then 0
               else aiWhiteSensitiveCharCount ai - 1
@@ -712,33 +711,33 @@ alexInputPrevChar :: AlexInput -> Char
 alexInputPrevChar ai = aiPreviousChar ai
 
 takeNChars :: Integer -> AlexInput -> String
-takeNChars n ai = 
+takeNChars n ai =
   take (fromIntegral n) . drop (fromIntegral _dropN) $ aiSourceInput ai
-  where 
-    _dropN = posAbsoluteOffset . aiPosition $ ai 
+  where
+    _dropN = posAbsoluteOffset . aiPosition $ ai
 
-currentChar :: AlexInput -> Char 
+currentChar :: AlexInput -> Char
 currentChar ai = head (takeNChars 1 ai)
 
 isContinuation :: AlexInput -> Bool
-isContinuation ai = 
+isContinuation ai =
   take 6 _next7 == "\n     " && not (last _next7 `elem` [' ', '0'])
-  where 
+  where
     _next7 = takeNChars 7 ai
 
 skip :: Move -> AlexInput -> Maybe (Word8, AlexInput)
-skip move ai = 
+skip move ai =
   let _newPosition = advance move $ aiPosition ai in
     alexGetByte $ updateLexeme Nothing _newPosition $ ai { aiPosition = _newPosition }
 
 advance :: Move -> Position -> Position
 advance move position =
-  case move of 
-    Char -> 
+  case move of
+    Char ->
       position { posAbsoluteOffset = _absl + 1, posColumn = _col + 1 }
-    Continuation -> 
+    Continuation ->
       position { posAbsoluteOffset = _absl + 7, posColumn = 7, posLine = _line + 1 }
-    Newline -> 
+    Newline ->
       position { posAbsoluteOffset = _absl + 1, posColumn = 1, posLine = _line + 1 }
   where
     _col = posColumn position
@@ -792,7 +791,7 @@ lexer' = do
       maybeToken <- action
       case maybeToken of
         Just token -> do
-          updatePreviousToken maybeToken 
+          updatePreviousToken maybeToken
           addToPreviousTokensInLine token
           return maybeToken
         Nothing -> lexer'
@@ -804,17 +803,17 @@ alexScanUser :: FortranVersion -> AlexInput -> Int -> AlexReturn (LexAction (May
 --------------------------------------------------------------------------------
 
 initParseState :: String -> FortranVersion -> String -> ParseState AlexInput
-initParseState srcInput fortranVersion filename = 
+initParseState srcInput fortranVersion filename =
   _vanillaParseState { psAlexInput = vanillaAlexInput { aiSourceInput = srcInput } }
   where
-    _vanillaParseState = ParseState 
+    _vanillaParseState = ParseState
       { psAlexInput = undefined
       , psVersion = fortranVersion
-      , psFilename = filename 
-      , psParanthesesCount = 0 }
-    
+      , psFilename = filename
+      , psParanthesesCount = ParanthesesCount 0 False }
+
 collectFixedTokens :: FortranVersion -> String -> Maybe [Token]
-collectFixedTokens version srcInput = 
+collectFixedTokens version srcInput =
     collectTokens lexer' $ initParseState srcInput version "<unknown>"
 
 }

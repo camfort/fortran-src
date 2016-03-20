@@ -15,7 +15,7 @@ vanillaParseState = ParseState
   { psAlexInput = ""
   , psVersion = Fortran66
   , psFilename = "<unknown>"
-  , psParanthesesCount = 0 }
+  , psParanthesesCount = ParanthesesCount 0 False }
 
 instance Loc String where
   getPos = error "Never needed"
@@ -42,7 +42,7 @@ vanillaSomeInput = ParseState
   { psAlexInput = initSomeInput
   , psVersion = Fortran66
   , psFilename = "some.f"
-  , psParanthesesCount = 0 }
+  , psParanthesesCount = ParanthesesCount 0 False }
 
 spec :: Spec
 spec =

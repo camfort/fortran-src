@@ -76,7 +76,7 @@ tokens :-
 
 <0,scN> "!"                                       { lexComment }
 
-<0,scN> (\n\r|\r\n|\n)                            { toSC 0 >> addSpan TNewline }
+<0,scN> (\n\r|\r\n|\n)                            { resetPar >> toSC 0 >> addSpan TNewline }
 <0,scN,scI> [\t\ ]+                               ;
 
 <scN> "("                                         { incPar >> addSpan TLeftPar }
@@ -269,8 +269,8 @@ selectorP user _ _ ai =
     previousToken = aiPreviousToken ai
 
 ifConditionEndP :: User -> AlexInput -> Int -> AlexInput -> Bool
-ifConditionEndP (User _ paranthesesCount) _ _ ai
-    | (TIf{}:_) <- prevTokens = paranthesesCount == 1
+ifConditionEndP (User _ pc) _ _ ai
+    | (TIf{}:_) <- prevTokens = pc == ParanthesesCount 1 False
     | otherwise = False
   where
     prevTokens = reverse . aiPreviousTokensInLine $ ai
@@ -282,7 +282,7 @@ partOfExpOrPointerAssignmentP (User fv _) _ _ ai = evalParse (lexerM $ f False 0
       { psAlexInput = ai { aiStartCode = StartCode scN Return }
       , psVersion = fv
       , psFilename = "<unknown>"
-      , psParanthesesCount = 0 }
+      , psParanthesesCount = ParanthesesCount 0 False }
     f leftParSeen parCount maybeToken
       | not leftParSeen =
         case maybeToken of
@@ -617,7 +617,7 @@ updateLexeme char p ai =
     ai { aiLexeme = Lexeme newMatch newStart newEnd }
 
 -- Fortran version and parantheses count to be used by alexScanUser
-data User = User FortranVersion Integer
+data User = User FortranVersion ParanthesesCount
 
 --------------------------------------------------------------------------------
 -- Definitions needed for alexScanUser
@@ -1005,7 +1005,7 @@ initParseState srcInput fortranVersion filename =
       { psAlexInput = undefined
       , psVersion = fortranVersion
       , psFilename = filename
-      , psParanthesesCount = 0 }
+      , psParanthesesCount = ParanthesesCount 0 False }
 
 collectFreeTokens :: FortranVersion -> String -> Maybe [Token]
 collectFreeTokens version srcInput =
