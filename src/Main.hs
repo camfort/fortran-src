@@ -14,7 +14,7 @@ import Forpar.ParserMonad (FortranVersion(..))
 import qualified Forpar.Lexer.FixedForm as FixedForm (collectFixedTokens, Token(..))
 import qualified Forpar.Lexer.FreeForm as FreeForm (collectFreeTokens, Token(..))
 import Forpar.Parser.Fortran66 (fortran66Parser)
-import Forpar.Parser.Fortran77 (fortran77Parser)
+import Forpar.Parser.Fortran77 (fortran77Parser, extended77Parser)
 import Forpar.Analysis.Types (TypeScope(..), inferTypes, IDType(..))
 
 import qualified Data.Map as M
@@ -34,7 +34,7 @@ main = do
     contents <- readFile path
     let version = fromMaybe (deduceVersion path) (fortranVersion opts)
     case action opts of
-      Lex | version `elem` [ Fortran66, Fortran77 ] -> do
+      Lex | version `elem` [ Fortran66, Fortran77, Fortran77Extended ] -> do
         let tokens = FixedForm.collectFixedTokens version contents
         case tokens of
           Just tokens' -> print tokens'
@@ -47,6 +47,7 @@ main = do
       Lex -> ioError $ userError $ usageInfo programName options
       Parse | version == Fortran66 -> pp $ fortran66Parser contents path
       Parse | version == Fortran77 -> pp $ fortran77Parser contents path
+      Parse | version == Fortran77Extended -> pp $ extended77Parser contents path
       Typecheck ->
         case version of
           Fortran66 -> printTypes . inferTypes $ fortran66Parser contents path
@@ -116,6 +117,7 @@ deduceVersion path
 instance Read FortranVersion where
   readsPrec _ value =
     let options = [ ("66", Fortran66)
+                  , ("77e", Fortran77Extended)
                   , ("77", Fortran77)
                   , ("90", Fortran90)
                   , ("95", Fortran95)

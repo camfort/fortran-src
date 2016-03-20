@@ -16,7 +16,7 @@ lex66 :: String -> Maybe Token
 lex66 = collectToLex Fortran66
 
 lex77 :: String -> Maybe Token
-lex77 = collectToLex Fortran77 
+lex77 = collectToLex Fortran77
 
 collectToLex :: FortranVersion -> String -> Maybe Token
 collectToLex version srcInput = do
@@ -29,7 +29,7 @@ collectToLex version srcInput = do
     dropUntil2 (x:xs) = dropUntil2 xs
 
 spec :: Spec
-spec = 
+spec =
   describe "Fortran Fixed Form Lexer" $ do
     describe "Fortran 77" $
       describe "String" $ do
@@ -67,12 +67,12 @@ spec =
       it "lexes exponent" $
         resetSrcSpan (collectFixedTokens Fortran66 "      a = 42 e42") `shouldBe` resetSrcSpan (Just [TId u "a", TOpAssign u, TInt u "42", TExponent u "e42", TEOF u])
 
-      it "lexes 'function'" $ 
+      it "lexes 'function'" $
         resetSrcSpan (lex66 "      function") `shouldBe` resetSrcSpan (Just $ TFunction u)
 
-      it "lexes 'end'" $ 
+      it "lexes 'end'" $
         resetSrcSpan (lex66 "      end") `shouldBe` resetSrcSpan (Just $ TEnd u)
-    
+
       it "lexes identifier" $
         resetSrcSpan (lex66 "      a = mistr") `shouldBe` resetSrcSpan (Just $ TId u "mistr")
 
@@ -88,16 +88,18 @@ spec =
       it "should not lex from the next line" $
         resetSrcSpan (lex66 "cxxx\nselam") `shouldNotBe` resetSrcSpan (Just $ TComment u "xxxselam")
 
-      it "lexes three tokens"  $
+      -- This is commented out as identifiers are longer than what the standard says.
+      it "lexes three tokens"  $ do
+        pending
         resetSrcSpan (collectFixedTokens Fortran66 "      function end format") `shouldBe` resetSrcSpan (Just [TFunction u, TId u "endfor", TId u "mat", TEOF u])
 
       it "lexes multiple comments in a line" $
-        resetSrcSpan (collectFixedTokens Fortran66 "csomething\ncsomething else\n\nc\ncc\n") `shouldBe` 
+        resetSrcSpan (collectFixedTokens Fortran66 "csomething\ncsomething else\n\nc\ncc\n") `shouldBe`
           resetSrcSpan (Just [TComment u "something", TNewline u, TComment u "something else", TNewline u, TNewline u, TComment u "", TNewline u, TComment u "c", TNewline u, TEOF u])
 
       it "lexes example1" $
         resetSrcSpan (collectFixedTokens Fortran66 example1) `shouldBe` resetSrcSpan (Just example1Expectation)
-    
+
       it "lexes end of file" $
         resetSrcSpan (lex66 "") `shouldBe` Nothing
 
@@ -132,7 +134,7 @@ spec =
         resetSrcSpan (lex66 "      format 7hmistral") `shouldBe` resetSrcSpan (Just $ THollerith u "mistral")
 
       it "becomes case sensitive" $
-        resetSrcSpan (lex66 "      format 5h a= 1") `shouldBe` resetSrcSpan (Just $ THollerith u " a= 1")
+        resetSrcSpan (collectFixedTokens Fortran66 "      format (5h a= 1)") `shouldBe` resetSrcSpan (Just [ TFormat u, TLeftPar u, THollerith u " a= 1", TRightPar u, TEOF u ])
 
     it "lexes if statement '        IF (IY) 5,6,6'" $
       resetSrcSpan (collectFixedTokens Fortran66 "      IF (IY) 5,6,6") `shouldBe` resetSrcSpan (Just [TIf u, TLeftPar u, TId u "iy", TRightPar u, TInt u "5", TComma u, TInt u "6", TComma u, TInt u "6", TEOF u])

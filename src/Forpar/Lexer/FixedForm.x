@@ -37,6 +37,9 @@ $letter = [a-z]
 $alphanumeric = [$letter $digit]
 $special = [\ \=\+\-\*\/\(\)\,\.\$]
 
+-- This should really be 6 characters but there are many standard non-compliant
+-- programs out there.
+@idExtended = $letter $alphanumeric{0,9} $alphanumeric{0,9} $alphanumeric{0,9} $alphanumeric?
 @id = $letter $alphanumeric{0,5}
 @label = [1-9] $digit{0,4}
 
@@ -72,6 +75,7 @@ tokens :-
   <st,iif> ":" / { fortran77P }               { addSpan TColon }
 
   <keyword> @id / { idP }                     { toSC st >> addSpanAndMatch TId }
+  <keyword> @idExtended / { extendedIdP }     { toSC st >> addSpanAndMatch TId }
 
   -- Tokens related to procedures and subprograms
   <keyword> "program"                         { toSC st >> addSpan TProgram }
@@ -177,6 +181,7 @@ tokens :-
 
   -- ID
   <st,iif> @id                                { addSpanAndMatch TId }
+  <st,iif> @idExtended / { extended77P }      { addSpanAndMatch TId }
 
   -- Strings
   <st> @posIntegerConst "h" / { fortran66P }  { lexHollerith }
@@ -196,6 +201,8 @@ implicitStP fv _ _ ai = checkPreviousTokensInLine f ai
     f (TImplicit _) = True
     f _ = False
 
+extendedIdP :: FortranVersion -> AlexInput -> Int -> AlexInput -> Bool
+extendedIdP fv a b ai = fv == Fortran77Extended && idP fv a b ai
 
 idP :: FortranVersion -> AlexInput -> Int -> AlexInput -> Bool
 idP fv _ _ ai = not (doP ai) && equalFollowsP fv ai
@@ -255,12 +262,13 @@ exponentP _ _ _ ai =
     _ -> False
 
 fortran66P :: FortranVersion -> AlexInput -> Int -> AlexInput -> Bool
-fortran66P Fortran66 _ _ _ = True
-fortran66P _ _ _ _ = False
+fortran66P fv _ _ _ = fv == Fortran66
 
 fortran77P :: FortranVersion -> AlexInput -> Int -> AlexInput -> Bool
-fortran77P Fortran77 _ _ _ = True
-fortran77P _ _ _ _ = False
+fortran77P fv _ _ _ = fv == Fortran77
+
+extended77P :: FortranVersion -> AlexInput -> Int -> AlexInput -> Bool
+extended77P fv _ _ _ = fv == Fortran77Extended
 
 --------------------------------------------------------------------------------
 -- Lexer helpers

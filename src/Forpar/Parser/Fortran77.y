@@ -1,8 +1,10 @@
 -- -*- Mode: Haskell -*-
 {
-module Forpar.Parser.Fortran77(expressionParser,
-                               statementParser,
-                               fortran77Parser) where
+module Forpar.Parser.Fortran77 ( expressionParser
+                               , statementParser
+                               , fortran77Parser
+                               , extended77Parser
+                               ) where
 
 import Prelude hiding (EQ,LT,GT) -- Same constructors exist in the AST
 
@@ -834,6 +836,10 @@ makeReal i1 dot i2 exp =
 fortran77Parser :: String -> String -> ProgramFile A0
 fortran77Parser sourceCode filename =
   transform [ GroupIf, DisambiguateFunction, DisambiguateArray ] $ evalParse programParser $ initParseState sourceCode Fortran77 filename
+
+extended77Parser :: String -> String -> ProgramFile A0
+extended77Parser sourceCode filename =
+  transform [ GroupIf, DisambiguateFunction, DisambiguateArray ] $ evalParse programParser $ initParseState sourceCode Fortran77Extended filename
 
 parseError :: Token -> LexAction a
 parseError _ = fail "Parsing failed."
