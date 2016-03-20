@@ -103,7 +103,9 @@ tokens :-
   <keyword> "continue"                        { toSC st >> addSpan TContinue  }
   <keyword> "stop"                            { toSC st >> addSpan TStop  }
   <keyword> "pause"                           { toSC st >> addSpan TPause  }
-  <keyword> "do"                              { toSC st >> addSpan TDo  }
+  <keyword> "do"                              { toSC st >> addSpan TDo }
+  <keyword> "dowhile" / { extended77P }       { toSC st >> addSpan TDoWhile }
+  <keyword> "enddo" / { extended77P }         { toSC st >> addSpan TEndDo  }
 
   -- Tokens related to I/O statements
   <keyword> "read"                            { toSC st >> addSpan TRead  }
@@ -553,6 +555,8 @@ data Token = TLeftPar             SrcSpan
            | TStop                SrcSpan
            | TPause               SrcSpan
            | TDo                  SrcSpan
+           | TDoWhile             SrcSpan
+           | TEndDo               SrcSpan
            | TRead                SrcSpan
            | TWrite               SrcSpan
            | TRewind              SrcSpan

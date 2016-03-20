@@ -85,7 +85,9 @@ data Statement a  =
   | StImplicit            a SrcSpan (Maybe (AList ImpList a))
   | StParameter           a SrcSpan (AList Statement a)
   | StEntry               a SrcSpan (Expression a) (Maybe (AList Expression a))
-  | StDo                  a SrcSpan (Expression a) (DoSpecification a)
+  | StDo                  a SrcSpan (Maybe (Expression a)) (DoSpecification a)
+  | StDoWhile             a SrcSpan (Expression a)
+  | StEnddo               a SrcSpan
   | StIfLogical           a SrcSpan (Expression a) (Statement a) -- Statement should not further recurse
   | StIfArithmetic        a SrcSpan (Expression a) (Expression a) (Expression a) (Expression a)
   | StIfThen              a SrcSpan (Expression a)

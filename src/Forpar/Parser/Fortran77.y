@@ -55,6 +55,8 @@ import Debug.Trace
   stop                  { TStop _ }
   pause                 { TPause _ }
   do                    { TDo _ }
+  doWhile               { TDoWhile _ }
+  enddo                 { TEndDo _ }
   read                  { TRead _ }
   write                 { TWrite _ }
   print                 { TPrint _ }
@@ -194,8 +196,9 @@ LOGICAL_IF_STATEMENT : if '(' EXPRESSION ')' OTHER_EXECUTABLE_STATEMENT { StIfLo
 
 DO_STATEMENT :: { Statement A0 }
 DO_STATEMENT
-: do LABEL_IN_STATEMENT DO_SPECIFICATION { StDo () (getTransSpan $1 $3) $2 $3 }
-| do LABEL_IN_STATEMENT ',' DO_SPECIFICATION { StDo () (getTransSpan $1 $4) $2 $4 }
+: do LABEL_IN_STATEMENT DO_SPECIFICATION { StDo () (getTransSpan $1 $3) (Just $2) $3 }
+| do LABEL_IN_STATEMENT ',' DO_SPECIFICATION { StDo () (getTransSpan $1 $4) (Just $2) $4 }
+| do DO_SPECIFICATION { StDo () (getTransSpan $1 $2) Nothing $2 }
 
 DO_SPECIFICATION :: { DoSpecification A0 }
 DO_SPECIFICATION
@@ -212,6 +215,8 @@ OTHER_EXECUTABLE_STATEMENT
 | elsif '(' EXPRESSION ')' then { StElsif () (getTransSpan $1 $5) $3 }
 | else { StElse () (getSpan $1) }
 | endif { StEndif () (getSpan $1) }
+| doWhile '(' EXPRESSION ')' { StDoWhile () (getTransSpan $1 $4) $3 }
+| enddo { StEnddo () (getSpan $1) }
 | call SUBROUTINE_NAME CALLABLE_EXPRESSIONS { StCall () (getTransSpan $1 $3) $2 $ Just $3 }
 | call SUBROUTINE_NAME { StCall () (getTransSpan $1 $2) $2 Nothing }
 | return { StReturn () (getSpan $1) Nothing }
