@@ -267,7 +267,7 @@ fortran66P :: FortranVersion -> AlexInput -> Int -> AlexInput -> Bool
 fortran66P fv _ _ _ = fv == Fortran66
 
 fortran77P :: FortranVersion -> AlexInput -> Int -> AlexInput -> Bool
-fortran77P fv _ _ _ = fv == Fortran77
+fortran77P fv _ _ _ = fv == Fortran77 || fv == Fortran77Extended
 
 extended77P :: FortranVersion -> AlexInput -> Int -> AlexInput -> Bool
 extended77P fv _ _ _ = fv == Fortran77Extended
