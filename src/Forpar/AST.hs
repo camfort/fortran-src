@@ -107,6 +107,7 @@ data Statement a  =
   | StSave                a SrcSpan (AList Expression a)
   | StContinue            a SrcSpan
   | StStop                a SrcSpan (Maybe (Expression a))
+  | StExit                a SrcSpan
   | StPause               a SrcSpan (Maybe (Expression a))
   | StRead                a SrcSpan (AList ControlPair a) (Maybe (AList Expression a))
   | StRead2               a SrcSpan (Expression a) (Maybe (AList Expression a))

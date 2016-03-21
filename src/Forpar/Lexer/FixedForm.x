@@ -102,6 +102,7 @@ tokens :-
   <keyword> "save" / { fortran77P }           { toSC st >> addSpan TSave  }
   <keyword> "continue"                        { toSC st >> addSpan TContinue  }
   <keyword> "stop"                            { toSC st >> addSpan TStop  }
+  <keyword> "exit" / { extended77P }          { toSC st >> addSpan TExit  }
   <keyword> "pause"                           { toSC st >> addSpan TPause  }
   <keyword> "do"                              { toSC st >> addSpan TDo }
   <keyword> "dowhile" / { extended77P }       { toSC st >> addSpan TDoWhile }
@@ -168,6 +169,12 @@ tokens :-
   <st,iif> ".neqv." / { fortran77P }          { addSpan TOpNotEquivalent  }
 
   -- Relational operators
+  <st,iif> "<" / { extended77P }              { addSpan TOpLT  }
+  <st,iif> "<=" / { extended77P }             { addSpan TOpLE  }
+  <st,iif> "==" / { extended77P }             { addSpan TOpEQ  }
+  <st,iif> "!=" / { extended77P }             { addSpan TOpNE  }
+  <st,iif> ">" / { extended77P }              { addSpan TOpGT  }
+  <st,iif> ">=" / { extended77P }             { addSpan TOpGE  }
   <st,iif> ".lt."                             { addSpan TOpLT  }
   <st,iif> ".le."                             { addSpan TOpLE  }
   <st,iif> ".eq."                             { addSpan TOpEQ  }
@@ -553,6 +560,7 @@ data Token = TLeftPar             SrcSpan
            | TSave                SrcSpan
            | TContinue            SrcSpan
            | TStop                SrcSpan
+           | TExit                SrcSpan
            | TPause               SrcSpan
            | TDo                  SrcSpan
            | TDoWhile             SrcSpan
