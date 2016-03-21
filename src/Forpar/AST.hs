@@ -166,6 +166,7 @@ data Expression a =
   | ExpSubstring     a SrcSpan (Expression a) (Maybe (Expression a)) (Maybe (Expression a))
   | ExpFunctionCall  a SrcSpan (Expression a) (AList Expression a)
   | ExpImpliedDo     a SrcSpan (AList Expression a) (DoSpecification a)
+  | ExpArrayConstructor  a SrcSpan (AList Expression a)
   deriving (Eq, Show, Data, Typeable, Generic, Functor)
 
 -- All recursive Values

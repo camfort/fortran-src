@@ -31,6 +31,8 @@ import Debug.Trace
 %token
   '('                   { TLeftPar _ }
   ')'                   { TRightPar _ }
+  '(/'                  { TLeftArrayPar _ }
+  '/)'                  { TRightArrayPar _ }
   ','                   { TComma _ }
   '.'                   { TDot _ }
   ':'                   { TColon _ }
@@ -639,6 +641,11 @@ EXPRESSION
 | SUBSTRING                         { $1 }
 | VARIABLE                          { $1 }
 | IMPLIED_DO                        { $1 }
+| '(/' EXPRESSION_LIST '/)' {
+    let { exps = reverse $2;
+          expList = AList () (getSpan exps) exps }
+    in ExpArrayConstructor () (getTransSpan $1 $3) expList
+          }
 
 IMPLIED_DO :: { Expression A0 }
 IMPLIED_DO

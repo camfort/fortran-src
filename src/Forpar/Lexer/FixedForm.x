@@ -71,6 +71,8 @@ tokens :-
   <iif> "("                                   { incPar >> addSpan TLeftPar }
   <st> ")"                                    { addSpan TRightPar }
   <iif> ")"                                   { maybeToKeyword >> addSpan TRightPar }
+  <st,iif> "(/" / { formatExtendedP }         { addSpan TLeftArrayPar }
+  <st,iif> "/)" / { formatExtendedP }         { addSpan TRightArrayPar }
   <st,iif,keyword> ","                        { addSpan TComma }
   <st,iif> "."                                { addSpan TDot }
   <st,iif> ":" / { fortran77P }               { addSpan TColon }
@@ -201,6 +203,15 @@ tokens :-
 --------------------------------------------------------------------------------
 -- Predicated lexer helpers
 --------------------------------------------------------------------------------
+
+formatExtendedP :: FortranVersion -> AlexInput -> Int -> AlexInput -> Bool
+formatExtendedP fv _ _ ai = fv == Fortran77Extended &&
+  case xs of
+    [ TFormat _, _ ] -> False
+    [ TLabel _ _, TFormat _ ] -> False
+    _ -> True
+  where
+    xs = take 2 . reverse . aiPreviousTokensInLine $ ai
 
 implicitTypeP :: FortranVersion -> AlexInput -> Int -> AlexInput -> Bool
 implicitTypeP a b c d = implicitStP a b c d
@@ -539,6 +550,8 @@ toSC startCode = do
 
 data Token = TLeftPar             SrcSpan
            | TRightPar            SrcSpan
+           | TLeftArrayPar        SrcSpan
+           | TRightArrayPar       SrcSpan
            | TComma               SrcSpan
            | TDot                 SrcSpan
            | TColon               SrcSpan
