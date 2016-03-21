@@ -25,7 +25,6 @@ executable forpar
     base >= 4.6 && < 5,
     mtl >= 2.2,
     array >= 0.5,
-    newtype >= 0.2,
     uniplate >= 1.6,
     GenericPretty >= 1.2,
     pretty >= 1.1,
@@ -73,7 +72,6 @@ library
     base >= 4.6 && < 5,
     mtl >= 2.2,
     array >= 0.5,
-    newtype >= 0.2,
     uniplate >= 1.6,
     GenericPretty >= 1.2,
     pretty >= 1.1,
@@ -89,7 +87,6 @@ test-suite spec
     hspec >= 2.2,
     mtl >= 2.2,
     array >= 0.5,
-    newtype >= 0.2,
     uniplate >= 1.6,
     containers >= 0.5,
     forpar
