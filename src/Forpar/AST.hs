@@ -70,6 +70,8 @@ data ProgramUnit a =
 data Block a =
     BlStatement a SrcSpan (Maybe (Expression a)) (Statement a)
   | BlIf a SrcSpan (Maybe (Expression a)) [ Maybe (Expression a) ] [ [ Block a ] ]
+  | BlDo a SrcSpan (Maybe (Expression a)) (DoSpecification a) [ Block a ]
+  | BlDoWhile a SrcSpan (Maybe (Expression a)) (Expression a) [ Block a ]
   | BlComment a SrcSpan String
   deriving (Eq, Show, Data, Typeable, Generic, Functor)
 

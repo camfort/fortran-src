@@ -1,5 +1,4 @@
 {-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE PatternGuards #-}
 
 module Forpar.Transformation.Disambiguation.Array (disambiguateArray) where
 
@@ -7,6 +6,7 @@ import Prelude hiding (lookup)
 import Data.Generics.Uniplate.Data
 import Data.Map ((!), lookup)
 import Data.Maybe (isJust, fromJust, fromMaybe)
+import Data.Data
 import Control.Monad (mplus)
 
 import Forpar.Analysis.Types (IDType(..), ConstructType(..), TypeScope(..))
@@ -15,7 +15,7 @@ import Forpar.Transformation.TransformMonad
 
 import Debug.Trace
 
-disambiguateArray :: Transform ()
+disambiguateArray :: Data a => Transform a ()
 disambiguateArray = do
   renameProgramFile
   tenv <- getTypes

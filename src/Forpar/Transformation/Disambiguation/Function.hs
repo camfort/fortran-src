@@ -7,6 +7,7 @@ import Prelude hiding (lookup)
 import Data.Generics.Uniplate.Data
 import Data.Map ((!), lookup)
 import Data.Maybe (isJust, fromJust)
+import Data.Data
 
 import Forpar.Analysis.Types (IDType(..), ConstructType(..), TypeScope(..))
 import Forpar.AST
@@ -14,12 +15,12 @@ import Forpar.Transformation.TransformMonad
 
 import Debug.Trace
 
-disambiguateFunction :: Transform ()
+disambiguateFunction :: Data a => Transform a ()
 disambiguateFunction = do
   disambiguateFunctionStatements
   disambiguateFunctionCalls
 
-disambiguateFunctionStatements :: Transform ()
+disambiguateFunctionStatements :: Data a => Transform a ()
 disambiguateFunctionStatements = do
   pf <- getProgramFile
   mapping <- getTypes
@@ -41,7 +42,7 @@ disambiguateFunctionStatements = do
       | otherwise = st
     transform'' _ (x :: Statement ()) = x
 
-disambiguateFunctionCalls :: Transform ()
+disambiguateFunctionCalls :: Data a => Transform a ()
 disambiguateFunctionCalls = do
   pf <- getProgramFile
   mapping <- getTypes

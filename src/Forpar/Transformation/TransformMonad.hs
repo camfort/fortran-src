@@ -11,20 +11,21 @@ module Forpar.Transformation.TransformMonad ( getTypes
 import Prelude hiding (lookup)
 import Control.Monad.State.Lazy
 import Data.Map (lookup, Map)
+import Data.Data
 
 import Forpar.Analysis.Types
 import Forpar.Analysis
 import Forpar.Analysis.Renaming
 import Forpar.AST (ProgramFile)
 
-data TransformationState = TransformationState 
-  { transProgramFile :: ProgramFile ()
+data TransformationState a = TransformationState 
+  { transProgramFile :: ProgramFile a
   , transTypes :: Maybe (Map TypeScope (Map String IDType))
   , transUnrenameMap :: Maybe NameMap }
 
-type Transform = State TransformationState
+type Transform a = State (TransformationState a)
 
-runTransform :: Transform () -> ProgramFile () -> ProgramFile ()
+runTransform :: Transform a () -> ProgramFile a -> ProgramFile a 
 runTransform trans pf = transProgramFile . execState trans $ initState
   where
     initState = TransformationState 
@@ -32,26 +33,26 @@ runTransform trans pf = transProgramFile . execState trans $ initState
       , transTypes = Nothing
       , transUnrenameMap = Nothing }
 
-getProgramFile :: Transform (ProgramFile ())
+getProgramFile :: Transform a (ProgramFile a)
 getProgramFile = gets transProgramFile
 
-putProgramFile :: ProgramFile () -> Transform ()
+putProgramFile :: ProgramFile a -> Transform a ()
 putProgramFile pf = do
   state <- get
   put $ state { transProgramFile = pf }
 
-modifyProgramFile :: (ProgramFile () -> ProgramFile ()) -> Transform ()
+modifyProgramFile :: (ProgramFile a -> ProgramFile a) -> Transform a ()
 modifyProgramFile f = do
   state <- get
   put $ state { transProgramFile = f (transProgramFile state) }
 
-renameProgramFile :: Transform ()
+renameProgramFile :: Data a => Transform a ()
 renameProgramFile = do
   pf <- getProgramFile
   let (pf', nm) = renameAndStrip . analyseRenames . initAnalysis $ pf
   modify $ \ s -> s { transUnrenameMap = Just nm, transProgramFile = pf', transTypes = Nothing }
 
-unrenameProgramFile :: Transform ()
+unrenameProgramFile :: Data a => Transform a ()
 unrenameProgramFile = do
   pf <- getProgramFile
   m_nm <- gets transUnrenameMap
@@ -61,7 +62,7 @@ unrenameProgramFile = do
     Nothing -> return ()
 
 -- If types are requested and are not available automatically infer them.
-getTypes :: Transform (Map TypeScope (Map String IDType))
+getTypes :: Data a => Transform a (Map TypeScope (Map String IDType))
 getTypes = do
   mTypes <- gets transTypes
   case mTypes of
@@ -78,7 +79,7 @@ queryIDType ts s mapping = do
   innerMapping <- lookup ts mapping
   lookup s innerMapping
 
-queryIDTypeM :: TypeScope -> String -> Transform (Maybe IDType)
+queryIDTypeM :: Data a => TypeScope -> String -> Transform a (Maybe IDType)
 queryIDTypeM ts s = do
   mapping <- getTypes
   return $ queryIDType ts s mapping
