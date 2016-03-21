@@ -35,11 +35,12 @@ import Debug.Trace
 $digit = [0-9]
 $letter = [a-z]
 $alphanumeric = [$letter $digit]
+$alphanumericExtended = [$letter $digit \_]
 $special = [\ \=\+\-\*\/\(\)\,\.\$]
 
 -- This should really be 6 characters but there are many standard non-compliant
 -- programs out there.
-@idExtended = $letter $alphanumeric{0,9} $alphanumeric{0,9} $alphanumeric{0,9} $alphanumeric?
+@idExtended = $letter $alphanumericExtended{0,9} $alphanumericExtended{0,9} $alphanumericExtended{0,9} $alphanumericExtended?
 @id = $letter $alphanumeric{0,5}
 @label = [1-9] $digit{0,4}
 
