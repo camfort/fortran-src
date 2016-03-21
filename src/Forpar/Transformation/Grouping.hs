@@ -1,5 +1,6 @@
 module Forpar.Transformation.Grouping ( groupIf
                                       , groupDo
+                                      , groupLabeledDo
                                       ) where
 
 import Forpar.AST
@@ -127,7 +128,12 @@ groupDo' blocks@(b:bs) = b' : bs'
               collectNonDoBlocks groupedBlocks
         in ( BlDo a (getTransSpan s blocks) label doSpec blocks
            , leftOverBlocks)
-      BlIf a s label conds blocks -> (BlIf a s label conds (map groupDo' blocks), groupedBlocks)
+      BlDoWhile a s label cond blocks ->
+        (BlDoWhile a s label cond (groupDo' blocks), groupedBlocks)
+      BlDo a s label doSpec blocks ->
+        (BlDo a s label doSpec (groupDo' blocks), groupedBlocks)
+      BlIf a s label conds blocks ->
+        (BlIf a s label conds (map groupDo' blocks), groupedBlocks)
       _ -> (b, groupedBlocks)
     groupedBlocks = groupDo' bs -- Assume everything to the right is grouped.
 
@@ -138,3 +144,35 @@ collectNonDoBlocks blocks =
     b:bs -> let (bs', rest) = collectNonDoBlocks bs in (b : bs', rest)
     _ -> error "Premature file ending while parsing structured do block."
 
+--------------------------------------------------------------------------------
+-- Grouping labeled do statement blocks into do blocks in entire parse tree
+--------------------------------------------------------------------------------
+
+groupLabeledDo :: Transform a ()
+groupLabeledDo = genericGroup groupLabeledDo'
+
+groupLabeledDo' :: [ Block a ] -> [ Block a ]
+groupLabeledDo' [ ] = [ ]
+groupLabeledDo' blos@(b:bs) = b' : bs'
+  where
+    (b', bs') = case b of
+      BlStatement a s label (StDo _ _ (Just (ExpValue _ _ (ValLabel targetLabel))) doSpec) ->
+        let ( blocks, leftOverBlocks ) =
+              collectNonLabeledDoBlocks targetLabel groupedBlocks
+        in ( BlDo a (getTransSpan s blocks) label doSpec blocks
+           , leftOverBlocks)
+      BlDo a s label doSpec blocks ->
+        (BlDo a s label doSpec (groupLabeledDo' blocks), groupedBlocks)
+      BlDoWhile a s label cond blocks ->
+        (BlDoWhile a s label cond (groupLabeledDo' blocks), groupedBlocks)
+      BlIf a s label conds blocks ->
+        (BlIf a s label conds (map groupLabeledDo' blocks), groupedBlocks)
+      _ -> (b, groupedBlocks)
+    groupedBlocks = groupLabeledDo' bs -- Assume everything to the right is grouped.
+
+collectNonLabeledDoBlocks :: String -> [ Block a ] -> ([ Block a ], [ Block a ])
+collectNonLabeledDoBlocks targetLabel blocks =
+  case blocks of
+    b@(BlStatement _ _ (Just (ExpValue _ _ (ValLabel label))) _):rest
+      | label == targetLabel -> ([ b ], rest)
+    b:bs -> let (bs', rest) = collectNonLabeledDoBlocks targetLabel bs in (b : bs', rest)

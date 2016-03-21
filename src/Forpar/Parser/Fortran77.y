@@ -844,7 +844,7 @@ fortran77Parser sourceCode filename =
 
 extended77Parser :: String -> String -> ProgramFile A0
 extended77Parser sourceCode filename =
-  transform [ GroupDo, GroupIf, DisambiguateFunction, DisambiguateArray ] $ evalParse programParser $ initParseState sourceCode Fortran77Extended filename
+  transform [ GroupLabeledDo, GroupDo, GroupIf, DisambiguateFunction, DisambiguateArray ] $ evalParse programParser $ initParseState sourceCode Fortran77Extended filename
 
 parseError :: Token -> LexAction a
 parseError _ = fail "Parsing failed."

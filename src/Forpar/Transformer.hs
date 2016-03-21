@@ -16,6 +16,7 @@ import Forpar.AST (ProgramFile, ProgramUnitName)
 data Transformation =
     GroupIf
   | GroupDo
+  | GroupLabeledDo
   | DisambiguateFunction
   | DisambiguateArray
   deriving (Eq)
@@ -24,6 +25,7 @@ transformationMapping :: Data a => [ (Transformation, Transform a ()) ]
 transformationMapping =
   [ (GroupIf, groupIf)
   , (GroupDo, groupDo)
+  , (GroupLabeledDo, groupLabeledDo)
   , (DisambiguateFunction, disambiguateFunction)
   , (DisambiguateArray, disambiguateArray) ]
 
