@@ -121,7 +121,8 @@ unrename (pf, nm) = trPU fPU . trV fV $ pf
 -- extract name from declaration
 declName (DeclVariable _ _ (ExpValue _ _ (ValVariable _ v))) = v
 declName (DeclArray _ _ (ExpValue _ _ (ValArray _ v)) _) = v
-declName _ = error "unfinished"
+declName (DeclCharVariable _ _ (ExpValue _ _ (ValVariable _ v)) _) = v
+declName (DeclCharArray _ _ (ExpValue _ _ (ValVariable _ v)) _ _) = v
 
 programUnit :: Data a => RenamerFunc (ProgramUnit (Analysis a))
 programUnit pu = do
