@@ -421,6 +421,7 @@ PARAMETER_ASSIGNMENT
 DECLARATION_STATEMENT :: { Statement A0 }
 DECLARATION_STATEMENT
 : CHARACTER_TYPE CHARACTER_DECLARATORS { StDeclaration () (getTransSpan $1 $2) $1 $2 }
+| EXTRA_CHARACTER_TYPE CHARACTER_DECLARATORS { StDeclaration () (getTransSpan $1 $2) $1 $2 }
 | OTHER_TYPE OTHER_DECLARATORS { StDeclaration () (getTransSpan $1 $2) $1 $2 }
 
 IMP_LISTS :: { AList ImpList A0 }
@@ -815,6 +816,10 @@ CHARACTER_TYPE :: { BaseType A0 }
 CHARACTER_TYPE
 : character        { TypeCharacter () (getSpan $1) Nothing }
 | character '*' ARITHMETIC_CONSTANT_EXPRESSION  { TypeCharacter () (getTransSpan $1 $3) $ Just $3 }
+
+EXTRA_CHARACTER_TYPE :: { BaseType A0 }
+EXTRA_CHARACTER_TYPE
+: character '(' ARITHMETIC_CONSTANT_EXPRESSION ')'  { TypeCharacter () (getTransSpan $1 $3) $ Just $3 }
 
 OTHER_TYPE :: { BaseType A0 }
 OTHER_TYPE
