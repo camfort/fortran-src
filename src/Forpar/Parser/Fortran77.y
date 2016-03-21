@@ -79,6 +79,7 @@ import Debug.Trace
   doublePrecision       { TType _ "doubleprecision" }
   logical               { TType _ "logical" }
   complex               { TType _ "complex" }
+  doubleComplex         { TType _ "doublecomplex" }
   intrinsic             { TIntrinsic _ }
   implicit              { TImplicit _ }
   parameter             { TParameter _ }
@@ -835,6 +836,7 @@ OTHER_TYPE
 | doublePrecision  { TypeDoublePrecision () (getSpan $1) }
 | logical          { TypeLogical () (getSpan $1) }
 | complex          { TypeComplex () (getSpan $1) }
+| doubleComplex    { TypeDoubleComplex () (getSpan $1) }
 
 {
 

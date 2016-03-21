@@ -131,9 +131,11 @@ tokens :-
   <keyword> "external"                        { toSC st >> addSpan TExternal  }
   <keyword> "intrinsic" / { fortran77P }      { toSC st >> addSpan TIntrinsic  }
   <keyword> @datatype                         { typeSCChange >> addSpanAndMatch TType }
-  <st> @datatype / { implicitTypeP }          { addSpanAndMatch TType }
+  <st> @datatype / { implicitStP }            { addSpanAndMatch TType }
+  <keyword> "doublecomplex" / { extended77P } { typeSCChange >> addSpanAndMatch TType }
+  <st> "doublecomplex" / { implicitTypeExtendedP }  { addSpanAndMatch TType }
   <keyword> "character" / { fortran77P }      { toSC st >> addSpanAndMatch TType }
-  <st> "character" / { implicitTypeP }        { addSpanAndMatch TType }
+  <st> "character" / { implicitType77P }      { addSpanAndMatch TType }
   <keyword> "implicit" / { fortran77P }       { toSC st >> addSpan TImplicit  }
   <st> "none" / { fortran77P }                { addSpan TNone  }
   <keyword> "parameter" / { fortran77P }      { toSC st >> addSpan TParameter  }
@@ -213,8 +215,11 @@ formatExtendedP fv _ _ ai = fv == Fortran77Extended &&
   where
     xs = take 2 . reverse . aiPreviousTokensInLine $ ai
 
-implicitTypeP :: FortranVersion -> AlexInput -> Int -> AlexInput -> Bool
-implicitTypeP a b c d = implicitStP a b c d
+implicitType77P :: FortranVersion -> AlexInput -> Int -> AlexInput -> Bool
+implicitType77P fv b c d = fortran77P fv b c d && implicitStP fv b c d
+
+implicitTypeExtendedP :: FortranVersion -> AlexInput -> Int -> AlexInput -> Bool
+implicitTypeExtendedP fv b c d = extended77P fv b c d && implicitStP fv b c d
 
 implicitStP :: FortranVersion -> AlexInput -> Int -> AlexInput -> Bool
 implicitStP fv _ _ ai = checkPreviousTokensInLine f ai

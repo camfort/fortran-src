@@ -51,6 +51,7 @@ data BaseType a =
   | TypeReal            a SrcSpan
   | TypeDoublePrecision a SrcSpan
   | TypeComplex         a SrcSpan
+  | TypeDoubleComplex   a SrcSpan
   | TypeLogical         a SrcSpan
   | TypeCharacter       a SrcSpan (Maybe (Expression a))
   deriving (Eq, Show, Data, Typeable, Generic, Functor)
