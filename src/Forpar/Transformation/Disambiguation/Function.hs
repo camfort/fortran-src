@@ -5,7 +5,7 @@ module Forpar.Transformation.Disambiguation.Function (disambiguateFunction) wher
 
 import Prelude hiding (lookup)
 import Data.Generics.Uniplate.Data
-import Data.Map ((!), lookup)
+import Data.Map ((!), lookup, Map)
 import Data.Maybe (isJust, fromJust)
 import Data.Data
 
@@ -20,48 +20,51 @@ disambiguateFunction = do
   disambiguateFunctionStatements
   disambiguateFunctionCalls
 
-disambiguateFunctionStatements :: Data a => Transform a ()
+disambiguateFunctionStatements :: forall a . Data a => Transform a ()
 disambiguateFunctionStatements = do
   pf <- getProgramFile
   mapping <- getTypes
   putProgramFile $ descendBi (transform' mapping) pf
   where
-    transform' mapping (pu :: ProgramUnit ()) =
-      descendBi (transform'' $ mapping ! Local (getName pu)) pu
+    transform' :: Data a => Map TypeScope (Map String IDType) -> ProgramUnit a -> ProgramUnit a
+    transform' mapping pu =
+      descendBi (transform'' (Local (getName pu) `lookup` mapping)) pu
+    transform'' :: Data a => Maybe (Map String IDType) -> Statement a -> Statement a
     transform''
-      innerMapping
-      st@(StExpressionAssign () s
-        (ExpSubscript () _
-          (ExpValue () s'' (ValArray () n)) indicies)
+      mInnerMapping
+      st@(StExpressionAssign a1 s
+        (ExpSubscript _ _
+          (ExpValue a3 s'' (ValArray _ n)) indicies)
         e2)
-      | Just (IDType _ (Just CTFunction)) <- lookup n innerMapping =
-          StFunction () s
-            (ExpValue () s'' (ValFunctionName n))
+      | Just innerMapping <- mInnerMapping
+      , Just (IDType _ (Just CTFunction)) <- n `lookup` innerMapping =
+          StFunction a1 s
+            (ExpValue a3 s'' (ValFunctionName n))
             indicies
             e2
       | otherwise = st
-    transform'' _ (x :: Statement ()) = x
+    transform'' _ (x :: Statement a) = x
 
-disambiguateFunctionCalls :: Data a => Transform a ()
+disambiguateFunctionCalls :: forall a . Data a => Transform a ()
 disambiguateFunctionCalls = do
   pf <- getProgramFile
   mapping <- getTypes
   putProgramFile $ descendBi (transform' mapping) pf
   where
-    transform' mapping (pu :: ProgramUnit ()) =
-      descendBi (transform'' (lookup Global mapping) (mapping ! Local (getName pu))) pu
+    transform' :: Data a => Map TypeScope (Map String IDType) -> ProgramUnit a -> ProgramUnit a
+    transform' mapping pu =
+      descendBi (transform'' (Global `lookup` mapping) (Local (getName pu) `lookup` mapping)) pu
+    transform'' :: Data a => Maybe (Map String IDType) -> Maybe (Map String IDType) -> Expression a -> Expression a
     transform''
         mGlobalMapping
-        innerMapping
-        exp@(ExpSubscript () s (ExpValue () s' (ValArray () n)) l)
-      -- Check if it is a function statement
-      -- | Just (IDType _ (Just CTFunction)) <- lookup n innerMapping
-      | Just (IDType _ (Just CTFunction)) <- lookup n innerMapping
-      = ExpFunctionCall () s (ExpValue () s' (ValFunctionName n)) l
-      -- Check if it is a function subprogram
-      | isJust mGlobalMapping
-      , Just (IDType _ (Just CTFunction)) <- lookup n (fromJust mGlobalMapping)
-      = ExpFunctionCall () s (ExpValue () s' (ValFunctionName n)) l
+        mInnerMapping
+        exp@(ExpSubscript a1 s (ExpValue a2 s' (ValArray a3 n)) l)
+      | Just innerMapping <- mInnerMapping
+      , Just (IDType _ (Just CTFunction)) <- n `lookup` innerMapping
+      = ExpFunctionCall a1 s (ExpValue a2 s' (ValFunctionName n)) l
+      | Just globalMapping <- mGlobalMapping
+      , Just (IDType _ (Just CTFunction)) <- n `lookup` globalMapping
+      = ExpFunctionCall a1 s (ExpValue a2 s' (ValFunctionName n)) l
       | otherwise = exp
-    transform'' mGlobalMapping localMapping (x :: Expression ()) =
-      descend (transform'' mGlobalMapping localMapping) x
+    transform'' mGlobalMapping mLocalMapping x =
+      descend (transform'' mGlobalMapping mLocalMapping) x
