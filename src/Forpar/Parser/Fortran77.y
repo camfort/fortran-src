@@ -824,6 +824,7 @@ CHARACTER_TYPE :: { BaseType A0 }
 CHARACTER_TYPE
 : character        { TypeCharacter () (getSpan $1) Nothing }
 | character '*' ARITHMETIC_CONSTANT_EXPRESSION  { TypeCharacter () (getTransSpan $1 $3) $ Just $3 }
+| character '*' '(' '*' ')'  { TypeCharacter () (getTransSpan $1 $3) $ Just (ExpValue () (getTransSpan $3 $5) ValStar) }
 
 EXTRA_CHARACTER_TYPE :: { BaseType A0 }
 EXTRA_CHARACTER_TYPE
