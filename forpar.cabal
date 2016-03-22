@@ -30,12 +30,20 @@ executable forpar
     pretty >= 1.1,
     containers >= 0.5
   other-modules:
-    Forpar.ParserMonad
+    Forpar.Analysis
+    Forpar.Analysis.Renaming
+    Forpar.Analysis.Types
+    Forpar.AST
     Forpar.Lexer.FixedForm
     Forpar.Lexer.FreeForm
+    Forpar.ParserMonad
     Forpar.Parser.Fortran66
     Forpar.Parser.Fortran77
-    Forpar.AST
+    Forpar.Transformation.Disambiguation.Array
+    Forpar.Transformation.Disambiguation.Function
+    Forpar.Transformation.Grouping
+    Forpar.Transformation.TransformMonad
+    Forpar.Transformer
     Forpar.Util.Position
     Forpar.Util.FirstParameter
     Forpar.Util.SecondParameter
@@ -44,20 +52,20 @@ executable forpar
 
 library
   exposed-modules:     
-    Forpar.ParserMonad
+    Forpar.Analysis
+    Forpar.Analysis.Renaming
+    Forpar.Analysis.Types
+    Forpar.AST
     Forpar.Lexer.FixedForm
     Forpar.Lexer.FreeForm
+    Forpar.ParserMonad
     Forpar.Parser.Fortran66
     Forpar.Parser.Fortran77
-    Forpar.Analysis
-    Forpar.Analysis.Types
-    Forpar.Analysis.Renaming
-    Forpar.Transformer
-    Forpar.Transformation.TransformMonad
-    Forpar.Transformation.Grouping
-    Forpar.Transformation.Disambiguation.Function
     Forpar.Transformation.Disambiguation.Array
-    Forpar.AST
+    Forpar.Transformation.Disambiguation.Function
+    Forpar.Transformation.Grouping
+    Forpar.Transformation.TransformMonad
+    Forpar.Transformer
     Forpar.Util.Position
     Forpar.Util.FirstParameter
     Forpar.Util.SecondParameter
