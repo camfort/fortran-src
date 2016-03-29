@@ -172,20 +172,32 @@ execParse m s = snd (runParse m s)
 class Tok a where
   eofToken :: a -> Bool
 
-collectTokens :: forall a b . (Loc b, Tok a, LastToken b a, Show a) => Parse b a (Maybe a) -> ParseState b -> Maybe [a]
+collectTokens :: forall a b . (Loc b, Tok a, LastToken b a, Show a) => Parse b a a -> ParseState b -> [a]
 collectTokens lexer initState =
     evalParse (_collectTokens initState) undefined
   where
-    _collectTokens :: (Loc b, Tok a, LastToken b a, Show a) => ParseState b -> Parse b a (Maybe [a])
+    _collectTokens :: (Loc b, Tok a, LastToken b a, Show a) => ParseState b -> Parse b a [a]
     _collectTokens state = do
       let (_token, _state) = runParse lexer state
-      case _token of
-        Just _token' ->
-          if eofToken _token'
-          then return $ Just [_token']
+      if eofToken _token
+      then return [_token]
+      else do
+        _tokens <- _collectTokens _state
+        return $ _token:_tokens
+
+collectTokensSafe :: forall a b . (Loc b, Tok a, LastToken b a, Show a) => Parse b a a -> ParseState b -> Maybe [a]
+collectTokensSafe lexer initState =
+    evalParse (_collectTokens initState) undefined
+  where
+    _collectTokens :: (Loc b, Tok a, LastToken b a, Show a) => ParseState b -> Parse b a (Maybe [a])
+    _collectTokens state =
+      case unParse lexer state of
+        ParseOk _token _state ->
+          if eofToken _token
+          then return $ Just [_token]
           else do
-            tokens <- _collectTokens _state
-            return $ do
-              tokens' <- tokens
-              return (_token':tokens')
-        Nothing -> return Nothing
+            _mTokens <- _collectTokens _state
+            case _mTokens of
+              Just _tokens -> return $ Just $ _token:_tokens
+              _ -> return Nothing
+        _ -> return Nothing

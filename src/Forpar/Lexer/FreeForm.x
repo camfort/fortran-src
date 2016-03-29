@@ -276,34 +276,37 @@ ifConditionEndP (User _ pc) _ _ ai
     prevTokens = reverse . aiPreviousTokensInLine $ ai
 
 partOfExpOrPointerAssignmentP :: User -> AlexInput -> Int -> AlexInput -> Bool
-partOfExpOrPointerAssignmentP (User fv _) _ _ ai = evalParse (lexerM $ f False 0) ps
+partOfExpOrPointerAssignmentP (User fv _) _ _ ai = 
+    case unParse (lexer $ f False 0) ps of
+      ParseOk True _ -> True
+      _ -> False
   where
     ps = ParseState
       { psAlexInput = ai { aiStartCode = StartCode scN Return }
       , psVersion = fv
       , psFilename = "<unknown>"
       , psParanthesesCount = ParanthesesCount 0 False }
-    f leftParSeen parCount maybeToken
+    f leftParSeen parCount token
       | not leftParSeen =
-        case maybeToken of
-          Just TNewline{} -> return False
-          Just TEOF{} -> return False
-          Just TArrow{} -> return True
-          Just TOpAssign{} -> return True
-          Just TLeftPar{} -> lexerM $ f True 1
+        case token of
+          TNewline{} -> return False
+          TEOF{} -> return False
+          TArrow{} -> return True
+          TOpAssign{} -> return True
+          TLeftPar{} -> lexer $ f True 1
           _ -> return False
       | parCount == 0 =
-        case maybeToken of
-          Just (TOpAssign _) -> return True
-          Just (TArrow _) -> return True
+        case token of
+          TOpAssign{} -> return True
+          TArrow{} -> return True
           _ -> return False
       | parCount > 0 =
-        case maybeToken of
-          Just TNewline{} -> return False
-          Just TEOF{} -> return False
-          Just TLeftPar{} -> lexerM $ f True (parCount + 1)
-          Just TRightPar{} -> lexerM $ f True (parCount - 1)
-          _ -> lexerM $ f True parCount
+        case token of
+          TNewline{} -> return False
+          TEOF{} -> return False
+          TLeftPar{} -> lexer $ f True (parCount + 1)
+          TRightPar{} -> lexer $ f True (parCount - 1)
+          _ -> lexer $ f True parCount
       | otherwise =
         error "Error while executing part of expression assignment predicate."
 
@@ -382,7 +385,10 @@ prevTokenConstr :: AlexInput -> Maybe Constr
 prevTokenConstr ai = toConstr <$> aiPreviousToken ai
 
 nextTokenConstr :: User -> AlexInput -> Maybe Constr
-nextTokenConstr (User fv pc) ai = toConstr <$> evalParse lexer' parseState
+nextTokenConstr (User fv pc) ai = 
+    case unParse lexer' parseState of
+      ParseOk token _ -> Just $ toConstr token
+      _ -> Nothing
   where
     parseState = ParseState
       { psAlexInput = ai
@@ -772,16 +778,9 @@ advance move position =
 --------------------------------------------------------------------------------
 
 lexer :: (Token -> LexAction a) -> LexAction a
-lexer cont = do
-   mToken <- lexer'
-   case mToken of
-     Just token -> cont token
-     Nothing -> fail "Unrecognised token. "
+lexer cont = cont =<< lexer'
 
-lexerM :: ((Maybe Token) -> LexAction a) -> LexAction a
-lexerM cont = lexer' >>= \mToken -> cont mToken
-
-lexer' :: LexAction (Maybe Token)
+lexer' :: LexAction Token
 lexer' = do
   resetLexeme
   alex <- getAlex
@@ -792,8 +791,8 @@ lexer' = do
   paranthesesCount <- getParanthesesCount
   let user = User version paranthesesCount
   case alexScanUser user newAlex startCode of
-    AlexEOF -> return $ Just $ TEOF $ SrcSpan (getPos alex) (getPos alex)
-    AlexError _ -> return Nothing
+    AlexEOF -> return $ TEOF $ SrcSpan (getPos alex) (getPos alex)
+    AlexError _ -> fail "Lexing failed. "
     AlexSkip newAlex _ -> do
       putAlex $ newAlex { aiStartCode = StartCode startCode Return }
       lexer'
@@ -804,7 +803,7 @@ lexer' = do
         Just token -> do
           updatePreviousToken maybeToken
           addToPreviousTokensInLine token
-          return maybeToken
+          return token
         Nothing -> lexer'
 
 alexScanUser :: User -> AlexInput -> Int -> AlexReturn (LexAction (Maybe Token))
@@ -1007,7 +1006,7 @@ initParseState srcInput fortranVersion filename =
       , psFilename = filename
       , psParanthesesCount = ParanthesesCount 0 False }
 
-collectFreeTokens :: FortranVersion -> String -> Maybe [Token]
+collectFreeTokens :: FortranVersion -> String -> [Token]
 collectFreeTokens version srcInput =
     collectTokens lexer' $ initParseState srcInput version "<unknown>"
 

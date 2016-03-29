@@ -11,7 +11,7 @@ import Forpar.Lexer.FreeForm (collectFreeTokens, Token(..))
 import Debug.Trace
 
 collectF90 :: String -> [ Token ]
-collectF90 = fromJust . collectFreeTokens Fortran90
+collectF90 = collectFreeTokens Fortran90
 
 pseudoAssign token = fmap ($u) [ flip TId "i", TOpAssign, token, TEOF ]
 

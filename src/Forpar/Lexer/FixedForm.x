@@ -237,7 +237,10 @@ doP :: AlexInput -> Bool
 doP ai = isPrefixOf "do" (reverse . lexemeMatch . aiLexeme $ ai)
 
 equalFollowsP :: FortranVersion -> AlexInput -> Bool
-equalFollowsP fv ai = evalParse (lexerM $ f False 0) ps
+equalFollowsP fv ai = 
+    case unParse (lexer $ f False 0) ps of
+      ParseOk True _ -> True
+      _ -> False
   where
     ps = ParseState
       { psAlexInput = ai { aiStartCode = st}
@@ -246,22 +249,22 @@ equalFollowsP fv ai = evalParse (lexerM $ f False 0) ps
       , psParanthesesCount = ParanthesesCount 0 False }
     f False 0 t =
       case t of
-        Just (TNewline _) -> return False
-        Just (TEOF _) -> return False
-        Just (TOpAssign _) -> return True
-        Just (TLeftPar _) -> lexerM $ f True 1
+        TNewline{} -> return False
+        TEOF{} -> return False
+        TOpAssign{} -> return True
+        TLeftPar{} -> lexer $ f True 1
         _ -> return False
     f True 0 t =
       case t of
-        Just (TOpAssign _) -> return True
+        TOpAssign{} -> return True
         _ -> return False
     f True n t =
       case t of
-        Just (TNewline _) -> return False
-        Just (TEOF _) -> return False
-        Just (TLeftPar _) -> lexerM $ f True (n + 1)
-        Just (TRightPar _) -> lexerM $ f True (n - 1)
-        _ -> lexerM $ f True n
+        TNewline{} -> return False
+        TEOF{} -> return False
+        TLeftPar{} -> lexer $ f True (n + 1)
+        TRightPar{} -> lexer $ f True (n - 1)
+        _ -> lexer $ f True n
 
 commentP :: FortranVersion -> AlexInput -> Int -> AlexInput -> Bool
 commentP _ aiOld _ aiNew = atColP 1 aiOld && _endsWithLine
@@ -534,12 +537,13 @@ typeSCChange :: LexAction (Maybe Token)
 typeSCChange = do
   ps <- get
   let hypotheticalPs = ps { psAlexInput = (psAlexInput ps) { aiStartCode = keyword } }
-  let isFunction = evalParse (lexerM f) hypotheticalPs
+  let isFunction = case unParse (lexer f) hypotheticalPs of { ParseOk True _ -> True; _ -> False }
   if isFunction
   then return Nothing
   else toSC st
   where
-    f t = case t of { Just (TFunction _) -> return True; _ -> return False }
+    f TFunction{} = return True
+    f _ = return False
 
 toSC :: Int -> LexAction (Maybe Token)
 toSC startCode = do
@@ -806,24 +810,17 @@ utf8Encode = map fromIntegral . _go . ord
 --------------------------------------------------------------------------------
 
 lexer :: (Token -> LexAction a) -> LexAction a
-lexer cont = do
-   mToken <- lexer'
-   case mToken of
-     Just token -> cont token
-     Nothing -> fail "Unrecognised token. "
+lexer cont = cont =<< lexer'
 
-lexerM :: ((Maybe Token) -> LexAction a) -> LexAction a
-lexerM cont = lexer' >>= \mToken -> cont mToken
-
-lexer' :: LexAction (Maybe Token)
+lexer' :: LexAction Token
 lexer' = do
   resetLexeme
   alexInput <- getAlex
   let startCode = aiStartCode alexInput
   version <- getVersion
   case alexScanUser version alexInput startCode of
-    AlexEOF -> return $ Just $ TEOF $ SrcSpan (getPos alexInput) (getPos alexInput)
-    AlexError _ -> return Nothing
+    AlexEOF -> return $ TEOF $ SrcSpan (getPos alexInput) (getPos alexInput)
+    AlexError _ -> fail "Lexing failed. "
     AlexSkip newAlex _ -> putAlex newAlex >> lexer'
     AlexToken newAlex startCode action -> do
       putAlex newAlex
@@ -832,7 +829,7 @@ lexer' = do
         Just token -> do
           updatePreviousToken maybeToken
           addToPreviousTokensInLine token
-          return maybeToken
+          return token
         Nothing -> lexer'
 
 alexScanUser :: FortranVersion -> AlexInput -> Int -> AlexReturn (LexAction (Maybe Token))
@@ -851,8 +848,12 @@ initParseState srcInput fortranVersion filename =
       , psFilename = filename
       , psParanthesesCount = ParanthesesCount 0 False }
 
-collectFixedTokens :: FortranVersion -> String -> Maybe [Token]
+collectFixedTokens :: FortranVersion -> String -> [Token]
 collectFixedTokens version srcInput =
     collectTokens lexer' $ initParseState srcInput version "<unknown>"
+
+collectFixedTokensSafe :: FortranVersion -> String -> Maybe [Token]
+collectFixedTokensSafe version srcInput =
+    collectTokensSafe lexer' $ initParseState srcInput version "<unknown>"
 
 }

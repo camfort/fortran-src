@@ -35,15 +35,9 @@ main = do
     let version = fromMaybe (deduceVersion path) (fortranVersion opts)
     case action opts of
       Lex | version `elem` [ Fortran66, Fortran77, Fortran77Extended ] -> do
-        let tokens = FixedForm.collectFixedTokens version contents
-        case tokens of
-          Just tokens' -> print tokens'
-          Nothing -> putStrLn "Cannot lex the file"
+        print $ FixedForm.collectFixedTokens version contents
       Lex | version `elem` [Fortran90, Fortran2003, Fortran2008] -> do
-        let tokens = FreeForm.collectFreeTokens version contents
-        case tokens of
-          Just tokens' -> print tokens'
-          Nothing -> putStrLn "Cannot lex the file"
+        print $ FreeForm.collectFreeTokens version contents
       Lex -> ioError $ userError $ usageInfo programName options
       Parse | version == Fortran66 -> pp $ fortran66Parser contents path
       Parse | version == Fortran77 -> pp $ fortran77Parser contents path
