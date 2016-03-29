@@ -247,3 +247,14 @@ spec =
         it "Continuation with inline comment" $
           shouldBe' (collectF90 "i = &  ! hi \n  42") $
                     pseudoAssign $ flip TIntegerLiteral "42"
+
+      describe "Comment" $ do
+        it "Full line comment" $
+          shouldBe' (collectF90 "! = & ! hi \n") $
+                    ($u) <$> [ flip TComment "! = & ! hi ", TNewline , TEOF ]
+
+        it "Inline comment" $
+          shouldBe' (collectF90 "i = 10 ! = & ! hi \n") $
+                    ($u) <$> [ flip TId "i", TOpAssign
+                             , flip TIntegerLiteral "10"
+                             , flip TComment "! = & ! hi ", TNewline , TEOF ]

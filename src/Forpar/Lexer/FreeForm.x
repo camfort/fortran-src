@@ -10,7 +10,7 @@ module Forpar.Lexer.FreeForm where
 
 import Data.Data
 import Data.Typeable
-import Data.Maybe (isJust, isNothing, fromJust)
+import Data.Maybe (isJust, isNothing, fromJust, fromMaybe)
 import Data.Char (toLower)
 import Data.Word (Word8)
 
@@ -74,7 +74,7 @@ $expLetter = [ed]
 --------------------------------------------------------------------------------
 tokens :-
 
-<0,scN> "!"                                       { lexComment }
+<0,scN> "!".*$                                    { addSpanAndMatch TComment }
 
 <0,scN> (\n\r|\r\n|\n)                            { resetPar >> toSC 0 >> addSpan TNewline }
 <0,scN,scI> [\t\ ]+                               ;
@@ -276,7 +276,7 @@ ifConditionEndP (User _ pc) _ _ ai
     prevTokens = reverse . aiPreviousTokensInLine $ ai
 
 partOfExpOrPointerAssignmentP :: User -> AlexInput -> Int -> AlexInput -> Bool
-partOfExpOrPointerAssignmentP (User fv _) _ _ ai = 
+partOfExpOrPointerAssignmentP (User fv _) _ _ ai =
     case unParse (lexer $ f False 0) ps of
       ParseOk True _ -> True
       _ -> False
@@ -385,7 +385,7 @@ prevTokenConstr :: AlexInput -> Maybe Constr
 prevTokenConstr ai = toConstr <$> aiPreviousToken ai
 
 nextTokenConstr :: User -> AlexInput -> Maybe Constr
-nextTokenConstr (User fv pc) ai = 
+nextTokenConstr (User fv pc) ai =
     case unParse lexer' parseState of
       ParseOk token _ -> Just $ toConstr token
       _ -> Nothing
@@ -532,16 +532,6 @@ lexCharacter = do
       putMatch . init . tail $ match
       addSpanAndMatch TString
 
-lexComment :: LexAction (Maybe Token)
-lexComment = do
-  alex <- getAlex
-  case alexGetByte alex of
-    Just (_, ai) ->
-      if currentChar ai == '\n'
-      then addSpanAndMatch TComment
-      else putAlex ai >> lexComment
-    Nothing -> addSpanAndMatch TComment
-
 toSC :: Int -> LexAction ()
 toSC startCode = do
   alex <- getAlex
@@ -668,37 +658,48 @@ currentChar ai
   where
   _currentChar = head . takeNChars 1 $ ai
 
-advanceWithoutContinuation :: AlexInput -> AlexInput
+advanceWithoutContinuation :: AlexInput -> Maybe AlexInput
 advanceWithoutContinuation ai
   -- When all characters are already read
   | posAbsoluteOffset _position == (toInteger . length . aiSourceInput) ai =
-    error "File has ended prematurely during a continuation."
+    Nothing
   -- Read genuine character and advance. Also covers white sensitivity.
   | otherwise =
-    ai { aiPosition =
-           case _curChar of
-             '\n'  -> advance Newline _position
-             _     -> advance Char _position
-       , aiPreviousChar = _curChar }
+    Just $ ai { aiPosition =
+                  case _curChar of
+                    '\n'  -> advance Newline _position
+                    _     -> advance Char _position
+              , aiPreviousChar = _curChar }
   where
     _curChar = currentChar ai
     _position = aiPosition ai
 
 isContinuation :: AlexInput -> Bool
-isContinuation ai = (scActual . aiStartCode) ai /= scC && _isContinuation ai 0
+isContinuation ai = 
+    -- No continuation while lexing a character literal.
+    (scActual . aiStartCode) ai /= scC 
+    -- No continuation while lexing a comment.
+    && (let lexeme = lexemeMatch . aiLexeme $ ai
+       in null lexeme || last lexeme /= '!')
+    && _isContinuation ai 0
   where
     _isContinuation ai 0 =
       if currentChar ai == '&'
-      then _isContinuation (advanceWithoutContinuation ai) 1
+      then _advance ai
       else False
     _isContinuation ai 1 =
       case currentChar ai of
-        ' ' -> _isContinuation (advanceWithoutContinuation ai) 1
-        '\t' -> _isContinuation (advanceWithoutContinuation ai) 1
-        '\r' -> _isContinuation (advanceWithoutContinuation ai) 1
+        ' ' -> _advance ai
+        '\t' -> _advance ai
+        '\r' -> _advance ai
         '!' -> True
         '\n' -> True
         _ -> False
+    _advance :: AlexInput -> Bool
+    _advance ai =
+      case advanceWithoutContinuation ai of
+        Just ai' -> _isContinuation ai' 1
+        Nothing -> False
 
 -- Here's the skip continuation automaton:
 --
@@ -726,39 +727,44 @@ skipContinuation ai = _skipCont ai 0
   where
     _skipCont ai 0 =
       if currentChar ai == '&'
-      then _skipCont (advanceWithoutContinuation ai) 1
+      then _advance ai 1
       else error "This case is excluded by isContinuation."
     _skipCont ai 1 =
       let _curChar = currentChar ai in
         if _curChar `elem` [' ', '\t', '\r']
-        then _skipCont (advanceWithoutContinuation ai) 1
+        then _advance ai 1
         else if _curChar == '!'
-        then _skipCont (advanceWithoutContinuation ai) 2
+        then _advance ai 2
         else if _curChar == '\n'
-        then _skipCont (advanceWithoutContinuation ai) 3
+        then _advance ai 3
         else
           error $
             join [ "Did not expect non-blank/non-comment character after "
                  , "continuation symbol (&)." ]
     _skipCont ai 2 =
       if currentChar ai == '\n'
-      then _skipCont (advanceWithoutContinuation ai) 3
-      else _skipCont (advanceWithoutContinuation ai) 2
+      then _advance ai 3
+      else _advance ai 2
     _skipCont ai 3 =
       let _curChar = currentChar ai in
         if _curChar `elem` [' ', '\t', '\r', '\n']
-        then _skipCont (advanceWithoutContinuation ai) 3
+        then _advance ai 3
         else if _curChar == '!'
-        then _skipCont (advanceWithoutContinuation ai) 2
+        then _advance ai 2
         else if _curChar == '&'
         -- This state accepts as if there were no spaces between the broken
         -- line and whatever comes after second &. This is implicitly state (4)
-        then advanceWithoutContinuation ai
+        then fromMaybe (error "File has ended prematurely during a continuation.")
+                       (advanceWithoutContinuation ai)
         -- This state accepts but the broken line delimits the previous token.
         -- This is implicitly state (5). To achieve this, it returns the
         -- previous ai, which either has whitespace or newline, so it will
         -- nicely delimit.
         else ai
+    _advance ai state =
+      case advanceWithoutContinuation ai of
+        Just ai' -> _skipCont ai' state
+        Nothing -> error "File has ended prematurely during a continuation."
 
 advance :: Move -> Position -> Position
 advance move position =
