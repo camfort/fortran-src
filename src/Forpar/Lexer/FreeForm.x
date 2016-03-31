@@ -81,6 +81,8 @@ tokens :-
 
 <scN> "("                                         { incPar >> addSpan TLeftPar }
 <scN> ")" / { ifConditionEndP }                   { decPar >> toSC scI >> addSpan TRightPar }
+<scN> "(/"                                        { addSpan TLeftInitPar }
+<scN> "/)"                                        { addSpan TRightInitPar }
 <scN> ")"                                         { decPar >> addSpan TRightPar }
 <scN> ","                                         { addSpan TComma }
 <scN> ";"                                         { addSpan TSemiColon }
@@ -835,6 +837,8 @@ data Token =
   | TPercent            SrcSpan
   | TLeftPar            SrcSpan
   | TRightPar           SrcSpan
+  | TLeftInitPar        SrcSpan
+  | TRightInitPar       SrcSpan
   -- Mainly operators
   | TOpCustom           SrcSpan String
   | TOpExp              SrcSpan

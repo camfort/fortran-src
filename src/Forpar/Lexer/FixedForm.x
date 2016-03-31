@@ -156,8 +156,7 @@ tokens :-
   <st,iif> \' / { fortran77P }                { strAutomaton 0 }
 
   -- Logicals
-  <st,iif> ".true."                           { addSpan TTrue  }
-  <st,iif> ".false."                          { addSpan TFalse  }
+  <st,iif> (".true."|".false.")               { addSpanAndMatch TBool  }
 
   -- Arithmetic operators
   <st,iif> "+"                                { addSpan TOpPlus  }
@@ -615,8 +614,7 @@ data Token = TLeftPar             SrcSpan
            | TScaleFactor         SrcSpan Integer
            | TInt                 SrcSpan String
            | TExponent            SrcSpan String
-           | TTrue                SrcSpan
-           | TFalse               SrcSpan
+           | TBool                SrcSpan String
            | TOpPlus              SrcSpan
            | TOpMinus             SrcSpan
            | TOpExp               SrcSpan

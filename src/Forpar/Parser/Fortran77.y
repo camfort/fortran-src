@@ -93,8 +93,7 @@ import Debug.Trace
   scaleFactor           { TScaleFactor _ _ }
   int                   { TInt _ _ }
   exponent              { TExponent _ _ }
-  true                  { TTrue _ }
-  false                 { TFalse _ }
+  bool                  { TBool _ _ }
   '+'                   { TOpPlus _ }
   '-'                   { TOpMinus _ }
   '**'                  { TOpExp _ }
@@ -645,7 +644,7 @@ EXPRESSION
 | '(/' EXPRESSION_LIST '/)' {
     let { exps = reverse $2;
           expList = AList () (getSpan exps) exps }
-    in ExpArrayConstructor () (getTransSpan $1 $3) expList
+    in ExpInitialisation () (getTransSpan $1 $3) expList
           }
 
 IMPLIED_DO :: { Expression A0 }
@@ -797,9 +796,7 @@ NUMERIC_LITERAL
 | REAL_LITERAL { $1 }
 
 LOGICAL_LITERAL :: { Expression A0 }
-LOGICAL_LITERAL
-:  true   { ExpValue () (getSpan $1) ValTrue }
-|  false  { ExpValue () (getSpan $1) ValFalse }
+LOGICAL_LITERAL : bool { let TBool s b = $1 in ExpValue () s $ ValLogical b }
 
 HOLLERITH :: { Expression A0 } : hollerith { ExpValue () (getSpan $1) $ let (THollerith _ h) = $1 in ValHollerith h }
 

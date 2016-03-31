@@ -167,7 +167,7 @@ data Expression a =
   | ExpSubstring     a SrcSpan (Expression a) (Maybe (Expression a)) (Maybe (Expression a))
   | ExpFunctionCall  a SrcSpan (Expression a) (AList Expression a)
   | ExpImpliedDo     a SrcSpan (AList Expression a) (DoSpecification a)
-  | ExpArrayConstructor  a SrcSpan (AList Expression a)
+  | ExpInitialisation  a SrcSpan (AList Expression a)
   deriving (Eq, Show, Data, Typeable, Generic, Functor)
 
 -- All recursive Values
@@ -181,8 +181,7 @@ data Value a =
   | ValVariable          a Name
   | ValParameter         Name
   | ValArray             a Name
-  | ValTrue
-  | ValFalse
+  | ValLogical           String
   | ValFunctionName      Name
   | ValSubroutineName    Name
   | ValCommonName        Name
@@ -200,7 +199,12 @@ data DimensionDeclarator a =
   DimensionDeclarator a SrcSpan (Maybe (Expression a)) (Expression a)
   deriving (Eq, Show, Data, Typeable, Generic, Functor)
 
-data UnaryOp = Plus | Minus | Not deriving (Eq, Show, Data, Typeable, Generic)
+data UnaryOp = 
+    Plus 
+  | Minus 
+  | Not 
+  | UnCustom String 
+  deriving (Eq, Show, Data, Typeable, Generic)
 
 data BinaryOp =
     Addition
@@ -219,6 +223,7 @@ data BinaryOp =
   | And
   | Equivalent
   | NotEquivalent
+  | BinCustom String
   deriving (Eq, Show, Data, Typeable, Generic)
 
 -- Retrieving SrcSpan and Annotation from nodes

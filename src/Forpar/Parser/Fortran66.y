@@ -66,8 +66,7 @@ import Forpar.AST
   scaleFactor           { TScaleFactor _ _ }
   int                   { TInt _ _ }
   exponent              { TExponent _ _ }
-  true                  { TTrue _ }
-  false                 { TFalse _ }
+  bool                  { TBool _ _ }
   '+'                   { TOpPlus _ }
   '-'                   { TOpMinus _ }
   '**'                  { TOpExp _ }
@@ -496,9 +495,7 @@ COMPLEX_LITERAL
 :  '(' SIGNED_NUMERIC_LITERAL ',' SIGNED_NUMERIC_LITERAL ')' { ExpValue () (getTransSpan $1 $5) (ValComplex $2 $4)}
 
 LOGICAL_LITERAL :: { Expression A0 }
-LOGICAL_LITERAL
-:  true   { ExpValue () (getSpan $1) ValTrue }
-|  false  { ExpValue () (getSpan $1) ValFalse }
+LOGICAL_LITERAL : bool { let TBool s b = $1 in ExpValue () s $ ValLogical b }
 
 HOLLERITH :: { Expression A0 } : hollerith { ExpValue () (getSpan $1) $ let (THollerith _ h) = $1 in ValHollerith h }
 

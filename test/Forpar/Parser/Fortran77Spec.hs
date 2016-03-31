@@ -166,10 +166,9 @@ spec =
         sParser "      save" `shouldBe'` StSave () u (AList () u [])
 
     it "parses '.true. .eqv. f(42) .neqv. x'" $ do
-      let arg1 = ExpValue () u ValTrue
       let arg2 = ExpSubscript () u (arrGen "f") $ AList () u [ intGen 42 ]
       let arg3 = varGen "x"
-      let subexp = ExpBinary () u Equivalent arg1 arg2
+      let subexp = ExpBinary () u Equivalent valTrue arg2
       let exp = ExpBinary () u NotEquivalent subexp arg3
       eParser ".true. .eqv. f(42) .neqv. x" `shouldBe'` exp
 

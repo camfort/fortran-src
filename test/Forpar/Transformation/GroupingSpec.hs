@@ -21,11 +21,11 @@ spec =
 -- end if
 example1 = ProgramFile [ ([ ], PUMain () u (Just "example1") example1Blocks) ] []
 example1Blocks = 
-  [ BlStatement () u Nothing (StIfThen () u (ExpValue () u ValTrue))
+  [ BlStatement () u Nothing (StIfThen () u valTrue)
   , BlStatement () u Nothing (StEndif () u) ]
 
 expectedExample1 = ProgramFile [ ([ ], PUMain () u (Just "example1") expectedExample1Blocks) ] [ ]
-expectedExample1Blocks = [ BlIf () u Nothing [ Just $ ExpValue () u ValTrue ] [ [ BlStatement () u Nothing (StEndif () u) ] ] ]
+expectedExample1Blocks = [ BlIf () u Nothing [ Just valTrue ] [ [ BlStatement () u Nothing (StEndif () u) ] ] ]
 
 -- if (.true.) then
 --   integer x
@@ -49,11 +49,11 @@ example2Blocks =
   , BlStatement () u Nothing (StEndif () u) ]
 
 expectedExample2 = ProgramFile [ ([ ], PUMain () u (Just "example2") expectedExample2Blocks) ] [ ]
-expectedExample2Blocks = [ BlIf () u Nothing [ Just $ valTrue, Just $ valTrue, Nothing ] blockGroups ]
+expectedExample2Blocks = [ BlIf () u Nothing [ Just valTrue, Just valTrue, Nothing ] blockGroups ]
 blockGroups =
   [ [ BlStatement () u Nothing (StDeclaration () u (TypeInteger () u) (AList () u [ DeclVariable () u (varGen "x") ]))
     , innerIf ]
   , [ ]
   , [ innerIf
     , BlStatement () u Nothing (StEndif () u) ] ]
-innerIf = BlIf () u Nothing [ Just $ ExpValue () u ValFalse ] [ [ BlStatement () u Nothing (StEndif () u) ] ]
+innerIf = BlIf () u Nothing [ Just valFalse ] [ [ BlStatement () u Nothing (StEndif () u) ] ]

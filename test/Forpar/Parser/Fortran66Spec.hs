@@ -90,7 +90,7 @@ spec =
 
       describe "Logical expressions" $ do
         it "parses '.true. .and. .false.'" $ do
-          let expectedExp = ExpBinary () u And (ExpValue () u (ValTrue)) (ExpValue () u (ValFalse)) 
+          let expectedExp = ExpBinary () u And valTrue valFalse 
           eParser ".true. .and. .false." `shouldBe'` expectedExp
 
       describe "Relational expressions" $ do

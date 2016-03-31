@@ -9,8 +9,8 @@ import Forpar.Util.Position
 
 u = undefined
 
-valTrue = ExpValue () u ValTrue
-valFalse = ExpValue () u ValFalse
+valTrue = ExpValue () u $ ValLogical ".true."
+valFalse = ExpValue () u $ ValLogical ".false."
 
 varGen :: String -> Expression ()
 varGen str = ExpValue () u $ ValVariable () str
