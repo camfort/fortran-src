@@ -16,6 +16,8 @@ import qualified Forpar.Lexer.FreeForm as FreeForm (collectFreeTokens, Token(..)
 import Forpar.Parser.Fortran66 (fortran66Parser)
 import Forpar.Parser.Fortran77 (fortran77Parser, extended77Parser)
 import Forpar.Analysis.Types (TypeScope(..), inferTypes, IDType(..))
+import Forpar.Analysis.Renaming (renameAndStrip, analyseRenames)
+import Forpar.Analysis (initAnalysis)
 
 import qualified Data.Map as M
 import Control.Monad
@@ -46,13 +48,17 @@ main = do
         case version of
           Fortran66 -> printTypes . inferTypes $ fortran66Parser contents path
           Fortran77 -> printTypes . inferTypes $ fortran77Parser contents path
+      Rename | version == Fortran66 -> pp . runRenamer $ fortran66Parser contents path
+      Rename | version == Fortran77 -> pp . runRenamer $ fortran77Parser contents path
+      Rename | version == Fortran77Extended -> pp . runRenamer $ extended77Parser contents path
+      where runRenamer = fst . renameAndStrip . analyseRenames . initAnalysis
 
 printTypes tenv = forM_ (M.toList tenv) $ \ (scope, tmap) -> do
   putStrLn $ "Scope: " ++ (case scope of Global -> "Global"; Local n -> show n)
   forM_ (M.toList tmap) $ \ (name, IDType { idVType = vt, idCType = ct }) ->
     printf "%s\t\t%s %s\n" name (drop 2 $ maybe "  -" show vt) (drop 2 $ maybe "   " show ct)
 
-data Action = Lex | Parse | Typecheck
+data Action = Lex | Parse | Typecheck | Rename
 
 instance Read Action where
   readsPrec _ value =
@@ -83,6 +89,10 @@ options =
       ["typecheck"]
       (NoArg $ \ opts -> opts { action = Typecheck })
       "parse and run typechecker"
+  , Option ['R']
+      ["rename"]
+      (NoArg $ \ opts -> opts { action = Rename })
+      "parse and rename variables"
   ]
 
 compileArgs :: [ String ] -> IO (Options, [ String ])
