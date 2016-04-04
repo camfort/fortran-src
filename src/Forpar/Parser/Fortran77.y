@@ -857,7 +857,7 @@ makeReal i1 dot i2 exp =
 
 fortran77Parser :: String -> String -> ProgramFile A0
 fortran77Parser sourceCode filename =
-  transform [ GroupIf, DisambiguateFunction, DisambiguateArray ] $ evalParse programParser $ initParseState sourceCode Fortran77 filename
+  transform [ GroupLabeledDo, GroupIf, DisambiguateFunction, DisambiguateArray ] $ evalParse programParser $ initParseState sourceCode Fortran77 filename
 
 extended77Parser :: String -> String -> ProgramFile A0
 extended77Parser sourceCode filename =
