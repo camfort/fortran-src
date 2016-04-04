@@ -16,6 +16,7 @@ import qualified Forpar.Lexer.FreeForm as FreeForm (collectFreeTokens, Token(..)
 import Forpar.Parser.Fortran66 (fortran66Parser)
 import Forpar.Parser.Fortran77 (fortran77Parser, extended77Parser)
 import Forpar.Analysis.Types (TypeScope(..), inferTypes, IDType(..))
+import Forpar.Analysis.BBlocks (analyseBBlocks, showBBlocks)
 import Forpar.Analysis.Renaming (renameAndStrip, analyseRenames)
 import Forpar.Analysis (initAnalysis)
 
@@ -35,30 +36,30 @@ main = do
     let path = head parsedArgs
     contents <- readFile path
     let version = fromMaybe (deduceVersion path) (fortranVersion opts)
+    let Just parserF = lookup version
+                              [ (Fortran66, fortran66Parser)
+                              , (Fortran77, fortran77Parser)
+                              , (Fortran77Extended, extended77Parser) ]
     case action opts of
       Lex | version `elem` [ Fortran66, Fortran77, Fortran77Extended ] -> do
         print $ FixedForm.collectFixedTokens version contents
       Lex | version `elem` [Fortran90, Fortran2003, Fortran2008] -> do
         print $ FreeForm.collectFreeTokens version contents
       Lex -> ioError $ userError $ usageInfo programName options
-      Parse | version == Fortran66 -> pp $ fortran66Parser contents path
-      Parse | version == Fortran77 -> pp $ fortran77Parser contents path
-      Parse | version == Fortran77Extended -> pp $ extended77Parser contents path
-      Typecheck ->
-        case version of
-          Fortran66 -> printTypes . inferTypes $ fortran66Parser contents path
-          Fortran77 -> printTypes . inferTypes $ fortran77Parser contents path
-      Rename | version == Fortran66 -> pp . runRenamer $ fortran66Parser contents path
-      Rename | version == Fortran77 -> pp . runRenamer $ fortran77Parser contents path
-      Rename | version == Fortran77Extended -> pp . runRenamer $ extended77Parser contents path
-      where runRenamer = fst . renameAndStrip . analyseRenames . initAnalysis
+      Parse     -> pp $ parserF contents path
+      Typecheck -> printTypes . inferTypes $ parserF contents path
+      Rename    -> pp . runRenamer $ parserF contents path
+      BBlocks   -> putStrLn . runBBlocks $ parserF contents path
+      where
+        runRenamer = fst . renameAndStrip . analyseRenames . initAnalysis
+        runBBlocks = showBBlocks . analyseBBlocks . initAnalysis
 
 printTypes tenv = forM_ (M.toList tenv) $ \ (scope, tmap) -> do
   putStrLn $ "Scope: " ++ (case scope of Global -> "Global"; Local n -> show n)
   forM_ (M.toList tmap) $ \ (name, IDType { idVType = vt, idCType = ct }) ->
     printf "%s\t\t%s %s\n" name (drop 2 $ maybe "  -" show vt) (drop 2 $ maybe "   " show ct)
 
-data Action = Lex | Parse | Typecheck | Rename
+data Action = Lex | Parse | Typecheck | Rename | BBlocks
 
 instance Read Action where
   readsPrec _ value =
@@ -93,6 +94,10 @@ options =
       ["rename"]
       (NoArg $ \ opts -> opts { action = Rename })
       "parse and rename variables"
+  , Option ['B']
+      ["bblocks"]
+      (NoArg $ \ opts -> opts { action = BBlocks })
+      "analyse basic blocks"
   ]
 
 compileArgs :: [ String ] -> IO (Options, [ String ])

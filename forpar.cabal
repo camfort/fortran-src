@@ -28,11 +28,13 @@ executable forpar
     uniplate >= 1.6,
     GenericPretty >= 1.2,
     pretty >= 1.1,
-    containers >= 0.5
+    containers >= 0.5,
+    fgl
   other-modules:
     Forpar.Analysis
     Forpar.Analysis.Renaming
     Forpar.Analysis.Types
+    Forpar.Analysis.BBlocks
     Forpar.AST
     Forpar.Lexer.FixedForm
     Forpar.Lexer.FreeForm
@@ -55,6 +57,7 @@ library
     Forpar.Analysis
     Forpar.Analysis.Renaming
     Forpar.Analysis.Types
+    Forpar.Analysis.BBlocks
     Forpar.AST
     Forpar.Lexer.FixedForm
     Forpar.Lexer.FreeForm
@@ -83,7 +86,8 @@ library
     uniplate >= 1.6,
     GenericPretty >= 1.2,
     pretty >= 1.1,
-    containers >= 0.5
+    containers >= 0.5,
+    fgl
   hs-source-dirs:      src
   ghc-options: -fno-warn-tabs
   default-language:    Haskell2010

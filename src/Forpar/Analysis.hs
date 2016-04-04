@@ -1,26 +1,42 @@
-{-# LANGUAGE ScopedTypeVariables, DeriveDataTypeable #-}
+{-# LANGUAGE ScopedTypeVariables, DeriveDataTypeable, StandaloneDeriving #-}
 
 -- |
 -- Common data structures and functions supporting analysis of the AST.
 module Forpar.Analysis
-  ( initAnalysis, stripAnalysis, Analysis(..), lhsExprs )
+  ( initAnalysis, stripAnalysis, Analysis(..), lhsExprs, BB, BBGr )
 where
 
 import Data.Generics.Uniplate.Data
 import Data.Generics.Uniplate.Operations
 import Data.Data
 import Forpar.AST
+import Data.Graph.Inductive.PatriciaTree (Gr)
+
+--------------------------------------------------
+
+type BB a = [Block a]
+type BBGr a = Gr (BB a) ()
+
+-- Allow graphs to reside inside of annotations
+deriving instance (Typeable a, Typeable b) => Typeable (Gr a b)
+instance (Typeable a, Typeable b) => Data (Gr a b) where
+    gfoldl _k z v = z v -- make graphs opaque to Uniplate
+    toConstr _    = error "toConstr"
+    gunfold _ _   = error "gunfold"
+    dataTypeOf _  = mkNoRepType "Gr"
 
 --------------------------------------------------
 
 data Analysis a = Analysis
   { prevAnnotation :: a -- ^ original annotation
-  , uniqueName :: Maybe String -- ^ unique name for function/variable, after variable renaming phase
+  , uniqueName     :: Maybe String -- ^ unique name for function/variable, after variable renaming phase
+  , bBlocks        :: Maybe (BBGr (Analysis a)) -- ^ basic block graph
   }
   deriving (Data, Show, Eq)
 
 analysis0 a = Analysis { prevAnnotation = a
-                       , uniqueName     = Nothing }
+                       , uniqueName     = Nothing
+                       , bBlocks        = Nothing }
 
 -- | Create analysis annotations for the program, saving the original
 -- annotations.
