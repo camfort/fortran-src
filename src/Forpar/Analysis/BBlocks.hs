@@ -36,18 +36,21 @@ toBBlocksPerPU pu
 
 insEntryEdges = insEdge (0, 1, ()) . insNode (0, []) -- for now assume only one entry
 
-insExitEdges lm gr = insEdges (map doNode deadEnds) $ insNode (-1, []) gr
-  where
-    deadEnds = nodes gr >>= \ n -> if null (gr `out` n) then [n] else []
-    doNode n = (n, examineFinalBlock lm bs, ())
-      where bs = fromJust $ gr `lab` n
+insExitEdges lm gr = flip insEdges (insNode (-1, []) gr) $ do
+  n <- nodes gr
+  guard $ null (out gr n)
+  bs <- maybeToList $ lab gr n
+  n' <- examineFinalBlock lm bs
+  return (n, n', ())
 
 -- find target of Goto statements (Return statements default target to -1)
 examineFinalBlock lm bs@(_:_)
-  | BlStatement _ _ _ g@(StGotoUnconditional {}) <- last bs = gotoBlock lm g
-examineFinalBlock _ _ = -1
+  | BlStatement _ _ _ (StGotoUnconditional _ _ k) <- last bs = [lookupBBlock lm k]
+  | BlStatement _ _ _ (StGotoAssigned _ _ _ ks)   <- last bs = map (lookupBBlock lm) (aStrip ks)
+  | BlStatement _ _ _ (StGotoComputed _ _ ks _)   <- last bs = map (lookupBBlock lm) (aStrip ks)
+examineFinalBlock _ _ = [-1]
 
-gotoBlock lm (StGotoUnconditional _ _ (ExpValue _ _ (ValLabel l))) = (-1) `fromMaybe` M.lookup l lm
+lookupBBlock lm (ExpValue _ _ (ValLabel l)) = (-1) `fromMaybe` M.lookup l lm
 
 --------------------------------------------------
 
