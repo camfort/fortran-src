@@ -91,7 +91,7 @@ perBlock :: Block a -> BBlocker a ()
 -- invariant: curBB is in reverse order
 perBlock b@(BlIf _ _ _ exps bss) = do
   processLabel b
-  addToBBlock b
+  addToBBlock $ stripNestedBlocks b
   (ifN, _) <- closeBBlock
 
   -- go through nested AST-blocks
@@ -108,7 +108,7 @@ perBlock b@(BlIf _ _ _ exps bss) = do
 
 perBlock b@(BlStatement a ss _ (StIfLogical _ _ exp stm)) = do
   processLabel b
-  addToBBlock b
+  addToBBlock $ stripNestedBlocks b
 
   -- start a bblock for the nested statement inside the If
   (ifN, thenN) <- closeBBlock
@@ -140,7 +140,7 @@ perDoBlock b bs = do
   case getLabel b of
     Just (ExpValue _ _ (ValLabel l)) -> insertLabel l doN
     _                                -> return ()
-  addToBBlock b
+  addToBBlock $ stripNestedBlocks b
   closeBBlock
   -- process nested bblocks inside of do-statement
   (startN, endN) <- processBlocks bs
@@ -188,6 +188,14 @@ gen = do
   n:ns <- gets nums
   modify $ \ s -> s { nums = ns }
   return n
+
+-- nested code not necessary since it is duplicated in another basic block
+stripNestedBlocks (BlDo a s l ds _)         = BlDo a s l ds []
+stripNestedBlocks (BlDoWhile a s l e _)     = BlDoWhile a s l e []
+stripNestedBlocks (BlIf a s l exps _)       = BlIf a s l exps []
+stripNestedBlocks (BlStatement a s l
+                   (StIfLogical a' s' e _)) = BlStatement a s l (StIfLogical a' s' e (StEndif a' s'))
+stripNestedBlocks b                         = b
 
 --------------------------------------------------
 
