@@ -53,13 +53,7 @@ examineFinalBlock _ _ = [-1]
 
 lookupBBlock lm (ExpValue _ _ (ValLabel l)) = (-1) `fromMaybe` M.lookup l lm
 
-deleteUnreachable = converge ((==) `on` noNodes) . iterate f
-  where f gr = nfilter (\ n -> n == 0 || not (null (inn gr n))) gr
-
-converge :: (a -> a -> Bool) -> [a] -> a
-converge p (x:ys@(y:_))
-  | p x y     = y
-  | otherwise = converge p ys
+deleteUnreachable gr = subgraph (reachable 0 gr) gr
 
 --------------------------------------------------
 
