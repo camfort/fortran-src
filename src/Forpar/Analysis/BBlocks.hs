@@ -6,6 +6,7 @@ where
 import Data.Generics.Uniplate.Data
 import Data.Generics.Uniplate.Operations
 import Data.Data
+import Data.Function
 import Control.Monad.State.Lazy
 import Control.Monad.Writer
 import Text.PrettyPrint.GenericPretty (pretty, Out)
@@ -30,7 +31,7 @@ toBBlocksPerPU pu
     bs  = case pu of PUMain _ _ _ bs -> bs; PUSubroutine _ _ _ _ bs -> bs; PUFunction _ _ _ _ _ bs -> bs
                      _ -> []
     bbs = execBBlocker (processBlocks bs)
-    gr  = insExitEdges lm . insEntryEdges $ insEdges (newEdges bbs) (bbGraph bbs)
+    gr  = deleteUnreachable . insExitEdges lm . insEntryEdges $ insEdges (newEdges bbs) (bbGraph bbs)
     pu' = setAnnotation ((getAnnotation pu) { bBlocks = Just gr }) pu
     lm  = labelMap bbs
 
@@ -51,6 +52,14 @@ examineFinalBlock lm bs@(_:_)
 examineFinalBlock _ _ = [-1]
 
 lookupBBlock lm (ExpValue _ _ (ValLabel l)) = (-1) `fromMaybe` M.lookup l lm
+
+deleteUnreachable = converge ((==) `on` noNodes) . iterate f
+  where f gr = nfilter (\ n -> n == 0 || not (null (inn gr n))) gr
+
+converge :: (a -> a -> Bool) -> [a] -> a
+converge p (x:ys@(y:_))
+  | p x y     = y
+  | otherwise = converge p ys
 
 --------------------------------------------------
 
