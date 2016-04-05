@@ -35,6 +35,7 @@ executable forpar
     Forpar.Analysis.Renaming
     Forpar.Analysis.Types
     Forpar.Analysis.BBlocks
+    Forpar.Analysis.DataFlow
     Forpar.AST
     Forpar.Lexer.FixedForm
     Forpar.Lexer.FreeForm
@@ -58,6 +59,7 @@ library
     Forpar.Analysis.Renaming
     Forpar.Analysis.Types
     Forpar.Analysis.BBlocks
+    Forpar.Analysis.DataFlow
     Forpar.AST
     Forpar.Lexer.FixedForm
     Forpar.Lexer.FreeForm

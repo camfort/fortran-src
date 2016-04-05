@@ -17,6 +17,7 @@ import Forpar.Parser.Fortran66 (fortran66Parser)
 import Forpar.Parser.Fortran77 (fortran77Parser, extended77Parser)
 import Forpar.Analysis.Types (TypeScope(..), inferTypes, IDType(..))
 import Forpar.Analysis.BBlocks (analyseBBlocks, showBBlocks)
+import Forpar.Analysis.DataFlow (showDataFlow)
 import Forpar.Analysis.Renaming (renameAndStrip, analyseRenames)
 import Forpar.Analysis (initAnalysis)
 
@@ -52,7 +53,8 @@ main = do
       BBlocks   -> putStrLn . runBBlocks $ parserF contents path
       where
         runRenamer = fst . renameAndStrip . analyseRenames . initAnalysis
-        runBBlocks = showBBlocks . analyseBBlocks . initAnalysis
+        runBBlocks pf = showBBlocks pf' ++ "\n\n" ++ showDataFlow pf'
+          where pf' = analyseBBlocks (initAnalysis pf)
 
 printTypes tenv = forM_ (M.toList tenv) $ \ (scope, tmap) -> do
   putStrLn $ "Scope: " ++ (case scope of Global -> "Global"; Local n -> show n)
