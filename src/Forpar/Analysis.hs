@@ -52,5 +52,6 @@ stripAnalysis = fmap prevAnnotation
 
 -- | Return list of expressions used as the left-hand-side of
 -- assignment statements (including for-loops).
-lhsExprs :: (Data a, Annotated b, Data (b a)) => b a -> [Expression a]
+lhsExprs :: (Data a, Data (b a)) => b a -> [Expression a]
 lhsExprs x = [e1 | (StExpressionAssign _ _ e1 _) <- universeBi x]
+-- FIXME: do parameters to functions/subroutines need to be included (because call-by-ref)?
