@@ -974,10 +974,10 @@ instance Tok Token where
   eofToken TEOF{} = True
   eofToken _ = False
 
-class TypeSpec a where
+class SpecifiesType a where
   isTypeSpec :: a -> Bool
 
-instance TypeSpec Token where
+instance SpecifiesType Token where
   isTypeSpec TInteger{} = True
   isTypeSpec TReal{} = True
   isTypeSpec TDoublePrecision{} = True
@@ -986,7 +986,7 @@ instance TypeSpec Token where
   isTypeSpec TComplex{} = True
   isTypeSpec _ = False
 
-instance TypeSpec [ Token ] where
+instance SpecifiesType [ Token ] where
   isTypeSpec tokens
     | [ TType{}, TLeftPar{}, _, TRightPar{} ] <- tokens = True
     -- This is an approximation but should hold for almost all legal programs.

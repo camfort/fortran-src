@@ -15,11 +15,11 @@ spec = do
   describe "Global type inference" $ do
     it "types integer returning function" $ do
       let entry = inferTypes ex1 ! Global ! "f1"
-      entry `shouldBe` IDType (Just VTInteger) (Just CTFunction) 
+      entry `shouldBe` IDType (Just TypeInteger) (Just CTFunction) 
 
     it "types multiples program units" $ do
       let mapping = inferTypes ex2 ! Global 
-      mapping ! "f1" `shouldBe` IDType (Just VTInteger) (Just CTFunction)
+      mapping ! "f1" `shouldBe` IDType (Just TypeInteger) (Just CTFunction)
       mapping ! "s1" `shouldBe` IDType Nothing (Just CTSubroutine) 
 
     it "types ENTRY points within subprograms" $ do
@@ -31,10 +31,10 @@ spec = do
   describe "Local type inference" $ do
     it "infers from type declarations" $ do
       let mapping = inferTypes ex4 ! Local NamelessMain
-      mapping ! "x" `shouldBe` IDType (Just VTInteger) Nothing
-      mapping ! "y" `shouldBe` IDType (Just VTInteger) (Just CTArray)
-      mapping ! "c" `shouldBe` IDType (Just VTCharacter) Nothing
-      mapping ! "log" `shouldBe` IDType (Just VTLogical) Nothing
+      mapping ! "x" `shouldBe` IDType (Just TypeInteger) Nothing
+      mapping ! "y" `shouldBe` IDType (Just TypeInteger) (Just CTArray)
+      mapping ! "c" `shouldBe` IDType (Just TypeCharacter) Nothing
+      mapping ! "log" `shouldBe` IDType (Just TypeLogical) Nothing
 
     it "infers from dimension declarations" $ do
       let mapping = inferTypes ex5 ! (Local $ Named "bd")
@@ -43,13 +43,13 @@ spec = do
 
     it "infers from function statements" $ do
       let mapping = inferTypes ex6 ! (Local $ Named "main")
-      mapping ! "a" `shouldBe` IDType (Just VTInteger) (Just CTArray)
-      mapping ! "b" `shouldBe` IDType (Just VTInteger) (Just CTArray)
-      mapping ! "c" `shouldBe` IDType (Just VTInteger) (Just CTFunction)
+      mapping ! "a" `shouldBe` IDType (Just TypeInteger) (Just CTArray)
+      mapping ! "b" `shouldBe` IDType (Just TypeInteger) (Just CTArray)
+      mapping ! "c" `shouldBe` IDType (Just TypeInteger) (Just CTFunction)
       mapping ! "d" `shouldBe` IDType Nothing (Just CTFunction)
 
 ex1 = ProgramFile [ ([ ], ex1pu1) ] [ ]
-ex1pu1 = PUFunction () u (Just $ TypeInteger () u) "f1" (AList () u []) []
+ex1pu1 = PUFunction () u (Just $ TypeSpec () u TypeInteger Nothing) "f1" (AList () u []) []
 
 ex2 = ProgramFile [ ([ ], ex2pu1), ([] , ex1pu1) ] [ ]
 ex2pu1 = PUSubroutine () u "s1" (AList () u []) []
@@ -64,22 +64,22 @@ ex3pu1bs =
 ex4 = ProgramFile [ ([ ], ex4pu1) ] [ ]
 ex4pu1 = PUMain () u Nothing ex4pu1bs
 ex4pu1bs =
-  [ BlStatement () u Nothing (StDeclaration () u (TypeInteger () u) 
+  [ BlStatement () u Nothing (StDeclaration () u (TypeSpec () u TypeInteger Nothing) Nothing
       (AList () u 
-        [ DeclVariable () u $ varGen "x"
+        [ DeclVariable () u (varGen "x") Nothing Nothing
         , DeclArray () u (varGen "y") 
-            (AList () u [ DimensionDeclarator () u Nothing (intGen 10) ]) ]))
-  , BlStatement () u Nothing (StDeclaration () u (TypeCharacter () u Nothing)
-      (AList () u [ DeclCharVariable () u (varGen "c") Nothing ]))
-  , BlStatement () u Nothing (StDeclaration () u (TypeLogical () u) 
-      (AList () u [ DeclVariable () u $ varGen "log" ])) ]
+            (AList () u [ DimensionDeclarator () u Nothing (intGen 10) ]) Nothing Nothing ]))
+  , BlStatement () u Nothing (StDeclaration () u (TypeSpec () u TypeCharacter Nothing) Nothing
+      (AList () u [ DeclVariable () u (varGen "c") Nothing Nothing ]))
+  , BlStatement () u Nothing (StDeclaration () u (TypeSpec () u TypeLogical Nothing) Nothing
+      (AList () u [ DeclVariable () u (varGen "log") Nothing Nothing ])) ]
 
 ex5 = ProgramFile [ ([ ], ex5pu1) ] [ ]
 ex5pu1 = PUBlockData () u (Just "bd") ex5pu1bs 
 ex5pu1bs =
   [ BlStatement () u Nothing (StDimension () u (AList () u
-      [ DeclArray () u (arrGen "x") (AList () u [ DimensionDeclarator () u Nothing (intGen 1) ])
-      , DeclArray () u (arrGen "y") (AList () u [ DimensionDeclarator () u Nothing (intGen 1) ]) ])) ]
+      [ DeclArray () u (arrGen "x") (AList () u [ DimensionDeclarator () u Nothing (intGen 1) ]) Nothing Nothing
+      , DeclArray () u (arrGen "y") (AList () u [ DimensionDeclarator () u Nothing (intGen 1) ]) Nothing Nothing])) ]
 
 {-
 - program Main
@@ -94,12 +94,12 @@ ex5pu1bs =
 ex6 = ProgramFile [ ([ ], ex6pu1)] [ ]
 ex6pu1 = PUMain () u (Just "main") ex6pu1bs
 ex6pu1bs =
-  [ BlStatement () u Nothing (StDeclaration () u (TypeInteger () u) (AList () u 
-      [ DeclVariable () u (varGen "a")
-      , DeclArray () u (arrGen "b") (AList () u [ DimensionDeclarator () u Nothing (intGen 1) ])
-      , DeclVariable () u (varGen "c") ]))
+  [ BlStatement () u Nothing (StDeclaration () u (TypeSpec () u TypeInteger Nothing) Nothing (AList () u 
+      [ DeclVariable () u (varGen "a") Nothing Nothing
+      , DeclArray () u (arrGen "b") (AList () u [ DimensionDeclarator () u Nothing (intGen 1) ]) Nothing Nothing
+      , DeclVariable () u (varGen "c") Nothing Nothing ]))
   , BlStatement () u Nothing (StDimension () u (AList () u
-      [ DeclArray () u (arrGen "a") (AList () u [ DimensionDeclarator () u Nothing (intGen 1 ) ]) ]))
+      [ DeclArray () u (arrGen "a") (AList () u [ DimensionDeclarator () u Nothing (intGen 1 ) ]) Nothing Nothing ]))
   , BlStatement () u Nothing (StExpressionAssign () u 
       (ExpSubscript () u (arrGen "a") (AList () u [ intGen 1 ])) (intGen 1))
   , BlStatement () u Nothing (StExpressionAssign () u 

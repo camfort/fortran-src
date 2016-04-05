@@ -47,3 +47,54 @@ spec =
         it "parses mixed unary custom operator" $ do
           let binExp = ExpBinary () u binOp unExp (intGen 24)
           eParser ".inverse. 42 .xor. 24" `shouldBe'` binExp
+    describe "Statement" $ do
+      it "parses declaration with attributes" $ do
+        let typeSpec = TypeSpec () u TypeReal Nothing
+        let attrs = AList () u [ AttrExternal () u
+                               , AttrIntent () u Out
+                               , AttrDimension () u $ AList () u 
+                                  [ DimensionDeclarator () u 
+                                      (Just $ intGen 3) (intGen 10)
+                                  ]
+                               ]
+        let declarators = AList () u
+              [ DeclVariable () u (varGen "x") Nothing Nothing
+              , DeclVariable () u (varGen "y") Nothing Nothing ]
+        let expected = StDeclaration () u typeSpec (Just attrs) declarators
+        let stStr = "real, external, intent (out), dimension (3:10) :: x, y"
+        sParser stStr `shouldBe'` expected
+
+      it "parses declaration with old syntax" $ do
+        let typeSpec = TypeSpec () u TypeLogical Nothing
+        let declarators = AList () u
+              [ DeclVariable () u (varGen "x") Nothing Nothing
+              , DeclVariable () u (varGen "y") Nothing Nothing ]
+        let expected = StDeclaration () u typeSpec Nothing declarators
+        let stStr = "logical x, y"
+        sParser stStr `shouldBe'` expected
+
+      it "parses declaration with initialisation" $ do
+        let typeSpec = TypeSpec () u TypeComplex Nothing
+        let init = ExpValue () u (ValComplex (intGen 24) (realGen 42.0))
+        let declarators = AList () u
+              [ DeclVariable () u (varGen "x") Nothing (Just init) ]
+        let expected = StDeclaration () u typeSpec Nothing declarators
+        let stStr = "complex :: x = (24, 42.0)"
+        sParser stStr `shouldBe'` expected
+
+      it "parses declaration of custom type" $ do
+        let typeSpec = TypeSpec () u (TypeCustom "meinetype") Nothing
+        let declarators = AList () u
+              [ DeclVariable () u (varGen "x") Nothing Nothing ]
+        let expected = StDeclaration () u typeSpec Nothing declarators
+        let stStr = "type (MeineType) :: x"
+        sParser stStr `shouldBe'` expected
+
+      it "parses declaration type with kind selector" $ do
+        let selector = Selector () u Nothing (Just $ varGen "hello")
+        let typeSpec = TypeSpec () u TypeInteger (Just selector)
+        let declarators = AList () u
+              [ DeclVariable () u (varGen "x") Nothing Nothing ]
+        let expected = StDeclaration () u typeSpec Nothing declarators
+        let stStr = "integer (hello) :: x"
+        sParser stStr `shouldBe'` expected

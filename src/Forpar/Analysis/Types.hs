@@ -1,7 +1,7 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 module Forpar.Analysis.Types ( inferTypes
                              , ConstructType(..)
-                             , ValueType(..)
+                             , BaseType(..)
                              , TypeScope(..)
                              , IDType(..)) where
 
@@ -20,23 +20,6 @@ import Debug.Trace
 -- Type mapping definitions
 --------------------------------------------------------------------------------
 
-data ValueType =
-    VTInteger
-  | VTReal
-  | VTDoublePrecision
-  | VTComplex
-  | VTLogical
-  | VTCharacter
-  deriving (Show, Eq)
-
-toValueType :: BaseType a -> ValueType
-toValueType TypeInteger{} = VTInteger
-toValueType TypeReal{} = VTReal
-toValueType TypeDoublePrecision{} = VTDoublePrecision
-toValueType TypeLogical{} = VTLogical
-toValueType TypeComplex{} = VTComplex
-toValueType TypeCharacter{} = VTCharacter
-
 data ConstructType =
     CTFunction
   | CTSubroutine
@@ -46,7 +29,7 @@ data ConstructType =
   deriving (Show, Eq)
 
 data IDType = IDType
-  { idVType :: Maybe ValueType
+  { idVType :: Maybe BaseType
   , idCType :: Maybe ConstructType }
   deriving (Show, Eq)
 
@@ -81,12 +64,12 @@ queryIDType ts s = do
 putMapping :: Data a => Map TypeScope (Map String IDType) -> TypeMapping a ()
 putMapping mapping = get >>= (\ts -> put $ ts { tsMapping = mapping })
 
-addToMapping :: Data a => TypeScope -> String -> ValueType -> ConstructType -> TypeMapping a ()
+addToMapping :: Data a => TypeScope -> String -> BaseType -> ConstructType -> TypeMapping a ()
 addToMapping ts s vt ct = addToMappingViaFunc ts s typeFunction
   where
     typeFunction idt = idt { idVType = Just vt, idCType = Just ct }
 
-addValueToMapping :: Data a => TypeScope -> String -> ValueType -> TypeMapping a ()
+addValueToMapping :: Data a => TypeScope -> String -> BaseType -> TypeMapping a ()
 addValueToMapping ts s vt = addToMappingViaFunc ts s typeFunction
   where
     typeFunction idt = idt { idVType = Just vt }
@@ -124,9 +107,9 @@ inferGlobal = do
 inferSubprograms :: Data a => ProgramUnit a -> TypeMapping a ()
 inferSubprograms pu =
   case pu of
-    (PUFunction _ _ mbt n _ _) -> do
-      addToMappingViaFunc Global n $ updateForFunction $ fmap toValueType mbt
-      addEntries (updateForFunction $ fmap toValueType mbt)
+    (PUFunction _ _ mts n _ _) -> do
+      addToMappingViaFunc Global n $ updateForFunction mts
+      addEntries (updateForFunction mts)
     (PUSubroutine _ _ n _ _) -> do
       addConstructToMapping Global n CTSubroutine
       addEntries (\idt -> idt { idCType = Just CTSubroutine })
@@ -138,8 +121,10 @@ inferSubprograms pu =
       let entryExps = [ e | (StEntry _ _ e _) <- statements pu ]
       let entryNames = [ n | n :: String <- universeBi entryExps :: [String] ]
       mapM_ (\n' -> addToMappingViaFunc Global n' func) entryNames
-    updateForFunction mvt it = it { idCType = Just CTFunction
-                                  , idVType = mvt }
+    updateForFunction Nothing it = 
+      it { idCType = Just CTFunction }
+    updateForFunction (Just (TypeSpec _ _ bt _)) it = 
+      it { idCType = Just CTFunction, idVType = Just bt }
 
 inferLocal :: Data a => TypeMapping a ()
 inferLocal = do
@@ -149,7 +134,7 @@ inferLocal = do
 
 inferInProgramFile :: Data a => ProgramUnit a -> TypeMapping a ()
 inferInProgramFile pu = do
-  let declPairs = [ (bt, vars) | (StDeclaration _ _ bt (AList _ _ vars)) <- universeBi pu ]
+  let declPairs = [ (bt, vars) | (StDeclaration _ _ bt _ (AList _ _ vars)) <- universeBi pu ]
   inferFromDeclarations puName declPairs
   let paramSts = [ paramSt | paramSt@StParameter{} <- universeBi pu]
   inferFromParameters puName paramSts
@@ -180,7 +165,7 @@ inferFromFuncStatements pu = do
 inferFromDimensions :: Data a => TypeScope -> [ Statement a ] -> TypeMapping a ()
 inferFromDimensions ts dimSts = do
   let decls = universeBi :: Data a => [Statement a] -> [Declarator a]
-  let arrayExps = [ exp | DeclArray _ _ exp _ <- decls dimSts]
+  let arrayExps = [ exp | DeclArray _ _ exp _ _ _ <- decls dimSts]
   let arrayNames = [ s | ExpValue _ _ (ValArray _ s) <- arrayExps ]
   mapM_ (\n -> addConstructToMapping ts n CTArray) arrayNames
 
@@ -190,22 +175,19 @@ inferFromParameters ts paramSts = do
   let paramNames = [ s | (ValParameter s :: Value a) <- values paramSts ]
   mapM_ (\n -> addConstructToMapping ts n CTParameter) paramNames
 
-inferFromDeclarations :: Data a => TypeScope -> [ (BaseType a, [ Declarator a ]) ] -> TypeMapping a ()
+inferFromDeclarations :: Data a => TypeScope -> [ (TypeSpec a, [ Declarator a ]) ] -> TypeMapping a ()
 inferFromDeclarations _ [ ] = return ()
-inferFromDeclarations ts ((bt, decls):ds) = do
+inferFromDeclarations ts (((TypeSpec _ _ bt _), decls):ds) = do
   addDecls decls
   inferFromDeclarations ts ds
   where
-    vt = toValueType bt
     addDecls [ ] = return ()
     addDecls (d':ds') = do
       case d' of
-        DeclArray _ _ e _ -> addToMapping ts (expToId e) vt CTArray
-        DeclCharArray _ _ e _ _ -> addToMapping ts (expToId e) vt CTArray
+        DeclArray _ _ e _ _ _ -> addToMapping ts (expToId e) bt CTArray
         -- Decl variables might also be functions or arrays qualified by
         -- later specifications.
-        DeclVariable _ _ e -> addValueToMapping ts (expToId e) vt
-        DeclCharVariable _ _ e _ -> addValueToMapping ts (expToId e) vt
+        DeclVariable _ _ e _ _ -> addValueToMapping ts (expToId e) bt
       addDecls ds'
     expToId (ExpValue _ _ (ValVariable _ s)) = s
     expToId (ExpValue _ _ (ValArray _ s)) = s
@@ -214,7 +196,7 @@ inferFromDeclarations ts ((bt, decls):ds) = do
 -- Utility methods
 --------------------------------------------------------------------------------
 
-genImplicitMapping :: Data a => ProgramUnit a -> (Char -> Maybe ValueType)
+genImplicitMapping :: Data a => ProgramUnit a -> (Char -> Maybe BaseType)
 genImplicitMapping pu
   | null impSts = globalImplicitMapping -- Apply default type mappings
   | containsNone impSts = const Nothing -- If IMPLICIT NONE is in
@@ -224,7 +206,7 @@ genImplicitMapping pu
     statements = universeBi :: Data a => ProgramUnit a -> [Statement a]
     impSts = [ imp | imp@(StImplicit _ _ _) <- statements pu ]
     implists = universeBi :: Data a => ProgramUnit a -> [ImpList a]
-    impPairs = join . join . map couple $ ([ (toValueType bt,xs) | ((ImpList _ _ bt (AList _ _ xs))) <- implists pu ])
+    impPairs = join . join . map couple $ ([ (bt,xs) | ((ImpList _ _ (TypeSpec _ _ bt _) (AList _ _ xs))) <- implists pu ])
     couple (a, []) = []
     couple (a, x:xs) = [ (a,x) ] : couple (a, xs)
     containsNone imps = length [ x | x@(StImplicit _ _ Nothing) <- impSts ] == 1
@@ -233,10 +215,10 @@ genImplicitMapping pu
     tryImps [] c = Nothing
     tryImps (x:xs) c =
       case x c of
-        Just vt -> Just vt
+        Just bt -> Just bt
         Nothing -> tryImps xs c
 
-globalImplicitMapping :: Char -> Maybe ValueType
+globalImplicitMapping :: Char -> Maybe BaseType
 globalImplicitMapping c
-  | c `elem` "ijklmn" = Just VTInteger
-  | otherwise = Just VTReal
+  | c `elem` "ijklmn" = Just TypeInteger
+  | otherwise = Just TypeReal

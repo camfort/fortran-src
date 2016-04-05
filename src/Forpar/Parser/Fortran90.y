@@ -179,12 +179,138 @@ import Debug.Trace
 %%
 
 STATEMENT :: { Statement A0 }
+: OTHER_EXECUTABLE_STATEMENT { $1 }
+| NONEXECUTABLE_STATEMENT { $1 }
+
+OTHER_EXECUTABLE_STATEMENT :: { Statement A0 }
 : EXPRESSION_ASSIGNMENT_STATEMENT { $1 }
 
 EXPRESSION_ASSIGNMENT_STATEMENT :: { Statement A0 }
 : ELEMENT '=' EXPRESSION { StExpressionAssign () (getTransSpan $1 $3) $1 $3 }
 
 ELEMENT :: { Expression A0 } : VARIABLE { $1 } | SUBSCRIPT { $1 }
+
+NONEXECUTABLE_STATEMENT :: { Statement A0 }
+: DECLARATION_STATEMENT { $1 }
+
+DECLARATION_STATEMENT :: { Statement A0 }
+: TYPE_SPEC ATTRIBUTE_LIST '::' DECLARATOR_LIST
+  { let { attrList = reverse $2;
+          mAttrAList =
+            if null attrList
+              then Nothing
+              else Just $ AList () (getSpan attrList) attrList;
+          declList = reverse $4;
+          declAList = AList () (getSpan declList) declList }
+    in StDeclaration () (getTransSpan $1 $4) $1 mAttrAList declAList }
+| TYPE_SPEC DECLARATOR_LIST
+  { let { declList = reverse $2;
+          declAList = AList () (getSpan declList) declList }
+    in StDeclaration () (getTransSpan $1 $2) $1 Nothing declAList }
+
+ATTRIBUTE_LIST :: { [ Attribute A0 ] }
+: ATTRIBUTE_LIST ',' ATTRIBUTE_SPEC { $3 : $1 }
+| {- EMPTY -} { [ ] }
+
+ATTRIBUTE_SPEC :: { Attribute A0 }
+: parameter { AttrParameter () (getSpan $1) }
+| public { AttrPublic () (getSpan $1) }
+| private { AttrPrivate () (getSpan $1) }
+| allocatable { AttrAllocatable () (getSpan $1) }
+| dimension '(' DIMENSION_DECLARATORS ')'
+  { AttrDimension () (getTransSpan $1 $4) $3 }
+| external { AttrExternal () (getSpan $1) }
+| intent '(' INTENT_CHOICE ')' { AttrIntent () (getTransSpan $1 $4) $3 }
+| intrinsic { AttrIntrinsic () (getSpan $1) }
+| optional { AttrOptional () (getSpan $1) }
+| pointer { AttrPointer () (getSpan $1) }
+| save { AttrSave () (getSpan $1) }
+| target { AttrTarget () (getSpan $1) }
+
+INTENT_CHOICE :: { Intent } : in { In } | out { Out } | inout { InOut }
+
+DECLARATOR_LIST :: { [ Declarator A0 ] }
+: DECLARATOR_LIST ',' INITIALISED_DECLARATOR { $3 : $1 }
+| INITIALISED_DECLARATOR { [ $1 ] }
+
+INITIALISED_DECLARATOR :: { Declarator A0 }
+: DECLARATOR '=' EXPRESSION { setInitialisation $1 $3 }
+| DECLARATOR { $1 }
+
+DECLARATOR :: { Declarator A0 }
+: VARIABLE { DeclVariable () (getSpan $1) $1 Nothing Nothing }
+| VARIABLE '*' EXPRESSION
+  { DeclVariable () (getTransSpan $1 $3) $1 (Just $3) Nothing }
+| VARIABLE '*' '(' '*' ')'
+  { let star = ExpValue () (getSpan $4) ValStar
+    in DeclVariable () (getTransSpan $1 $5) $1 (Just star) Nothing }
+| VARIABLE '(' DIMENSION_DECLARATORS ')'
+  { DeclArray () (getTransSpan $1 $4) $1 $3 Nothing Nothing }
+| VARIABLE '(' DIMENSION_DECLARATORS ')' '*' EXPRESSION
+  { DeclArray () (getTransSpan $1 $6) $1 $3 (Just $6) Nothing }
+| VARIABLE '(' DIMENSION_DECLARATORS ')' '*' '(' '*' ')'
+  { let star = ExpValue () (getSpan $7) ValStar
+    in DeclArray () (getTransSpan $1 $8) $1 $3 (Just star) Nothing }
+
+DIMENSION_DECLARATORS :: { AList DimensionDeclarator A0 }
+: DIMENSION_DECLARATORS ',' DIMENSION_DECLARATOR
+  { setSpan (getTransSpan $1 $3) $ $3 `aCons` $1 }
+| DIMENSION_DECLARATOR
+  { AList () (getSpan $1) [ $1 ] }
+
+DIMENSION_DECLARATOR :: { DimensionDeclarator A0 }
+: EXPRESSION ':' EXPRESSION
+  { DimensionDeclarator () (getTransSpan $1 $3) (Just $1) $3 }
+| EXPRESSION { DimensionDeclarator () (getSpan $1) Nothing $1 }
+| EXPRESSION ':' '*'
+  { let { span = getSpan $3;
+          star = ExpValue () span ValStar }
+    in DimensionDeclarator () (getTransSpan $1 span) (Just $1) star }
+| '*'
+  { let { span = getSpan $1;
+          star = ExpValue () span ValStar }
+    in DimensionDeclarator () span Nothing star }
+
+TYPE_SPEC :: { TypeSpec A0 }
+: integer KIND_SELECTOR   { TypeSpec () (getSpan ($1, $2)) TypeInteger $2 }
+| real    KIND_SELECTOR   { TypeSpec () (getSpan ($1, $2)) TypeReal $2 }
+| doublePrecision { TypeSpec () (getSpan $1) TypeDoublePrecision Nothing }
+| complex KIND_SELECTOR   { TypeSpec () (getSpan ($1, $2)) TypeComplex $2 }
+| character CHAR_SELECTOR { TypeSpec () (getSpan ($1, $2)) TypeCharacter $2 }
+| logical KIND_SELECTOR   { TypeSpec () (getSpan ($1, $2)) TypeLogical $2 }
+| type '(' id ')'
+  { let TId _ id = $3
+    in TypeSpec () (getTransSpan $1 $4) (TypeCustom id) Nothing }
+
+KIND_SELECTOR :: { Maybe (Selector A0) }
+: '(' EXPRESSION ')'
+  { Just $ Selector () (getTransSpan $1 $3) Nothing (Just $2) }
+| '(' kind '=' EXPRESSION ')'
+  { Just $ Selector () (getTransSpan $1 $5) Nothing (Just $4) }
+| {- EMPTY -} { Nothing }
+
+CHAR_SELECTOR :: { Maybe (Selector A0) }
+: '*' EXPRESSION
+  { Just $ Selector () (getTransSpan $1 $2) (Just $2) Nothing }
+-- The following rule is a bug in the spec.
+-- | '*' EXPRESSION ','
+--   { Just $ Selector () (getTransSpan $1 $2) (Just $2) Nothing }
+| '*' '(' '*' ')'
+  { let star = ExpValue () (getSpan $3) ValStar
+    in Just $ Selector () (getTransSpan $1 $4) (Just star) Nothing }
+| '(' EXPRESSION ')'
+  { Just $ Selector () (getTransSpan $1 $3) (Just $2) Nothing }
+| '(' len '=' EXPRESSION ')'
+  { Just $ Selector () (getTransSpan $1 $5) (Just $4) Nothing }
+| '(' EXPRESSION ',' EXPRESSION ')'
+  { Just $ Selector () (getTransSpan $1 $5) (Just $2) (Just $4) }
+| '(' EXPRESSION ',' kind '=' EXPRESSION ')'
+  { Just $ Selector () (getTransSpan $1 $7) (Just $2) (Just $6) }
+| '(' len '=' EXPRESSION ',' kind '=' EXPRESSION ')'
+  { Just $ Selector () (getTransSpan $1 $9) (Just $4) (Just $8) }
+| '(' kind '=' EXPRESSION ',' len '=' EXPRESSION ')'
+  { Just $ Selector () (getTransSpan $1 $9) (Just $8) (Just $4) }
+| {- EMPTY -} { Nothing }
 
 EXPRESSION :: { Expression A0 }
 : EXPRESSION '+' EXPRESSION
@@ -215,12 +341,10 @@ EXPRESSION :: { Expression A0 }
   { ExpBinary () (getTransSpan $1 $3) $2 $1 $3 }
 | opCustom EXPRESSION %prec DEFINED_UNARY {
     let TOpCustom span str = $1
-    in ExpUnary () (getTransSpan span $2) (UnCustom str) $2
-      }
+    in ExpUnary () (getTransSpan span $2) (UnCustom str) $2 }
 | EXPRESSION opCustom EXPRESSION {
     let TOpCustom _ str = $2
-    in ExpBinary () (getTransSpan $1 $3) (BinCustom str) $1 $3
-      }
+    in ExpBinary () (getTransSpan $1 $3) (BinCustom str) $1 $3 }
 | '(' EXPRESSION ')' { setSpan (getTransSpan $1 $3) $2 }
 | NUMERIC_LITERAL                   { $1 }
 | '(' EXPRESSION ',' EXPRESSION ')'
@@ -238,9 +362,9 @@ EXPRESSION :: { Expression A0 }
           }
 
 DO_SPECIFICATION :: { DoSpecification A0 }
-: EXPRESSION_ASSIGNMENT_STATEMENT ',' EXPRESSION ',' EXPRESSION 
+: EXPRESSION_ASSIGNMENT_STATEMENT ',' EXPRESSION ',' EXPRESSION
   { DoSpecification () (getTransSpan $1 $5) $1 $3 (Just $5) }
-| EXPRESSION_ASSIGNMENT_STATEMENT ',' EXPRESSION                
+| EXPRESSION_ASSIGNMENT_STATEMENT ',' EXPRESSION
   { DoSpecification () (getTransSpan $1 $3) $1 $3 Nothing }
 
 SUBSTRING :: { Expression A0 }
@@ -273,19 +397,16 @@ INDICIES_L1 :: { AList Expression A0  }
 | '(' { AList () (getSpan $1) [ ] }
 
 IMPLIED_DO :: { Expression A0 }
-: '(' EXPRESSION ',' DO_SPECIFICATION ')' {
-    let expList = AList () (getSpan $2) [ $2 ]
-          in ExpImpliedDo () (getTransSpan $1 $5) expList $4
-         }
-| '(' EXPRESSION ',' EXPRESSION ',' DO_SPECIFICATION ')' {
-    let expList = AList () (getTransSpan $2 $4) [ $2, $4 ]
-          in ExpImpliedDo () (getTransSpan $1 $5) expList $6
-         }
-| '(' EXPRESSION ',' EXPRESSION ',' EXPRESSION_LIST ',' DO_SPECIFICATION ')' {
-    let { exps =  reverse $6;
+: '(' EXPRESSION ',' DO_SPECIFICATION ')'
+  { let expList = AList () (getSpan $2) [ $2 ]
+    in ExpImpliedDo () (getTransSpan $1 $5) expList $4 }
+| '(' EXPRESSION ',' EXPRESSION ',' DO_SPECIFICATION ')'
+  { let expList = AList () (getTransSpan $2 $4) [ $2, $4 ]
+    in ExpImpliedDo () (getTransSpan $1 $5) expList $6 }
+| '(' EXPRESSION ',' EXPRESSION ',' EXPRESSION_LIST ',' DO_SPECIFICATION ')'
+  { let { exps =  reverse $6;
           expList = AList () (getTransSpan $2 exps) ($2 : $4 : reverse $6) }
-    in ExpImpliedDo () (getTransSpan $1 $9) expList $8
-         }
+    in ExpImpliedDo () (getTransSpan $1 $9) expList $8 }
 
 EXPRESSION_LIST :: { [ Expression A0 ] }
 : EXPRESSION_LIST ',' EXPRESSION { $3 : $1 }

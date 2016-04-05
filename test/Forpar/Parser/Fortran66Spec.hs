@@ -169,10 +169,10 @@ spec =
 
       it "parses 'integer i, j(2,2), k'" $ do
         let dimDecls = take 2 $ repeat $ DimensionDeclarator () u Nothing (intGen 2) 
-            declarators = [ DeclVariable () u (varGen "i")
-                          , DeclArray () u (arrGen "j") (AList () u dimDecls)
-                          , DeclVariable () u (varGen "k") ] 
-            st = StDeclaration () u (TypeInteger () u) $ AList () u declarators
+            declarators = [ DeclVariable () u (varGen "i") Nothing Nothing
+                          , DeclArray () u (arrGen "j") (AList () u dimDecls) Nothing Nothing
+                          , DeclVariable () u (varGen "k") Nothing Nothing ] 
+            st = StDeclaration () u (TypeSpec () u TypeInteger Nothing) Nothing $ AList () u declarators
         sParser "      integer i, j(2,2), k" `shouldBe'` st
 
       let controlPairs = AList () u [ ControlPair () u Nothing (intGen 6), ControlPair () u Nothing (labelGen 10) ]

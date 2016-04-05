@@ -57,15 +57,15 @@ spec =
       eParser "(x, y(i), i = 1, 10, 2)" `shouldBe'` impliedDo
 
     it "parses main program unit" $ do
-      let decl = DeclVariable () u (varGen "x")
-      let st = StDeclaration () u (TypeInteger () u) (AList () u [ decl ])
+      let decl = DeclVariable () u (varGen "x") Nothing Nothing
+      let st = StDeclaration () u (TypeSpec () u TypeInteger Nothing) Nothing (AList () u [ decl ])
       let bl = BlStatement () u Nothing st
       let pu = ProgramFile [ ([ ], PUMain () u (Just "hello") [ bl ]) ] [ ]
       pParser exampleProgram1 `shouldBe'` pu
 
     it "parses block data unit" $ do
-      let decl = DeclVariable () u (varGen "x")
-      let st = StDeclaration () u (TypeInteger () u) (AList () u [ decl ])
+      let decl = DeclVariable () u (varGen "x") Nothing Nothing
+      let st = StDeclaration () u (TypeSpec () u TypeInteger Nothing) Nothing (AList () u [ decl ])
       let bl = BlStatement () u Nothing st
       let pu = ProgramFile [ ([ ], PUBlockData () u (Just "hello") [ bl ]) ] [ ]
       pParser exampleProgram2 `shouldBe'` pu
@@ -102,8 +102,8 @@ spec =
         let dimDecls = [ DimensionDeclarator () u (Just $ intGen 1) (intGen 2)
                        , DimensionDeclarator () u Nothing (intGen 15)
                        , DimensionDeclarator () u (Just $ varGen "x") starVal ]
-        let decl = DeclArray () u (arrGen "a") (AList () u dimDecls)
-        let st = StDeclaration () u (TypeInteger () u) (AList () u [ decl ])
+        let decl = DeclArray () u (arrGen "a") (AList () u dimDecls) Nothing Nothing
+        let st = StDeclaration () u (TypeSpec () u TypeInteger Nothing) Nothing (AList () u [ decl ])
         sParser "      integer a(1:2, 15, x:*)" `shouldBe'` st
 
       it "parses character substring" $ do
@@ -140,8 +140,9 @@ spec =
 
       it "parses 'implicit character*30 (a, b, c), integer (a-z, l)" $ do
         let impEls = [ImpCharacter () u "a", ImpCharacter () u "b", ImpCharacter () u "c"]
-        let imp1 = ImpList () u (TypeCharacter () u (Just $ intGen 30)) $ AList () u impEls
-        let imp2 = ImpList () u (TypeInteger () u) $ AList () u [ImpRange () u "a" "z", ImpCharacter () u "l"]
+        let selector = Selector () u (Just $ intGen 30) Nothing
+        let imp1 = ImpList () u (TypeSpec () u TypeCharacter (Just selector)) $ AList () u impEls
+        let imp2 = ImpList () u (TypeSpec () u TypeInteger Nothing) $ AList () u [ImpRange () u "a" "z", ImpCharacter () u "l"]
         let st = StImplicit () u $ Just $ AList () u [imp1, imp2]
         sParser "      implicit character*30 (a, b, c), integer (a-z, l)" `shouldBe'` st
 

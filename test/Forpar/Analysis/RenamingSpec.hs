@@ -71,17 +71,17 @@ spec = do
 --------------------------------------------------
 
 ex1 = ProgramFile [ ([ ], ex1pu1) ] [ ]
-ex1pu1 = PUFunction () u (Just $ TypeInteger () u) "f1" (AList () u []) []
+ex1pu1 = PUFunction () u (Just $ TypeSpec () u TypeInteger Nothing) "f1" (AList () u []) []
 
 ex2 = ProgramFile [ ([ ], ex2pu1)] [ ]
 ex2pu1 = PUMain () u (Just "main") ex2pu1bs
 ex2pu1bs =
-  [ BlStatement () u Nothing (StDeclaration () u (TypeInteger () u) (AList () u
-      [ DeclVariable () u (varGen "a")
-      , DeclArray () u (arrGen "b") (AList () u [ DimensionDeclarator () u Nothing (intGen 1) ])
-      , DeclVariable () u (varGen "c") ]))
+  [ BlStatement () u Nothing (StDeclaration () u (TypeSpec () u TypeInteger Nothing) Nothing (AList () u
+      [ DeclVariable () u (varGen "a") Nothing Nothing
+      , DeclArray () u (arrGen "b") (AList () u [ DimensionDeclarator () u Nothing (intGen 1) ]) Nothing Nothing
+      , DeclVariable () u (varGen "c") Nothing Nothing ]))
   , BlStatement () u Nothing (StDimension () u (AList () u
-      [ DeclArray () u (arrGen "a") (AList () u [ DimensionDeclarator () u Nothing (intGen 1 ) ]) ]))
+      [ DeclArray () u (arrGen "a") (AList () u [ DimensionDeclarator () u Nothing (intGen 1 ) ]) Nothing Nothing ]))
   , BlStatement () u Nothing (StExpressionAssign () u
       (ExpSubscript () u (arrGen "a") (AList () u [ intGen 1 ])) (intGen 1))
   , BlStatement () u Nothing (StExpressionAssign () u
@@ -94,15 +94,15 @@ ex2pu1bs =
 ex3 = ProgramFile [ ([ ], ex3pu1), ([ ], ex3pu2)] [ ]
 ex3pu1 = PUMain () u (Just "main") ex3pu1bs
 ex3pu1bs =
-  [ BlStatement () u Nothing (StDeclaration () u (TypeInteger () u) (AList () u
-      [ DeclVariable () u (varGen "a")
-      , DeclArray () u (arrGen "b") (AList () u [ DimensionDeclarator () u Nothing (intGen 1) ])
-      , DeclVariable () u (varGen "c")
-      , DeclVariable () u (varGen "d") ]))
+  [ BlStatement () u Nothing (StDeclaration () u (TypeSpec () u TypeInteger Nothing) Nothing (AList () u
+      [ DeclVariable () u (varGen "a") Nothing Nothing
+      , DeclArray () u (arrGen "b") (AList () u [ DimensionDeclarator () u Nothing (intGen 1) ]) Nothing Nothing
+      , DeclVariable () u (varGen "c") Nothing Nothing
+      , DeclVariable () u (varGen "d") Nothing Nothing ]))
   , BlStatement () u Nothing (StDimension () u (AList () u
-      [ DeclArray () u (arrGen "a") (AList () u [ DimensionDeclarator () u Nothing (intGen 1 ) ]) ]))
-  , BlStatement () u Nothing (StDeclaration () u (TypeInteger () u) (AList () u
-      [ DeclVariable () u (varGen "c") ]))
+      [ DeclArray () u (arrGen "a") (AList () u [ DimensionDeclarator () u Nothing (intGen 1 ) ]) Nothing Nothing ]))
+  , BlStatement () u Nothing (StDeclaration () u (TypeSpec () u TypeInteger Nothing) Nothing (AList () u
+      [ DeclVariable () u (varGen "c") Nothing Nothing ]))
   , BlStatement () u Nothing (StExpressionAssign () u
       (ExpSubscript () u (arrGen "a") (AList () u [ intGen 1 ])) (intGen 1))
   , BlStatement () u Nothing (StExpressionAssign () u
@@ -111,18 +111,19 @@ ex3pu1bs =
       (ExpSubscript () u (arrGen "c") (AList () u [ intGen 1 ])) (intGen 1))
   , BlStatement () u Nothing (StExpressionAssign () u
       (varGen "d") (ExpBinary () u Addition (varGen "d") (intGen 1))) ]
-ex3pu2 = PUFunction () u (Just $ TypeInteger () u) "f1" (AList () u [ValVariable () "d", ValVariable () "b"]) (ex3pu1bs ++ [ BlStatement () u Nothing (StExpressionAssign () u (varGen "f1") (varGen "d")) ])
+ex3pu2 = PUFunction () u (Just $ TypeSpec () u TypeInteger Nothing) "f1" (AList () u [ValVariable () "d", ValVariable () "b"]) (ex3pu1bs ++ [ BlStatement () u Nothing (StExpressionAssign () u (varGen "f1") (varGen "d")) ])
 
 ex4 = ProgramFile [ ([ ], ex4pu1), ([ ], ex4pu2)] [ ]
 ex4pu1 = PUMain () u (Just "main") ex4pu1bs
 ex4pu1bs =
-  [ BlStatement () u Nothing (StDeclaration () u (TypeInteger () u) (AList () u
-      [ DeclVariable () u (varGen "f1"), DeclVariable () u (varGen "r") ]))
+  [ BlStatement () u Nothing (StDeclaration () u (TypeSpec () u TypeInteger Nothing) Nothing (AList () u
+      [ DeclVariable () u (varGen "f1") Nothing Nothing
+      , DeclVariable () u (varGen "r") Nothing Nothing ]))
   , BlStatement () u Nothing (StExpressionAssign () u
       (ExpValue () u (ValVariable () "r"))
       (ExpFunctionCall () u (ExpValue () u (ValFunctionName "f1"))
                             (AList () u [intGen 1]))) ]
-ex4pu2 = PUFunction () u (Just $ TypeInteger () u) "f1" (AList () u [ValVariable () "x"]) ([ BlStatement () u Nothing (StExpressionAssign () u (varGen "f1") (varGen "x")) ])
+ex4pu2 = PUFunction () u (Just $ TypeSpec () u TypeInteger Nothing) "f1" (AList () u [ValVariable () "x"]) ([ BlStatement () u Nothing (StExpressionAssign () u (varGen "f1") (varGen "x")) ])
 
 -- Local variables:
 -- mode: haskell

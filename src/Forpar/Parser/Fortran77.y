@@ -149,7 +149,7 @@ PROGRAM_UNITS
 PROGRAM_UNIT :: { ProgramUnit A0 }
 PROGRAM_UNIT
 : program NAME NEWLINE BLOCKS end { PUMain () (getTransSpan $1 $5) (Just $2) (reverse $4) }
-| TYPE function NAME '(' ARGS ')' NEWLINE BLOCKS end { PUFunction () (getTransSpan $1 $9) (Just $1) $3 (aReverse $5) (reverse $8) }
+| TYPE_SPEC function NAME '(' ARGS ')' NEWLINE BLOCKS end { PUFunction () (getTransSpan $1 $9) (Just $1) $3 (aReverse $5) (reverse $8) }
 | function NAME '(' ARGS ')' NEWLINE BLOCKS end { PUFunction () (getTransSpan $1 $8) Nothing $2 (aReverse $4) (reverse $7) }
 | subroutine NAME '(' ARGS ')' NEWLINE BLOCKS end { PUSubroutine () (getTransSpan $1 $8) $2 (aReverse $4) (reverse $7) }
 | blockData NEWLINE BLOCKS end { PUBlockData () (getTransSpan $1 $4) Nothing (reverse $3) }
@@ -191,11 +191,11 @@ STATEMENT :: { Statement A0 }
 STATEMENT
 : LOGICAL_IF_STATEMENT { $1 }
 | DO_STATEMENT { $1 }
-| OTHER_EXECUTABLE_STATEMENT { $1 }
+| EXECUTABLE_STATEMENT { $1 }
 | NONEXECUTABLE_STATEMENT { $1 }
 
 LOGICAL_IF_STATEMENT :: { Statement A0 }
-LOGICAL_IF_STATEMENT : if '(' EXPRESSION ')' OTHER_EXECUTABLE_STATEMENT { StIfLogical () (getTransSpan $1 $5) $3 $5 }
+LOGICAL_IF_STATEMENT : if '(' EXPRESSION ')' EXECUTABLE_STATEMENT { StIfLogical () (getTransSpan $1 $5) $3 $5 }
 
 DO_STATEMENT :: { Statement A0 }
 DO_STATEMENT
@@ -208,8 +208,8 @@ DO_SPECIFICATION
 : EXPRESSION_ASSIGNMENT_STATEMENT ',' EXPRESSION ',' EXPRESSION { DoSpecification () (getTransSpan $1 $5) $1 $3 (Just $5) }
 | EXPRESSION_ASSIGNMENT_STATEMENT ',' EXPRESSION                { DoSpecification () (getTransSpan $1 $3) $1 $3 Nothing }
 
-OTHER_EXECUTABLE_STATEMENT :: { Statement A0 }
-OTHER_EXECUTABLE_STATEMENT
+EXECUTABLE_STATEMENT :: { Statement A0 }
+EXECUTABLE_STATEMENT
 : EXPRESSION_ASSIGNMENT_STATEMENT { $1 }
 | assign LABEL_IN_STATEMENT to VARIABLE { StLabelAssign () (getTransSpan $1 $4) $2 $4 }
 | GOTO_STATEMENT { $1 }
@@ -384,7 +384,7 @@ NONEXECUTABLE_STATEMENT :: { Statement A0 }
 NONEXECUTABLE_STATEMENT
 : external FUNCTION_NAMES { StExternal () (getTransSpan $1 $2) (aReverse $2) }
 | intrinsic FUNCTION_NAMES { StIntrinsic () (getTransSpan $1 $2) (aReverse $2) }
-| dimension OTHER_ARRAY_DECLARATORS { StDimension () (getTransSpan $1 $2) (aReverse $2) }
+| dimension ARRAY_DECLARATORS { StDimension () (getTransSpan $1 $2) (aReverse $2) }
 | common COMMON_GROUPS { StCommon () (getTransSpan $1 $2) (aReverse $2) }
 | equivalence EQUIVALENCE_GROUPS { StEquivalence () (getTransSpan $1 $2) (aReverse $2) }
 | data DATA_GROUPS { StData () (getTransSpan $1 $2) (aReverse $2) }
@@ -422,9 +422,7 @@ PARAMETER_ASSIGNMENT
 
 DECLARATION_STATEMENT :: { Statement A0 }
 DECLARATION_STATEMENT
-: CHARACTER_TYPE CHARACTER_DECLARATORS { StDeclaration () (getTransSpan $1 $2) $1 $2 }
-| EXTRA_CHARACTER_TYPE CHARACTER_DECLARATORS { StDeclaration () (getTransSpan $1 $2) $1 $2 }
-| OTHER_TYPE OTHER_DECLARATORS { StDeclaration () (getTransSpan $1 $2) $1 $2 }
+: TYPE_SPEC DECLARATORS { StDeclaration () (getTransSpan $1 $2) $1 Nothing $2 }
 
 IMP_LISTS :: { AList ImpList A0 }
 IMP_LISTS
@@ -432,7 +430,9 @@ IMP_LISTS
 | IMP_LIST { AList () (getSpan $1) [ $1 ] }
 
 IMP_LIST :: { ImpList A0 }
-IMP_LIST : TYPE '(' IMP_ELEMENTS ')' { ImpList () (getTransSpan $1 $4) $1 $ aReverse $3 }
+IMP_LIST
+: IMP_TYPE_SPEC '(' IMP_ELEMENTS ')' 
+  { ImpList () (getTransSpan $1 $4) $1 $ aReverse $3 }
 
 IMP_ELEMENTS :: { AList ImpElement A0 }
 IMP_ELEMENTS
@@ -533,55 +533,35 @@ NAME_LIST
 
 NAME_LIST_ELEMENT :: { Expression A0 } : VARIABLE { $1 } | SUBSTRING { $1 } | SUBSCRIPT { $1 }
 
-CHARACTER_DECLARATORS :: { AList Declarator A0 }
-CHARACTER_DECLARATORS
-: CHARACTER_DECLARATORS ',' CHARACTER_DECLARATOR { setSpan (getTransSpan $1 $3) $ $3 `aCons` $1 }
-| CHARACTER_DECLARATOR { AList () (getSpan $1) [ $1 ] }
+DECLARATORS :: { AList Declarator A0 }
+DECLARATORS
+: DECLARATORS ',' DECLARATOR { setSpan (getTransSpan $1 $3) $ $3 `aCons` $1 }
+| DECLARATOR { AList () (getSpan $1) [ $1 ] }
 
-OTHER_DECLARATORS :: { AList Declarator A0 }
-OTHER_DECLARATORS
-: OTHER_DECLARATORS ',' OTHER_DECLARATOR { setSpan (getTransSpan $1 $3) $ $3 `aCons` $1 }
-| OTHER_DECLARATOR { AList () (getSpan $1) [ $1 ] }
+DECLARATOR :: { Declarator A0 }
+DECLARATOR
+: ARRAY_DECLARATOR { $1 }
+| VARIABLE_DECLARATOR { $1 }
 
--- Parses arrays as DeclCharVariable, otherwise we get a conflict.
-CHARACTER_DECLARATOR :: { Declarator A0 }
-CHARACTER_DECLARATOR
-: CHARACTER_ARRAY_DECLARATOR { $1 }
-| CHARACTER_VARIABLE_DECLARATOR { $1 }
-| VARIABLE { DeclCharVariable () (getSpan $1) $1 Nothing }
+ARRAY_DECLARATORS :: { AList Declarator A0 }
+ARRAY_DECLARATORS
+: ARRAY_DECLARATORS ',' ARRAY_DECLARATOR
+  { setSpan (getTransSpan $1 $3) $ $3 `aCons` $1 }
+| ARRAY_DECLARATOR { AList () (getSpan $1) [ $1 ] }
 
--- Parses arrays as DeclVariable, otherwise we get a conflict.
-OTHER_DECLARATOR :: { Declarator A0 }
-OTHER_DECLARATOR
-: OTHER_ARRAY_DECLARATOR { $1 }
-| OTHER_VARIABLE_DECLARATOR { $1 }
+ARRAY_DECLARATOR :: { Declarator A0 }
+ARRAY_DECLARATOR
+: ARRAY '(' DIMENSION_DECLARATORS ')'
+  { DeclArray () (getTransSpan $1 $4) $1 (aReverse $3) Nothing Nothing }
 
-CHARACTER_ARRAY_DECLARATOR :: { Declarator A0 }
-CHARACTER_ARRAY_DECLARATOR
-: ARRAY '(' DIMENSION_DECLARATORS ')' '*' EXPRESSION { DeclCharArray () (getTransSpan $1 $6) $1 (aReverse $3) (Just $6) }
-| ARRAY '(' DIMENSION_DECLARATORS ')' '*' '(' '*' ')' { DeclCharArray () (getTransSpan $1 $8) $1 (aReverse $3) (Just $ ExpValue () (getSpan $7) ValStar) }
-
-OTHER_ARRAY_DECLARATORS :: { AList Declarator A0 }
-OTHER_ARRAY_DECLARATORS
-: OTHER_ARRAY_DECLARATORS ',' OTHER_ARRAY_DECLARATOR { setSpan (getTransSpan $1 $3) $ $3 `aCons` $1 }
-| OTHER_ARRAY_DECLARATOR { AList () (getSpan $1) [ $1 ] }
-
-OTHER_ARRAY_DECLARATOR :: { Declarator A0 }
-OTHER_ARRAY_DECLARATOR
-: ARRAY '(' DIMENSION_DECLARATORS ')' { DeclArray () (getTransSpan $1 $4) $1 $ aReverse $3 }
-
-CHARACTER_VARIABLE_DECLARATOR :: { Declarator A0 }
-CHARACTER_VARIABLE_DECLARATOR
-: VARIABLE '*' EXPRESSION { DeclCharVariable () (getTransSpan $1 $3) $1 (Just $3) }
-| VARIABLE '*' '(' '*' ')' { DeclCharVariable () (getTransSpan $1 $5) $1 (Just $ ExpValue () (getSpan $4) ValStar) }
-
-OTHER_VARIABLE_DECLARATOR :: { Declarator A0 }
-OTHER_VARIABLE_DECLARATOR
-: VARIABLE { DeclVariable () (getSpan $1) $1 }
+VARIABLE_DECLARATOR :: { Declarator A0 }
+VARIABLE_DECLARATOR
+: VARIABLE { DeclVariable () (getSpan $1) $1 Nothing Nothing }
 
 DIMENSION_DECLARATORS :: { AList DimensionDeclarator A0 }
 DIMENSION_DECLARATORS
-: DIMENSION_DECLARATORS ',' DIMENSION_DECLARATOR { setSpan (getTransSpan $1 $3) $ $3 `aCons` $1 }
+: DIMENSION_DECLARATORS ',' DIMENSION_DECLARATOR
+  { setSpan (getTransSpan $1 $3) $ $3 `aCons` $1 }
 | DIMENSION_DECLARATOR { AList () (getSpan $1) [ $1 ] }
 
 DIMENSION_DECLARATOR :: { DimensionDeclarator A0 }
@@ -815,26 +795,41 @@ LABEL_IN_6COLUMN :: { Expression A0 } : label { ExpValue () (getSpan $1) (let (T
 -- Labels that occur in statements
 LABEL_IN_STATEMENT :: { Expression A0 } : int { ExpValue () (getSpan $1) (let (TInt _ l) = $1 in ValLabel l) }
 
-TYPE :: { BaseType A0 } : CHARACTER_TYPE { $1 } | OTHER_TYPE { $1 }
+TYPE_SPEC :: { TypeSpec A0 }
+TYPE_SPEC
+: integer          { TypeSpec () (getSpan $1) TypeInteger Nothing }
+| real             { TypeSpec () (getSpan $1) TypeReal Nothing }
+| doublePrecision  { TypeSpec () (getSpan $1) TypeDoublePrecision Nothing }
+| logical          { TypeSpec () (getSpan $1) TypeLogical Nothing }
+| complex          { TypeSpec () (getSpan $1) TypeComplex Nothing }
+| doubleComplex    { TypeSpec () (getSpan $1) TypeDoubleComplex Nothing }
+| character CHAR_SELECTOR { TypeSpec () (getSpan ($1, $2)) TypeCharacter $2 }
 
-CHARACTER_TYPE :: { BaseType A0 }
-CHARACTER_TYPE
-: character        { TypeCharacter () (getSpan $1) Nothing }
-| character '*' ARITHMETIC_CONSTANT_EXPRESSION  { TypeCharacter () (getTransSpan $1 $3) $ Just $3 }
-| character '*' '(' '*' ')'  { TypeCharacter () (getTransSpan $1 $3) $ Just (ExpValue () (getTransSpan $3 $5) ValStar) }
+CHAR_SELECTOR :: { Maybe (Selector A0) }
+CHAR_SELECTOR
+: '(' ARITHMETIC_CONSTANT_EXPRESSION ')'
+  { Just $ Selector () (getTransSpan $1 $3) (Just $2) Nothing }
+| BASIC_CHAR_SELECTOR { $1 }
 
-EXTRA_CHARACTER_TYPE :: { BaseType A0 }
-EXTRA_CHARACTER_TYPE
-: character '(' ARITHMETIC_CONSTANT_EXPRESSION ')'  { TypeCharacter () (getTransSpan $1 $3) $ Just $3 }
+BASIC_CHAR_SELECTOR :: { Maybe (Selector A0) }
+BASIC_CHAR_SELECTOR
+: '*' ARITHMETIC_CONSTANT_EXPRESSION
+  { Just $ Selector () (getTransSpan $1 $2) (Just $2) Nothing }
+| '*' '(' STAR ')' { Just $ Selector () (getTransSpan $1 $4) (Just $3) Nothing }
+| {- EMPTY -} { Nothing }
 
-OTHER_TYPE :: { BaseType A0 }
-OTHER_TYPE
-: integer          { TypeInteger () (getSpan $1) }
-| real             { TypeReal () (getSpan $1) }
-| doublePrecision  { TypeDoublePrecision () (getSpan $1) }
-| logical          { TypeLogical () (getSpan $1) }
-| complex          { TypeComplex () (getSpan $1) }
-| doubleComplex    { TypeDoubleComplex () (getSpan $1) }
+IMP_TYPE_SPEC :: { TypeSpec A0 }
+IMP_TYPE_SPEC
+: integer          { TypeSpec () (getSpan $1) TypeInteger Nothing }
+| real             { TypeSpec () (getSpan $1) TypeReal Nothing }
+| doublePrecision  { TypeSpec () (getSpan $1) TypeDoublePrecision Nothing }
+| logical          { TypeSpec () (getSpan $1) TypeLogical Nothing }
+| complex          { TypeSpec () (getSpan $1) TypeComplex Nothing }
+| doubleComplex    { TypeSpec () (getSpan $1) TypeDoubleComplex Nothing }
+| character BASIC_CHAR_SELECTOR { TypeSpec () (getSpan ($1, $2)) TypeCharacter $2 }
+
+STAR :: { Expression A0 }
+STAR : '*' { ExpValue () (getSpan $1) ValStar }
 
 {
 

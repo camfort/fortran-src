@@ -127,10 +127,8 @@ underRenaming f pf = tryUnrename `descendBi` f pf'
 --------------------------------------------------
 
 -- extract name from declaration
-declName (DeclVariable _ _ (ExpValue _ _ (ValVariable _ v))) = v
-declName (DeclArray _ _ (ExpValue _ _ (ValArray _ v)) _) = v
-declName (DeclCharVariable _ _ (ExpValue _ _ (ValVariable _ v)) _) = v
-declName (DeclCharArray _ _ (ExpValue _ _ (ValVariable _ v)) _ _) = v
+declName (DeclVariable _ _ (ExpValue _ _ (ValVariable _ v)) _ _) = v
+declName (DeclArray _ _ (ExpValue _ _ (ValArray _ v)) _ _ _) = v
 
 programUnit :: Data a => RenamerFunc (ProgramUnit (Analysis a))
 programUnit pu = do
@@ -187,14 +185,14 @@ programUnit pu = do
   let uniS_PU :: Data a => ProgramUnit a -> [Statement a]
       uniS_PU = universeBi
 
-  let f (DeclVariable _ _ (ExpValue _ _ (ValVariable (Analysis { uniqueName = Just un }) n))) = [(n, un)]
-      f (DeclArray _ _ (ExpValue _ _ (ValArray (Analysis { uniqueName = Just un }) n)) _)     = [(n, un)]
+  let f (DeclVariable _ _ (ExpValue _ _ (ValVariable (Analysis { uniqueName = Just un }) n)) _ _) = [(n, un)]
+      f (DeclArray _ _ (ExpValue _ _ (ValArray (Analysis { uniqueName = Just un }) n)) _ _ _)     = [(n, un)]
       f d = []
 
   pu''' <- case m_params of
     Just params -> do
       -- get a list of the renames that were performed in this program unit body
-      let renames = concat [ f =<< aStrip dalist | StDeclaration _ _ _ dalist <- uniS_PU pu'' ]
+      let renames = concat [ f =<< aStrip dalist | StDeclaration _ _ _ _ dalist <- uniS_PU pu'' ]
       -- for each parameter, apply the first rename found
       let params' = flip aMap params $ \ p -> case p of
                       ValVariable a n -> ValVariable (a { uniqueName = L.lookup n renames }) n
@@ -212,7 +210,7 @@ programUnit pu = do
   return $ setAnnotation ((getAnnotation pu''') { uniqueName = Just name }) pu'''
 
 blstmtList :: Data a => RenamerFunc [Block (Analysis a)]
-blstmtList st@(BlStatement _ _ _ (StDeclaration a s ty valist):_) = do
+blstmtList st@(BlStatement _ _ _ (StDeclaration a s ty _ valist):_) = do
   scope <- gets (head . scopeStack)
   -- D.trace ("\n\nvalist: "++show (fmap uniqueName valist)) $ return ()
   let vs = aStrip valist

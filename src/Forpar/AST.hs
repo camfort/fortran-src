@@ -11,7 +11,7 @@ module Forpar.AST where
 import Data.Data
 import Data.Typeable
 import Data.Generics.Uniplate.Data
-import GHC.Generics
+import GHC.Generics (Generic)
 import Text.PrettyPrint.GenericPretty
 
 import Forpar.Util.Position
@@ -46,14 +46,23 @@ aMap :: (t a -> t a) -> AList t a -> AList t a
 aMap f (AList a s xs) = AList a s (map f xs)
 
 -- Basic AST nodes
-data BaseType a =
-    TypeInteger         a SrcSpan
-  | TypeReal            a SrcSpan
-  | TypeDoublePrecision a SrcSpan
-  | TypeComplex         a SrcSpan
-  | TypeDoubleComplex   a SrcSpan
-  | TypeLogical         a SrcSpan
-  | TypeCharacter       a SrcSpan (Maybe (Expression a))
+data BaseType =
+    TypeInteger
+  | TypeReal
+  | TypeDoublePrecision
+  | TypeComplex
+  | TypeDoubleComplex
+  | TypeLogical
+  | TypeCharacter
+  | TypeCustom String
+  deriving (Eq, Show, Data, Typeable, Generic)
+
+data TypeSpec a = TypeSpec a SrcSpan BaseType (Maybe (Selector a))
+  deriving (Eq, Show, Data, Typeable, Generic, Functor)
+
+data Selector a =
+--                   Maybe length         | Maybe kind
+  Selector a SrcSpan (Maybe (Expression a)) (Maybe (Expression a))
   deriving (Eq, Show, Data, Typeable, Generic, Functor)
 
 -- Program structure definition
@@ -64,7 +73,7 @@ data ProgramUnit a =
 --    program type  | a  | span    | return               | name         | arguments        | body
       PUMain          a    SrcSpan                          (Maybe Name)                      [Block a]
   |   PUSubroutine    a    SrcSpan                          Name           (AList Value a)    [Block a]
-  |   PUFunction      a    SrcSpan   (Maybe (BaseType a))   Name           (AList Value a)    [Block a]
+  |   PUFunction      a    SrcSpan   (Maybe (TypeSpec a))   Name           (AList Value a)    [Block a]
   |   PUBlockData     a    SrcSpan                          (Maybe Name)                      [Block a]
   deriving (Eq, Show, Data, Typeable, Generic, Functor)
 
@@ -84,7 +93,7 @@ data Statement a  =
   | StEquivalence         a SrcSpan (AList (AList Expression) a)
   | StData                a SrcSpan (AList DataGroup a)
   | StFormat              a SrcSpan (AList FormatItem a)
-  | StDeclaration         a SrcSpan (BaseType a) (AList Declarator a)
+  | StDeclaration         a SrcSpan (TypeSpec a) (Maybe (AList Attribute a)) (AList Declarator a)
   | StImplicit            a SrcSpan (Maybe (AList ImpList a))
   | StParameter           a SrcSpan (AList Statement a)
   | StEntry               a SrcSpan (Expression a) (Maybe (AList Expression a))
@@ -125,10 +134,28 @@ data Statement a  =
   | StEndfile2            a SrcSpan (Expression a)
   deriving (Eq, Show, Data, Typeable, Generic, Functor)
 
+data Attribute a =
+    AttrParameter a SrcSpan
+  | AttrPublic a SrcSpan
+  | AttrPrivate a SrcSpan
+  | AttrAllocatable a SrcSpan
+  | AttrDimension a SrcSpan (AList DimensionDeclarator a)
+  | AttrExternal a SrcSpan
+  | AttrIntent a SrcSpan Intent
+  | AttrIntrinsic a SrcSpan
+  | AttrOptional a SrcSpan
+  | AttrPointer a SrcSpan
+  | AttrSave a SrcSpan
+  | AttrTarget a SrcSpan
+  deriving (Eq, Show, Data, Typeable, Generic, Functor)
+
+data Intent = In | Out | InOut
+  deriving (Eq, Show, Data, Typeable, Generic)
+
 data ControlPair a = ControlPair a SrcSpan (Maybe String) (Expression a)
   deriving (Eq, Show, Data, Typeable, Generic, Functor)
 
-data ImpList a = ImpList a SrcSpan (BaseType a) (AList ImpElement a)
+data ImpList a = ImpList a SrcSpan (TypeSpec a) (AList ImpElement a)
   deriving (Eq, Show, Data, Typeable, Generic, Functor)
 
 data ImpElement a =
@@ -189,21 +216,32 @@ data Value a =
   deriving (Eq, Show, Data, Typeable, Generic, Functor)
 
 data Declarator a =
-    DeclArray a SrcSpan (Expression a) (AList DimensionDeclarator a)
-  | DeclCharArray a SrcSpan (Expression a) (AList DimensionDeclarator a) (Maybe (Expression a))
-  | DeclVariable a SrcSpan (Expression a)
-  | DeclCharVariable a SrcSpan (Expression a) (Maybe (Expression a))
+    DeclVariable a SrcSpan
+                 (Expression a) -- Variable
+                 (Maybe (Expression a)) -- Length (character)
+                 (Maybe (Expression a)) -- Initial value
+  | DeclArray a SrcSpan
+              (Expression a) -- Array
+              (AList DimensionDeclarator a) -- Dimensions
+              (Maybe (Expression a)) -- Length (character)
+              (Maybe (Expression a)) -- Initial value
   deriving (Eq, Show, Data, Typeable, Generic, Functor)
+
+setInitialisation :: Declarator a -> Expression a -> Declarator a
+setInitialisation (DeclVariable a s v l Nothing) init =
+  DeclVariable a (getTransSpan s init) v l (Just init)
+setInitialisation (DeclArray a s v ds l Nothing) init =
+  DeclArray a (getTransSpan s init) v ds l (Just init)
 
 data DimensionDeclarator a =
   DimensionDeclarator a SrcSpan (Maybe (Expression a)) (Expression a)
   deriving (Eq, Show, Data, Typeable, Generic, Functor)
 
-data UnaryOp = 
-    Plus 
-  | Minus 
-  | Not 
-  | UnCustom String 
+data UnaryOp =
+    Plus
+  | Minus
+  | Not
+  | UnCustom String
   deriving (Eq, Show, Data, Typeable, Generic)
 
 data BinaryOp =
@@ -241,6 +279,9 @@ instance FirstParameter (AList t a) a
 instance FirstParameter (ProgramUnit a) a
 instance FirstParameter (Block a) a
 instance FirstParameter (Statement a) a
+instance FirstParameter (TypeSpec a) a
+instance FirstParameter (Selector a) a
+instance FirstParameter (Attribute a) a
 instance FirstParameter (ImpList a) a
 instance FirstParameter (ImpElement a) a
 instance FirstParameter (CommonGroup a) a
@@ -248,7 +289,6 @@ instance FirstParameter (DataGroup a) a
 instance FirstParameter (FormatItem a) a
 instance FirstParameter (Expression a) a
 instance FirstParameter (DoSpecification a) a
-instance FirstParameter (BaseType a) a
 instance FirstParameter (Declarator a) a
 instance FirstParameter (DimensionDeclarator a) a
 instance FirstParameter (ControlPair a) a
@@ -257,6 +297,9 @@ instance SecondParameter (AList t a) SrcSpan
 instance SecondParameter (ProgramUnit a) SrcSpan
 instance SecondParameter (Block a) SrcSpan
 instance SecondParameter (Statement a) SrcSpan
+instance SecondParameter (TypeSpec a) SrcSpan
+instance SecondParameter (Selector a) SrcSpan
+instance SecondParameter (Attribute a) SrcSpan
 instance SecondParameter (ImpList a) SrcSpan
 instance SecondParameter (ImpElement a) SrcSpan
 instance SecondParameter (CommonGroup a) SrcSpan
@@ -264,7 +307,6 @@ instance SecondParameter (DataGroup a) SrcSpan
 instance SecondParameter (FormatItem a) SrcSpan
 instance SecondParameter (Expression a) SrcSpan
 instance SecondParameter (DoSpecification a) SrcSpan
-instance SecondParameter (BaseType a) SrcSpan
 instance SecondParameter (Declarator a) SrcSpan
 instance SecondParameter (DimensionDeclarator a) SrcSpan
 instance SecondParameter (ControlPair a) SrcSpan
@@ -273,6 +315,9 @@ instance Annotated (AList t)
 instance Annotated ProgramUnit
 instance Annotated Block
 instance Annotated Statement
+instance Annotated TypeSpec
+instance Annotated Selector
+instance Annotated Attribute
 instance Annotated ImpList
 instance Annotated ImpElement
 instance Annotated CommonGroup
@@ -280,7 +325,6 @@ instance Annotated DataGroup
 instance Annotated FormatItem
 instance Annotated Expression
 instance Annotated DoSpecification
-instance Annotated BaseType
 instance Annotated Declarator
 instance Annotated DimensionDeclarator
 instance Annotated ControlPair
@@ -288,6 +332,9 @@ instance Annotated ControlPair
 instance Spanned (AList t a)
 instance Spanned (ProgramUnit a)
 instance Spanned (Statement a)
+instance Spanned (Attribute a)
+instance Spanned (TypeSpec a)
+instance Spanned (Selector a)
 instance Spanned (ImpList a)
 instance Spanned (ImpElement a)
 instance Spanned (Block a)
@@ -296,13 +343,14 @@ instance Spanned (DataGroup a)
 instance Spanned (FormatItem a)
 instance Spanned (Expression a)
 instance Spanned (DoSpecification a)
-instance Spanned (BaseType a)
 instance Spanned (Declarator a)
 instance Spanned (DimensionDeclarator a)
 instance Spanned (ControlPair a)
 
 instance Spanned a => Spanned [a] where
-  getSpan = getListSpan
+  getSpan [ ] = error "Trying to get find how long an empty list spans."
+  getSpan [x] =  getSpan x
+  getSpan (x:xs) = getTransSpan x (last xs)
   setSpan _ _ = error "Cannot set span to an array"
 
 instance (Spanned a, Spanned b) => Spanned (a, Maybe b) where
@@ -349,10 +397,6 @@ getTransSpan x y =
   let SrcSpan l1 l2 = getSpan x
       SrcSpan l1' l2' = getSpan y in
         SrcSpan l1 l2'
-
-getListSpan :: Spanned a => [a] -> SrcSpan
-getListSpan [x] =  getSpan x
-getListSpan (x:xs) = getTransSpan x (last xs)
 
 class Labeled f where
   getLabel :: f a -> Maybe (Expression a)
@@ -411,6 +455,8 @@ instance Out a => Out (ProgramFile a)
 instance Out a => Out (ProgramUnit a)
 instance (Out a, Out (t a)) => Out (AList t a)
 instance Out a => Out (Statement a)
+instance Out a => Out (Attribute a)
+instance Out Intent
 instance Out a => Out (ImpList a)
 instance Out a => Out (ImpElement a)
 instance Out a => Out (Block a)
@@ -420,9 +466,13 @@ instance Out a => Out (FormatItem a)
 instance Out a => Out (Expression a)
 instance Out a => Out (DoSpecification a)
 instance Out a => Out (Value a)
-instance Out a => Out (BaseType a)
+instance Out a => Out (TypeSpec a)
+instance Out a => Out (Selector a)
+instance Out BaseType
 instance Out a => Out (Declarator a)
 instance Out a => Out (DimensionDeclarator a)
 instance Out a => Out (ControlPair a)
 instance Out UnaryOp
 instance Out BinaryOp
+
+

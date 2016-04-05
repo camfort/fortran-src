@@ -121,7 +121,7 @@ MAIN_PROGRAM_UNIT
 
 OTHER_PROGRAM_UNIT :: { ProgramUnit A0 }
 OTHER_PROGRAM_UNIT
-: TYPE function NAME '(' ARGS ')' NEWLINE BLOCKS end NEWLINE { PUFunction () (getTransSpan $1 $9) (Just $1) $3 (aReverse $5) (reverse $8) }
+: TYPE_SPEC function NAME '(' ARGS ')' NEWLINE BLOCKS end NEWLINE { PUFunction () (getTransSpan $1 $9) (Just $1) $3 (aReverse $5) (reverse $8) }
 | function NAME '(' ARGS ')' NEWLINE BLOCKS end NEWLINE { PUFunction () (getTransSpan $1 $8) Nothing $2 (aReverse $4) (reverse $7) }
 | subroutine NAME '(' ARGS ')' NEWLINE BLOCKS end NEWLINE { PUSubroutine () (getTransSpan $1 $8) $2 (aReverse $4) (reverse $7) }
 | blockData NEWLINE BLOCKS end NEWLINE { PUBlockData () (getTransSpan $1 $4) Nothing (reverse $3) }
@@ -143,17 +143,6 @@ BLOCK
 : LABEL_IN_6COLUMN STATEMENT NEWLINE { BlStatement () (getTransSpan $1 $2) (Just $1) $2 }
 | STATEMENT NEWLINE { BlStatement () (getSpan $1) Nothing $1 }
 | comment NEWLINE { let (TComment s c) = $1 in BlComment () s c }
-
-{-
-COMMENT_BLOCKS :: { [ Block A0 ] }
-COMMENT_BLOCKS
-: COMMENT_BLOCKS COMMENT_BLOCK { $2 : $1 }
-| COMMENT_BLOCK { [ $1 ] }
-
-COMMENT_BLOCK :: { Block A0 }
-COMMENT_BLOCK
-: comment NEWLINE { let (TComment s c) = $1 in BlComment () s c }
--}
 
 NEWLINE :: { Token }
 NEWLINE
@@ -214,7 +203,7 @@ NONEXECUTABLE_STATEMENT
 | equivalence EQUIVALENCE_GROUPS { StEquivalence () (getTransSpan $1 $2) (aReverse $2) }
 | data DATA_GROUPS { StData () (getTransSpan $1 $2) (aReverse $2) }
 | format FORMAT_ITEMS ')' { StFormat () (getTransSpan $1 $3) (aReverse $2) }
-| TYPE DECLARATORS { StDeclaration () (getTransSpan $1 $2) $1 (aReverse $2) }
+| TYPE_SPEC DECLARATORS { StDeclaration () (getTransSpan $1 $2) $1 Nothing (aReverse $2) }
 
 READ_WRITE_ARGUMENTS :: { (AList ControlPair A0, Maybe (AList Expression A0)) }
 READ_WRITE_ARGUMENTS
@@ -338,7 +327,7 @@ ARRAY_DECLARATORS
 
 ARRAY_DECLARATOR :: { Declarator A0 }
 ARRAY_DECLARATOR
-: ARRAY '(' DIMENSION_DECLARATORS ')' { DeclArray () (getTransSpan $1 $4) $1 $ aReverse $3 }
+: ARRAY '(' DIMENSION_DECLARATORS ')' { DeclArray () (getTransSpan $1 $4) $1 (aReverse $3) Nothing Nothing }
 
 DIMENSION_DECLARATORS :: { AList DimensionDeclarator A0 }
 DIMENSION_DECLARATORS
@@ -351,7 +340,7 @@ DIMENSION_DECLARATOR
 
 VARIABLE_DECLARATOR :: { Declarator A0 }
 VARIABLE_DECLARATOR
-: VARIABLE { DeclVariable () (getSpan $1) $1 }
+: VARIABLE { DeclVariable () (getSpan $1) $1 Nothing Nothing }
 
 -- Here the procedure should be either a function or subroutine name, but
 -- since they are syntactically identical at this stage subroutine names
@@ -514,13 +503,13 @@ LABEL_IN_6COLUMN :: { Expression A0 } : label { ExpValue () (getSpan $1) (let (T
 -- Labels that occur in statements
 LABEL_IN_STATEMENT :: { Expression A0 } : int { ExpValue () (getSpan $1) (let (TInt _ l) = $1 in ValLabel l) }
 
-TYPE :: { BaseType A0 }
-TYPE
-: integer           { TypeInteger () (getSpan $1) }
-| real              { TypeReal () (getSpan $1) }
-| doublePrecision   { TypeDoublePrecision () (getSpan $1) }
-| logical           { TypeLogical () (getSpan $1) }
-| complex           { TypeComplex () (getSpan $1) }
+TYPE_SPEC :: { TypeSpec A0 }
+TYPE_SPEC
+: integer           { TypeSpec () (getSpan $1) TypeInteger Nothing }
+| real              { TypeSpec () (getSpan $1) TypeReal Nothing }
+| doublePrecision   { TypeSpec () (getSpan $1) TypeDoublePrecision Nothing }
+| logical           { TypeSpec () (getSpan $1) TypeLogical Nothing }
+| complex           { TypeSpec () (getSpan $1) TypeComplex Nothing }
 
 {
 

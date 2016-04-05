@@ -35,12 +35,12 @@ spec = do
 ex1 = ProgramFile [ ([ ], ex1pu1)] [ ]
 ex1pu1 = PUMain () u (Just "main") ex1pu1bs
 ex1pu1bs =
-  [ BlStatement () u Nothing (StDeclaration () u (TypeInteger () u) (AList () u 
-      [ DeclVariable () u (varGen "a")
-      , DeclArray () u (arrGen "b") (AList () u [ DimensionDeclarator () u Nothing (intGen 1) ])
-      , DeclVariable () u (varGen "c") ]))
+  [ BlStatement () u Nothing (StDeclaration () u (TypeSpec () u TypeInteger Nothing) Nothing (AList () u 
+      [ DeclVariable () u (varGen "a") Nothing Nothing
+      , DeclArray () u (arrGen "b") (AList () u [ DimensionDeclarator () u Nothing (intGen 1) ]) Nothing Nothing
+      , DeclVariable () u (varGen "c") Nothing Nothing ]))
   , BlStatement () u Nothing (StDimension () u (AList () u
-      [ DeclArray () u (arrGen "a") (AList () u [ DimensionDeclarator () u Nothing (intGen 1 ) ]) ]))
+      [ DeclArray () u (arrGen "a") (AList () u [ DimensionDeclarator () u Nothing (intGen 1 ) ]) Nothing Nothing ]))
   , BlStatement () u Nothing (StExpressionAssign () u 
       (ExpSubscript () u (arrGen "a") (AList () u [ intGen 1 ])) (intGen 1))
   , BlStatement () u Nothing (StExpressionAssign () u 
@@ -53,12 +53,12 @@ ex1pu1bs =
 expectedEx1 = ProgramFile [ ([ ], expectedEx1pu1) ] [ ]
 expectedEx1pu1 = PUMain () u (Just "main") expectedEx1pu1bs
 expectedEx1pu1bs =
-  [ BlStatement () u Nothing (StDeclaration () u (TypeInteger () u) (AList () u 
-      [ DeclVariable () u (varGen "a")
-      , DeclArray () u (arrGen "b") (AList () u [ DimensionDeclarator () u Nothing (intGen 1) ])
-      , DeclVariable () u (varGen "c") ]))
+  [ BlStatement () u Nothing (StDeclaration () u (TypeSpec () u TypeInteger Nothing) Nothing (AList () u 
+      [ DeclVariable () u (varGen "a") Nothing Nothing
+      , DeclArray () u (arrGen "b") (AList () u [ DimensionDeclarator () u Nothing (intGen 1) ]) Nothing Nothing
+      , DeclVariable () u (varGen "c") Nothing Nothing ]))
   , BlStatement () u Nothing (StDimension () u (AList () u
-      [ DeclArray () u (arrGen "a") (AList () u [ DimensionDeclarator () u Nothing (intGen 1 ) ]) ]))
+      [ DeclArray () u (arrGen "a") (AList () u [ DimensionDeclarator () u Nothing (intGen 1 ) ]) Nothing Nothing ]))
   , BlStatement () u Nothing (StExpressionAssign () u 
       (ExpSubscript () u (arrGen "a") (AList () u [ intGen 1 ])) (intGen 1))
   , BlStatement () u Nothing (StExpressionAssign () u 
@@ -87,7 +87,7 @@ ex2pu1bs =
     {-
   [ BlStatement () u Nothing
       (StDeclaration () u 
-        (TypeInteger () u) 
+        (TypeSpec () u TypeInteger Nothing) 
         (AList () u
           [ DeclArray () u (arrGen "k") 
               (AList () u
@@ -120,7 +120,7 @@ expectedEx2pu1bs =
     {-
   [ BlStatement () u Nothing
       (StDeclaration () u 
-        (TypeInteger () u) 
+        (TypeSpec () u TypeInteger Nothing) 
         (AList () u
           [ DeclArray () u (arrGen "k") 
               (AList () u

@@ -21,6 +21,9 @@ parGen str = ExpValue () u $ ValParameter str
 intGen :: Integer -> Expression ()
 intGen i = ExpValue () u $ ValInteger $ show i
 
+realGen :: (Fractional a, Show a) => a -> Expression ()
+realGen i = ExpValue () u $ ValReal $ show i
+
 strGen :: String -> Expression ()
 strGen str = ExpValue () u $ ValString $ str
 
