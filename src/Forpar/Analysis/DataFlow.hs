@@ -116,17 +116,67 @@ allLhsExprs b = [ v | ExpValue _ _ (ValArray _ v)    <- lhsExprs b ] ++
                 [ v | ExpValue _ _ (ValVariable _ v) <- lhsExprs b ] ++
                 [ v | ExpSubscript _ _ (ExpValue _ _ (ValArray _ v)) _ <- lhsExprs b ]
 
-killGen gr = [ (n, (lvaKill n, lvaGen n)) | n <- nodes gr ]
-  where
-    lvaKill b = bblockKill (fromJust $ lab gr b)
-    lvaGen b  = bblockGen (fromJust $ lab gr b)
+-- killGen gr = [ (n, (lvaKill n, lvaGen n)) | n <- nodes gr ]
+--   where
+--     lvaKill b = bblockKill (fromJust $ lab gr b)
+--     lvaGen b  = bblockGen (fromJust $ lab gr b)
 
 -- lhsExprsGr gr = [ (n, (concatMap lhsExprs (fromJust $ lab gr n))) | n <- nodes gr ]
 
 --------------------------------------------------
 
+-- Reaching Definitions
+-- forward flow analysis (revPostOrder)
+
+-- GEN b@( definition of anything ) = {b}
+-- KILL b@( definition of y ) = DEFS y    -- technically, except b, but it won't matter
+-- DEFS y = { all definitions of y }
+
+-- Within a basic block
+-- GEN [] = KILL [] = {}
+-- GEN [b_1 .. b_{n+1}] = GEN b_{n+1} `union` (GEN [b_1 .. b_n] `difference` KILL b_{n+1})
+-- KILL [b_1 .. b_{n+1}] = KILL b_{n+1} `union` (KILL [b_1 .. b_n] `difference` GEN b_{n+1})
+
+-- Between basic blocks
+-- REACHin bb = unions [ REACHout bb | bb <- pred bb ]
+-- REACHout bb = GEN bb `union` (REACHin bb `difference` KILL bb)
+
+type BlockMap a = IM.IntMap (Block (Analysis a))
+type DefMap = M.Map Name IS.IntSet
+
+reachingDefinitions :: Data a => DefMap -> BBGr (Analysis a) -> InOutMap IS.IntSet
+reachingDefinitions dm gr = dataFlowSolver gr (const (IS.empty, IS.empty)) revPostOrder inn out
+  where
+    inn outF b = IS.unions [ outF s | s <- pre gr b ]
+    out innF b = gen `IS.union` (innF b IS.\\ kill)
+      where (gen, kill) = rdBblockGenKill dm (fromJust $ lab gr b)
+
+rdBblockGenKill :: Data a => M.Map Name IS.IntSet -> [Block (Analysis a)] -> (IS.IntSet, IS.IntSet)
+rdBblockGenKill dm bs = foldl' f (IS.empty, IS.empty) $ zip (map gen bs) (map kill bs)
+  where
+    gen b | null (allLhsExprs b) = IS.empty
+          | otherwise            = IS.singleton . fromJust . insLabel . getAnnotation $ b
+    kill = rdDefs dm
+    f (bbgen, bbkill) (gen, kill) =
+      ((bbgen IS.\\ kill) `IS.union` gen, (bbkill IS.\\ gen) `IS.union` kill)
+
+rdDefs :: Data a => DefMap -> Block a -> IS.IntSet
+rdDefs dm b = IS.unions [ IS.empty `fromMaybe` M.lookup y dm | y <- allLhsExprs b ]
+
+genDefMap :: Data a => BlockMap a -> DefMap
+genDefMap bm = M.fromListWith IS.union [
+                 (y, IS.singleton i) | (i, b) <- IM.toList bm, y <- allLhsExprs b
+               ]
+
+genBlockMap :: Data a => ProgramFile (Analysis a) -> BlockMap a
+genBlockMap pf = IM.fromList [ (i, b) | b <- universeBi pf, let Just i = insLabel (getAnnotation b) ]
+
+genKill dm gr = [ (n, rdBblockGenKill dm (fromJust $ lab gr n)) | n <- nodes gr ]
+
+--------------------------------------------------
+
 showDataFlow :: (Data a, Out a, Show a) => ProgramFile (Analysis a) -> String
-showDataFlow (ProgramFile cm_pus _) = (perPU . snd) =<< cm_pus
+showDataFlow pf@(ProgramFile cm_pus _) = (perPU . snd) =<< cm_pus
   where
     perPU pu | Analysis { bBlocks = Just gr } <- getAnnotation pu =
       dashes ++ "\n" ++ p ++ "\n" ++ dashes ++ "\n" ++ dfStr gr ++ "\n\n"
@@ -135,14 +185,19 @@ showDataFlow (ProgramFile cm_pus _) = (perPU . snd) =<< cm_pus
             dfStr gr = (\ (l, x) -> '\n':l ++ ": " ++ x) =<< [
                          ("postOrder",    show (postOrder gr))
                        , ("revPostOrder", show (revPostOrder gr))
+                       , ("revPreOrder",  show (revPreOrder gr))
                        , ("dominators",   show (dominators gr))
                        , ("iDominators",  show (iDominators gr))
                        , ("lva",          show (M.toList $ lva gr))
-                       , ("killGen", show (killGen gr))
+                       , ("rd",           show (M.toList $ rd gr))
+                       , ("genKill",      show (genKill dm gr))
                        -- , ("lhsExprsGr", show (lhsExprsGr gr))
                        ]
     perPU _ = ""
     lva = liveVariableAnalysis
+    bm = genBlockMap pf
+    dm = genDefMap bm
+    rd = reachingDefinitions dm
 
 --------------------------------------------------
 
