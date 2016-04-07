@@ -31,12 +31,14 @@ data Analysis a = Analysis
   { prevAnnotation :: a -- ^ original annotation
   , uniqueName     :: Maybe String -- ^ unique name for function/variable, after variable renaming phase
   , bBlocks        :: Maybe (BBGr (Analysis a)) -- ^ basic block graph
+  , insLabel       :: Maybe Int -- ^ unique number for each block during dataflow analysis
   }
   deriving (Data, Show, Eq)
 
 analysis0 a = Analysis { prevAnnotation = a
                        , uniqueName     = Nothing
-                       , bBlocks        = Nothing }
+                       , bBlocks        = Nothing
+                       , insLabel       = Nothing }
 
 -- | Create analysis annotations for the program, saving the original
 -- annotations.

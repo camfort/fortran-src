@@ -20,10 +20,27 @@ import Data.Maybe
 --------------------------------------------------
 
 -- | Insert basic block graphs into each program unit's analysis
-analyseBBlocks :: Show a => ProgramFile (Analysis a) -> ProgramFile (Analysis a)
-analyseBBlocks (ProgramFile cm_pus cs) = ProgramFile (map (fmap toBBlocksPerPU) cm_pus) cs
+analyseBBlocks :: Data a => ProgramFile (Analysis a) -> ProgramFile (Analysis a)
+analyseBBlocks = analyseBBlocks' . labelBlocks
+analyseBBlocks' (ProgramFile cm_pus cs) = ProgramFile (map (fmap toBBlocksPerPU) cm_pus) cs
 
-toBBlocksPerPU :: Show a => ProgramUnit (Analysis a) -> ProgramUnit (Analysis a)
+--------------------------------------------------
+
+-- insert unique labels on each AST-block for easier look-up later
+labelBlocks :: Data a => ProgramFile (Analysis a) -> ProgramFile (Analysis a)
+labelBlocks pf = evalState (transform eachBlock pf) [1..]
+  where
+    transform :: (Monad m, Data a) => (Block a -> m (Block a)) -> ProgramFile a -> m (ProgramFile a)
+    transform = transformBiM
+    eachBlock :: Data a => Block (Analysis a) -> State [Int] (Block (Analysis a))
+    eachBlock b = do
+      n:ns <- get
+      put ns
+      return $ setAnnotation ((getAnnotation b) { insLabel = Just n }) b
+
+--------------------------------------------------
+
+toBBlocksPerPU :: Data a => ProgramUnit (Analysis a) -> ProgramUnit (Analysis a)
 toBBlocksPerPU pu
   | null bs   = pu
   | otherwise = pu'
@@ -217,4 +234,4 @@ showBBlocks (ProgramFile cm_pus _) = (perPU . snd) =<< cm_pus
       where p = "| Program Unit " ++ show (getName pu) ++ " |"
             dashes = replicate (length p) '-'
     perPU _ = ""
-    strip = map (fmap prevAnnotation)
+    strip = map (fmap insLabel)
