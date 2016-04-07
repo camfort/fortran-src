@@ -15,6 +15,7 @@ import Forpar.AST
 import qualified Data.Map as M
 import Data.Graph.Inductive
 import Data.Graph.Inductive.PatriciaTree (Gr)
+import Data.List (foldl')
 import Data.Maybe
 
 --------------------------------------------------
@@ -48,7 +49,7 @@ toBBlocksPerPU pu
     bs  = case pu of PUMain _ _ _ bs -> bs; PUSubroutine _ _ _ _ bs -> bs; PUFunction _ _ _ _ _ bs -> bs
                      _ -> []
     bbs = execBBlocker (processBlocks bs)
-    fix = deleteUnreachable . insExitEdges lm . delInvalidExits . insEntryEdges
+    fix = delEmptyBBlocks . delUnreachable . insExitEdges lm . delInvalidExits . insEntryEdges
     gr  = fix (insEdges (newEdges bbs) (bbGraph bbs))
     pu' = setAnnotation ((getAnnotation pu) { bBlocks = Just gr }) pu
     lm  = labelMap bbs
@@ -89,7 +90,21 @@ isFinalBlockCtrlXfer _                                    = False
 
 lookupBBlock lm (ExpValue _ _ (ValLabel l)) = (-1) `fromMaybe` M.lookup l lm
 
-deleteUnreachable gr = subgraph (reachable 0 gr) gr
+-- seek out empty bblocks with a single entrance and a single exit
+-- edge, and remove them, re-establishing the edges without them.
+delEmptyBBlocks gr
+  | (n, s, t, l):_ <- candidates = delEmptyBBlocks . insEdge (s, t, l) . delNode n $ gr
+  | otherwise                    = gr
+  where
+    -- recompute candidate nodes each iteration
+    candidates = do
+      let emptyBBs = filter (null . snd) (labNodes gr)
+      let adjs     = map (\ (n, _) -> (n, inn gr n, out gr n)) emptyBBs
+      (n, [(s,_,l)], [(_,t,_)]) <- adjs
+      return (n, s, t, l)
+
+-- delete unreachable nodes
+delUnreachable gr = subgraph (reachable 0 gr) gr
 
 --------------------------------------------------
 
