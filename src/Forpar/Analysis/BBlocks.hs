@@ -48,12 +48,22 @@ toBBlocksPerPU pu
     bs  = case pu of PUMain _ _ _ bs -> bs; PUSubroutine _ _ _ _ bs -> bs; PUFunction _ _ _ _ _ bs -> bs
                      _ -> []
     bbs = execBBlocker (processBlocks bs)
-    gr  = deleteUnreachable . insExitEdges lm . insEntryEdges $ insEdges (newEdges bbs) (bbGraph bbs)
+    fix = deleteUnreachable . insExitEdges lm . delInvalidExits . insEntryEdges
+    gr  = fix (insEdges (newEdges bbs) (bbGraph bbs))
     pu' = setAnnotation ((getAnnotation pu) { bBlocks = Just gr }) pu
     lm  = labelMap bbs
 
 insEntryEdges = insEdge (0, 1, ()) . insNode (0, []) -- for now assume only one entry
 
+-- remove exit edges for bblocks where standard construction doesn't apply
+delInvalidExits gr = flip delEdges gr $ do
+  n  <- nodes gr
+  bs <- maybeToList $ lab gr n
+  guard $ isFinalBlockCtrlXfer bs
+  le <- out gr n
+  return $ toEdge le
+
+-- insert exit edges for bblocks with special handling
 insExitEdges lm gr = flip insEdges (insNode (-1, []) gr) $ do
   n <- nodes gr
   guard $ null (out gr n)
@@ -66,7 +76,16 @@ examineFinalBlock lm bs@(_:_)
   | BlStatement _ _ _ (StGotoUnconditional _ _ k) <- last bs = [lookupBBlock lm k]
   | BlStatement _ _ _ (StGotoAssigned _ _ _ ks)   <- last bs = map (lookupBBlock lm) (aStrip ks)
   | BlStatement _ _ _ (StGotoComputed _ _ ks _)   <- last bs = map (lookupBBlock lm) (aStrip ks)
-examineFinalBlock _ _ = [-1]
+  | BlStatement _ _ _ (StReturn _ _ _)            <- last bs = [-1]
+examineFinalBlock _ _                                        = [-1]
+
+-- True iff the final block in the list is an explicit control transfer
+isFinalBlockCtrlXfer bs@(_:_)
+  | BlStatement _ _ _ (StGotoUnconditional {}) <- last bs = True
+  | BlStatement _ _ _ (StGotoAssigned {})      <- last bs = True
+  | BlStatement _ _ _ (StGotoComputed {})      <- last bs = True
+  | BlStatement _ _ _ (StReturn {})            <- last bs = True
+isFinalBlockCtrlXfer _                                    = False
 
 lookupBBlock lm (ExpValue _ _ (ValLabel l)) = (-1) `fromMaybe` M.lookup l lm
 
