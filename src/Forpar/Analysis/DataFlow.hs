@@ -22,7 +22,7 @@ import Data.Graph.Inductive
 import Data.Graph.Inductive.Example
 import Data.Graph.Inductive.PatriciaTree (Gr)
 import Data.Maybe
-import Data.List (foldl', (\\), union, delete, nub)
+import Data.List (foldl', (\\), union, delete, nub, intersect)
 
 --------------------------------------------------
 
@@ -179,16 +179,17 @@ backEdges domMap = filter isBackEdge . edges
   where
     isBackEdge (s, t) = t `IS.member` (fromJust $ s `IM.lookup` domMap)
 
--- for each loop, find out which nodes are in it
--- (FIXME: inefficient)
--- basically works by deleting all but one back-edge, then looking at
--- the strongly connected components that remain.
-loopNodes bedges gr = nub $ do
-  be <- bedges
-  let rest = delete be bedges
-  let gr'  = delEdges rest gr
-  c@(_:_:_) <- scc gr' -- only interested in non-singleton components
-  return c
+-- For each loop, find out which nodes are in it by looking through
+-- the backedges (m, n) where n is considered the 'loop-header',
+-- delete n from the map, and then doing a reverse-depth-first
+-- traversal starting from m to find all the nodes of
+-- interest. Intersect this with the strongly-connected component
+-- containing m, in case of 'improper' graphs with weird control
+-- transfers.
+loopNodes bedges gr = map (\ (m, n) -> n:intersect (scc' gr n) (rdfs [m] (delNode n gr))) bedges
+
+scc' :: (Graph gr) => gr a b -> Node -> [Node]
+scc' g n = head . filter (n `elem`) $ scc g
 
 --------------------------------------------------
 
