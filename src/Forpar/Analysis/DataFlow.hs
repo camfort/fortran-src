@@ -15,20 +15,26 @@ import Text.PrettyPrint.GenericPretty (pretty, Out)
 import Forpar.Analysis
 import Forpar.AST
 import qualified Data.Map as M
+import qualified Data.IntMap as IM
 import qualified Data.Set as S
+import qualified Data.IntSet as IS
 import Data.Graph.Inductive
 import Data.Graph.Inductive.Example
 import Data.Graph.Inductive.PatriciaTree (Gr)
 import Data.Maybe
-import Data.List (foldl', (\\))
+import Data.List (foldl', (\\), union)
 
 --------------------------------------------------
 
-dominators :: BBGr a -> [(Node, [Node])]
-dominators = flip dom 0
+type DomMap = IM.IntMap IS.IntSet
 
-iDominators :: BBGr a -> [(Node, Node)]
-iDominators = flip iDom 0
+dominators :: BBGr a -> DomMap
+dominators = IM.fromList . map (fmap IS.fromList) . flip dom 0
+
+type IDomMap = IM.IntMap Int
+
+iDominators :: BBGr a -> IDomMap
+iDominators = IM.fromList . flip iDom 0
 
 type OrderF a = BBGr a -> [Node]
 
@@ -38,12 +44,18 @@ postOrder = postorder . head . dff [0]
 revPostOrder :: OrderF a
 revPostOrder = reverse . postOrder
 
+preOrder :: OrderF a
+preOrder = preorder . head . dff [0]
+
+revPreOrder :: OrderF a
+revPreOrder = reverse . preOrder
+
 --------------------------------------------------
 
-type InOut t    = (S.Set t, S.Set t)
+type InOut t    = (t, t)
 type InOutMap t = M.Map Node (InOut t)
-type InF t      = Node -> S.Set t
-type OutF t     = Node -> S.Set t
+type InF t      = Node -> t
+type OutF t     = Node -> t
 
 dataFlowSolver :: Ord t => BBGr a
                         -> (Node -> InOut t)
@@ -54,14 +66,14 @@ dataFlowSolver :: Ord t => BBGr a
 dataFlowSolver gr initF order inF outF = converge (==) $ iterate step initM
   where
     ordNodes = order gr
-    initM    = M.fromList [ (n, initF n) | n <- nodes gr ]
+    initM    = M.fromList [ (n, initF n) | n <- ordNodes ]
     step m   = M.fromList [ (n, (inF (snd . get m) n, outF (fst . get m) n)) | n <- ordNodes ]
     get m n  = fromJust $ M.lookup n m
 
 --------------------------------------------------
 
-liveVariableAnalysis :: Data a => BBGr a -> InOutMap Name
-liveVariableAnalysis gr = dataFlowSolver gr (const (S.empty, S.empty)) postOrder inn out
+liveVariableAnalysis :: Data a => BBGr a -> InOutMap (S.Set Name)
+liveVariableAnalysis gr = dataFlowSolver gr (const (S.empty, S.empty)) revPreOrder inn out
   where
     inn outF b = (outF b S.\\ kill b) `S.union` gen b
     out innF b = S.unions [ innF s | s <- suc gr b ]
@@ -74,7 +86,7 @@ bblockKill = S.fromList . concatMap blockKill
 bblockGen :: Data a => [Block a] -> S.Set Name
 bblockGen bs = S.fromList . fst . foldl' f ([], []) $ zip (map blockGen bs) (map blockKill bs)
   where
-    f (bbgen, bbkill) (gen, kill) = ((gen \\ bbkill) ++ bbgen, kill ++ bbkill)
+    f (bbgen, bbkill) (gen, kill) = ((gen \\ bbkill) `union` bbgen, kill `union` bbkill)
 
 allVars :: (Data a, Data (b a)) => b a -> [Name]
 allVars b = [ v | ExpValue _ _ (ValArray _ v)    <- uniBi b ] ++
