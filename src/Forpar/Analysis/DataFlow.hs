@@ -22,7 +22,7 @@ import Data.Graph.Inductive
 import Data.Graph.Inductive.Example
 import Data.Graph.Inductive.PatriciaTree (Gr)
 import Data.Maybe
-import Data.List (foldl', (\\), union)
+import Data.List (foldl', (\\), union, delete, nub)
 
 --------------------------------------------------
 
@@ -175,6 +175,23 @@ genKill dm gr = [ (n, rdBblockGenKill dm (fromJust $ lab gr n)) | n <- nodes gr 
 
 --------------------------------------------------
 
+backEdges domMap = filter isBackEdge . edges
+  where
+    isBackEdge (s, t) = t `IS.member` (fromJust $ s `IM.lookup` domMap)
+
+-- for each loop, find out which nodes are in it
+-- (FIXME: inefficient)
+-- basically works by deleting all but one back-edge, then looking at
+-- the strongly connected components that remain.
+loopNodes bedges gr = nub $ do
+  be <- bedges
+  let rest = delete be bedges
+  let gr'  = delEdges rest gr
+  c@(_:_:_) <- scc gr' -- only interested in non-singleton components
+  return c
+
+--------------------------------------------------
+
 showDataFlow :: (Data a, Out a, Show a) => ProgramFile (Analysis a) -> String
 showDataFlow pf@(ProgramFile cm_pus _) = (perPU . snd) =<< cm_pus
   where
@@ -190,9 +207,14 @@ showDataFlow pf@(ProgramFile cm_pus _) = (perPU . snd) =<< cm_pus
                        , ("iDominators",  show (iDominators gr))
                        , ("lva",          show (M.toList $ lva gr))
                        , ("rd",           show (M.toList $ rd gr))
-                       , ("genKill",      show (genKill dm gr))
+                       , ("backEdges",    show bedges)
+                       , ("topsort",      show (topsort gr))
+                       , ("scc ",         show (scc gr))
+                       , ("loopNodes",    show (loopNodes bedges gr))
+                       -- , ("genKill",      show (genKill dm gr))
                        -- , ("lhsExprsGr", show (lhsExprsGr gr))
-                       ]
+                       ] where
+                           bedges = backEdges (dominators gr) gr
     perPU _ = ""
     lva = liveVariableAnalysis
     bm = genBlockMap pf
