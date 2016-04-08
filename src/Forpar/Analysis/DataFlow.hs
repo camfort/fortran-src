@@ -72,6 +72,9 @@ dataFlowSolver gr initF order inF outF = converge (==) $ iterate step initM
 
 --------------------------------------------------
 
+-- Muchnick, p. 445: A variable is "live" at a particular program
+-- point if there is a path to the exit along which its value may be
+-- used before it is redefined. It is "dead" if there is no such path.
 liveVariableAnalysis :: Data a => BBGr a -> InOutMap (S.Set Name)
 liveVariableAnalysis gr = dataFlowSolver gr (const (S.empty, S.empty)) revPreOrder inn out
   where

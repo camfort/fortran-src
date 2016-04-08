@@ -55,5 +55,13 @@ stripAnalysis = fmap prevAnnotation
 -- | Return list of expressions used as the left-hand-side of
 -- assignment statements (including for-loops).
 lhsExprs :: (Data a, Data (b a)) => b a -> [Expression a]
-lhsExprs x = [e1 | (StExpressionAssign _ _ e1 _) <- universeBi x]
--- FIXME: do parameters to functions/subroutines need to be included (because call-by-ref)?
+lhsExprs x = [ e1 | StExpressionAssign _ _ e1 _ <- universeBi x ] ++
+             concat [ fstLvl aexps | StCall _ _ _ (Just aexps) <- universeBi x ] ++
+             concat [ fstLvl aexps | ExpFunctionCall _ _ _ aexps <- universeBi x ]
+  where
+    fstLvl = filter isLExpr . aStrip
+
+isLExpr (ExpValue _ _ (ValVariable _ _)) = True
+isLExpr (ExpValue _ _ (ValArray _ _))    = True
+isLExpr (ExpSubscript _ _ _ _)           = True
+isLExpr _                                = False
