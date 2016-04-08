@@ -52,6 +52,24 @@ revPreOrder = reverse . preOrder
 
 --------------------------------------------------
 
+type CallGraph = M.Map ProgramUnitName (S.Set Name)
+
+makeCallGraph :: Data a => ProgramFile a -> CallGraph
+makeCallGraph pf = flip execState M.empty $ do
+  let (ProgramFile cm_pus _) = pf
+  forM_ cm_pus $ \ (_, pu) -> do
+    let n = getName pu
+    let uS :: Data a => ProgramUnit a -> [Statement a]
+        uS = universeBi
+    let uE :: Data a => ProgramUnit a -> [Expression a]
+        uE = universeBi
+    m <- get
+    let ns = [ n' | StCall _ _ (ExpValue _ _ (ValSubroutineName n')) _ <- uS pu ] ++
+             [ n' | ExpFunctionCall _ _ (ExpValue _ _ (ValFunctionName n')) _ <- uE pu ]
+    put $ M.insert n (S.fromList ns) m
+
+--------------------------------------------------
+
 type InOut t    = (t, t)
 type InOutMap t = M.Map Node (InOut t)
 type InF t      = Node -> t
@@ -204,7 +222,8 @@ showDataFlow pf@(ProgramFile cm_pus _) = (perPU . snd) =<< cm_pus
       where p = "| Program Unit " ++ show (getName pu) ++ " |"
             dashes = replicate (length p) '-'
             dfStr gr = (\ (l, x) -> '\n':l ++ ": " ++ x) =<< [
-                         ("postOrder",    show (postOrder gr))
+                         ("callGraph",    show cg)
+                       , ("postOrder",    show (postOrder gr))
                        , ("revPostOrder", show (revPostOrder gr))
                        , ("revPreOrder",  show (revPreOrder gr))
                        , ("dominators",   show (dominators gr))
@@ -224,6 +243,7 @@ showDataFlow pf@(ProgramFile cm_pus _) = (perPU . snd) =<< cm_pus
     bm = genBlockMap pf
     dm = genDefMap bm
     rd = reachingDefinitions dm
+    cg = makeCallGraph pf
 
 --------------------------------------------------
 
