@@ -203,6 +203,36 @@ genKill dm gr = [ (n, rdBblockGenKill dm (fromJust $ lab gr n)) | n <- nodes gr 
 
 --------------------------------------------------
 
+-- DUMap : insLabel -> { insLabel }
+--       : definition -> uses
+type DUMap = IM.IntMap IS.IntSet
+
+-- def-use map: map instruction labels of defining AST-blocks to the
+-- AST-blocks that may use the definition.
+genDUMap :: Data a => BlockMap a -> DefMap -> BBGr (Analysis a) -> InOutMap IS.IntSet -> DUMap
+genDUMap bm dm gr rdefs = IM.unionsWith IS.union duMaps
+  where
+    -- duMaps for each bblock
+    duMaps = [ fst (foldl' inBBlock (IM.empty, is) bs) |
+               (n, (is, _)) <- M.toList rdefs,
+               let Just bs = lab gr n ]
+    -- internal analysis within bblock; fold over list of AST-blocks
+    inBBlock (duMap, inSet) b = (duMap', inSet')
+      where
+        Just i = insLabel (getAnnotation b)
+        bduMap = IM.fromListWith IS.union [ (i', IS.singleton i) | i' <- IS.toList inSet, overlap i' ]
+        -- asks: does AST-block at label i' define anything used by AST-block b?
+        overlap i' = not . null . intersect uses $ blockVarDefs b'
+          where Just b' = IM.lookup i' bm
+        uses   = blockVarUses b
+        duMap' = IM.unionWith IS.union duMap bduMap
+        gen b | null (allLhsVars b) = IS.empty
+              | otherwise           = IS.singleton . fromJust . insLabel . getAnnotation $ b
+        kill   = rdDefs dm
+        inSet' = (inSet IS.\\ (kill b)) `IS.union` (gen b)
+
+--------------------------------------------------
+
 backEdges domMap = filter isBackEdge . edges
   where
     isBackEdge (s, t) = t `IS.member` (fromJust $ s `IM.lookup` domMap)
@@ -241,8 +271,7 @@ showDataFlow pf@(ProgramFile cm_pus _) = (perPU . snd) =<< cm_pus
                        , ("topsort",      show (topsort gr))
                        , ("scc ",         show (scc gr))
                        , ("loopNodes",    show (loopNodes bedges gr))
-                       -- , ("genKill",      show (genKill dm gr))
-                       -- , ("lhsExprsGr", show (lhsExprsGr gr))
+                       , ("duMap",        show (genDUMap bm dm gr (rd gr)))
                        ] where
                            bedges = backEdges (dominators gr) gr
     perPU _ = ""
