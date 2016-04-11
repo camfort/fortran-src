@@ -53,7 +53,7 @@ stripAnalysis = fmap prevAnnotation
 --------------------------------------------------
 
 -- | Return list of expressions used as the left-hand-side of
--- assignment statements (including for-loops).
+-- assignment statements (including for-loops and function-calls by reference).
 lhsExprs :: (Data a, Data (b a)) => b a -> [Expression a]
 lhsExprs x = [ e1 | StExpressionAssign _ _ e1 _ <- universeBi x ] ++
              concat [ fstLvl aexps | StCall _ _ _ (Just aexps) <- universeBi x ] ++
