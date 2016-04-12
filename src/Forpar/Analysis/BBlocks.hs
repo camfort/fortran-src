@@ -2,7 +2,7 @@
 
 {-# LANGUAGE FlexibleContexts, PatternGuards #-}
 module Forpar.Analysis.BBlocks
-  ( analyseBBlocks, showBBGr, showBBlocks )
+  ( analyseBBlocks, genBBlockMap, showBBGr, showBBlocks )
 where
 
 import Data.Generics.Uniplate.Data
@@ -26,6 +26,14 @@ import Data.Maybe
 analyseBBlocks :: Data a => ProgramFile (Analysis a) -> ProgramFile (Analysis a)
 analyseBBlocks = analyseBBlocks' . labelBlocks
 analyseBBlocks' (ProgramFile cm_pus cs) = ProgramFile (map (fmap toBBlocksPerPU) cm_pus) cs
+
+--------------------------------------------------
+
+type BBlockMap a = M.Map ProgramUnitName (BBGr a)
+genBBlockMap :: Data a => ProgramFile (Analysis a) -> BBlockMap (Analysis a)
+genBBlockMap (ProgramFile cm_pus _) = M.fromList [
+    (getName pu, gr) | (_, pu) <- cm_pus, let Just gr = bBlocks (getAnnotation pu)
+  ]
 
 --------------------------------------------------
 
