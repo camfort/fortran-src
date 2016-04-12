@@ -1,3 +1,5 @@
+-- | Analyse a program file and create basic blocks.
+
 {-# LANGUAGE FlexibleContexts, PatternGuards #-}
 module Forpar.Analysis.BBlocks
   ( analyseBBlocks, showBBGr, showBBlocks )
@@ -27,7 +29,7 @@ analyseBBlocks' (ProgramFile cm_pus cs) = ProgramFile (map (fmap toBBlocksPerPU)
 
 --------------------------------------------------
 
--- insert unique labels on each AST-block for easier look-up later
+-- | Insert unique labels on each AST-block for easier look-up later
 labelBlocks :: Data a => ProgramFile (Analysis a) -> ProgramFile (Analysis a)
 labelBlocks pf = evalState (transform eachBlock pf) [1..]
   where
@@ -41,6 +43,7 @@ labelBlocks pf = evalState (transform eachBlock pf) [1..]
 
 --------------------------------------------------
 
+-- Analyse each program unit
 toBBlocksPerPU :: Data a => ProgramUnit (Analysis a) -> ProgramUnit (Analysis a)
 toBBlocksPerPU pu
   | null bs   = pu
@@ -54,9 +57,10 @@ toBBlocksPerPU pu
     pu' = setAnnotation ((getAnnotation pu) { bBlocks = Just gr }) pu
     lm  = labelMap bbs
 
+-- Create node 0 "the start node" and link it
 insEntryEdges = insEdge (0, 1, ()) . insNode (0, []) -- for now assume only one entry
 
--- remove exit edges for bblocks where standard construction doesn't apply
+-- Remove exit edges for bblocks where standard construction doesn't apply.
 delInvalidExits gr = flip delEdges gr $ do
   n  <- nodes gr
   bs <- maybeToList $ lab gr n
@@ -64,7 +68,7 @@ delInvalidExits gr = flip delEdges gr $ do
   le <- out gr n
   return $ toEdge le
 
--- insert exit edges for bblocks with special handling
+-- Insert exit edges for bblocks with special handling.
 insExitEdges lm gr = flip insEdges (insNode (-1, []) gr) $ do
   n <- nodes gr
   guard $ null (out gr n)
@@ -72,7 +76,7 @@ insExitEdges lm gr = flip insEdges (insNode (-1, []) gr) $ do
   n' <- examineFinalBlock lm bs
   return (n, n', ())
 
--- find target of Goto statements (Return statements default target to -1)
+-- Find target of Goto statements (Return statements default target to -1).
 examineFinalBlock lm bs@(_:_)
   | BlStatement _ _ _ (StGotoUnconditional _ _ k) <- last bs = [lookupBBlock lm k]
   | BlStatement _ _ _ (StGotoAssigned _ _ _ ks)   <- last bs = map (lookupBBlock lm) (aStrip ks)
@@ -80,7 +84,7 @@ examineFinalBlock lm bs@(_:_)
   | BlStatement _ _ _ (StReturn _ _ _)            <- last bs = [-1]
 examineFinalBlock _ _                                        = [-1]
 
--- True iff the final block in the list is an explicit control transfer
+-- True iff the final block in the list is an explicit control transfer.
 isFinalBlockCtrlXfer bs@(_:_)
   | BlStatement _ _ _ (StGotoUnconditional {}) <- last bs = True
   | BlStatement _ _ _ (StGotoAssigned {})      <- last bs = True
@@ -90,7 +94,7 @@ isFinalBlockCtrlXfer _                                    = False
 
 lookupBBlock lm (ExpValue _ _ (ValLabel l)) = (-1) `fromMaybe` M.lookup l lm
 
--- seek out empty bblocks with a single entrance and a single exit
+-- Seek out empty bblocks with a single entrance and a single exit
 -- edge, and remove them, re-establishing the edges without them.
 delEmptyBBlocks gr
   | (n, s, t, l):_ <- candidates = delEmptyBBlocks . insEdge (s, t, l) . delNode n $ gr
@@ -103,25 +107,32 @@ delEmptyBBlocks gr
       (n, [(s,_,l)], [(_,t,_)]) <- adjs
       return (n, s, t, l)
 
--- delete unreachable nodes
+-- Delete unreachable nodes.
 delUnreachable gr = subgraph (reachable 0 gr) gr
 
 --------------------------------------------------
 
+-- Running state during basic block analyser.
 data BBState a = BBS { bbGraph  :: BBGr a
                      , curBB    :: BB a
                      , curNode  :: Node
                      , labelMap :: M.Map String Node
                      , nums     :: [Int]
                      , newEdges :: [LEdge ()] }
-type BBlocker a = State (BBState a)
 
+-- Initial state
 bbs0 = BBS { bbGraph = empty, curBB = [], curNode = 1, labelMap = M.empty, nums = [2..], newEdges = [] }
 
+-- Monad
+type BBlocker a = State (BBState a)
+
+-- Monad entry function.
 execBBlocker :: BBlocker a b -> BBState a
 execBBlocker = flip execState bbs0
 
--- handle a list of blocks (typically from ProgramUnit or nested inside a BlDo, BlIf, etc).
+--------------------------------------------------
+
+-- Handle a list of blocks (typically from ProgramUnit or nested inside a BlDo, BlIf, etc).
 processBlocks :: [Block a] -> BBlocker a (Node, Node)
 -- precondition: curNode is not yet in the graph && will label the first block
 -- postcondition: final bblock is in the graph labeled as endN && curNode == endN
@@ -136,7 +147,7 @@ processBlocks bs = do
 
 --------------------------------------------------
 
--- handle an AST-block element
+-- Handle an AST-block element
 perBlock :: Block a -> BBlocker a ()
 -- invariant: curNode corresponds to curBB, and is not yet in the graph
 -- invariant: curBB is in reverse order
@@ -184,7 +195,7 @@ perBlock b = processLabel b >> addToBBlock b
 --------------------------------------------------
 -- helpers
 
--- do-block helper
+-- Do-block helper
 perDoBlock :: Block a -> [Block a] -> BBlocker a ()
 perDoBlock b bs = do
   (n, doN) <- closeBBlock
@@ -199,7 +210,8 @@ perDoBlock b bs = do
   -- connect all the new bblocks with edges, link to subsequent bblock labeled n'
   createEdges [(n, doN, ()), (doN, n', ()), (doN, startN, ()), (endN, doN, ())]
 
--- maintains perBlock invariants while potentially starting a new bblock in case of a label
+-- Maintains perBlock invariants while potentially starting a new
+-- bblock in case of a label.
 processLabel :: Block a -> BBlocker a ()
 processLabel b | Just (ExpValue _ _ (ValLabel l)) <- getLabel b = do
   (n, n') <- closeBBlock
@@ -207,14 +219,14 @@ processLabel b | Just (ExpValue _ _ (ValLabel l)) <- getLabel b = do
   createEdges [(n, n', ())]
 processLabel _ = return ()
 
--- inserts into labelMap
+-- Inserts into labelMap
 insertLabel l n = modify $ \ st -> st { labelMap = M.insert l n (labelMap st) }
 
--- puts an AST block into the current bblock
+-- Puts an AST block into the current bblock.
 addToBBlock :: Block a -> BBlocker a ()
 addToBBlock b = modify $ \ st -> st { curBB = b:curBB st }
 
--- closes down the current bblock and opens a new one
+-- Closes down the current bblock and opens a new one.
 closeBBlock :: BBlocker a (Node, Node)
 closeBBlock = do
   n  <- gets curNode
@@ -223,24 +235,25 @@ closeBBlock = do
   return (n, n')
 closeBBlock_ = closeBBlock >> return ()
 
--- starts up a new bblock
+-- Starts up a new bblock.
 genBBlock :: BBlocker a Int
 genBBlock = do
   n' <- gen
   modify $ \ st -> st { curNode = n', curBB = [] }
   return n'
 
--- adds labeled-edge mappings
+-- Adds labeled-edge mappings.
 createEdges es = modify $ \ st -> st { newEdges = es ++ newEdges st }
 
--- generates a new node number
+-- Generates a new node number.
 gen :: BBlocker a Int
 gen = do
   n:ns <- gets nums
   modify $ \ s -> s { nums = ns }
   return n
 
--- nested code not necessary since it is duplicated in another basic block
+-- Strip nested code not necessary since it is duplicated in another
+-- basic block.
 stripNestedBlocks (BlDo a s l ds _)         = BlDo a s l ds []
 stripNestedBlocks (BlDoWhile a s l e _)     = BlDoWhile a s l e []
 stripNestedBlocks (BlIf a s l exps _)       = BlIf a s l exps []
@@ -250,7 +263,7 @@ stripNestedBlocks b                         = b
 
 --------------------------------------------------
 
--- | Show a basic block graph in a somewhat decent way
+-- | Show a basic block graph in a somewhat decent way.
 showBBGr :: (Out a, Show a) => BBGr a -> String
 showBBGr gr = execWriter . forM ns $ \ (n, bs) -> do
                 let b = "BBLOCK " ++ show n ++ " -> " ++ show (map (\ (_, m, _) -> m) $ out gr n)
@@ -259,7 +272,7 @@ showBBGr gr = execWriter . forM ns $ \ (n, bs) -> do
                 tell (((++"\n") . pretty) =<< bs)
   where ns = labNodes gr
 
--- | Pick out and show the basic block graphs in the program file analysis
+-- | Pick out and show the basic block graphs in the program file analysis.
 showBBlocks :: (Out a, Show a) => ProgramFile (Analysis a) -> String
 showBBlocks (ProgramFile cm_pus _) = (perPU . snd) =<< cm_pus
   where

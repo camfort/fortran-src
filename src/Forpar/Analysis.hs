@@ -14,7 +14,10 @@ import Data.Graph.Inductive.PatriciaTree (Gr)
 
 --------------------------------------------------
 
+-- | Basic block
 type BB a = [Block a]
+
+-- | Basic block graph.
 type BBGr a = Gr (BB a) ()
 
 -- Allow graphs to reside inside of annotations
@@ -61,6 +64,7 @@ lhsExprs x = [ e1 | StExpressionAssign _ _ e1 _ <- universeBi x ] ++
   where
     fstLvl = filter isLExpr . aStrip
 
+-- | Is this an expression capable of assignment?
 isLExpr (ExpValue _ _ (ValVariable _ _)) = True
 isLExpr (ExpValue _ _ (ValArray _ _))    = True
 isLExpr (ExpSubscript _ _ _ _)           = True
