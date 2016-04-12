@@ -1,9 +1,18 @@
+-- | Dataflow analysis to be applied once basic block analysis is complete.
+
 {-# LANGUAGE FlexibleContexts, PatternGuards, ScopedTypeVariables, TupleSections #-}
 module Forpar.Analysis.DataFlow
-  ( dominators, iDominators, postOrder, revPostOrder
-  , dataFlowSolver, liveVariableAnalysis
-  , showDataFlow )
-where
+  ( dominators, iDominators, DomMap, IDomMap
+  , postOrder, revPostOrder, OrderF
+  , dataFlowSolver, showDataFlow, InOut, InOutMap, InF, OutF
+  , liveVariableAnalysis, reachingDefinitions
+  , genUDMap, genDUMap, flowsTo, duMapToUdMap, UDMap, DUMap, FlowsGraph
+  , blockVarUses, blockVarDefs
+  , genBlockMap, genDefMap, BlockMap, DefMap
+  , genCallMap, CallMap
+  , loopNodes, genBackEdgeMap, BackEdgeMap
+  , allVars, allLhsVars
+) where
 
 import Data.Generics.Uniplate.Data
 import Data.Generics.Uniplate.Operations
@@ -26,71 +35,49 @@ import Data.List (foldl', (\\), union, delete, nub, intersect)
 
 --------------------------------------------------
 
+-- | DomMap : node -> dominators of node
 type DomMap = IM.IntMap IS.IntSet
 
+-- | Compute dominators of each bblock in the graph. Node A dominates
+-- node B when all paths from the start node (0) must pass through
+-- node A in order to reach node B. That will be represented as the
+-- relation (B, [A, ...]) in the DomMap.
 dominators :: BBGr a -> DomMap
 dominators = IM.fromList . map (fmap IS.fromList) . flip dom 0
 
+-- | IDomMap : node -> immediate dominator of node
 type IDomMap = IM.IntMap Int
 
+-- | Compute the immediate dominator of each bblock in the graph. The
+-- immediate dominator is, in a sense, the 'closest' dominator of a
+-- node. Given nodes A and B, you can say that node A is immediately
+-- dominated by node B if there does not exist any node C such that:
+-- node A dominates node C and node C dominates node B.
 iDominators :: BBGr a -> IDomMap
 iDominators = IM.fromList . flip iDom 0
 
+-- | An OrderF is a function from graph to a specific ordering of nodes.
 type OrderF a = BBGr a -> [Node]
 
+-- | The postordering of a graph outputs the label after traversal of children.
 postOrder :: OrderF a
 postOrder = postorder . head . dff [0]
 
+-- | Reversed postordering.
 revPostOrder :: OrderF a
 revPostOrder = reverse . postOrder
 
+-- | The preordering of a graph outputs the label before traversal of children.
 preOrder :: OrderF a
 preOrder = preorder . head . dff [0]
 
+-- | Reversed preordering.
 revPreOrder :: OrderF a
 revPreOrder = reverse . preOrder
 
 --------------------------------------------------
 
-type CallGraph = M.Map ProgramUnitName (S.Set Name)
-
-makeCallGraph :: Data a => ProgramFile a -> CallGraph
-makeCallGraph pf = flip execState M.empty $ do
-  let (ProgramFile cm_pus _) = pf
-  forM_ cm_pus $ \ (_, pu) -> do
-    let n = getName pu
-    let uS :: Data a => ProgramUnit a -> [Statement a]
-        uS = universeBi
-    let uE :: Data a => ProgramUnit a -> [Expression a]
-        uE = universeBi
-    m <- get
-    let ns = [ n' | StCall _ _ (ExpValue _ _ (ValSubroutineName n')) _ <- uS pu ] ++
-             [ n' | ExpFunctionCall _ _ (ExpValue _ _ (ValFunctionName n')) _ <- uE pu ]
-    put $ M.insert n (S.fromList ns) m
-
---------------------------------------------------
-
-type InOut t    = (t, t)
-type InOutMap t = M.Map Node (InOut t)
-type InF t      = Node -> t
-type OutF t     = Node -> t
-
-dataFlowSolver :: Ord t => BBGr a
-                        -> (Node -> InOut t)
-                        -> OrderF a
-                        -> (OutF t -> InF t)
-                        -> (InF t -> OutF t)
-                        -> InOutMap t
-dataFlowSolver gr initF order inF outF = converge (==) $ iterate step initM
-  where
-    ordNodes = order gr
-    initM    = M.fromList [ (n, initF n) | n <- ordNodes ]
-    step m   = M.fromList [ (n, (inF (snd . get m) n, outF (fst . get m) n)) | n <- ordNodes ]
-    get m n  = fromJust $ M.lookup n m
-
---------------------------------------------------
-
--- set of names found in an AST node
+-- | Set of names found in an AST node.
 allVars :: (Data a, Data (b a)) => b a -> [Name]
 allVars b = [ v | ExpValue _ _ (ValArray _ v)    <- uniBi b ] ++
             [ v | ExpValue _ _ (ValVariable _ v) <- uniBi b ]
@@ -98,14 +85,14 @@ allVars b = [ v | ExpValue _ _ (ValArray _ v)    <- uniBi b ] ++
     uniBi :: (Data a, Data (b a)) => b a -> [Expression a]
     uniBi = universeBi
 
--- set of names found in the parts of an AST that are the target of an
--- assignment statement
+-- | Set of names found in the parts of an AST that are the target of
+-- an assignment statement.
 allLhsVars :: (Data a, Data (b a)) => b a -> [Name]
 allLhsVars b = [ v | ExpValue _ _ (ValArray _ v)    <- lhsExprs b ] ++
                [ v | ExpValue _ _ (ValVariable _ v) <- lhsExprs b ] ++
                [ v | ExpSubscript _ _ (ExpValue _ _ (ValArray _ v)) _ <- lhsExprs b ]
 
--- set of names used -- not defined -- by an AST-block
+-- | Set of names used -- not defined -- by an AST-block.
 blockVarUses :: Data a => Block a -> [Name]
 blockVarUses (BlStatement _ _ _ (StExpressionAssign _ _ lhs rhs))
   | ExpSubscript _ _ _ subs <- lhs = allVars rhs ++ allVars subs
@@ -118,7 +105,7 @@ blockVarUses (BlDoWhile _ _ e1 e2 _)   = allVars (e1, e2)
 blockVarUses (BlIf _ _ e1 e2 _)        = allVars (e1, e2)
 blockVarUses b                         = allVars b
 
--- set of names defined by an AST-block
+-- | Set of names defined by an AST-block.
 blockVarDefs :: Data a => Block a -> [Name]
 blockVarDefs (BlStatement _ _ _ st) = allLhsVars st
 blockVarDefs (BlDo _ _ _ doSpec _)  = allLhsVars doSpec
@@ -126,6 +113,59 @@ blockVarDefs _                      = []
 
 --------------------------------------------------
 
+-- | InOut : (dataflow into the bblock, dataflow out of the bblock)
+type InOut t    = (t, t)
+
+-- | InOutMap : node -> (dataflow into node, dataflow out of node)
+type InOutMap t = M.Map Node (InOut t)
+
+-- | InF, a function that returns the in-dataflow for a given node
+type InF t      = Node -> t
+
+-- | OutF, a function that returns the out-dataflow for a given node
+type OutF t     = Node -> t
+
+-- | Apply the iterative dataflow analysis method.
+dataFlowSolver :: Ord t => BBGr a            -- ^ basic block graph
+                        -> (Node -> InOut t) -- ^ initialisation for in and out dataflows
+                        -> OrderF a          -- ^ ordering function
+                        -> (OutF t -> InF t) -- ^ compute the in-flow given an out-flow function
+                        -> (InF t -> OutF t) -- ^ compute the out-flow given an in-flow function
+                        -> InOutMap t        -- ^ final dataflow for each node
+dataFlowSolver gr initF order inF outF = converge (==) $ iterate step initM
+  where
+    ordNodes = order gr
+    initM    = M.fromList [ (n, initF n) | n <- ordNodes ]
+    step m   = M.fromList [ (n, (inF (snd . get m) n, outF (fst . get m) n)) | n <- ordNodes ]
+    get m n  = fromJust $ M.lookup n m
+
+--------------------------------------------------
+
+-- | BlockMap : AST-block label -> AST-block
+-- Each AST-block has been given a unique number label during analysis
+-- of basic blocks. The purpose of this map is to provide the ability
+-- to lookup AST-blocks by label.
+type BlockMap a = IM.IntMap (Block (Analysis a))
+
+-- | Build a BlockMap from the AST. This can only be performed after
+-- analyseBasicBlocks has operated and labeled all of the AST-blocks
+-- with unique numbers.
+genBlockMap :: Data a => ProgramFile (Analysis a) -> BlockMap a
+genBlockMap pf = IM.fromList [ (i, b) | b <- universeBi pf, let Just i = insLabel (getAnnotation b) ]
+
+-- | DefMap : variable name -> { AST-block label }
+type DefMap = M.Map Name IS.IntSet
+
+-- | Build a DefMap from the BlockMap. This allows us to quickly look
+-- up the AST-block labels that wrote into the given variable.
+genDefMap :: Data a => BlockMap a -> DefMap
+genDefMap bm = M.fromListWith IS.union [
+                 (y, IS.singleton i) | (i, b) <- IM.toList bm, y <- allLhsVars b
+               ]
+
+--------------------------------------------------
+
+-- | Dataflow analysis for live variables given basic block graph.
 -- Muchnick, p. 445: A variable is "live" at a particular program
 -- point if there is a path to the exit along which its value may be
 -- used before it is redefined. It is "dead" if there is no such path.
@@ -137,18 +177,23 @@ liveVariableAnalysis gr = dataFlowSolver gr (const (S.empty, S.empty)) revPreOrd
     kill b     = bblockKill (fromJust $ lab gr b)
     gen b      = bblockGen (fromJust $ lab gr b)
 
+-- | Iterate "KILL" set through a single basic block.
 bblockKill :: Data a => [Block a] -> S.Set Name
 bblockKill = S.fromList . concatMap blockKill
 
+-- | Iterate "GEN" set through a single basic block.
 bblockGen :: Data a => [Block a] -> S.Set Name
 bblockGen bs = S.fromList . fst . foldl' f ([], []) $ zip (map blockGen bs) (map blockKill bs)
   where
     f (bbgen, bbkill) (gen, kill) = ((gen \\ bbkill) `union` bbgen, kill `union` bbkill)
 
-blockGen :: Data a => Block a -> [Name]
-blockGen = blockVarUses
+-- | "KILL" set for a single AST-block.
 blockKill :: Data a => Block a -> [Name]
 blockKill = blockVarDefs
+
+-- | "GEN" set for a single AST-block.
+blockGen :: Data a => Block a -> [Name]
+blockGen = blockVarUses
 
 --------------------------------------------------
 
@@ -168,9 +213,12 @@ blockKill = blockVarDefs
 -- REACHin bb = unions [ REACHout bb | bb <- pred bb ]
 -- REACHout bb = GEN bb `union` (REACHin bb `difference` KILL bb)
 
-type BlockMap a = IM.IntMap (Block (Analysis a))
-type DefMap = M.Map Name IS.IntSet
-
+-- | Reaching definitions dataflow analysis. Reaching definitions are
+-- the set of variable-defining AST-block labels that may reach a
+-- program point. Suppose AST-block with label A defines a variable
+-- named v. Label A may reach another program point labeled P if there
+-- is at least one program path from label A to label P that does not
+-- redefine variable v.
 reachingDefinitions :: Data a => DefMap -> BBGr (Analysis a) -> InOutMap IS.IntSet
 reachingDefinitions dm gr = dataFlowSolver gr (const (IS.empty, IS.empty)) revPostOrder inn out
   where
@@ -178,36 +226,26 @@ reachingDefinitions dm gr = dataFlowSolver gr (const (IS.empty, IS.empty)) revPo
     out innF b = gen `IS.union` (innF b IS.\\ kill)
       where (gen, kill) = rdBblockGenKill dm (fromJust $ lab gr b)
 
+-- Compute the "GEN" and "KILL" sets for a given basic block.
 rdBblockGenKill :: Data a => DefMap -> [Block (Analysis a)] -> (IS.IntSet, IS.IntSet)
 rdBblockGenKill dm bs = foldl' f (IS.empty, IS.empty) $ zip (map gen bs) (map kill bs)
   where
     gen b | null (allLhsVars b) = IS.empty
-          | otherwise            = IS.singleton . fromJust . insLabel . getAnnotation $ b
+          | otherwise           = IS.singleton . fromJust . insLabel . getAnnotation $ b
     kill = rdDefs dm
     f (bbgen, bbkill) (gen, kill) =
       ((bbgen IS.\\ kill) `IS.union` gen, (bbkill IS.\\ gen) `IS.union` kill)
 
--- set of all instruction labels that also define variables defined by AST-block b
+-- Set of all AST-block labels that also define variables defined by AST-block b
 rdDefs :: Data a => DefMap -> Block a -> IS.IntSet
 rdDefs dm b = IS.unions [ IS.empty `fromMaybe` M.lookup y dm | y <- allLhsVars b ]
 
-genDefMap :: Data a => BlockMap a -> DefMap
-genDefMap bm = M.fromListWith IS.union [
-                 (y, IS.singleton i) | (i, b) <- IM.toList bm, y <- allLhsVars b
-               ]
-
-genBlockMap :: Data a => ProgramFile (Analysis a) -> BlockMap a
-genBlockMap pf = IM.fromList [ (i, b) | b <- universeBi pf, let Just i = insLabel (getAnnotation b) ]
-
-genKill dm gr = [ (n, rdBblockGenKill dm (fromJust $ lab gr n)) | n <- nodes gr ]
-
 --------------------------------------------------
 
--- DUMap : insLabel -> { insLabel }
---       : definition -> uses
+-- | DUMap : definition -> { use }
 type DUMap = IM.IntMap IS.IntSet
 
--- def-use map: map instruction labels of defining AST-blocks to the
+-- | def-use map: map AST-block labels of defining AST-blocks to the
 -- AST-blocks that may use the definition.
 genDUMap :: Data a => BlockMap a -> DefMap -> BBGr (Analysis a) -> InOutMap IS.IntSet -> DUMap
 genDUMap bm dm gr rdefs = IM.unionsWith IS.union duMaps
@@ -231,22 +269,23 @@ genDUMap bm dm gr rdefs = IM.unionsWith IS.union duMaps
         kill   = rdDefs dm
         inSet' = (inSet IS.\\ (kill b)) `IS.union` (gen b)
 
--- UDMap : insLabel -> { insLabel }
---       : use -> definitions
+-- | UDMap : use -> { definition }
 type UDMap = IM.IntMap IS.IntSet
 
+-- | Invert the DUMap into a UDMap
 duMapToUdMap :: DUMap -> UDMap
 duMapToUdMap duMap = IM.fromListWith IS.union [
     (use, IS.singleton def) | (def, uses) <- IM.toList duMap, use <- IS.toList uses
   ]
 
--- use-def map: map instruction labels of variable-using AST-blocks to the
--- AST-blocks that define those variables.
+-- | use-def map: map AST-block labels of variable-using AST-blocks to
+-- the AST-blocks that define those variables.
 genUDMap :: Data a => BlockMap a -> DefMap -> BBGr (Analysis a) -> InOutMap IS.IntSet -> UDMap
 genUDMap bm dm gr = duMapToUdMap . genDUMap bm dm gr
 
 --------------------------------------------------
 
+-- | Convert a UD or DU Map into a graph.
 mapToGraph :: DynGraph gr => IM.IntMap a -> IM.IntMap IS.IntSet -> gr a ()
 mapToGraph bm m = buildGr [
     ([], i, l, jAdj) | (i, js) <- IM.toList m
@@ -254,38 +293,48 @@ mapToGraph bm m = buildGr [
                      , let jAdj = map ((),) $ IS.toList js
   ]
 
+-- | FlowsGraph : nodes as AST-block (numbered by label), edges
+-- showing which definitions contribute to which uses.
 type FlowsGraph a = Gr (Block (Analysis a)) ()
 
-flows :: Data a => BlockMap a -> DefMap -> BBGr (Analysis a) -> InOutMap IS.IntSet -> FlowsGraph a
-flows bm dm gr = trc . mapToGraph bm . genDUMap bm dm gr
+-- | "Flows-To" analysis. Compute the transitive closure of a def-use
+-- map and represent as a graph.
+flowsTo :: Data a => BlockMap a -> DefMap -> BBGr (Analysis a) -> InOutMap IS.IntSet -> FlowsGraph a
+flowsTo bm dm gr = trc . mapToGraph bm . genDUMap bm dm gr
 
 --------------------------------------------------
 
--- Find the edges that 'loop back' in the graph; ones where the target
--- node dominates the source node.
+-- | BackEdgeMap : node -> node
 type BackEdgeMap = IM.IntMap Node
-backEdges :: Graph gr => IM.IntMap IS.IntSet -> gr a b -> BackEdgeMap
-backEdges domMap = IM.filterWithKey isBackEdge . IM.fromList . edges
+
+-- | Find the edges that 'loop back' in the graph; ones where the
+-- target node dominates the source node.
+genBackEdgeMap :: Graph gr => IM.IntMap IS.IntSet -> gr a b -> BackEdgeMap
+genBackEdgeMap domMap = IM.filterWithKey isBackEdge . IM.fromList . edges
   where
     isBackEdge s t = t `IS.member` (fromJust $ s `IM.lookup` domMap)
 
--- For each loop, find out which nodes are in it by looking through
--- the backedges (m, n) where n is considered the 'loop-header',
--- delete n from the map, and then doing a reverse-depth-first
--- traversal starting from m to find all the nodes of
--- interest. Intersect this with the strongly-connected component
+-- | For each loop in the program, find out which bblock nodes are
+-- part of the loop by looking through the backedges (m, n) where n is
+-- considered the 'loop-header', delete n from the map, and then do a
+-- reverse-depth-first traversal starting from m to find all the nodes
+-- of interest. Intersect this with the strongly-connected component
 -- containing m, in case of 'improper' graphs with weird control
 -- transfers.
 loopNodes :: Graph gr => BackEdgeMap -> gr a b -> [IS.IntSet]
 loopNodes bedges gr = [
-    IS.fromList (n:intersect (scc' gr n) (rdfs [m] (delNode n gr))) | (m, n) <- IM.toList bedges
+    IS.fromList (n:intersect (sccWith n gr) (rdfs [m] (delNode n gr))) | (m, n) <- IM.toList bedges
   ]
 
-scc' :: (Graph gr) => gr a b -> Node -> [Node]
-scc' g n = head . filter (n `elem`) $ scc g
+-- | The strongly connected component containing a given node.
+sccWith :: (Graph gr) => Node -> gr a b -> [Node]
+sccWith n g = case filter (n `elem`) $ scc g of
+  []  -> []
+  c:_ -> c
 
 --------------------------------------------------
 
+-- | Show some information about dataflow analyses.
 showDataFlow :: (Data a, Out a, Show a) => ProgramFile (Analysis a) -> String
 showDataFlow pf@(ProgramFile cm_pus _) = (perPU . snd) =<< cm_pus
   where
@@ -294,7 +343,7 @@ showDataFlow pf@(ProgramFile cm_pus _) = (perPU . snd) =<< cm_pus
       where p = "| Program Unit " ++ show (getName pu) ++ " |"
             dashes = replicate (length p) '-'
             dfStr gr = (\ (l, x) -> '\n':l ++ ": " ++ x) =<< [
-                         ("callGraph",    show cg)
+                         ("callMap",      show cm)
                        , ("postOrder",    show (postOrder gr))
                        , ("revPostOrder", show (revPostOrder gr))
                        , ("revPreOrder",  show (revPreOrder gr))
@@ -308,18 +357,39 @@ showDataFlow pf@(ProgramFile cm_pus _) = (perPU . snd) =<< cm_pus
                        , ("loopNodes",    show (loopNodes bedges gr))
                        , ("duMap",        show (genDUMap bm dm gr (rd gr)))
                        , ("udMap",        show (genUDMap bm dm gr (rd gr)))
-                       , ("flows",        show (edges $ flows bm dm gr (rd gr)))
+                       , ("flowsTo",      show (edges $ flowsTo bm dm gr (rd gr)))
                        ] where
-                           bedges = backEdges (dominators gr) gr
+                           bedges = genBackEdgeMap (dominators gr) gr
     perPU _ = ""
     lva = liveVariableAnalysis
     bm = genBlockMap pf
     dm = genDefMap bm
     rd = reachingDefinitions dm
-    cg = makeCallGraph pf
+    cm = genCallMap pf
 
 --------------------------------------------------
 
+-- | CallMap : program unit name -> { name of function or subroutine }
+type CallMap = M.Map ProgramUnitName (S.Set Name)
+
+-- | Create a call map showing the structure of the program.
+genCallMap :: Data a => ProgramFile a -> CallMap
+genCallMap pf = flip execState M.empty $ do
+  let (ProgramFile cm_pus _) = pf
+  forM_ cm_pus $ \ (_, pu) -> do
+    let n = getName pu
+    let uS :: Data a => ProgramUnit a -> [Statement a]
+        uS = universeBi
+    let uE :: Data a => ProgramUnit a -> [Expression a]
+        uE = universeBi
+    m <- get
+    let ns = [ n' | StCall _ _ (ExpValue _ _ (ValSubroutineName n')) _ <- uS pu ] ++
+             [ n' | ExpFunctionCall _ _ (ExpValue _ _ (ValFunctionName n')) _ <- uE pu ]
+    put $ M.insert n (S.fromList ns) m
+
+--------------------------------------------------
+
+-- helper: iterate until predicate is satisfied.
 converge :: (a -> a -> Bool) -> [a] -> a
 converge p (x:ys@(y:_))
   | p x y     = y
