@@ -3,7 +3,7 @@
 -- |
 -- Common data structures and functions supporting analysis of the AST.
 module Forpar.Analysis
-  ( initAnalysis, stripAnalysis, Analysis(..), lhsExprs, BB, BBGr )
+  ( initAnalysis, stripAnalysis, Analysis(..), lhsExprs, isLExpr, BB, BBGr )
 where
 
 import Data.Generics.Uniplate.Data
@@ -65,6 +65,7 @@ lhsExprs x = [ e1 | StExpressionAssign _ _ e1 _ <- universeBi x ] ++
     fstLvl = filter isLExpr . aStrip
 
 -- | Is this an expression capable of assignment?
+isLExpr :: Expression a -> Bool
 isLExpr (ExpValue _ _ (ValVariable _ _)) = True
 isLExpr (ExpValue _ _ (ValArray _ _))    = True
 isLExpr (ExpSubscript _ _ _ _)           = True
