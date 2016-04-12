@@ -3,7 +3,9 @@
 -- |
 -- Common data structures and functions supporting analysis of the AST.
 module Forpar.Analysis
-  ( initAnalysis, stripAnalysis, Analysis(..), lhsExprs, isLExpr, BB, BBGr )
+  ( initAnalysis, stripAnalysis, Analysis(..)
+  , lhsExprs, isLExpr, allVars, allLhsVars, blockVarUses, blockVarDefs
+  , BB, BBGr )
 where
 
 import Data.Generics.Uniplate.Data
@@ -70,3 +72,37 @@ isLExpr (ExpValue _ _ (ValVariable _ _)) = True
 isLExpr (ExpValue _ _ (ValArray _ _))    = True
 isLExpr (ExpSubscript _ _ _ _)           = True
 isLExpr _                                = False
+
+-- | Set of names found in an AST node.
+allVars :: (Data a, Data (b a)) => b a -> [Name]
+allVars b = [ v | ExpValue _ _ (ValArray _ v)    <- uniBi b ] ++
+            [ v | ExpValue _ _ (ValVariable _ v) <- uniBi b ]
+  where
+    uniBi :: (Data a, Data (b a)) => b a -> [Expression a]
+    uniBi = universeBi
+
+-- | Set of names found in the parts of an AST that are the target of
+-- an assignment statement.
+allLhsVars :: (Data a, Data (b a)) => b a -> [Name]
+allLhsVars b = [ v | ExpValue _ _ (ValArray _ v)    <- lhsExprs b ] ++
+               [ v | ExpValue _ _ (ValVariable _ v) <- lhsExprs b ] ++
+               [ v | ExpSubscript _ _ (ExpValue _ _ (ValArray _ v)) _ <- lhsExprs b ]
+
+-- | Set of names used -- not defined -- by an AST-block.
+blockVarUses :: Data a => Block a -> [Name]
+blockVarUses (BlStatement _ _ _ (StExpressionAssign _ _ lhs rhs))
+  | ExpSubscript _ _ _ subs <- lhs = allVars rhs ++ allVars subs
+  | otherwise                      = allVars rhs
+blockVarUses (BlDo _ _ _ (DoSpecification _ _ (StExpressionAssign _ _ lhs rhs) e1 e2) _)
+  | ExpSubscript _ _ _ subs <- lhs = allVars (rhs, e1, e2) ++ allVars subs
+  | otherwise                      = allVars (rhs, e1, e2)
+blockVarUses (BlStatement _ _ _ (StDeclaration {})) = []
+blockVarUses (BlDoWhile _ _ e1 e2 _)   = allVars (e1, e2)
+blockVarUses (BlIf _ _ e1 e2 _)        = allVars (e1, e2)
+blockVarUses b                         = allVars b
+
+-- | Set of names defined by an AST-block.
+blockVarDefs :: Data a => Block a -> [Name]
+blockVarDefs (BlStatement _ _ _ st) = allLhsVars st
+blockVarDefs (BlDo _ _ _ doSpec _)  = allLhsVars doSpec
+blockVarDefs _                      = []
