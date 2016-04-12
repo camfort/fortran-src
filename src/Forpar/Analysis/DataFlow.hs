@@ -1,4 +1,4 @@
-{-# LANGUAGE FlexibleContexts, PatternGuards, ScopedTypeVariables #-}
+{-# LANGUAGE FlexibleContexts, PatternGuards, ScopedTypeVariables, TupleSections #-}
 module Forpar.Analysis.DataFlow
   ( dominators, iDominators, postOrder, revPostOrder
   , dataFlowSolver, liveVariableAnalysis
@@ -19,8 +19,8 @@ import qualified Data.IntMap as IM
 import qualified Data.Set as S
 import qualified Data.IntSet as IS
 import Data.Graph.Inductive
-import Data.Graph.Inductive.Example
 import Data.Graph.Inductive.PatriciaTree (Gr)
+import Data.Graph.Inductive.Query.TransClos
 import Data.Maybe
 import Data.List (foldl', (\\), union, delete, nub, intersect)
 
@@ -231,11 +231,43 @@ genDUMap bm dm gr rdefs = IM.unionsWith IS.union duMaps
         kill   = rdDefs dm
         inSet' = (inSet IS.\\ (kill b)) `IS.union` (gen b)
 
+-- UDMap : insLabel -> { insLabel }
+--       : use -> definitions
+type UDMap = IM.IntMap IS.IntSet
+
+duMapToUdMap :: DUMap -> UDMap
+duMapToUdMap duMap = IM.fromListWith IS.union [
+    (use, IS.singleton def) | (def, uses) <- IM.toList duMap, use <- IS.toList uses
+  ]
+
+-- use-def map: map instruction labels of variable-using AST-blocks to the
+-- AST-blocks that define those variables.
+genUDMap :: Data a => BlockMap a -> DefMap -> BBGr (Analysis a) -> InOutMap IS.IntSet -> UDMap
+genUDMap bm dm gr = duMapToUdMap . genDUMap bm dm gr
+
 --------------------------------------------------
 
-backEdges domMap = filter isBackEdge . edges
+mapToGraph :: DynGraph gr => IM.IntMap a -> IM.IntMap IS.IntSet -> gr a ()
+mapToGraph bm m = buildGr [
+    ([], i, l, jAdj) | (i, js) <- IM.toList m
+                     , let Just l = IM.lookup i bm
+                     , let jAdj = map ((),) $ IS.toList js
+  ]
+
+type FlowsGraph a = Gr (Block (Analysis a)) ()
+
+flows :: Data a => BlockMap a -> DefMap -> BBGr (Analysis a) -> InOutMap IS.IntSet -> FlowsGraph a
+flows bm dm gr = trc . mapToGraph bm . genDUMap bm dm gr
+
+--------------------------------------------------
+
+-- Find the edges that 'loop back' in the graph; ones where the target
+-- node dominates the source node.
+type BackEdgeMap = IM.IntMap Node
+backEdges :: Graph gr => IM.IntMap IS.IntSet -> gr a b -> BackEdgeMap
+backEdges domMap = IM.filterWithKey isBackEdge . IM.fromList . edges
   where
-    isBackEdge (s, t) = t `IS.member` (fromJust $ s `IM.lookup` domMap)
+    isBackEdge s t = t `IS.member` (fromJust $ s `IM.lookup` domMap)
 
 -- For each loop, find out which nodes are in it by looking through
 -- the backedges (m, n) where n is considered the 'loop-header',
@@ -244,7 +276,10 @@ backEdges domMap = filter isBackEdge . edges
 -- interest. Intersect this with the strongly-connected component
 -- containing m, in case of 'improper' graphs with weird control
 -- transfers.
-loopNodes bedges gr = map (\ (m, n) -> n:intersect (scc' gr n) (rdfs [m] (delNode n gr))) bedges
+loopNodes :: Graph gr => BackEdgeMap -> gr a b -> [IS.IntSet]
+loopNodes bedges gr = [
+    IS.fromList (n:intersect (scc' gr n) (rdfs [m] (delNode n gr))) | (m, n) <- IM.toList bedges
+  ]
 
 scc' :: (Graph gr) => gr a b -> Node -> [Node]
 scc' g n = head . filter (n `elem`) $ scc g
@@ -272,6 +307,8 @@ showDataFlow pf@(ProgramFile cm_pus _) = (perPU . snd) =<< cm_pus
                        , ("scc ",         show (scc gr))
                        , ("loopNodes",    show (loopNodes bedges gr))
                        , ("duMap",        show (genDUMap bm dm gr (rd gr)))
+                       , ("udMap",        show (genUDMap bm dm gr (rd gr)))
+                       , ("flows",        show (edges $ flows bm dm gr (rd gr)))
                        ] where
                            bedges = backEdges (dominators gr) gr
     perPU _ = ""
