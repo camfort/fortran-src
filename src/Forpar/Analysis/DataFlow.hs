@@ -117,7 +117,7 @@ blockVarDefs _                      = []
 type InOut t    = (t, t)
 
 -- | InOutMap : node -> (dataflow into node, dataflow out of node)
-type InOutMap t = M.Map Node (InOut t)
+type InOutMap t = IM.IntMap (InOut t)
 
 -- | InF, a function that returns the in-dataflow for a given node
 type InF t      = Node -> t
@@ -135,9 +135,9 @@ dataFlowSolver :: Ord t => BBGr a            -- ^ basic block graph
 dataFlowSolver gr initF order inF outF = converge (==) $ iterate step initM
   where
     ordNodes = order gr
-    initM    = M.fromList [ (n, initF n) | n <- ordNodes ]
-    step m   = M.fromList [ (n, (inF (snd . get m) n, outF (fst . get m) n)) | n <- ordNodes ]
-    get m n  = fromJust $ M.lookup n m
+    initM    = IM.fromList [ (n, initF n) | n <- ordNodes ]
+    step m   = IM.fromList [ (n, (inF (snd . get m) n, outF (fst . get m) n)) | n <- ordNodes ]
+    get m n  = fromJust $ IM.lookup n m
 
 --------------------------------------------------
 
@@ -252,7 +252,7 @@ genDUMap bm dm gr rdefs = IM.unionsWith IS.union duMaps
   where
     -- duMaps for each bblock
     duMaps = [ fst (foldl' inBBlock (IM.empty, is) bs) |
-               (n, (is, _)) <- M.toList rdefs,
+               (n, (is, _)) <- IM.toList rdefs,
                let Just bs = lab gr n ]
     -- internal analysis within bblock; fold over list of AST-blocks
     inBBlock (duMap, inSet) b = (duMap', inSet')
@@ -309,7 +309,7 @@ type BackEdgeMap = IM.IntMap Node
 
 -- | Find the edges that 'loop back' in the graph; ones where the
 -- target node dominates the source node.
-genBackEdgeMap :: Graph gr => IM.IntMap IS.IntSet -> gr a b -> BackEdgeMap
+genBackEdgeMap :: Graph gr => DomMap -> gr a b -> BackEdgeMap
 genBackEdgeMap domMap = IM.filterWithKey isBackEdge . IM.fromList . edges
   where
     isBackEdge s t = t `IS.member` (fromJust $ s `IM.lookup` domMap)
@@ -349,8 +349,9 @@ showDataFlow pf@(ProgramFile cm_pus _) = (perPU . snd) =<< cm_pus
                        , ("revPreOrder",  show (revPreOrder gr))
                        , ("dominators",   show (dominators gr))
                        , ("iDominators",  show (iDominators gr))
-                       , ("lva",          show (M.toList $ lva gr))
-                       , ("rd",           show (M.toList $ rd gr))
+                       , ("defMap",       show dm)
+                       , ("lva",          show (IM.toList $ lva gr))
+                       , ("rd",           show (IM.toList $ rd gr))
                        , ("backEdges",    show bedges)
                        , ("topsort",      show (topsort gr))
                        , ("scc ",         show (scc gr))
