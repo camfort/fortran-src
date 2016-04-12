@@ -103,6 +103,7 @@ test-suite spec
     array >= 0.5,
     uniplate >= 1.6,
     containers >= 0.5,
+    fgl,
     forpar
   hs-source-dirs: test
   main-is: Spec.hs
