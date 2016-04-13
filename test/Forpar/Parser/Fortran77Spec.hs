@@ -9,7 +9,7 @@ import Forpar.ParserMonad (FortranVersion(..), evalParse)
 import Forpar.AST
 
 eParser :: String -> Expression ()
-eParser sourceCode = 
+eParser sourceCode =
   case evalParse statementParser parseState of
     (StExpressionAssign _ _ _ e) -> e
   where
@@ -17,14 +17,14 @@ eParser sourceCode =
     parseState =  initParseState paddedSourceCode Fortran77 "<unknown>"
 
 sParser :: String -> Statement ()
-sParser sourceCode = 
+sParser sourceCode =
   evalParse statementParser $ initParseState sourceCode Fortran77 "<unknown>"
 
 pParser :: String -> ProgramFile ()
 pParser source = fortran77Parser source "<unknown>"
 
 spec :: Spec
-spec = 
+spec =
   describe "Fortran 77 Parser" $ do
     describe "IO" $ do
       it "parses 'print *, 9000" $ do
@@ -148,7 +148,7 @@ spec =
     it "parses 'parameter (pi = 3.14, b = 'X' // 'O', d = k) '" $ do
       let sts = [ StExpressionAssign () u (parGen "pi") (ExpValue () u (ValReal "3.14"))
                 , StExpressionAssign () u (parGen "b") (ExpBinary () u Concatenation (strGen "x") (strGen "o"))
-                , StExpressionAssign () u (parGen "d") (parGen "k") ] 
+                , StExpressionAssign () u (parGen "d") (parGen "k") ]
       let st = StParameter () u (AList () u sts)
       sParser "      parameter (pi = 3.14, b = 'X' // 'O', d = k)" `shouldBe'` st
 
@@ -174,7 +174,7 @@ spec =
       eParser ".true. .eqv. f(42) .neqv. x" `shouldBe'` exp
 
     it "parses 'entry me (a,b,*)'" $ do
-      let func = ExpValue () u (ValFunctionName "me") 
+      let func = ExpValue () u (ValFunctionName "me")
       let args = [ varGen "a", varGen "b", starVal ]
       let st = StEntry () u func (Just $ AList () u args)
       sParser "      entry me (a,b,*)" `shouldBe'` st
@@ -188,3 +188,8 @@ exampleProgram2 = unlines
   [ "      block data hello"
   , "      integer x"
   , "      end" ]
+
+-- Local variables:
+-- mode: haskell
+-- haskell-program-name: "cabal repl test-suite:spec"
+-- End:

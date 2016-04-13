@@ -52,3 +52,8 @@ programAnal1 = unlines $ map (replicate 6 ' '++) [
     , "f = x"
     , "end"
   ]
+
+-- Local variables:
+-- mode: haskell
+-- haskell-program-name: "cabal repl test-suite:spec"
+-- End:

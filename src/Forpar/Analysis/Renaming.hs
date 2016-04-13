@@ -262,3 +262,8 @@ globaliseFuncsAndSubs pf = fst $ runRenamer (transV fV pf) renameState0
     fV :: Data a => RenamerFunc (Value (Analysis a))
     fV (ValVariable a v) | v `member` nm = return $ ValVariable (a { uniqueName = v `lookup` nm }) v
     fV v = return v
+
+-- Local variables:
+-- mode: haskell
+-- haskell-program-name: "cabal repl"
+-- End:

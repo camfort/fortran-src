@@ -357,3 +357,8 @@ converge :: (a -> a -> Bool) -> [a] -> a
 converge p (x:ys@(y:_))
   | p x y     = y
   | otherwise = converge p ys
+
+-- Local variables:
+-- mode: haskell
+-- haskell-program-name: "cabal repl"
+-- End:

@@ -290,3 +290,8 @@ showBBlocks (ProgramFile cm_pus _) = (perPU . snd) =<< cm_pus
             dashes = replicate (length p) '-'
     perPU _ = ""
     strip = map (fmap insLabel)
+
+-- Local variables:
+-- mode: haskell
+-- haskell-program-name: "cabal repl"
+-- End:

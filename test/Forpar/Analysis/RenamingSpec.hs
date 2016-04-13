@@ -123,3 +123,8 @@ ex4pu1bs =
       (ExpFunctionCall () u (ExpValue () u (ValFunctionName "f1"))
                             (AList () u [intGen 1]))) ]
 ex4pu2 = PUFunction () u (Just $ TypeInteger () u) "f1" (AList () u [ValVariable () "x"]) ([ BlStatement () u Nothing (StExpressionAssign () u (varGen "f1") (varGen "x")) ])
+
+-- Local variables:
+-- mode: haskell
+-- haskell-program-name: "cabal repl test-suite:spec"
+-- End:

@@ -106,3 +106,8 @@ blockVarDefs :: Data a => Block a -> [Name]
 blockVarDefs (BlStatement _ _ _ st) = allLhsVars st
 blockVarDefs (BlDo _ _ _ doSpec _)  = allLhsVars doSpec
 blockVarDefs _                      = []
+
+-- Local variables:
+-- mode: haskell
+-- haskell-program-name: "cabal repl"
+-- End:

@@ -148,3 +148,8 @@ programRd3 = unlines [
     , " 10   continue"
     , "      f = a(10)"
     , "      end" ]
+
+-- Local variables:
+-- mode: haskell
+-- haskell-program-name: "cabal repl test-suite:spec"
+-- End:

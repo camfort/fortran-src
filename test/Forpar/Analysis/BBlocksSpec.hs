@@ -70,3 +70,8 @@ programLoop4 = unlines [
     , " 40   write (*,*) r"
     , "      end"
   ]
+
+-- Local variables:
+-- mode: haskell
+-- haskell-program-name: "cabal repl test-suite:spec"
+-- End:
