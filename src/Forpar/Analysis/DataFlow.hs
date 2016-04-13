@@ -110,10 +110,16 @@ dataFlowSolver gr initF order inF outF = converge (==) $ iterate step initM
 type BlockMap a = IM.IntMap (Block (Analysis a))
 
 -- | Build a BlockMap from the AST. This can only be performed after
--- analyseBasicBlocks has operated and labeled all of the AST-blocks
--- with unique numbers.
+-- analyseBasicBlocks has operated, created basic blocks, and labeled
+-- all of the AST-blocks with unique numbers.
 genBlockMap :: Data a => ProgramFile (Analysis a) -> BlockMap a
-genBlockMap pf = IM.fromList [ (i, b) | b <- universeBi pf, let Just i = insLabel (getAnnotation b) ]
+genBlockMap pf = IM.fromList [ (i, b) | gr         <- uni pf
+                                      , (_, bs)    <- labNodes gr
+                                      , b          <- bs
+                                      , let Just i = insLabel (getAnnotation b) ]
+  where
+    uni :: Data a => ProgramFile (Analysis a) -> [BBGr (Analysis a)]
+    uni = universeBi
 
 -- | DefMap : variable name -> { AST-block label }
 type DefMap = M.Map Name IS.IntSet

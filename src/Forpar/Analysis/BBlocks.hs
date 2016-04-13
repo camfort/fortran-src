@@ -8,13 +8,14 @@ where
 import Data.Generics.Uniplate.Data
 import Data.Generics.Uniplate.Operations
 import Data.Data
-import Data.Function
+import Data.Function hiding ((&))
 import Control.Monad.State.Lazy
 import Control.Monad.Writer
 import Text.PrettyPrint.GenericPretty (pretty, Out)
 import Forpar.Analysis
 import Forpar.AST
 import qualified Data.Map as M
+import qualified Data.IntMap as IM
 import Data.Graph.Inductive
 import Data.Graph.Inductive.PatriciaTree (Gr)
 import Data.List (foldl')
@@ -24,7 +25,7 @@ import Data.Maybe
 
 -- | Insert basic block graphs into each program unit's analysis
 analyseBBlocks :: Data a => ProgramFile (Analysis a) -> ProgramFile (Analysis a)
-analyseBBlocks = analyseBBlocks' . labelBlocks
+analyseBBlocks = labelBlocksInBBGr . analyseBBlocks'
 analyseBBlocks' (ProgramFile cm_pus cs) = ProgramFile (map (fmap toBBlocksPerPU) cm_pus) cs
 
 --------------------------------------------------
@@ -37,17 +38,19 @@ genBBlockMap (ProgramFile cm_pus _) = M.fromList [
 
 --------------------------------------------------
 
--- | Insert unique labels on each AST-block for easier look-up later
-labelBlocks :: Data a => ProgramFile (Analysis a) -> ProgramFile (Analysis a)
-labelBlocks pf = evalState (transform eachBlock pf) [1..]
+-- | Insert unique labels on each AST-block, inside each bblock, for
+-- easier look-up later
+labelBlocksInBBGr :: Data a => ProgramFile (Analysis a) -> ProgramFile (Analysis a)
+labelBlocksInBBGr gr = evalState (transform (nmapM' (mapM eachBlock)) gr) [1..]
   where
-    transform :: (Monad m, Data a) => (Block a -> m (Block a)) -> ProgramFile a -> m (ProgramFile a)
-    transform = transformBiM
     eachBlock :: Data a => Block (Analysis a) -> State [Int] (Block (Analysis a))
     eachBlock b = do
       n:ns <- get
       put ns
       return $ setAnnotation ((getAnnotation b) { insLabel = Just n }) b
+    transform :: Data a => (BBGr a -> State [Int] (BBGr a)) ->
+                           ProgramFile a -> State [Int] (ProgramFile a)
+    transform = transformBiM
 
 --------------------------------------------------
 
@@ -290,6 +293,25 @@ showBBlocks (ProgramFile cm_pus _) = (perPU . snd) =<< cm_pus
             dashes = replicate (length p) '-'
     perPU _ = ""
     strip = map (fmap insLabel)
+
+--------------------------------------------------
+-- Some helper functions that really should be in fgl.
+
+-- | Fold a function over the graph. Monadically.
+ufoldM' :: (Graph gr, Monad m) => (Context a b -> c -> m c) -> c -> gr a b -> m c
+ufoldM' f u g
+  | isEmpty g = return u
+  | otherwise = f c =<< (ufoldM' f u g')
+  where
+    (c,g') = matchAny g
+
+-- | Map a function over the graph. Monadically.
+gmapM' :: (DynGraph gr, Monad m) => (Context a b -> m (Context c d)) -> gr a b -> m (gr c d)
+gmapM' f = ufoldM' (\ c g -> f c >>= \ c' -> return (c' & g)) empty
+
+-- | Map a function over the 'Node' labels in a graph. Monadically.
+nmapM' :: (DynGraph gr, Monad m) => (a -> m c) -> gr a b -> m (gr c b)
+nmapM' f = gmapM' (\ (p,v,l,s) -> f l >>= \ l' -> return (p,v,l',s))
 
 -- Local variables:
 -- mode: haskell
