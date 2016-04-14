@@ -63,13 +63,38 @@ toBBlocksPerPU pu
     bs  = case pu of PUMain _ _ _ bs -> bs; PUSubroutine _ _ _ _ bs -> bs; PUFunction _ _ _ _ _ bs -> bs
                      _ -> []
     bbs = execBBlocker (processBlocks bs)
-    fix = delEmptyBBlocks . delUnreachable . insExitEdges lm . delInvalidExits . insEntryEdges
+    fix = delEmptyBBlocks . delUnreachable . insExitEdges pu lm . delInvalidExits . insEntryEdges pu
     gr  = fix (insEdges (newEdges bbs) (bbGraph bbs))
     pu' = setAnnotation ((getAnnotation pu) { bBlocks = Just gr }) pu
     lm  = labelMap bbs
 
 -- Create node 0 "the start node" and link it
-insEntryEdges = insEdge (0, 1, ()) . insNode (0, []) -- for now assume only one entry
+-- for now assume only one entry
+insEntryEdges pu = insEdge (0, 1, ()) . insNode (0, bs)
+  where
+    bs = genInOutAssignments pu False
+
+-- create assignments of the form "x = f[1]" or "f[1] = x" at the
+-- entry/exit bblocks.
+genInOutAssignments pu exit
+  -- for now, designate return-value slot as a "ValVariable" without type-checking.
+  | exit, PUFunction _ _ _ n _ _ <- pu = zipWith genAssign (ValVariable a n:vs) [0..]
+  | otherwise                          = zipWith genAssign vs [1..]
+  where
+    puName = getName pu
+    name i = case puName of Named n -> n ++ "[" ++ show i ++ "]"
+    (a, s, vs) = case pu of
+      PUFunction _ _ _ _ (AList a s vs) _ -> (a, s, vs)
+      PUSubroutine _ _ _ (AList a s vs) _ -> (a, s, vs)
+      _                                   -> (undefined, undefined, [])
+    genAssign v i = BlStatement a s Nothing (StExpressionAssign a s (ExpValue a s vl)
+                                                                    (ExpValue a s vr))
+      where
+        (vl, vr) = if exit then (v', v) else (v, v')
+        v'       = case v of
+          ValArray a _    -> ValArray a (name i)
+          ValVariable a _ -> ValVariable a (name i)
+          _               -> error $ "unhandled genAssign case: " ++ show (fmap (const ()) v)
 
 -- Remove exit edges for bblocks where standard construction doesn't apply.
 delInvalidExits gr = flip delEdges gr $ do
@@ -80,12 +105,14 @@ delInvalidExits gr = flip delEdges gr $ do
   return $ toEdge le
 
 -- Insert exit edges for bblocks with special handling.
-insExitEdges lm gr = flip insEdges (insNode (-1, []) gr) $ do
+insExitEdges pu lm gr = flip insEdges (insNode (-1, bs) gr) $ do
   n <- nodes gr
   guard $ null (out gr n)
   bs <- maybeToList $ lab gr n
   n' <- examineFinalBlock lm bs
   return (n, n', ())
+  where
+    bs = genInOutAssignments pu True
 
 -- Find target of Goto statements (Return statements default target to -1).
 examineFinalBlock lm bs@(_:_)
