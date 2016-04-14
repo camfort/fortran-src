@@ -25,9 +25,9 @@ import qualified Data.Map as M
 import qualified Data.IntMap as IM
 import qualified Data.Set as S
 import qualified Data.IntSet as IS
-import Data.Graph.Inductive
+import Data.Graph.Inductive hiding (trc)
 import Data.Graph.Inductive.PatriciaTree (Gr)
-import Data.Graph.Inductive.Query.TransClos
+import Data.Graph.Inductive.Query.DFS (reachable)
 import Data.Maybe
 import Data.List (foldl', (\\), union, delete, nub, intersect)
 
@@ -268,7 +268,18 @@ type FlowsGraph a = Gr (Block (Analysis a)) ()
 -- | "Flows-To" analysis. Compute the transitive closure of a def-use
 -- map and represent as a graph.
 flowsTo :: Data a => BlockMap a -> DefMap -> BBGr (Analysis a) -> InOutMap IS.IntSet -> FlowsGraph a
-flowsTo bm dm gr = trc . mapToGraph bm . genDUMap bm dm gr
+flowsTo bm dm gr = tc . mapToGraph bm . genDUMap bm dm gr
+
+{-|
+Finds the transitive closure of a directed graph.
+Given a graph G=(V,E), its transitive closure is the graph:
+G* = (V,E*) where E*={(i,j): i,j in V and there is a path from i to j in G}
+-}
+tc :: (DynGraph gr) => gr a b -> gr a ()
+tc g = newEdges `insEdges` insNodes ln empty
+  where
+    ln       = labNodes g
+    newEdges = [ toLEdge (v, w) () | (v, _) <- ln, w <- drop 1 (reachable v g) ]
 
 --------------------------------------------------
 
