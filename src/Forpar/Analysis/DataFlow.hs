@@ -255,10 +255,15 @@ genUDMap bm dm gr = duMapToUdMap . genDUMap bm dm gr
 
 -- | Convert a UD or DU Map into a graph.
 mapToGraph :: DynGraph gr => IM.IntMap a -> IM.IntMap IS.IntSet -> gr a ()
-mapToGraph bm m = buildGr [
-    ([], i, l, jAdj) | (i, js) <- IM.toList m
+mapToGraph bm m = buildGr $ [
+    ([], i, l, jAdj) | (i, js)    <- IM.toList m
                      , let Just l = IM.lookup i bm
-                     , let jAdj = map ((),) $ IS.toList js
+                     , let jAdj   = map ((),) $ IS.toList js
+  ] ++ [
+    (iAdj, j, l, []) | (i, js)    <- IM.toList m
+                     , j          <- IS.toList js
+                     , let Just l = IM.lookup j bm
+                     , let iAdj   = [((), i)]
   ]
 
 -- | FlowsGraph : nodes as AST-block (numbered by label), edges
