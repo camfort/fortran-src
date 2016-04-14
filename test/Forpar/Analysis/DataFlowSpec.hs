@@ -61,8 +61,8 @@ spec =
         let bm = genBlockMap pf
         let dm = genDefMap bm
         (S.fromList . edges . flowsTo bm dm gr $ reachingDefinitions dm gr) `shouldBe`
-          S.fromList [ (2,2),(2,4),(4,4),(5,4),(5,5),(10,4),(10,5),(10,10)
-                     , (14,4),(14,14),(16,2),(16,4),(16,16) ]
+          S.fromList [ (2,1),(2,2),(2,4),(2,12),(4,1),(4,4),(5,1),(5,4),(5,5),(5,8)
+                     , (10,1),(10,4),(10,5),(10,8),(14,1),(14,4),(16,1),(16,2),(16,4),(16,12) ]
 
     describe "rd3" $ do
       it "genBackEdgeMap" $ do
@@ -86,7 +86,9 @@ spec =
         let bm = genBlockMap pf
         genDefMap bm `shouldBe`
           M.fromList [ ("a",IS.fromList [6]),("b",IS.fromList [5])
-                     , ("f",IS.fromList [4]),("i",IS.fromList [7]) ]
+                     , ("f",IS.fromList [4]),("f[0]", IS.fromList [11])
+                     , ("f[1]",IS.fromList [12]),("i",IS.fromList [7])
+                     , ("x", IS.fromList [10]) ]
 
       it "reachingDefinitions" $ do
         let pf = pParser programRd3
@@ -94,7 +96,7 @@ spec =
         let bm = genBlockMap pf
         let dm = genDefMap bm
         IM.lookup 3 (reachingDefinitions dm gr) `shouldBe`
-          Just (IS.fromList [5,6,7], IS.fromList [5,6,7])
+          Just (IS.fromList [5,6,7,10], IS.fromList [5,6,7,10])
 
       it "flowsTo" $ do
         let pf = pParser programRd3
@@ -102,7 +104,8 @@ spec =
         let bm = genBlockMap pf
         let dm = genDefMap bm
         (S.fromList . edges . flowsTo bm dm gr $ reachingDefinitions dm gr) `shouldBe`
-          S.fromList [ (5,5),(5,6),(6,5),(6,6),(7,5),(7,6),(7,7) ]
+          S.fromList [ (4,11),(5,4),(5,5),(5,6),(5,11),(6,4),(6,5),(6,6),(6,11)
+                     , (7,4),(7,5),(7,6),(7,11),(10,4),(10,5),(10,6),(10,11),(10,12) ]
 
 programLoop4 = unlines [
       "      program loop4"
