@@ -27,7 +27,7 @@ import qualified Data.Set as S
 import qualified Data.IntSet as IS
 import Data.Graph.Inductive hiding (trc)
 import Data.Graph.Inductive.PatriciaTree (Gr)
-import Data.Graph.Inductive.Query.DFS (reachable)
+import Data.Graph.Inductive.Query.BFS (bfen)
 import Data.Maybe
 import Data.List (foldl', (\\), union, delete, nub, intersect)
 
@@ -284,7 +284,8 @@ tc :: (DynGraph gr) => gr a b -> gr a ()
 tc g = newEdges `insEdges` insNodes ln empty
   where
     ln       = labNodes g
-    newEdges = [ toLEdge (v, w) () | (v, _) <- ln, w <- drop 1 (reachable v g) ]
+    newEdges = [ toLEdge (u, v) () | (u, _) <- ln, (_, v) <- bfen (outU g u) g ]
+    outU gr  = map toEdge . out gr
 
 --------------------------------------------------
 
