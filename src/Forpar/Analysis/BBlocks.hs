@@ -14,6 +14,7 @@ import Control.Monad.Writer
 import Text.PrettyPrint.GenericPretty (pretty, Out)
 import Forpar.Analysis
 import Forpar.AST
+import Forpar.Util.Position
 import qualified Data.Map as M
 import qualified Data.IntMap as IM
 import Data.Graph.Inductive
@@ -228,6 +229,43 @@ perBlock b@(BlStatement _ _ _ (StReturn {})) =
   processLabel b >> addToBBlock b >> closeBBlock_
 perBlock b@(BlStatement _ _ _ (StGotoUnconditional {})) =
   processLabel b >> addToBBlock b >> closeBBlock_
+perBlock b@(BlStatement a s l (StCall a' s' cn@(ExpValue _ _ (ValSubroutineName n)) (Just aexps))) = do
+  (prevN, formalN) <- closeBBlock
+
+  -- create bblock that assigns formal parameters (n[1], n[2], ...)
+  case l of
+    Just (ExpValue _ _ (ValLabel l)) -> insertLabel l formalN -- label goes here, if present
+    _                                -> return ()
+  let name i   = n ++ "[" ++ show i ++ "]"
+  let formal (ExpValue a s (ValVariable a' _)) i = ExpValue a s (ValVariable a' (name i))
+      formal (ExpValue a s (ValArray a' _)) i    = ExpValue a s (ValArray a' (name i))
+      formal e i                                 = ExpValue a s (ValVariable a (name i))
+        where a = getAnnotation e; s = getSpan e
+  forM_ (zip (aStrip aexps) [1..]) $ \ (e, i) ->
+    addToBBlock $ BlStatement a s Nothing (StExpressionAssign a' s' (formal e i) e)
+  (_, dummyCallN) <- closeBBlock
+
+  -- create "dummy call" bblock with no parameters in the StCall AST-node.
+  addToBBlock $ BlStatement a s Nothing (StCall a' s' cn Nothing)
+  (_, returnedN) <- closeBBlock
+
+  -- re-assign the variables using the values of the formal parameters, if possible
+  -- (because call-by-reference)
+  let formal (ExpValue a s (ValVariable a' _)) i = ExpValue a s (ValVariable a' (name i))
+      formal (ExpValue a s (ValArray a' _)) i    = ExpValue a s (ValArray a' (name i))
+      formal e i                                 = ExpValue a s (ValVariable a (name i))
+        where a = getAnnotation e; s = getSpan e
+  forM_ (zip (aStrip aexps) [1..]) $ \ (e, i) ->
+    -- this is only possible for l-expressions
+    if isLExpr e then
+      addToBBlock $ BlStatement a s Nothing (StExpressionAssign a' s' e (formal e i))
+    else return ()
+  (_, nextN) <- closeBBlock
+
+  -- connect the bblocks
+  createEdges [ (prevN, formalN, ()), (formalN, dummyCallN, ())
+              , (dummyCallN, returnedN, ()), (returnedN, nextN, ()) ]
+
 perBlock b = processLabel b >> addToBBlock b
 
 --------------------------------------------------
