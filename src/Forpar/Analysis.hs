@@ -60,9 +60,9 @@ stripAnalysis = fmap prevAnnotation
 -- | Return list of expressions used as the left-hand-side of
 -- assignment statements (including for-loops and function-calls by reference).
 lhsExprs :: (Data a, Data (b a)) => b a -> [Expression a]
-lhsExprs x = [ e1 | StExpressionAssign _ _ e1 _ <- universeBi x ] ++
-             concat [ fstLvl aexps | StCall _ _ _ (Just aexps) <- universeBi x ] ++
-             concat [ fstLvl aexps | ExpFunctionCall _ _ _ aexps <- universeBi x ]
+lhsExprs x = [ e | StExpressionAssign _ _ e _  <- universeBi x                    ] ++
+             [ e | StCall _ _ _ (Just aexps)   <- universeBi x, e <- fstLvl aexps ] ++
+             [ e | ExpFunctionCall _ _ _ aexps <- universeBi x, e <- fstLvl aexps ]
   where
     fstLvl = filter isLExpr . aStrip
 
@@ -84,8 +84,8 @@ allVars b = [ v | ExpValue _ _ (ValArray _ v)    <- uniBi b ] ++
 -- | Set of names found in the parts of an AST that are the target of
 -- an assignment statement.
 allLhsVars :: (Data a, Data (b a)) => b a -> [Name]
-allLhsVars b = [ v | ExpValue _ _ (ValArray _ v)    <- lhsExprs b ] ++
-               [ v | ExpValue _ _ (ValVariable _ v) <- lhsExprs b ] ++
+allLhsVars b = [ v | ExpValue _ _ (ValArray _ v)                      <- lhsExprs b ] ++
+               [ v | ExpValue _ _ (ValVariable _ v)                   <- lhsExprs b ] ++
                [ v | ExpSubscript _ _ (ExpValue _ _ (ValArray _ v)) _ <- lhsExprs b ]
 
 -- | Set of names used -- not defined -- by an AST-block.
