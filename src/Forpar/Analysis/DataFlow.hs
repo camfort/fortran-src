@@ -20,6 +20,7 @@ import Control.Monad.State.Lazy
 import Control.Monad.Writer
 import Text.PrettyPrint.GenericPretty (pretty, Out)
 import Forpar.Analysis
+import Forpar.Analysis.BBlocks
 import Forpar.AST
 import qualified Data.Map as M
 import qualified Data.IntMap as IM

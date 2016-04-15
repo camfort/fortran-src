@@ -2,7 +2,7 @@
 
 {-# LANGUAGE FlexibleContexts, PatternGuards #-}
 module Forpar.Analysis.BBlocks
-  ( analyseBBlocks, genBBlockMap, showBBGr, showBBlocks )
+  ( analyseBBlocks, genBBlockMap, showBBGr, showAnalysedBBGr, showBBlocks, BBlockMap, genSuperBBGr )
 where
 
 import Data.Generics.Uniplate.Data
@@ -338,6 +338,42 @@ stripNestedBlocks (BlStatement a s l
 stripNestedBlocks b                         = b
 
 --------------------------------------------------
+-- Supergraph: all program units in one basic-block graph
+-- FIXME: handle functions
+
+genSuperBBGr :: BBlockMap a -> BBGr a
+genSuperBBGr bbm = superGraph'
+  where
+    -- [((PUName, Node), [Block a])]
+    namedNodes = [ ((name, n), bs) | (name, gr) <- M.toList bbm, (n, bs) <- labNodes gr ]
+    -- [((PUName, Node), (PUName, Node), Label)]
+    namedEdges = [ ((name, n), (name, m), l) | (name, gr) <- M.toList bbm, (n, m, l) <- labEdges gr ]
+    -- ((PUName, Node) -> SuperNode)
+    superNodeMap = M.fromList $ zip (map fst namedNodes) [1..]
+    -- ((PUName, Node) -> SuperNode)
+    getSuperNode = fromJust . flip M.lookup superNodeMap
+    -- [(SuperNode, [Block a])]
+    superNodes   = [ (getSuperNode n, bs) | (n, bs) <- namedNodes ]
+    -- (((PUName, Node), (PUName, Node), Label), (SuperNode, SuperNode, Label))
+    superEdges   = [ (getSuperNode n, getSuperNode m, l) | (n, m, l) <- namedEdges ]
+    superGraph   = mkGraph superNodes superEdges
+    -- PUName -> SuperNode
+    entryMap = M.fromList [ (name, n') | ((name, n), n') <- M.toList superNodeMap, n == 0  ]
+    exitMap  = M.fromList [ (name, n') | ((name, n), n') <- M.toList superNodeMap, n == -1 ]
+    -- [(SuperNode, String)]
+    stCalls  = [ (getSuperNode n, sub) | (n, [BlStatement _ _ _ (StCall _ _ e Nothing)]) <- namedNodes
+                                       , ExpValue _ _ (ValSubroutineName sub)            <- [e] ]
+    -- [([SuperEdge], SuperNode, String, [SuperEdge])]
+    stCallCtxts = [ (inn superGraph n, n, sub, out superGraph n) | (n, sub) <- stCalls ]
+    -- [SuperEdge]
+    stCallEdges = concat [   [ (m, nEn, l) | (m, _, l) <- inEdges ] ++
+                             [ (nEx, m, l) | (_, m, l) <- outEdges ]
+                         | (inEdges, _, sub, outEdges) <- stCallCtxts
+                         , let nEn = fromJust (M.lookup (Named sub) entryMap)
+                         , let nEx = fromJust (M.lookup (Named sub) exitMap) ]
+    superGraph' = insEdges stCallEdges . delNodes (map fst stCalls) $ superGraph
+
+--------------------------------------------------
 
 -- | Show a basic block graph in a somewhat decent way.
 showBBGr :: (Out a, Show a) => BBGr a -> String
@@ -347,6 +383,11 @@ showBBGr gr = execWriter . forM ns $ \ (n, bs) -> do
                 tell $ "\n" ++ replicate (length b) '-' ++ "\n"
                 tell (((++"\n") . pretty) =<< bs)
   where ns = labNodes gr
+
+showAnalysedBBGr :: (Out a, Show a) => BBGr (Analysis a) -> String
+showAnalysedBBGr = showBBGr . nmap strip
+  where
+    strip = map (fmap insLabel)
 
 -- | Pick out and show the basic block graphs in the program file analysis.
 showBBlocks :: (Out a, Show a) => ProgramFile (Analysis a) -> String

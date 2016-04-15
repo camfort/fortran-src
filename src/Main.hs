@@ -1,4 +1,4 @@
-{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE FlexibleContexts, FlexibleInstances #-}
 
 module Main where
 
@@ -16,7 +16,7 @@ import qualified Forpar.Lexer.FreeForm as FreeForm (collectFreeTokens, Token(..)
 import Forpar.Parser.Fortran66 (fortran66Parser)
 import Forpar.Parser.Fortran77 (fortran77Parser, extended77Parser)
 import Forpar.Analysis.Types (TypeScope(..), inferTypes, IDType(..))
-import Forpar.Analysis.BBlocks (analyseBBlocks, showBBlocks)
+import Forpar.Analysis.BBlocks (analyseBBlocks, showBBlocks, showAnalysedBBGr, genBBlockMap, genSuperBBGr)
 import Forpar.Analysis.DataFlow (showDataFlow)
 import Forpar.Analysis.Renaming (renameAndStrip, analyseRenames)
 import Forpar.Analysis (initAnalysis)
@@ -46,22 +46,28 @@ main = do
         print $ FixedForm.collectFixedTokens version contents
       Lex | version `elem` [Fortran90, Fortran2003, Fortran2008] -> do
         print $ FreeForm.collectFreeTokens version contents
-      Lex -> ioError $ userError $ usageInfo programName options
-      Parse     -> pp $ parserF contents path
-      Typecheck -> printTypes . inferTypes $ parserF contents path
-      Rename    -> pp . runRenamer $ parserF contents path
-      BBlocks   -> putStrLn . runBBlocks $ parserF contents path
+      Lex        -> ioError $ userError $ usageInfo programName options
+      Parse      -> pp $ parserF contents path
+      Typecheck  -> printTypes . inferTypes $ parserF contents path
+      Rename     -> pp . runRenamer $ parserF contents path
+      BBlocks    -> putStrLn . runBBlocks $ parserF contents path
+      SuperGraph -> putStrLn . runSuperGraph $ parserF contents path
       where
         runRenamer = fst . renameAndStrip . analyseRenames . initAnalysis
         runBBlocks pf = showBBlocks pf' ++ "\n\n" ++ showDataFlow pf'
           where pf' = analyseBBlocks (initAnalysis pf)
+        runSuperGraph pf = showAnalysedBBGr sgr
+          where pf' = analyseBBlocks (initAnalysis pf)
+                bbm = genBBlockMap pf'
+                sgr = genSuperBBGr bbm
+
 
 printTypes tenv = forM_ (M.toList tenv) $ \ (scope, tmap) -> do
   putStrLn $ "Scope: " ++ (case scope of Global -> "Global"; Local n -> show n)
   forM_ (M.toList tmap) $ \ (name, IDType { idVType = vt, idCType = ct }) ->
     printf "%s\t\t%s %s\n" name (drop 2 $ maybe "  -" show vt) (drop 2 $ maybe "   " show ct)
 
-data Action = Lex | Parse | Typecheck | Rename | BBlocks
+data Action = Lex | Parse | Typecheck | Rename | BBlocks | SuperGraph
 
 instance Read Action where
   readsPrec _ value =
@@ -100,6 +106,10 @@ options =
       ["bblocks"]
       (NoArg $ \ opts -> opts { action = BBlocks })
       "analyse basic blocks"
+  , Option ['S']
+      ["supergraph"]
+      (NoArg $ \ opts -> opts { action = SuperGraph })
+      "analyse super graph of basic blocks"
   ]
 
 compileArgs :: [ String ] -> IO (Options, [ String ])
