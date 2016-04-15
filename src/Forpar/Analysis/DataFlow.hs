@@ -275,6 +275,14 @@ type FlowsGraph a = Gr (Block (Analysis a)) ()
 flowsTo :: Data a => BlockMap a -> DefMap -> BBGr (Analysis a) -> InOutMap IS.IntSet -> FlowsGraph a
 flowsTo bm dm gr = tc . mapToGraph bm . genDUMap bm dm gr
 
+type VarFlowsMap = M.Map Name (S.Set Name)
+genVarFlowsToMap :: Data a => DefMap -> FlowsGraph a -> VarFlowsMap
+genVarFlowsToMap dm fg = M.fromListWith S.union [ (conv u, S.singleton (conv v)) | (u, v) <- edges fg ]
+  where
+    conv = fromJust . flip IM.lookup revDM
+    -- planning to make revDM a surjection, after I flatten-out Fortran functions
+    revDM = IM.fromListWith (curry fst) [ (i, v) | (v, is) <- M.toList dm, i <- IS.toList is ]
+
 {-|
 Finds the transitive closure of a directed graph.
 Given a graph G=(V,E), its transitive closure is the graph:
@@ -344,6 +352,7 @@ showDataFlow pf@(ProgramFile cm_pus _) = (perPU . snd) =<< cm_pus
                        , ("duMap",        show (genDUMap bm dm gr (rd gr)))
                        , ("udMap",        show (genUDMap bm dm gr (rd gr)))
                        , ("flowsTo",      show (edges $ flowsTo bm dm gr (rd gr)))
+                       , ("varFlowsTo",   show (genVarFlowsToMap dm (flowsTo bm dm gr (rd gr))))
                        ] where
                            bedges = genBackEdgeMap (dominators gr) gr
     perPU _ = ""
