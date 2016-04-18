@@ -34,13 +34,13 @@ disambiguateFunctionStatements = do
       mInnerMapping
       st@(StExpressionAssign a1 s
         (ExpSubscript _ _
-          (ExpValue a3 s'' (ValArray _ n)) indicies)
+          (ExpValue a3 s'' (ValVariable _ n)) indicies)
         e2)
       | Just innerMapping <- mInnerMapping
       , Just (IDType _ (Just CTFunction)) <- n `lookup` innerMapping =
           StFunction a1 s
             (ExpValue a3 s'' (ValFunctionName n))
-            indicies
+            (aMap fromIndex indicies)
             e2
       | otherwise = st
     transform'' _ (x :: Statement a) = x
@@ -58,13 +58,22 @@ disambiguateFunctionCalls = do
     transform''
         mGlobalMapping
         mInnerMapping
-        exp@(ExpSubscript a1 s (ExpValue a2 s' (ValArray a3 n)) l)
+        exp@(ExpSubscript a1 s (ExpValue a2 s' (ValVariable a3 n)) l)
       | Just innerMapping <- mInnerMapping
       , Just (IDType _ (Just CTFunction)) <- n `lookup` innerMapping
-      = ExpFunctionCall a1 s (ExpValue a2 s' (ValFunctionName n)) l
+      = ExpFunctionCall a1 s
+                        (ExpValue a2 s' (ValFunctionName n))
+                        (aMap fromIndex l)
       | Just globalMapping <- mGlobalMapping
       , Just (IDType _ (Just CTFunction)) <- n `lookup` globalMapping
-      = ExpFunctionCall a1 s (ExpValue a2 s' (ValFunctionName n)) l
+      = ExpFunctionCall a1 s
+                        (ExpValue a2 s' (ValFunctionName n))
+                        (aMap fromIndex l)
       | otherwise = exp
     transform'' mGlobalMapping mLocalMapping x =
       descend (transform'' mGlobalMapping mLocalMapping) x
+
+fromIndex (IxSingle _ _ e) = e
+fromIndex IxRange{} =
+  error "Deduced a function but argument is not an expression."
+

@@ -236,7 +236,7 @@ doP :: AlexInput -> Bool
 doP ai = isPrefixOf "do" (reverse . lexemeMatch . aiLexeme $ ai)
 
 equalFollowsP :: FortranVersion -> AlexInput -> Bool
-equalFollowsP fv ai = 
+equalFollowsP fv ai =
     case unParse (lexer $ f False 0) ps of
       ParseOk True _ -> True
       _ -> False
@@ -245,7 +245,8 @@ equalFollowsP fv ai =
       { psAlexInput = ai { aiStartCode = st}
       , psVersion = fv
       , psFilename = "<unknown>"
-      , psParanthesesCount = ParanthesesCount 0 False }
+      , psParanthesesCount = ParanthesesCount 0 False
+      , psContext = [ ConStart ] }
     f False 0 t =
       case t of
         TNewline{} -> return False
@@ -844,7 +845,8 @@ initParseState srcInput fortranVersion filename =
       { psAlexInput = undefined
       , psVersion = fortranVersion
       , psFilename = filename
-      , psParanthesesCount = ParanthesesCount 0 False }
+      , psParanthesesCount = ParanthesesCount 0 False
+      , psContext = [ ConStart ] }
 
 collectFixedTokens :: FortranVersion -> String -> [Token]
 collectFixedTokens version srcInput =

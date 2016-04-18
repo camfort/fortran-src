@@ -11,11 +11,10 @@ import Forpar.Lexer.FixedForm
 import Forpar.ParserMonad
 import Forpar.AST
 
-import Debug.Trace
 import Data.Typeable
 
 eParser :: String -> Expression ()
-eParser sourceCode = 
+eParser sourceCode =
   case evalParse statementParser parseState of
     (StExpressionAssign _ _ _ e) -> e
   where
@@ -23,17 +22,17 @@ eParser sourceCode =
     parseState =  initParseState paddedSourceCode Fortran66 "<unknown>"
 
 sParser :: String -> Statement ()
-sParser sourceCode = 
+sParser sourceCode =
   evalParse statementParser $ initParseState sourceCode Fortran66 "<unknown>"
 
 spec :: Spec
-spec = 
+spec =
   describe "Fortran 66 Parser" $ do
     describe "Expressions" $ do
       describe "Arithmetic expressions" $ do
         describe "Real numbers" $ do
           it "parses 'hello" $ do
-            let expectedExp = (varGen "hello")
+            let expectedExp = varGen "hello"
             eParser "hello" `shouldBe'` expectedExp
 
           it "parses '3.14" $ do
@@ -81,32 +80,33 @@ spec =
           eParser "3 + -2 + 42" `shouldBe'` expectedExp
 
         it "parses 'f(y, 24)'" $ do
-          let expectedExp = ExpSubscript () u (arrGen "f") (AList () u [ExpValue () u (ValVariable () "y"), intGen 24])
+          let subs = [ IxSingle () u $ varGen "y", ixSinGen 24 ]
+          let expectedExp = ExpSubscript () u (varGen "f") (fromList () subs)
           eParser "f(y, 24)" `shouldBe'` expectedExp
 
         it "parses '3 + 4 * 12'" $ do
           let expectedExp = ExpBinary () u Addition (intGen 3) (ExpBinary () u Multiplication (intGen 4) (intGen 12))
           eParser "3 + 4 * 12" `shouldBe'` expectedExp
 
-      describe "Logical expressions" $ do
+      describe "Logical expressions" $
         it "parses '.true. .and. .false.'" $ do
-          let expectedExp = ExpBinary () u And valTrue valFalse 
+          let expectedExp = ExpBinary () u And valTrue valFalse
           eParser ".true. .and. .false." `shouldBe'` expectedExp
 
-      describe "Relational expressions" $ do
+      describe "Relational expressions" $
         it "parses '(3 * 2) .lt. 42'" $ do
           let expectedExp = ExpBinary () u LT (ExpBinary () u Multiplication (intGen 3) (intGen 2)) (intGen 42)
           eParser "(3 * 2) .lt. 42" `shouldBe'` expectedExp
 
-      describe "Other expressions" $ do
+      describe "Other expressions" $
         it "parses 'a(2 * x - 3, 10)'" $ do
           let firstEl = ExpBinary () u Subtraction (ExpBinary () u Multiplication (intGen 2) (varGen "x")) (intGen 3)
-              expectedExp = ExpSubscript () u (arrGen "a") (AList () u [firstEl, intGen 10])
+              expectedExp = ExpSubscript () u (varGen "a") (AList () u [ IxSingle () u firstEl, ixSinGen 10])
           eParser "a(2 * x - 3, 10)" `shouldBe'` expectedExp
 
     describe "Statements" $ do
       it "parses 'EXTERNAL f, g, h'" $ do
-        let procGen s = ExpValue () u (ValFunctionName s) 
+        let procGen s = ExpValue () u (ValFunctionName s)
         let expectedSt = StExternal () u (AList () u [procGen "f", procGen "g", procGen "h"])
         sParser "      EXTERNAL f, g, h" `shouldBe'` expectedSt
 
@@ -168,10 +168,10 @@ spec =
         sParser "      stop" `shouldBe'` expectedSt
 
       it "parses 'integer i, j(2,2), k'" $ do
-        let dimDecls = take 2 $ repeat $ DimensionDeclarator () u Nothing (intGen 2) 
+        let dimDecls = replicate 2 $ DimensionDeclarator () u Nothing (intGen 2)
             declarators = [ DeclVariable () u (varGen "i") Nothing Nothing
-                          , DeclArray () u (arrGen "j") (AList () u dimDecls) Nothing Nothing
-                          , DeclVariable () u (varGen "k") Nothing Nothing ] 
+                          , DeclArray () u (varGen "j") (AList () u dimDecls) Nothing Nothing
+                          , DeclVariable () u (varGen "k") Nothing Nothing ]
             st = StDeclaration () u (TypeSpec () u TypeInteger Nothing) Nothing $ AList () u declarators
         sParser "      integer i, j(2,2), k" `shouldBe'` st
 
@@ -187,7 +187,7 @@ spec =
           let expectedSt = StWrite () u (AList () u [ ControlPair () u Nothing (intGen 6) ]) (Just $ AList () u [ varGen "i" ])
           sParser "      write (6) i" `shouldBe'` expectedSt
 
-        it "parses 'write (6,10) i'" $ do
+        it "parses 'write (6,10) i'" $
           sParser "      write (6,10) i" `shouldBe'` writeSt
 
       describe "IF" $ do
@@ -211,7 +211,8 @@ spec =
           sParser "      f = 1" `shouldBe'` expectedSt
 
         it "parses 'f = a(1,2)'" $ do
-          let rhs = ExpSubscript () u (ExpValue () u (ValArray () "a")) (AList () u [intGen 1, intGen 2])
+          let indicies = fromList () [ ixSinGen 1, ixSinGen 2 ]
+          let rhs = ExpSubscript () u (varGen "a") indicies
           let expectedSt = StExpressionAssign () u (varGen "f") rhs
           sParser "      f = a(1,2)" `shouldBe'` expectedSt
 

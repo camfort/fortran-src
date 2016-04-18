@@ -17,7 +17,7 @@ spec = do
       let pf = disambiguateFunction $ resetSrcSpan ex1
       pf `shouldBe'` expectedEx1
 
-  describe "Function call disambiguation" $ 
+  describe "Function call disambiguation" $
     it "disambiguates function calls in example 2" $ do
       let pf = disambiguateFunction $ resetSrcSpan ex2
       pf `shouldBe'` expectedEx2
@@ -35,37 +35,37 @@ spec = do
 ex1 = ProgramFile [ ([ ], ex1pu1)] [ ]
 ex1pu1 = PUMain () u (Just "main") ex1pu1bs
 ex1pu1bs =
-  [ BlStatement () u Nothing (StDeclaration () u (TypeSpec () u TypeInteger Nothing) Nothing (AList () u 
+  [ BlStatement () u Nothing (StDeclaration () u (TypeSpec () u TypeInteger Nothing) Nothing (AList () u
       [ DeclVariable () u (varGen "a") Nothing Nothing
-      , DeclArray () u (arrGen "b") (AList () u [ DimensionDeclarator () u Nothing (intGen 1) ]) Nothing Nothing
+      , DeclArray () u (varGen "b") (AList () u [ DimensionDeclarator () u Nothing (intGen 1) ]) Nothing Nothing
       , DeclVariable () u (varGen "c") Nothing Nothing ]))
   , BlStatement () u Nothing (StDimension () u (AList () u
-      [ DeclArray () u (arrGen "a") (AList () u [ DimensionDeclarator () u Nothing (intGen 1 ) ]) Nothing Nothing ]))
-  , BlStatement () u Nothing (StExpressionAssign () u 
-      (ExpSubscript () u (arrGen "a") (AList () u [ intGen 1 ])) (intGen 1))
-  , BlStatement () u Nothing (StExpressionAssign () u 
-      (ExpSubscript () u (arrGen "b") (AList () u [ intGen 1 ])) (intGen 1))
-  , BlStatement () u Nothing (StExpressionAssign () u 
-      (ExpSubscript () u (arrGen "c") (AList () u [ varGen "x" ])) (intGen 1))
-  , BlStatement () u Nothing (StExpressionAssign () u 
-      (ExpSubscript () u (arrGen "d") (AList () u [ varGen "x" ])) (intGen 1)) ]
+      [ DeclArray () u (varGen "a") (AList () u [ DimensionDeclarator () u Nothing (intGen 1 ) ]) Nothing Nothing ]))
+  , BlStatement () u Nothing (StExpressionAssign () u
+      (ExpSubscript () u (varGen "a") (AList () u [ ixSinGen 1 ])) (intGen 1))
+  , BlStatement () u Nothing (StExpressionAssign () u
+      (ExpSubscript () u (varGen "b") (AList () u [ ixSinGen 1 ])) (intGen 1))
+  , BlStatement () u Nothing (StExpressionAssign () u
+      (ExpSubscript () u (varGen "c") (AList () u [ IxSingle () u $ varGen "x" ])) (intGen 1))
+  , BlStatement () u Nothing (StExpressionAssign () u
+      (ExpSubscript () u (varGen "d") (AList () u [ IxSingle () u $ varGen "x" ])) (intGen 1)) ]
 
 expectedEx1 = ProgramFile [ ([ ], expectedEx1pu1) ] [ ]
 expectedEx1pu1 = PUMain () u (Just "main") expectedEx1pu1bs
 expectedEx1pu1bs =
-  [ BlStatement () u Nothing (StDeclaration () u (TypeSpec () u TypeInteger Nothing) Nothing (AList () u 
+  [ BlStatement () u Nothing (StDeclaration () u (TypeSpec () u TypeInteger Nothing) Nothing (AList () u
       [ DeclVariable () u (varGen "a") Nothing Nothing
-      , DeclArray () u (arrGen "b") (AList () u [ DimensionDeclarator () u Nothing (intGen 1) ]) Nothing Nothing
+      , DeclArray () u (varGen "b") (AList () u [ DimensionDeclarator () u Nothing (intGen 1) ]) Nothing Nothing
       , DeclVariable () u (varGen "c") Nothing Nothing ]))
   , BlStatement () u Nothing (StDimension () u (AList () u
-      [ DeclArray () u (arrGen "a") (AList () u [ DimensionDeclarator () u Nothing (intGen 1 ) ]) Nothing Nothing ]))
-  , BlStatement () u Nothing (StExpressionAssign () u 
-      (ExpSubscript () u (arrGen "a") (AList () u [ intGen 1 ])) (intGen 1))
-  , BlStatement () u Nothing (StExpressionAssign () u 
-      (ExpSubscript () u (arrGen "b") (AList () u [ intGen 1 ])) (intGen 1))
-  , BlStatement () u Nothing (StFunction () u 
+      [ DeclArray () u (varGen "a") (AList () u [ DimensionDeclarator () u Nothing (intGen 1 ) ]) Nothing Nothing ]))
+  , BlStatement () u Nothing (StExpressionAssign () u
+      (ExpSubscript () u (varGen "a") (AList () u [ ixSinGen 1 ])) (intGen 1))
+  , BlStatement () u Nothing (StExpressionAssign () u
+      (ExpSubscript () u (varGen "b") (AList () u [ ixSinGen 1 ])) (intGen 1))
+  , BlStatement () u Nothing (StFunction () u
       (ExpValue () u $ ValFunctionName "c") (AList () u [ varGen "x" ]) (intGen 1))
-  , BlStatement () u Nothing (StFunction () u 
+  , BlStatement () u Nothing (StFunction () u
       (ExpValue () u $ ValFunctionName "d") (AList () u [ varGen "x" ]) (intGen 1)) ]
 
 {-
@@ -84,69 +84,31 @@ ex2 = ProgramFile [ ([ ], ex2pu1), ([ ], ex2pu2) ] [ ]
 ex2pu1 = PUMain () u Nothing ex2pu1bs
 ex2pu2 = PUFunction () u Nothing "y" (AList () u [ ValVariable () "i", ValVariable () "j" ]) [ ]
 ex2pu1bs =
-    {-
   [ BlStatement () u Nothing
-      (StDeclaration () u 
-        (TypeSpec () u TypeInteger Nothing) 
-        (AList () u
-          [ DeclArray () u (arrGen "k") 
-              (AList () u
-                [ DimensionDeclarator () u Nothing (intGen 1) ]) ]))
-                -}
-  [ BlStatement () u Nothing
-      (StFunction () u 
-        (ExpValue () u (ValFunctionName "f")) 
-        (AList () u [ varGen "x"]) 
+      (StFunction () u
+        (ExpValue () u (ValFunctionName "f"))
+        (AList () u [ varGen "x" ])
         (intGen 1))
   , BlStatement () u Nothing
-      (StExpressionAssign () u (varGen "i") 
-        (ExpBinary () u Addition 
-          (intGen 1) 
-          (ExpSubscript () u (arrGen "f") (AList () u [ intGen 1 ])))) ]
-          {-
-  , BlStatement () u Nothing
-      (StExpressionAssign () u (varGen "l") 
-        (ExpSubscript () u (arrGen "k") (AList () u [ intGen 1 ])))
-  , BlStatement () u Nothing
-      (StExpressionAssign () u (varGen "j") 
-        (ExpBinary () u Addition 
-          (ExpSubscript () u (arrGen "y") (AList () u [ intGen 1, intGen 1 ]))
-          (varGen "a"))) ]
-          -}
+      (StExpressionAssign () u (varGen "i")
+        (ExpBinary () u Addition
+          (intGen 1)
+          (ExpSubscript () u
+                        (varGen "f")
+                        (AList () u [ ixSinGen 1 ])))) ]
 
 expectedEx2 = ProgramFile [ ([ ], expectedEx2pu1), ([ ], ex2pu2) ] [ ]
 expectedEx2pu1 = PUMain () u Nothing expectedEx2pu1bs
 expectedEx2pu1bs =
-    {-
   [ BlStatement () u Nothing
-      (StDeclaration () u 
-        (TypeSpec () u TypeInteger Nothing) 
-        (AList () u
-          [ DeclArray () u (arrGen "k") 
-              (AList () u
-                [ DimensionDeclarator () u Nothing (intGen 1) ]) ]))
-                -}
-  [ BlStatement () u Nothing
-      (StFunction () u 
-        (ExpValue () u (ValFunctionName "f")) 
-        (AList () u [ varGen "x"]) 
+      (StFunction () u
+        (ExpValue () u (ValFunctionName "f"))
+        (AList () u [ varGen "x" ])
         (intGen 1))
   , BlStatement () u Nothing
-      (StExpressionAssign () u (varGen "i") 
-        (ExpBinary () u Addition 
-          (intGen 1) 
-          (ExpFunctionCall () u 
-            (ExpValue () u $ ValFunctionName "f") 
+      (StExpressionAssign () u (varGen "i")
+        (ExpBinary () u Addition
+          (intGen 1)
+          (ExpFunctionCall () u
+            (ExpValue () u $ ValFunctionName "f")
             (AList () u [ intGen 1 ])))) ]
-            {-
-  , BlStatement () u Nothing
-      (StExpressionAssign () u (varGen "l") 
-        (ExpSubscript () u (arrGen "k") (AList () u [ intGen 1 ])))
-  , BlStatement () u Nothing
-      (StExpressionAssign () u (varGen "j") 
-        (ExpBinary () u Addition 
-          (ExpFunctionCall () u 
-            (ExpValue () u $ ValFunctionName "y") 
-            (AList () u [ intGen 1, intGen 1 ]))
-          (varGen "a"))) ]
-          -}

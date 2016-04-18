@@ -69,14 +69,12 @@ lhsExprs x = [ e | StExpressionAssign _ _ e _  <- universeBi x                  
 -- | Is this an expression capable of assignment?
 isLExpr :: Expression a -> Bool
 isLExpr (ExpValue _ _ (ValVariable _ _)) = True
-isLExpr (ExpValue _ _ (ValArray _ _))    = True
 isLExpr (ExpSubscript _ _ _ _)           = True
 isLExpr _                                = False
 
 -- | Set of names found in an AST node.
 allVars :: (Data a, Data (b a)) => b a -> [Name]
-allVars b = [ v | ExpValue _ _ (ValArray _ v)    <- uniBi b ] ++
-            [ v | ExpValue _ _ (ValVariable _ v) <- uniBi b ]
+allVars b = [ v | ExpValue _ _ (ValVariable _ v) <- uniBi b ]
   where
     uniBi :: (Data a, Data (b a)) => b a -> [Expression a]
     uniBi = universeBi
@@ -84,9 +82,8 @@ allVars b = [ v | ExpValue _ _ (ValArray _ v)    <- uniBi b ] ++
 -- | Set of names found in the parts of an AST that are the target of
 -- an assignment statement.
 allLhsVars :: (Data a, Data (b a)) => b a -> [Name]
-allLhsVars b = [ v | ExpValue _ _ (ValArray _ v)                      <- lhsExprs b ] ++
-               [ v | ExpValue _ _ (ValVariable _ v)                   <- lhsExprs b ] ++
-               [ v | ExpSubscript _ _ (ExpValue _ _ (ValArray _ v)) _ <- lhsExprs b ]
+allLhsVars b = [ v | ExpValue _ _ (ValVariable _ v)                   <- lhsExprs b ] ++
+               [ v | ExpSubscript _ _ (ExpValue _ _ (ValVariable _ v)) _ <- lhsExprs b ]
 
 -- | Set of names used -- not defined -- by an AST-block.
 blockVarUses :: Data a => Block a -> [Name]

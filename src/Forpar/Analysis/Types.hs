@@ -147,7 +147,7 @@ inferInProgramFile pu = do
 inferFromFuncStatements :: Data a => ProgramUnit a -> TypeMapping a ()
 inferFromFuncStatements pu = do
   let statements = universeBi :: Data a => ProgramUnit a -> [Statement a]
-  let lhsNames = [ s | StExpressionAssign _ _ (ExpSubscript _ _ (ExpValue _ _ (ValArray _ s)) _) _ <- statements pu ]
+  let lhsNames = [ s | StExpressionAssign _ _ (ExpSubscript _ _ (ExpValue _ _ (ValVariable _ s)) _) _ <- statements pu ]
   idts <- mapM (queryIDType puName) lhsNames
   let filteredNames = map fst $ filter p $ zip lhsNames idts
   mapM_ (\n -> addConstructToMapping puName n CTFunction) filteredNames
@@ -166,13 +166,13 @@ inferFromDimensions :: Data a => TypeScope -> [ Statement a ] -> TypeMapping a (
 inferFromDimensions ts dimSts = do
   let decls = universeBi :: Data a => [Statement a] -> [Declarator a]
   let arrayExps = [ exp | DeclArray _ _ exp _ _ _ <- decls dimSts]
-  let arrayNames = [ s | ExpValue _ _ (ValArray _ s) <- arrayExps ]
+  let arrayNames = [ s | ExpValue _ _ (ValVariable _ s) <- arrayExps ]
   mapM_ (\n -> addConstructToMapping ts n CTArray) arrayNames
 
 inferFromParameters :: Data a => TypeScope -> [ Statement a ] -> TypeMapping a ()
 inferFromParameters ts paramSts = do
-  let values = universeBi :: Data a => [Statement a] -> [Value a]
-  let paramNames = [ s | (ValParameter s :: Value a) <- values paramSts ]
+  let values = universeBi :: Data a => [ Statement a ] -> [ Declarator a ]
+  let paramNames = [ n | DeclVariable _ _ (ExpValue _ _ (ValVariable _ n)) _ _ <- values paramSts ]
   mapM_ (\n -> addConstructToMapping ts n CTParameter) paramNames
 
 inferFromDeclarations :: Data a => TypeScope -> [ (TypeSpec a, [ Declarator a ]) ] -> TypeMapping a ()
@@ -190,7 +190,6 @@ inferFromDeclarations ts (((TypeSpec _ _ bt _), decls):ds) = do
         DeclVariable _ _ e _ _ -> addValueToMapping ts (expToId e) bt
       addDecls ds'
     expToId (ExpValue _ _ (ValVariable _ s)) = s
-    expToId (ExpValue _ _ (ValArray _ s)) = s
 
 --------------------------------------------------------------------------------
 -- Utility methods

@@ -1,4 +1,4 @@
-{-# LANGUAGE ScopedTypeVariables, DeriveDataTypeable #-}
+{-# LANGUAGE ScopedTypeVariables#-}
 
 -- |
 -- Analyse variables/function names and produce unique names that can
@@ -11,7 +11,7 @@ module Forpar.Analysis.Renaming
   ( analyseRenames, rename, extractNameMap, renameAndStrip, unrename, underRenaming, NameMap )
 where
 
-import Forpar.AST
+import Forpar.AST hiding (fromList)
 import Forpar.Util.Position
 import Forpar.Analysis
 import Forpar.Analysis.Types
@@ -72,7 +72,6 @@ rename pf = (extractNameMap pf, trPU fPU (trV fV pf))
     trV = transformBi
     fV :: Data a => Value (Analysis a) -> Value (Analysis a)
     fV (ValVariable a v) = ValVariable a $ fromMaybe v (uniqueName a)
-    fV (ValArray a v)    = ValArray a $ fromMaybe v (uniqueName a)
     fV x                 = x
 
     trPU :: Data a => (ProgramUnit a -> ProgramUnit a) -> ProgramFile a -> ProgramFile a
@@ -84,10 +83,9 @@ rename pf = (extractNameMap pf, trPU fPU (trV fV pf))
 -- | Create a map of unique name => original name for each variable
 -- and function in the program.
 extractNameMap :: Data a => ProgramFile (Analysis a) -> NameMap
-extractNameMap pf = vMap `union` aMap `union` puMap
+extractNameMap pf = vMap `union` puMap
   where
     vMap  = fromList [ (un, n) | ValVariable (Analysis { uniqueName = Just un }) n <- uniV pf ]
-    aMap  = fromList [ (un, n) | ValArray (Analysis { uniqueName = Just un }) n <- uniV pf ]
     puMap = fromList [ (un, n) | PUFunction (Analysis { uniqueName = Just un }) _ _ n _ _ <- uniPU pf ]
 
     uniV :: Data a => ProgramFile a -> [Value a]
@@ -107,7 +105,6 @@ unrename (nm, pf) = trPU fPU . trV fV $ pf
     trV = transformBi
     fV :: Data a => Value a -> Value a
     fV (ValVariable a v) = ValVariable a $ fromMaybe v (v `lookup` nm)
-    fV (ValArray a v)    = ValArray a $ fromMaybe v (v `lookup` nm)
     fV x                 = x
 
     trPU :: Data a => (ProgramUnit a -> ProgramUnit a) -> ProgramFile a -> ProgramFile a
@@ -128,7 +125,7 @@ underRenaming f pf = tryUnrename `descendBi` f pf'
 
 -- extract name from declaration
 declName (DeclVariable _ _ (ExpValue _ _ (ValVariable _ v)) _ _) = v
-declName (DeclArray _ _ (ExpValue _ _ (ValArray _ v)) _ _ _) = v
+declName (DeclArray _ _ (ExpValue _ _ (ValVariable _ v)) _ _ _) = v
 
 programUnit :: Data a => RenamerFunc (ProgramUnit (Analysis a))
 programUnit pu = do
@@ -186,7 +183,7 @@ programUnit pu = do
       uniS_PU = universeBi
 
   let f (DeclVariable _ _ (ExpValue _ _ (ValVariable (Analysis { uniqueName = Just un }) n)) _ _) = [(n, un)]
-      f (DeclArray _ _ (ExpValue _ _ (ValArray (Analysis { uniqueName = Just un }) n)) _ _ _)     = [(n, un)]
+      f (DeclArray _ _ (ExpValue _ _ (ValVariable (Analysis { uniqueName = Just un }) n)) _ _ _) = [(n, un)]
       f d = []
 
   pu''' <- case m_params of
@@ -196,7 +193,6 @@ programUnit pu = do
       -- for each parameter, apply the first rename found
       let params' = flip aMap params $ \ p -> case p of
                       ValVariable a n -> ValVariable (a { uniqueName = L.lookup n renames }) n
-                      ValArray a n    -> ValArray (a { uniqueName = L.lookup n renames }) n
       -- and put it back into its place
       return $ case pu'' of
         PUFunction a s t n params b -> PUFunction a s t n params' b
@@ -235,13 +231,9 @@ blstmtList bs = return bs
 
 value :: Data a => RenamerFunc (Value (Analysis a))
 value v@(ValVariable (Analysis { uniqueName = Just _ }) _) = return v
-value v@(ValArray (Analysis { uniqueName = Just _ }) _) = return v
 value (ValVariable a v) = do
   env <- gets (head . environ)
   return $ ValVariable (a { uniqueName = v `lookup` env }) v
-value (ValArray a v) = do
-  env <- gets (head . environ)
-  return $ ValArray (a { uniqueName = v `lookup` env }) v
 value v = return v
 
 --------------------------------------------------

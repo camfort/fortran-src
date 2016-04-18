@@ -95,7 +95,6 @@ genInOutAssignments pu exit
       where
         (vl, vr) = if exit then (v', v) else (v, v')
         v'       = case v of
-          ValArray a _    -> ValArray a (name i)
           ValVariable a _ -> ValVariable a (name i)
           _               -> error $ "unhandled genAssign case: " ++ show (fmap (const ()) v)
 
@@ -250,7 +249,6 @@ perBlock b@(BlStatement a s l (StCall a' s' cn@(ExpValue _ _ (ValSubroutineName 
     _                                -> return ()
   let name i   = n ++ "[" ++ show i ++ "]"
   let formal (ExpValue a s (ValVariable a' _)) i = ExpValue a s (ValVariable a' (name i))
-      formal (ExpValue a s (ValArray a' _)) i    = ExpValue a s (ValArray a' (name i))
       formal e i                                 = ExpValue a s (ValVariable a (name i))
         where a = getAnnotation e; s = getSpan e
   forM_ (zip (aStrip aexps) [1..]) $ \ (e, i) -> do

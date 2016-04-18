@@ -15,6 +15,7 @@ import Data.Char (toLower)
 import Data.Word (Word8)
 
 import Control.Monad (join)
+import Control.Monad.State (get)
 
 import GHC.Generics
 
@@ -116,7 +117,7 @@ tokens :-
 <0> "interface"                                   { addSpan TInterface }
 <0> "end"\ *"interface"                           { addSpan TEndInterface }
 <scN> "procedure" / { moduleStP }                 { addSpan TProcedure }
-<scN> "assignment" / { genericSpecP }             { addSpan TAssignment }
+<scN> "assignment"\ *"("\ *"="\ *")" / { genericSpecP } { addSpan TAssignment }
 <scN> "operator" / { genericSpecP }               { addSpan TOperator }
 <0,scI> "call"                                    { addSpan TCall }
 <0,scI> "return"                                  { addSpan TReturn }
@@ -232,11 +233,12 @@ tokens :-
 <scN> @logicalLiteral                             { addSpanAndMatch TLogicalLiteral }
 
 -- Operators
+<scN> ("."$letter+"."|"**"|\*|\/|\+|\-) / { opP } { addSpanAndMatch TOpCustom }
 <scN> "**"                                        { addSpan TOpExp }
 <scN> "+"                                         { addSpan TOpPlus }
 <scN> "-"                                         { addSpan TOpMinus }
 <scN> "*"                                         { addSpan TStar }
-<scN> "/"                                         { addSpan TSlash }
+<scN> "/"                                         { slashOrDivision }
 <scN> ".or."                                      { addSpan TOpOr }
 <scN> ".and."                                     { addSpan TOpAnd }
 <scN> ".not."                                     { addSpan TOpNot }
@@ -277,6 +279,11 @@ ifConditionEndP (User _ pc) _ _ ai
   where
     prevTokens = reverse . aiPreviousTokensInLine $ ai
 
+opP :: User -> AlexInput -> Int ->AlexInput -> Bool
+opP _ _ _ ai
+  | (TLeftPar{}:TOperator{}:_) <- aiPreviousTokensInLine ai = True
+  | otherwise = False
+
 partOfExpOrPointerAssignmentP :: User -> AlexInput -> Int -> AlexInput -> Bool
 partOfExpOrPointerAssignmentP (User fv _) _ _ ai =
     case unParse (lexer $ f False 0) ps of
@@ -287,7 +294,8 @@ partOfExpOrPointerAssignmentP (User fv _) _ _ ai =
       { psAlexInput = ai { aiStartCode = StartCode scN Return }
       , psVersion = fv
       , psFilename = "<unknown>"
-      , psParanthesesCount = ParanthesesCount 0 False }
+      , psParanthesesCount = ParanthesesCount 0 False
+      , psContext = [ ConStart ] }
     f leftParSeen parCount token
       | not leftParSeen =
         case token of
@@ -396,7 +404,8 @@ nextTokenConstr (User fv pc) ai =
       { psAlexInput = ai
       , psParanthesesCount = pc
       , psVersion = fv
-      , psFilename = "<unknown>" }
+      , psFilename = "<unknown>"
+      , psContext = [ ConStart ] }
 
 seenConstr :: Constr -> AlexInput -> Bool
 seenConstr candidateConstr ai =
@@ -407,6 +416,13 @@ fillConstr = toConstr . ($ undefined)
 --------------------------------------------------------------------------------
 -- Lexer helpers
 --------------------------------------------------------------------------------
+
+slashOrDivision :: LexAction (Maybe Token)
+slashOrDivision = do
+  context <- topContext
+  case context of
+    ConSlash -> addSpan TSlash
+    _ -> addSpan TOpDivision
 
 addSpan :: (SrcSpan -> Token) -> LexAction (Maybe Token)
 addSpan cons = do
@@ -677,9 +693,9 @@ advanceWithoutContinuation ai
     _position = aiPosition ai
 
 isContinuation :: AlexInput -> Bool
-isContinuation ai = 
+isContinuation ai =
     -- No continuation while lexing a character literal.
-    (scActual . aiStartCode) ai /= scC 
+    (scActual . aiStartCode) ai /= scC
     -- No continuation while lexing a comment.
     && (let lexeme = lexemeMatch . aiLexeme $ ai
        in null lexeme || last lexeme /= '!')
@@ -845,6 +861,7 @@ data Token =
   | TOpPlus             SrcSpan
   | TOpMinus            SrcSpan
   | TStar               SrcSpan
+  | TOpDivision         SrcSpan
   | TSlash              SrcSpan
   | TOpOr               SrcSpan
   | TOpAnd              SrcSpan
@@ -1014,7 +1031,8 @@ initParseState srcInput fortranVersion filename =
       { psAlexInput = undefined
       , psVersion = fortranVersion
       , psFilename = filename
-      , psParanthesesCount = ParanthesesCount 0 False }
+      , psParanthesesCount = ParanthesesCount 0 False
+      , psContext = [ ConStart ] }
 
 collectFreeTokens :: FortranVersion -> String -> [Token]
 collectFreeTokens version srcInput =

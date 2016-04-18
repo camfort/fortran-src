@@ -11,11 +11,13 @@ import Control.Monad.State.Lazy
 import Forpar.Util.Position
 
 vanillaParseState :: ParseState String
-vanillaParseState = ParseState 
+vanillaParseState = ParseState
   { psAlexInput = ""
   , psVersion = Fortran66
   , psFilename = "<unknown>"
-  , psParanthesesCount = ParanthesesCount 0 False }
+  , psParanthesesCount = ParanthesesCount 0 False
+  , psContext = [ ConStart ]
+  }
 
 instance Loc String where
   getPos = error "Never needed"
@@ -42,7 +44,9 @@ vanillaSomeInput = ParseState
   { psAlexInput = initSomeInput
   , psVersion = Fortran66
   , psFilename = "some.f"
-  , psParanthesesCount = ParanthesesCount 0 False }
+  , psParanthesesCount = ParanthesesCount 0 False
+  , psContext = [ ConStart ]
+  }
 
 spec :: Spec
 spec =
@@ -72,8 +76,8 @@ spec =
                 _loc1 <- getPosition
                 putAlex $ _ai { p = _loc2 }
                 getSrcSpan _loc1
-              _span = evalParse _exampleM vanillaSomeInput 
-              _expectation = SrcSpan initPos _loc2 in 
+              _span = evalParse _exampleM vanillaSomeInput
+              _expectation = SrcSpan initPos _loc2 in
             _span `shouldBe` _expectation
 
     describe "Lex" $ do

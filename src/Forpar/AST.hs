@@ -20,6 +20,8 @@ import Forpar.Util.SecondParameter
 
 import Debug.Trace
 
+type A0 = ()
+
 type Name = String
 
 -- AST is polymorphic on some type a as that type is used for arbitrary
@@ -30,6 +32,12 @@ type Name = String
 data AList t a = AList a SrcSpan [t a] deriving (Eq, Show, Data, Typeable, Generic)
 instance Functor t => Functor (AList t) where
   fmap f (AList a s xs) = AList (f a) s (map (fmap f) xs)
+
+fromList :: Spanned (t a) => a -> [ t a ] -> AList t a
+fromList a xs = AList a (getSpan xs) xs
+
+fromReverseList :: Spanned (t ()) => [ t () ] -> AList t ()
+fromReverseList = fromList () . reverse
 
 aCons :: t a -> AList t a -> AList t a
 aCons x (AList a s xs) = AList a s $ x:xs
@@ -42,7 +50,7 @@ aReverse (AList a s xs) = AList a s $ reverse xs
 aStrip :: AList t a -> [t a]
 aStrip (AList _ _ l) = l
 
-aMap :: (t a -> t a) -> AList t a -> AList t a
+aMap :: (t a -> r a) -> AList t a -> AList r a
 aMap f (AList a s xs) = AList a s (map f xs)
 
 -- Basic AST nodes
@@ -86,16 +94,24 @@ data Block a =
   deriving (Eq, Show, Data, Typeable, Generic, Functor)
 
 data Statement a  =
-    StExternal            a SrcSpan (AList Expression a)
-  | StIntrinsic           a SrcSpan (AList Expression a)
+    StDeclaration         a SrcSpan (TypeSpec a) (Maybe (AList Attribute a)) (AList Declarator a)
+  | StIntent              a SrcSpan Intent (AList Expression a)
+  | StOptional            a SrcSpan (AList Expression a)
+  | StPublic              a SrcSpan (Maybe (AList Expression a))
+  | StPrivate             a SrcSpan (Maybe (AList Expression a))
+  | StSave                a SrcSpan (Maybe (AList Expression a))
   | StDimension           a SrcSpan (AList Declarator a)
+  | StAllocatable         a SrcSpan (AList Declarator a)
+  | StPointer             a SrcSpan (AList Declarator a)
+  | StTarget              a SrcSpan (AList Declarator a)
+  | StData                a SrcSpan (AList DataGroup a)
+  | StParameter           a SrcSpan (AList Declarator a)
+  | StExternal            a SrcSpan (AList Expression a)
+  | StIntrinsic           a SrcSpan (AList Expression a)
   | StCommon              a SrcSpan (AList CommonGroup a)
   | StEquivalence         a SrcSpan (AList (AList Expression) a)
-  | StData                a SrcSpan (AList DataGroup a)
   | StFormat              a SrcSpan (AList FormatItem a)
-  | StDeclaration         a SrcSpan (TypeSpec a) (Maybe (AList Attribute a)) (AList Declarator a)
   | StImplicit            a SrcSpan (Maybe (AList ImpList a))
-  | StParameter           a SrcSpan (AList Statement a)
   | StEntry               a SrcSpan (Expression a) (Maybe (AList Expression a))
   | StDo                  a SrcSpan (Maybe (Expression a)) (DoSpecification a)
   | StDoWhile             a SrcSpan (Expression a)
@@ -114,7 +130,6 @@ data Statement a  =
   | StGotoComputed        a SrcSpan (AList Expression a) (Expression a)
   | StCall                a SrcSpan (Expression a) (Maybe (AList Expression a))
   | StReturn              a SrcSpan (Maybe (Expression a))
-  | StSave                a SrcSpan (AList Expression a)
   | StContinue            a SrcSpan
   | StStop                a SrcSpan (Maybe (Expression a))
   | StExit                a SrcSpan
@@ -190,11 +205,19 @@ data Expression a =
     ExpValue         a SrcSpan (Value a)
   | ExpBinary        a SrcSpan BinaryOp (Expression a) (Expression a)
   | ExpUnary         a SrcSpan UnaryOp (Expression a)
-  | ExpSubscript     a SrcSpan (Expression a) (AList Expression a)
-  | ExpSubstring     a SrcSpan (Expression a) (Maybe (Expression a)) (Maybe (Expression a))
+  | ExpSubscript     a SrcSpan (Expression a) (AList Index a)
+  | ExpDataRef       a SrcSpan (Expression a) (Expression a)
   | ExpFunctionCall  a SrcSpan (Expression a) (AList Expression a)
   | ExpImpliedDo     a SrcSpan (AList Expression a) (DoSpecification a)
   | ExpInitialisation  a SrcSpan (AList Expression a)
+  deriving (Eq, Show, Data, Typeable, Generic, Functor)
+
+data Index a =
+    IxSingle a SrcSpan (Expression a)
+  | IxRange a SrcSpan
+            (Maybe (Expression a)) -- Lower index
+            (Maybe (Expression a)) -- Upper index
+            (Maybe (Expression a)) -- Stride
   deriving (Eq, Show, Data, Typeable, Generic, Functor)
 
 -- All recursive Values
@@ -207,11 +230,14 @@ data Value a =
   | ValLabel             String
   | ValVariable          a Name
   | ValParameter         Name
-  | ValArray             a Name
   | ValLogical           String
   | ValFunctionName      Name
   | ValSubroutineName    Name
   | ValCommonName        Name
+  | ValOperator          String
+  | ValAssignment
+  | ValType              String
+  | ValNamelist          String
   | ValStar
   deriving (Eq, Show, Data, Typeable, Generic, Functor)
 
@@ -288,6 +314,7 @@ instance FirstParameter (CommonGroup a) a
 instance FirstParameter (DataGroup a) a
 instance FirstParameter (FormatItem a) a
 instance FirstParameter (Expression a) a
+instance FirstParameter (Index a) a
 instance FirstParameter (DoSpecification a) a
 instance FirstParameter (Declarator a) a
 instance FirstParameter (DimensionDeclarator a) a
@@ -306,6 +333,7 @@ instance SecondParameter (CommonGroup a) SrcSpan
 instance SecondParameter (DataGroup a) SrcSpan
 instance SecondParameter (FormatItem a) SrcSpan
 instance SecondParameter (Expression a) SrcSpan
+instance SecondParameter (Index a) SrcSpan
 instance SecondParameter (DoSpecification a) SrcSpan
 instance SecondParameter (Declarator a) SrcSpan
 instance SecondParameter (DimensionDeclarator a) SrcSpan
@@ -324,6 +352,7 @@ instance Annotated CommonGroup
 instance Annotated DataGroup
 instance Annotated FormatItem
 instance Annotated Expression
+instance Annotated Index
 instance Annotated DoSpecification
 instance Annotated Declarator
 instance Annotated DimensionDeclarator
@@ -342,6 +371,7 @@ instance Spanned (CommonGroup a)
 instance Spanned (DataGroup a)
 instance Spanned (FormatItem a)
 instance Spanned (Expression a)
+instance Spanned (Index a)
 instance Spanned (DoSpecification a)
 instance Spanned (Declarator a)
 instance Spanned (DimensionDeclarator a)
@@ -464,6 +494,7 @@ instance Out a => Out (CommonGroup a)
 instance Out a => Out (DataGroup a)
 instance Out a => Out (FormatItem a)
 instance Out a => Out (Expression a)
+instance Out a => Out (Index a)
 instance Out a => Out (DoSpecification a)
 instance Out a => Out (Value a)
 instance Out a => Out (TypeSpec a)

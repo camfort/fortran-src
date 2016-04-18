@@ -44,7 +44,8 @@ import Debug.Trace
   '+'                         { TOpPlus _ }
   '-'                         { TOpMinus _ }
   '*'                         { TStar _ }
-  '/'                         { TSlash _ }
+  '/'                         { TOpDivision _ }
+  slash                       { TSlash _ }
   or                          { TOpOr _ }
   and                         { TOpAnd _ }
   not                         { TOpNot _ }
@@ -176,6 +177,9 @@ import Debug.Trace
 -- Level 1
 %right DEFINED_UNARY
 
+-- Level 0
+%left '%'
+
 %%
 
 STATEMENT :: { Statement A0 }
@@ -186,27 +190,68 @@ OTHER_EXECUTABLE_STATEMENT :: { Statement A0 }
 : EXPRESSION_ASSIGNMENT_STATEMENT { $1 }
 
 EXPRESSION_ASSIGNMENT_STATEMENT :: { Statement A0 }
-: ELEMENT '=' EXPRESSION { StExpressionAssign () (getTransSpan $1 $3) $1 $3 }
-
-ELEMENT :: { Expression A0 } : VARIABLE { $1 } | SUBSCRIPT { $1 }
+: DATA_REF '=' EXPRESSION { StExpressionAssign () (getTransSpan $1 $3) $1 $3 }
 
 NONEXECUTABLE_STATEMENT :: { Statement A0 }
 : DECLARATION_STATEMENT { $1 }
+| intent '(' INTENT_CHOICE ')' MAYBE_DCOLON EXPRESSION_LIST
+  { let expAList = fromReverseList $6
+    in StIntent () (getTransSpan $1 expAList) $3 expAList }
+| optional MAYBE_DCOLON EXPRESSION_LIST
+  { let expAList = fromReverseList $3
+    in StOptional () (getTransSpan $1 expAList) expAList }
+| public MAYBE_DCOLON EXPRESSION_LIST
+  { let expAList = fromReverseList $3
+    in StPublic () (getTransSpan $1 expAList) (Just expAList) }
+| public { StPublic () (getSpan $1) Nothing }
+| private MAYBE_DCOLON EXPRESSION_LIST
+  { let expAList = fromReverseList $3
+    in StPrivate () (getTransSpan $1 expAList) (Just expAList) }
+| private { StPrivate () (getSpan $1) Nothing }
+| save MAYBE_DCOLON SAVE_ARGS
+  { let saveAList = (fromReverseList $3)
+    in StSave () (getTransSpan $1 saveAList) (Just saveAList) }
+| save { StSave () (getSpan $1) Nothing }
+| dimension MAYBE_DCOLON DECLARATOR_LIST
+  { let declAList = fromReverseList $3
+    in StDimension () (getTransSpan $1 declAList) declAList }
+| allocatable MAYBE_DCOLON DECLARATOR_LIST
+  { let declAList = fromReverseList $3
+    in StAllocatable () (getTransSpan $1 declAList) declAList }
+| pointer MAYBE_DCOLON DECLARATOR_LIST
+  { let declAList = fromReverseList $3
+    in StPointer () (getTransSpan $1 declAList) declAList }
+| target MAYBE_DCOLON DECLARATOR_LIST
+  { let declAList = fromReverseList $3
+    in StTarget () (getTransSpan $1 declAList) declAList }
+| data cSLASH DATA_GROUPS cPOP
+  { let dataAList = fromReverseList $3
+    in StData () (getTransSpan $1 dataAList) dataAList }
+| parameter '(' PARAMETER_ASSIGNMENTS ')'
+  { let declAList = fromReverseList $3
+    in StParameter () (getTransSpan $1 $4) declAList }
+
+cSLASH :: { () } : {% pushContext ConSlash }
+cPOP :: { () } : {% popContext }
+
+MAYBE_DCOLON :: { () } : '::' { () } | {- EMPTY -} { () }
+
+PARAMETER_ASSIGNMENTS :: { [ Declarator A0 ] }
+: PARAMETER_ASSIGNMENTS ',' PARAMETER_ASSIGNMENT { $3 : $1 }
+| PARAMETER_ASSIGNMENT { [ $1 ] }
+
+PARAMETER_ASSIGNMENT :: { Declarator A0 }
+: VARIABLE '=' EXPRESSION
+  { DeclVariable () (getTransSpan $1 $3) $1 Nothing (Just $3) }
 
 DECLARATION_STATEMENT :: { Statement A0 }
 : TYPE_SPEC ATTRIBUTE_LIST '::' DECLARATOR_LIST
-  { let { attrList = reverse $2;
-          mAttrAList =
-            if null attrList
-              then Nothing
-              else Just $ AList () (getSpan attrList) attrList;
-          declList = reverse $4;
-          declAList = AList () (getSpan declList) declList }
-    in StDeclaration () (getTransSpan $1 $4) $1 mAttrAList declAList }
+  { let { mAttrAList = if null $2 then Nothing else Just $ fromReverseList $2;
+          declAList = fromReverseList $4 }
+    in StDeclaration () (getTransSpan $1 declAList) $1 mAttrAList declAList }
 | TYPE_SPEC DECLARATOR_LIST
-  { let { declList = reverse $2;
-          declAList = AList () (getSpan declList) declList }
-    in StDeclaration () (getTransSpan $1 $2) $1 Nothing declAList }
+  { let { declAList = fromReverseList $2 }
+    in StDeclaration () (getTransSpan $1 declAList) $1 Nothing declAList }
 
 ATTRIBUTE_LIST :: { [ Attribute A0 ] }
 : ATTRIBUTE_LIST ',' ATTRIBUTE_SPEC { $3 : $1 }
@@ -228,6 +273,35 @@ ATTRIBUTE_SPEC :: { Attribute A0 }
 | target { AttrTarget () (getSpan $1) }
 
 INTENT_CHOICE :: { Intent } : in { In } | out { Out } | inout { InOut }
+
+DATA_GROUPS :: { [ DataGroup A0 ] }
+: DATA_GROUPS MAYBE_COMMA NAME_LIST slash EXPRESSION_LIST slash
+  { let { nameAList = fromReverseList $3;
+          dataAList = fromReverseList $5 }
+    in DataGroup () (getTransSpan nameAList $6) nameAList dataAList : $1 }
+| NAME_LIST slash EXPRESSION_LIST slash
+  { let { nameAList = fromReverseList $1;
+          dataAList = fromReverseList $3 }
+    in [ DataGroup () (getTransSpan nameAList $4) nameAList dataAList ] }
+
+MAYBE_COMMA :: { () } : ',' { () } | {- EMPTY -} { () }
+
+NAME_LIST :: { [ Expression A0 ] }
+: NAME_LIST ',' NAME_LIST_ELEMENT { $3 : $1 }
+| NAME_LIST_ELEMENT { [ $1 ] }
+
+NAME_LIST_ELEMENT :: { Expression A0 }
+: DATA_REF { $1 } | IMPLIED_DO { $1 }
+
+SAVE_ARGS :: { [ Expression A0 ] }
+: SAVE_ARGS ',' SAVE_ARG { $3 : $1 } | SAVE_ARG { [ $1 ] }
+
+SAVE_ARG :: { Expression A0 } : COMMON_NAME { $1 } | VARIABLE { $1 }
+
+COMMON_NAME :: { Expression A0 }
+: '/' id '/'
+  { let (TId _ cn) = $2 in
+    ExpValue () (getTransSpan $1 $3) (ValCommonName cn) }
 
 DECLARATOR_LIST :: { [ Declarator A0 ] }
 : DECLARATOR_LIST ',' INITIALISED_DECLARATOR { $3 : $1 }
@@ -351,50 +425,50 @@ EXPRESSION :: { Expression A0 }
   { ExpValue () (getTransSpan $1 $5) (ValComplex $2 $4) }
 | LOGICAL_LITERAL                   { $1 }
 | STRING                            { $1 }
-| SUBSCRIPT                         { $1 }
-| SUBSTRING                         { $1 }
-| VARIABLE                          { $1 }
+| DATA_REF                          { $1 }
 | IMPLIED_DO                        { $1 }
-| '(/' EXPRESSION_LIST '/)' {
-    let { exps = reverse $2;
-          expList = AList () (getSpan exps) exps }
-    in ExpInitialisation () (getTransSpan $1 $3) expList
-          }
+| '(/' EXPRESSION_LIST '/)'
+  { ExpInitialisation () (getTransSpan $1 $3) (fromReverseList $2) }
+| operator '(' opCustom ')'
+  { let TOpCustom _ op = $3
+    in ExpValue () (getTransSpan $1 $4) (ValOperator op) }
+| assignment { ExpValue () (getSpan $1) ValAssignment }
+
+DATA_REF :: { Expression A0 }
+: DATA_REF '%' PART_REF { ExpDataRef () (getTransSpan $1 $3) $1 $3 }
+| PART_REF { $1 }
+
+PART_REF :: { Expression A0 }
+: VARIABLE { $1 }
+| VARIABLE '(' INDICIES ')'
+  { ExpSubscript () (getTransSpan $1 $4) $1 (fromReverseList $3) }
+| VARIABLE '(' INDICIES ')' '(' INDICIES ')'
+  { let innerSub = ExpSubscript () (getTransSpan $1 $4) $1 (fromReverseList $3)
+    in ExpSubscript () (getTransSpan $1 $7) innerSub (fromReverseList $6) }
+
+INDICIES :: { [ Index A0 ] }
+: INDICIES ',' INDEX { $3 : $1 }
+| INDEX { [ $1 ] }
+
+INDEX :: { Index A0 }
+: RANGE { $1 }
+| RANGE ':' EXPRESSION
+  { let IxRange () s lower upper _ = $1
+    in IxRange () (getTransSpan s $3) lower upper (Just $3) }
+| EXPRESSION { IxSingle () (getSpan $1) $1 }
+
+RANGE :: { Index A0 }
+: ':' { IxRange () (getSpan $1) Nothing Nothing Nothing }
+| ':' EXPRESSION { IxRange () (getTransSpan $1 $2) Nothing (Just $2) Nothing }
+| EXPRESSION ':' { IxRange () (getTransSpan $1 $2) (Just $1) Nothing Nothing }
+| EXPRESSION ':' EXPRESSION
+  { IxRange () (getTransSpan $1 $3) (Just $1) (Just $3) Nothing }
 
 DO_SPECIFICATION :: { DoSpecification A0 }
 : EXPRESSION_ASSIGNMENT_STATEMENT ',' EXPRESSION ',' EXPRESSION
   { DoSpecification () (getTransSpan $1 $5) $1 $3 (Just $5) }
 | EXPRESSION_ASSIGNMENT_STATEMENT ',' EXPRESSION
   { DoSpecification () (getTransSpan $1 $3) $1 $3 Nothing }
-
-SUBSTRING :: { Expression A0 }
-: SUBSCRIPT '(' EXPRESSION ':' EXPRESSION ')'
-  { ExpSubstring () (getTransSpan $1 $6) $1 (Just $3) (Just $5) }
-| SUBSCRIPT '(' ':' EXPRESSION ')'
-  { ExpSubstring () (getTransSpan $1 $5) $1 Nothing (Just $4) }
-| SUBSCRIPT '(' EXPRESSION ':' ')'
-  { ExpSubstring () (getTransSpan $1 $5) $1 (Just $3) Nothing }
-| SUBSCRIPT '(' ':' ')'
-  { ExpSubstring () (getTransSpan $1 $4) $1 Nothing Nothing }
-| ARRAY '(' EXPRESSION ':' EXPRESSION ')'
-  { ExpSubstring () (getTransSpan $1 $6) $1 (Just $3) (Just $5) }
-| ARRAY '(' ':' EXPRESSION ')'
-  { ExpSubstring () (getTransSpan $1 $5) $1 Nothing (Just $4) }
-| ARRAY '(' EXPRESSION ':' ')'
-  { ExpSubstring () (getTransSpan $1 $5) $1 (Just $3) Nothing }
-| ARRAY '(' ':' ')'
-  { ExpSubstring () (getTransSpan $1 $4) $1 Nothing Nothing }
-
-SUBSCRIPT :: { Expression A0 }
-: ARRAY INDICIES { ExpSubscript () (getTransSpan $1 $2) $1 $2 }
-
-INDICIES :: { AList Expression A0 }
-: INDICIES_L1 ')' { setSpan (getTransSpan $1 $2) $ aReverse $1 }
-
-INDICIES_L1 :: { AList Expression A0  }
-: INDICIES_L1 ',' EXPRESSION { setSpan (getTransSpan $1 $3) $ $3 `aCons` $1 }
-| '(' EXPRESSION { AList () (getTransSpan $1 $2) [ $2 ] }
-| '(' { AList () (getSpan $1) [ ] }
 
 IMPLIED_DO :: { Expression A0 }
 : '(' EXPRESSION ',' DO_SPECIFICATION ')'
@@ -427,9 +501,6 @@ RELATIONAL_OPERATOR :: { BinaryOp }
 VARIABLE :: { Expression A0 }
 : id { ExpValue () (getSpan $1) $ let (TId _ s) = $1 in ValVariable () s }
 
-ARRAY :: { Expression A0 }
-: id { ExpValue () (getSpan $1) $ let (TId _ s) = $1 in ValArray () s }
-
 NUMERIC_LITERAL :: { Expression A0 }
 : INTEGER_LITERAL { $1 } | REAL_LITERAL { $1 }
 
@@ -447,8 +518,6 @@ STRING :: { Expression A0 }
 : string { let TString s c = $1 in ExpValue () s $ ValString c }
 
 {
-
-type A0 = ()
 
 parseError :: Token -> LexAction a
 parseError _ = fail "Parsing failed."

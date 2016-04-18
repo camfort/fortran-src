@@ -215,7 +215,7 @@ READ_WRITE_ARGUMENTS
 -- Not my terminology a VAR or an INT (probably positive) is defined as UNIT.
 UNIT :: { Expression A0 } : INTEGER_LITERAL { $1 } | VARIABLE { $1 }
 
-FORM :: { Expression A0 } : ARRAY { $1 } | LABEL_IN_STATEMENT { $1 }
+FORM :: { Expression A0 } : VARIABLE { $1 } | LABEL_IN_STATEMENT { $1 }
 
 IO_ELEMENTS :: { AList Expression A0 }
 IO_ELEMENTS
@@ -327,7 +327,7 @@ ARRAY_DECLARATORS
 
 ARRAY_DECLARATOR :: { Declarator A0 }
 ARRAY_DECLARATOR
-: ARRAY '(' DIMENSION_DECLARATORS ')' { DeclArray () (getTransSpan $1 $4) $1 (aReverse $3) Nothing Nothing }
+: VARIABLE '(' DIMENSION_DECLARATORS ')' { DeclArray () (getTransSpan $1 $4) $1 (aReverse $3) Nothing Nothing }
 
 DIMENSION_DECLARATORS :: { AList DimensionDeclarator A0 }
 DIMENSION_DECLARATORS
@@ -398,29 +398,14 @@ RELATIONAL_OPERATOR
 | '<='  { LTE }
 
 SUBSCRIPT :: { Expression A0 }
-SUBSCRIPT : ARRAY INDICIES { ExpSubscript () (getTransSpan $1 $2) $1 $2 }
+SUBSCRIPT
+: VARIABLE '(' INDICIES ')'
+  { ExpSubscript () (getTransSpan $1 $4) $1 (fromReverseList $3) }
 
-INDICIES :: { AList Expression A0 }
+INDICIES :: { [ Index A0 ] }
 INDICIES
-:  '(' INDICIES_LEVEL1 { setSpan (getTransSpan $1 $2) $2 }
-
-INDICIES_LEVEL1 :: { AList Expression A0  }
-INDICIES_LEVEL1
-: INDEX ',' INDICIES_LEVEL1 { setSpan (getTransSpan $1 $3) $ $1 `aCons` $3 }
-| INDEX ')' { AList () (getTransSpan $1 $2) [ $1 ] }
-| ')' { AList () (getSpan $1) [ ] }
-
-INDEX :: { Expression A0 }
-INDEX
-: INTEGER_LITERAL { $1 }
-| INDEX_LEVEL1 '+' INTEGER_LITERAL { ExpBinary () (getTransSpan $1 $3) Addition $1 $3 }
-| INDEX_LEVEL1 '-' INTEGER_LITERAL { ExpBinary () (getTransSpan $1 $3) Subtraction $1 $3 }
-| INDEX_LEVEL1 { $1 }
-
-INDEX_LEVEL1 :: { Expression A0 }
-INDEX_LEVEL1
-: INTEGER_LITERAL '*' VARIABLE { ExpBinary () (getTransSpan $1 $3) Multiplication $1 $3 }
-| VARIABLE { $1 }
+: INDICIES ',' EXPRESSION { IxSingle () (getSpan $3) $3 : $1 }
+| EXPRESSION { [ IxSingle () (getSpan $1) $1 ] }
 
 ARITHMETIC_SIGN :: { (SrcSpan, UnaryOp) }
 ARITHMETIC_SIGN
@@ -434,9 +419,6 @@ ARITHMETIC_SIGN
 VARIABLE :: { Expression A0 }
 VARIABLE
 : id { ExpValue () (getSpan $1) $ let (TId _ s) = $1 in ValVariable () s }
-
-ARRAY :: { Expression A0 }
-ARRAY : id { ExpValue () (getSpan $1) $ let (TId _ s) = $1 in ValArray () s }
 
 FUNCTION_NAME :: { Expression A0 }
 FUNCTION_NAME
@@ -513,8 +495,6 @@ TYPE_SPEC
 
 {
 
-type A0 = ()
-
 makeReal :: Maybe Token -> Maybe Token -> Maybe Token -> Maybe (SrcSpan, String) -> Expression A0
 makeReal i1 dot i2 exp =
   let span1   = getSpan (i1, dot, i2)
@@ -527,9 +507,17 @@ makeReal i1 dot i2 exp =
       expStr  = case exp of { Just (_, s) -> s ; _ -> "" } in
     ExpValue () span2 (ValReal $ i1Str ++ dotStr ++ i2Str ++ expStr)
 
+transformations66 =
+  [ GroupLabeledDo
+  , DisambiguateFunction
+  ]
+
 fortran66Parser :: String -> String -> ProgramFile A0
 fortran66Parser sourceCode filename =
-  transform [ GroupLabeledDo, DisambiguateFunction, DisambiguateArray ] $ evalParse programParser $ initParseState sourceCode Fortran66 filename
+    transform transformations66 $ parse parseState
+  where
+    parse = evalParse programParser
+    parseState = initParseState sourceCode Fortran66 filename
 
 parseError :: Token -> LexAction a
 parseError _ = fail "Parsing failed."

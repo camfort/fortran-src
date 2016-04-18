@@ -9,7 +9,7 @@ import Forpar.Lexer.FreeForm
 import Forpar.Parser.Fortran90
 
 eParser :: String -> Expression ()
-eParser sourceCode = 
+eParser sourceCode =
   case evalParse statementParser parseState of
     (StExpressionAssign _ _ _ e) -> e
   where
@@ -17,11 +17,11 @@ eParser sourceCode =
     parseState =  initParseState paddedSourceCode Fortran90 "<unknown>"
 
 sParser :: String -> Statement ()
-sParser sourceCode = 
+sParser sourceCode =
   evalParse statementParser $ initParseState sourceCode Fortran90 "<unknown>"
 
 spec :: Spec
-spec = 
+spec =
   describe "Fortran 90 Parser" $ do
     describe "Expression" $ do
       it "parses logial literals with kind" $ do
@@ -47,13 +47,28 @@ spec =
         it "parses mixed unary custom operator" $ do
           let binExp = ExpBinary () u binOp unExp (intGen 24)
           eParser ".inverse. 42 .xor. 24" `shouldBe'` binExp
+
+        it "parses data ref" $ do
+          let range = fromList () [ IxSingle () u $ intGen 10 ]
+          let sub = ExpSubscript () u (varGen "y") range
+          let innerRefExp = ExpDataRef () u (varGen "x") sub
+          let exp = ExpDataRef () u innerRefExp (varGen "z")
+          eParser "x % y(10) % z" `shouldBe'` exp
+
+        it "parses section subscript" $ do
+          let range = [ IxSingle () u $ intGen 10
+                      , IxRange () u Nothing (Just $ intGen 1) (Just $ intGen 2)
+                      , IxSingle () u $ varGen "y" ]
+          let exp = ExpSubscript () u (varGen "x") (fromList () range)
+          eParser "x (10, : 1 : 2, y)" `shouldBe'` exp
+
     describe "Statement" $ do
       it "parses declaration with attributes" $ do
         let typeSpec = TypeSpec () u TypeReal Nothing
         let attrs = AList () u [ AttrExternal () u
                                , AttrIntent () u Out
-                               , AttrDimension () u $ AList () u 
-                                  [ DimensionDeclarator () u 
+                               , AttrDimension () u $ AList () u
+                                  [ DimensionDeclarator () u
                                       (Just $ intGen 3) (intGen 10)
                                   ]
                                ]
@@ -98,3 +113,65 @@ spec =
         let expected = StDeclaration () u typeSpec Nothing declarators
         let stStr = "integer (hello) :: x"
         sParser stStr `shouldBe'` expected
+
+      it "parses intent statement" $ do
+        let stStr = "intent (inout) :: a"
+        let expected = StIntent () u InOut (fromList () [ varGen "a" ])
+        sParser stStr `shouldBe'` expected
+
+      it "parses optional statement" $ do
+        let stStr = "optional x"
+        let expected = StOptional () u (fromList () [ varGen "x" ])
+        sParser stStr `shouldBe'` expected
+
+      it "parses public statement" $ do
+        let stStr = "public :: x"
+        let expected = StPublic () u (Just $ fromList () [ varGen "x" ])
+        sParser stStr `shouldBe'` expected
+
+      it "parses public assignment" $ do
+        let expected = StPublic () u (Just $ fromList () [ assVal ])
+        sParser "public :: assignment (=)" `shouldBe'` expected
+
+      it "parses private statement" $
+        sParser "private" `shouldBe'` StPrivate () u Nothing
+
+      it "parses private operator" $ do
+        let expected = StPrivate () u (Just $ fromList () [ opGen "*" ])
+        sParser "private operator ( * )" `shouldBe'` expected
+
+      it "parses save statement" $ do
+        let list = [ comGen "hello", varGen "bye" ]
+        let expected = StSave () u (Just $ fromList () list)
+        let stStr = "save /hello/, bye"
+        sParser stStr `shouldBe'` expected
+
+      it "parses parameter statement" $ do
+        let ass1 = DeclVariable () u (varGen "x") Nothing (Just $ intGen 10)
+        let ass2 = DeclVariable () u (varGen "y") Nothing (Just $ intGen 20)
+        let expected = StParameter () u (fromList () [ ass1, ass2 ])
+        sParser "parameter (x = 10, y = 20)" `shouldBe'` expected
+
+      describe "Data" $ do
+        it "parses vanilla" $ do
+          let nlist = fromList () [ varGen "x", varGen "y" ]
+          let vlist = fromList () [ intGen 1, intGen 2 ]
+          let list = [ DataGroup () u nlist vlist ]
+          let expected = StData () u (fromList () list)
+          let stStr = "data x,y/1,2/"
+          sParser stStr `shouldBe'` expected
+
+        describe "Delimeter" $ do
+          let [ nlist1, vlist1 ] =
+                map (fromList () . return) [ varGen "x", intGen 1 ]
+          let [ nlist2, vlist2 ] =
+                map (fromList () . return) [ varGen "y", intGen 2 ]
+          let list = [ DataGroup () u nlist1 vlist1
+                     , DataGroup () u nlist2 vlist2 ]
+          let expected = StData () u (fromList () list)
+
+          it "parses comma delimited init groups" $
+            sParser "data x/1/, y/2/" `shouldBe'` expected
+
+          it "parses non-comma delimited init groups" $
+            sParser "data x/1/ y/2/" `shouldBe'` expected

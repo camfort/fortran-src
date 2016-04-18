@@ -32,14 +32,21 @@ data FortranVersion = Fortran66
 data ParanthesesCount = ParanthesesCount
   { pcActual :: Integer
   , pcHasReached0 :: Bool }
-  deriving (Eq)
+  deriving (Show, Eq)
+
+data Context =
+    ConStart
+  | ConSlash
+  deriving (Show)
 
 data ParseState a = ParseState
   { psAlexInput :: a
   , psParanthesesCount :: ParanthesesCount
   , psVersion :: FortranVersion  -- To differentiate lexing behaviour
   , psFilename :: String -- To save correct source location in AST
+  , psContext :: [ Context ]
   }
+  deriving (Show)
 
 data ParseError a b = ParseError
   { errPos        :: Position
@@ -119,6 +126,15 @@ getAlex :: (Loc a, LastToken a b, Show b) => Parse a b a
 getAlex = do
   s <- get
   return (psAlexInput s)
+
+topContext :: (Loc a, LastToken a b, Show b) => Parse a b Context
+topContext = head . psContext <$> get
+
+popContext :: (Loc a, LastToken a b, Show b) => Parse a b ()
+popContext = modify $ \ps -> ps { psContext = tail $ psContext ps }
+
+pushContext :: (Loc a, LastToken a b, Show b) => Context -> Parse a b ()
+pushContext context = modify $ \ps -> ps { psContext = context : psContext ps }
 
 getPosition :: (Loc a, LastToken a b, Show b) => Parse a b Position
 getPosition = do

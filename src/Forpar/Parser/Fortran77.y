@@ -224,7 +224,7 @@ EXECUTABLE_STATEMENT
 | call SUBROUTINE_NAME { StCall () (getTransSpan $1 $2) $2 Nothing }
 | return { StReturn () (getSpan $1) Nothing }
 | return EXPRESSION { StReturn () (getTransSpan $1 $2) $ Just $2 }
-| save SAVE_ARGS { StSave () (getSpan $1) $ aReverse $2 }
+| save SAVE_ARGS { StSave () (getSpan ($1, $2)) $2 }
 | continue { StContinue () $ getSpan $1 }
 | stop INTEGER_OR_STRING { StStop () (getTransSpan $1 $2) $ Just $2 }
 | stop { StStop () (getSpan $1) Nothing }
@@ -258,7 +258,6 @@ FORMAT_ID
 -- There should be FUNCTION_CALL here but as far as the parser is concerned it is same as SUBSCRIPT,
 -- hence putting it here would cause a reduce/reduce conflict.
 | SUBSCRIPT                     { $1 }
-| SUBSTRING                     { $1 }
 | VARIABLE                      { $1 }
 | '*' { ExpValue () (getSpan $1) ValStar }
 
@@ -266,7 +265,6 @@ UNIT :: { Expression A0 }
 UNIT
 : INTEGER_LITERAL { $1 }
 | VARIABLE { $1 }
-| SUBSTRING { $1 }
 | SUBSCRIPT { $1 }
 | '*' { ExpValue () (getSpan $1) ValStar }
 
@@ -329,7 +327,6 @@ CI_EXPRESSION
 -- There should be FUNCTION_CALL here but as far as the parser is concerned it is same as SUBSCRIPT,
 -- hence putting it here would cause a reduce/reduce conflict.
 | SUBSCRIPT                     { $1 }
-| SUBSTRING                     { $1 }
 | VARIABLE                      { $1 }
 
 -- Input IOList used in read like statements is much more restrictive as it
@@ -346,7 +343,6 @@ IN_IO_ELEMENT :: { Expression A0 }
 IN_IO_ELEMENT
 : VARIABLE { $1 }
 | SUBSCRIPT { $1 }
-| SUBSTRING { $1 }
 | '(' IN_IOLIST ',' DO_SPECIFICATION ')' { ExpImpliedDo () (getTransSpan $1 $5) (aReverse $2) $4 }
 
 OUT_IOLIST :: { AList Expression A0 }
@@ -354,15 +350,15 @@ OUT_IOLIST
 : OUT_IOLIST ',' EXPRESSION { setSpan (getTransSpan $1 $3) $ $3 `aCons` $1}
 | EXPRESSION { AList () (getSpan $1) [ $1 ] }
 
-SAVE_ARGS :: { AList Expression A0 }
+SAVE_ARGS :: { Maybe (AList Expression A0) }
 SAVE_ARGS
-: SAVE_ARGS_LEVEL1 { $1 }
-| {-EMPTY-} {% getPosition >>= \p -> return $ AList () (SrcSpan p p) [] }
+: SAVE_ARGS_LEVEL1 { Just $ fromReverseList $1 }
+| {-EMPTY-} { Nothing }
 
-SAVE_ARGS_LEVEL1 :: { AList Expression A0 }
+SAVE_ARGS_LEVEL1 :: { [ Expression A0 ] }
 SAVE_ARGS_LEVEL1
-: SAVE_ARGS_LEVEL1 ',' SAVE_ARG { setSpan (getTransSpan $1 $3) $ $3 `aCons` $1 }
-| SAVE_ARG { AList () (getSpan $1) [ $1 ] }
+: SAVE_ARGS_LEVEL1 ',' SAVE_ARG { $3 : $1 }
+| SAVE_ARG { [ $1 ] }
 
 SAVE_ARG :: { Expression A0 }
 SAVE_ARG : COMMON_NAME { $1 } | VARIABLE { $1 }
@@ -392,7 +388,8 @@ NONEXECUTABLE_STATEMENT
 | DECLARATION_STATEMENT { $1 }
 | implicit none { StImplicit () (getTransSpan $1 $2) Nothing }
 | implicit IMP_LISTS { StImplicit () (getTransSpan $1 $2) $ Just $ aReverse $2 }
-| parameter '(' PARAMETER_ASSIGNMENTS ')' { StParameter () (getTransSpan $1 $4) $ aReverse $3 }
+| parameter '(' PARAMETER_ASSIGNMENTS ')'
+  { StParameter () (getTransSpan $1 $4) $ fromReverseList $3 }
 | entry FUNCTION_NAME { StEntry () (getTransSpan $1 $2) $2 Nothing }
 | entry FUNCTION_NAME ENTRY_ARGS { StEntry () (getTransSpan $1 $3) $2 $ Just $3 }
 
@@ -411,14 +408,15 @@ ENTRY_ARG
 : VARIABLE { $1 }
 | '*' { ExpValue () (getSpan $1) ValStar }
 
-PARAMETER_ASSIGNMENTS :: { AList Statement A0 }
+PARAMETER_ASSIGNMENTS :: { [ Declarator A0 ] }
 PARAMETER_ASSIGNMENTS
-: PARAMETER_ASSIGNMENTS ',' PARAMETER_ASSIGNMENT { setSpan (getTransSpan $1 $3) $ $3 `aCons` $1 }
-| PARAMETER_ASSIGNMENT { AList () (getSpan $1) [ $1 ] }
+: PARAMETER_ASSIGNMENTS ',' PARAMETER_ASSIGNMENT { $3 : $1 }
+| PARAMETER_ASSIGNMENT { [ $1 ] }
 
-PARAMETER_ASSIGNMENT :: { Statement A0 }
+PARAMETER_ASSIGNMENT :: { Declarator A0 }
 PARAMETER_ASSIGNMENT
-: PARAMETER '=' CONSTANT_EXPRESSION { StExpressionAssign () (getTransSpan $1 $3) $1 $3 }
+: VARIABLE '=' CONSTANT_EXPRESSION
+  { DeclVariable () (getTransSpan $1 $3) $1 Nothing (Just $3) }
 
 DECLARATION_STATEMENT :: { Statement A0 }
 DECLARATION_STATEMENT
@@ -431,7 +429,7 @@ IMP_LISTS
 
 IMP_LIST :: { ImpList A0 }
 IMP_LIST
-: IMP_TYPE_SPEC '(' IMP_ELEMENTS ')' 
+: IMP_TYPE_SPEC '(' IMP_ELEMENTS ')'
   { ImpList () (getTransSpan $1 $4) $1 $ aReverse $3 }
 
 IMP_ELEMENTS :: { AList ImpElement A0 }
@@ -528,10 +526,9 @@ COMMON_NAME : '/' id '/' { let (TId _ cn) = $2 in ExpValue () (getTransSpan $1 $
 
 NAME_LIST :: { AList Expression A0 }
 NAME_LIST
-: NAME_LIST ',' NAME_LIST_ELEMENT { setSpan (getTransSpan $1 $3) $ $3 `aCons` $1 }
-| NAME_LIST_ELEMENT { AList () (getSpan $1) [ $1 ] }
-
-NAME_LIST_ELEMENT :: { Expression A0 } : VARIABLE { $1 } | SUBSTRING { $1 } | SUBSCRIPT { $1 }
+: NAME_LIST ',' ELEMENT
+  { setSpan (getTransSpan $1 $3) $ $3 `aCons` $1 }
+| ELEMENT { AList () (getSpan $1) [ $1 ] }
 
 DECLARATORS :: { AList Declarator A0 }
 DECLARATORS
@@ -551,7 +548,7 @@ ARRAY_DECLARATORS
 
 ARRAY_DECLARATOR :: { Declarator A0 }
 ARRAY_DECLARATOR
-: ARRAY '(' DIMENSION_DECLARATORS ')'
+: VARIABLE '(' DIMENSION_DECLARATORS ')'
   { DeclArray () (getTransSpan $1 $4) $1 (aReverse $3) Nothing Nothing }
 
 VARIABLE_DECLARATOR :: { Declarator A0 }
@@ -618,7 +615,6 @@ EXPRESSION
 -- There should be FUNCTION_CALL here but as far as the parser is concerned it is same as SUBSCRIPT,
 -- hence putting it here would cause a reduce/reduce conflict.
 | SUBSCRIPT                         { $1 }
-| SUBSTRING                         { $1 }
 | VARIABLE                          { $1 }
 | IMPLIED_DO                        { $1 }
 | '(/' EXPRESSION_LIST '/)' {
@@ -668,7 +664,7 @@ CONSTANT_EXPRESSION
 | '(' CONSTANT_EXPRESSION ',' CONSTANT_EXPRESSION ')' { ExpValue () (getTransSpan $1 $5) (ValComplex $2 $4)}
 | LOGICAL_LITERAL               { $1 }
 | string                        { let (TString s cs) = $1 in ExpValue () s (ValString cs) }
-| PARAMETER                     { $1 }
+| VARIABLE                     { $1 }
 
 ARITHMETIC_CONSTANT_EXPRESSION :: { Expression A0 }
 ARITHMETIC_CONSTANT_EXPRESSION
@@ -681,10 +677,7 @@ ARITHMETIC_CONSTANT_EXPRESSION
 | '(' ARITHMETIC_CONSTANT_EXPRESSION ')' { setSpan (getTransSpan $1 $3) $2 }
 | NUMERIC_LITERAL               { $1 }
 | '(' ARITHMETIC_CONSTANT_EXPRESSION ',' ARITHMETIC_CONSTANT_EXPRESSION ')' { ExpValue () (getTransSpan $1 $5) (ValComplex $2 $4)}
-| PARAMETER                     { $1 }
-
-PARAMETER :: { Expression A0 }
-PARAMETER : id { let (TId s par) = $1 in ExpValue () s $ ValParameter par }
+| VARIABLE                     { $1 }
 
 RELATIONAL_OPERATOR :: { BinaryOp }
 RELATIONAL_OPERATOR
@@ -695,33 +688,28 @@ RELATIONAL_OPERATOR
 | '<'   { LT }
 | '<='  { LTE }
 
--- This combined with parsing of INDICIES is a completely evil beast, using
--- which we parse everything from array declarators to function statements.
--- It, however, is a necessary evil at this stage as nicely separating the
--- cases leads to conflicts.
-SUBSTRING :: { Expression A0 }
-SUBSTRING
-: SUBSCRIPT '(' EXPRESSION ':' EXPRESSION ')' { ExpSubstring () (getTransSpan $1 $6) $1 (Just $3) (Just $5) }
-| SUBSCRIPT '(' ':' EXPRESSION ')' { ExpSubstring () (getTransSpan $1 $5) $1 Nothing (Just $4) }
-| SUBSCRIPT '(' EXPRESSION ':' ')' { ExpSubstring () (getTransSpan $1 $5) $1 (Just $3) Nothing }
-| SUBSCRIPT '(' ':' ')' { ExpSubstring () (getTransSpan $1 $4) $1 Nothing Nothing }
-| ARRAY '(' EXPRESSION ':' EXPRESSION ')' { ExpSubstring () (getTransSpan $1 $6) $1 (Just $3) (Just $5) }
-| ARRAY '(' ':' EXPRESSION ')' { ExpSubstring () (getTransSpan $1 $5) $1 Nothing (Just $4) }
-| ARRAY '(' EXPRESSION ':' ')' { ExpSubstring () (getTransSpan $1 $5) $1 (Just $3) Nothing }
-| ARRAY '(' ':' ')' { ExpSubstring () (getTransSpan $1 $4) $1 Nothing Nothing }
-
 SUBSCRIPT :: { Expression A0 }
-SUBSCRIPT : ARRAY INDICIES { ExpSubscript () (getTransSpan $1 $2) $1 $2 }
+SUBSCRIPT
+: VARIABLE '(' INDICIES ')'
+  { ExpSubscript () (getTransSpan $1 $4) $1 (fromReverseList $3) }
+| VARIABLE '(' INDICIES ')' '(' INDICIES ')'
+  { let innerSub = ExpSubscript () (getTransSpan $1 $4) $1 (fromReverseList $3)
+    in ExpSubscript () (getTransSpan $1 $7) innerSub (fromReverseList $6) }
 
-INDICIES :: { AList Expression A0 }
-INDICIES
-: INDICIES_LEVEL1 ')' { setSpan (getTransSpan $1 $2) $ aReverse $1 }
+INDICIES :: { [ Index A0 ] }
+: INDICIES ',' INDEX { $3 : $1 }
+| INDEX { [ $1 ] }
 
-INDICIES_LEVEL1 :: { AList Expression A0  }
-INDICIES_LEVEL1
-: INDICIES_LEVEL1 ',' EXPRESSION { setSpan (getTransSpan $1 $3) $ $3 `aCons` $1 }
-| '(' EXPRESSION { AList () (getTransSpan $1 $2) [ $2 ] }
-| '(' { AList () (getSpan $1) [ ] }
+INDEX :: { Index A0 }
+: RANGE { $1 }
+| EXPRESSION { IxSingle () (getSpan $1) $1 }
+
+RANGE :: { Index A0 }
+: ':' { IxRange () (getSpan $1) Nothing Nothing Nothing }
+| ':' EXPRESSION { IxRange () (getTransSpan $1 $2) Nothing (Just $2) Nothing }
+| EXPRESSION ':' { IxRange () (getTransSpan $1 $2) (Just $1) Nothing Nothing }
+| EXPRESSION ':' EXPRESSION
+  { IxRange () (getTransSpan $1 $3) (Just $1) (Just $3) Nothing }
 
 ARITHMETIC_SIGN :: { (SrcSpan, UnaryOp) }
 ARITHMETIC_SIGN
@@ -735,9 +723,6 @@ ARITHMETIC_SIGN
 VARIABLE :: { Expression A0 }
 VARIABLE
 : id { ExpValue () (getSpan $1) $ let (TId _ s) = $1 in ValVariable () s }
-
-ARRAY :: { Expression A0 }
-ARRAY : id { ExpValue () (getSpan $1) $ let (TId _ s) = $1 in ValArray () s }
 
 FUNCTION_NAME :: { Expression A0 }
 FUNCTION_NAME
@@ -833,8 +818,6 @@ STAR : '*' { ExpValue () (getSpan $1) ValStar }
 
 {
 
-type A0 = ()
-
 makeReal :: Maybe Token -> Maybe Token -> Maybe Token -> Maybe (SrcSpan, String) -> Expression A0
 makeReal i1 dot i2 exp =
   let span1   = getSpan (i1, dot, i2)
@@ -847,13 +830,30 @@ makeReal i1 dot i2 exp =
       expStr  = case exp of { Just (_, s) -> s ; _ -> "" } in
     ExpValue () span2 (ValReal $ i1Str ++ dotStr ++ i2Str ++ expStr)
 
+parse = evalParse programParser
+
+transformations77 =
+  [ GroupLabeledDo
+  , GroupIf
+  , DisambiguateFunction
+  ]
 fortran77Parser :: String -> String -> ProgramFile A0
 fortran77Parser sourceCode filename =
-  transform [ GroupLabeledDo, GroupIf, DisambiguateFunction, DisambiguateArray ] $ evalParse programParser $ initParseState sourceCode Fortran77 filename
+    transform transformations77 $ parse parseState
+  where
+    parseState = initParseState sourceCode Fortran77Extended filename
 
+transformations77Extended =
+  [ GroupLabeledDo
+  , GroupDo
+  , GroupIf
+  , DisambiguateFunction
+  ]
 extended77Parser :: String -> String -> ProgramFile A0
 extended77Parser sourceCode filename =
-  transform [ GroupLabeledDo, GroupDo, GroupIf, DisambiguateFunction, DisambiguateArray ] $ evalParse programParser $ initParseState sourceCode Fortran77Extended filename
+    transform transformations77Extended $ parse parseState
+  where
+    parseState = initParseState sourceCode Fortran77Extended filename
 
 parseError :: Token -> LexAction a
 parseError _ = fail "Parsing failed."
