@@ -3,7 +3,7 @@
 {-# LANGUAGE FlexibleContexts, PatternGuards #-}
 module Forpar.Analysis.BBlocks
   ( analyseBBlocks, genBBlockMap, showBBGr, showAnalysedBBGr, showBBlocks, bbgrToDOT
-  , BBlockMap, genSuperBBGr )
+  , BBlockMap, genSuperBBGr, SuperBBGr, showSuperBBGr, superBBGrToDOT )
 where
 
 import Data.Generics.Uniplate.Data
@@ -16,6 +16,7 @@ import Text.PrettyPrint.GenericPretty (pretty, Out)
 import Forpar.Analysis
 import Forpar.AST
 import Forpar.Util.Position
+import qualified Data.IntSet as IS
 import qualified Data.Map as M
 import qualified Data.IntMap as IM
 import Data.Graph.Inductive
@@ -401,10 +402,11 @@ processFunctionCall e = return e
 
 --------------------------------------------------
 -- Supergraph: all program units in one basic-block graph
--- FIXME: handle functions
 
-genSuperBBGr :: BBlockMap a -> BBGr a
-genSuperBBGr bbm = superGraph'
+data SuperBBGr a = SuperBBGr { graph :: BBGr a, clusters :: IM.IntMap ProgramUnitName }
+
+genSuperBBGr :: BBlockMap a -> SuperBBGr a
+genSuperBBGr bbm = SuperBBGr { graph = superGraph', clusters = cmap }
   where
     -- [((PUName, Node), [Block a])]
     namedNodes = [ ((name, n), bs) | (name, gr) <- M.toList bbm, (n, bs) <- labNodes gr ]
@@ -434,6 +436,7 @@ genSuperBBGr bbm = superGraph'
                          , let nEn = fromJust (M.lookup (Named sub) entryMap)
                          , let nEx = fromJust (M.lookup (Named sub) exitMap) ]
     superGraph' = insEdges stCallEdges . delNodes (map fst stCalls) $ superGraph
+    cmap = IM.fromList [ (n, name) | ((name, _), n) <- M.toList superNodeMap ]
 
 --------------------------------------------------
 
@@ -445,10 +448,15 @@ showBBGr gr = execWriter . forM (labNodes gr) $ \ (n, bs) -> do
   tell $ "\n" ++ replicate (length b) '-' ++ "\n"
   tell (((++"\n") . pretty) =<< bs)
 
+-- | Show a basic block graph without the clutter
 showAnalysedBBGr :: (Out a, Show a) => BBGr (Analysis a) -> String
 showAnalysedBBGr = showBBGr . nmap strip
   where
     strip = map (fmap insLabel)
+
+-- | Show a basic block supergraph
+showSuperBBGr :: (Out a, Show a) => SuperBBGr (Analysis a) -> String
+showSuperBBGr = showAnalysedBBGr . graph
 
 -- | Pick out and show the basic block graphs in the program file analysis.
 showBBlocks :: (Out a, Show a) => ProgramFile (Analysis a) -> String
@@ -463,16 +471,37 @@ showBBlocks (ProgramFile cm_pus _) = (perPU . snd) =<< cm_pus
 
 -- | Output a graph in the GraphViz DOT format
 bbgrToDOT :: BBGr a -> String
-bbgrToDOT gr = execWriter $ do
+bbgrToDOT = bbgrToDOT' IM.empty
+
+-- | Output a supergraph in the GraphViz DOT format
+superBBGrToDOT :: SuperBBGr a -> String
+superBBGrToDOT sgr = bbgrToDOT' (clusters sgr) (graph sgr)
+
+-- shared code for DOT output
+bbgrToDOT' :: IM.IntMap ProgramUnitName -> BBGr a -> String
+bbgrToDOT' clusters gr = execWriter $ do
   tell "strict digraph {\n"
   tell "node [shape=box,fontname=\"Courier New\"]\n"
-  forM (labNodes gr) $ \ (n, bs) -> do
+  let entryNodes = filter (\ n -> null (pre gr n)) (nodes gr)
+  let nodes = bfsn entryNodes gr
+  forM nodes $ \ n -> do
+    let Just bs = lab gr n
+    let mname = IM.lookup n clusters
+    case mname of Just name -> do tell $ "subgraph \"cluster " ++ showPUName name ++ "\" {\n"
+                                  tell $ "label=\"" ++ showPUName name ++ "\"\n"
+                                  tell $ "fontname=\"Courier New\"\nfontsize=24\n"
+                  _         -> return ()
     tell $ "bb" ++ show n ++ "[label=\"" ++ show n ++ "\\l" ++ (concatMap showBlock bs) ++ "\"]\n"
     when (null bs) . tell $ "bb" ++ show n ++ "[shape=circle]"
     tell $ "bb" ++ show n ++ " -> {"
     forM (suc gr n) $ \ m -> tell (" bb" ++ show m)
     tell "}\n"
+    when (isJust mname) $ tell "}\n"
   tell "}\n"
+
+showPUName (Named n) = n
+showPUName (NamelessBlockData) = ".blockdata."
+showPUName (NamelessMain) = ".main."
 
 -- Some helper functions to output some pseudo-code for readability
 showBlock (BlStatement _ _ mlab st) | null str = "" | otherwise = showLab mlab ++ str ++ "\\l"

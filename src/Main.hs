@@ -17,7 +17,7 @@ import Forpar.Parser.Fortran66 (fortran66Parser)
 import Forpar.Parser.Fortran77 (fortran77Parser, extended77Parser)
 import Forpar.Analysis.Types (TypeScope(..), inferTypes, IDType(..))
 import Forpar.Analysis.BBlocks ( analyseBBlocks, showBBlocks, showAnalysedBBGr, bbgrToDOT
-                               , genBBlockMap, genSuperBBGr )
+                               , genBBlockMap, genSuperBBGr, showSuperBBGr, superBBGrToDOT )
 import Forpar.Analysis.DataFlow (showDataFlow)
 import Forpar.Analysis.Renaming (renameAndStrip, analyseRenames)
 import Forpar.Analysis (initAnalysis)
@@ -47,8 +47,8 @@ main = do
     let runRenamer = fst . renameAndStrip . analyseRenames . initAnalysis
     let runBBlocks pf = showBBlocks pf' ++ "\n\n" ++ showDataFlow pf'
           where pf' = analyseBBlocks (initAnalysis pf)
-    let runSuperGraph pf | outfmt == DOT = bbgrToDOT sgr
-                         | otherwise     = showAnalysedBBGr sgr
+    let runSuperGraph pf | outfmt == DOT = superBBGrToDOT sgr
+                         | otherwise     = showSuperBBGr sgr
           where pf' = analyseBBlocks (initAnalysis pf)
                 bbm = genBBlockMap pf'
                 sgr = genSuperBBGr bbm
