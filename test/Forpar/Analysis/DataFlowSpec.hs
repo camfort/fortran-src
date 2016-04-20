@@ -85,10 +85,7 @@ spec =
         let gr = fromJust . M.lookup (Named "f") $ genBBlockMap pf
         let bm = genBlockMap pf
         genDefMap bm `shouldBe`
-          M.fromList [ ("a",IS.fromList [6]),("b",IS.fromList [5])
-                     , ("f",IS.fromList [4]),("f[0]", IS.fromList [11])
-                     , ("f[1]",IS.fromList [12]),("i",IS.fromList [7])
-                     , ("x", IS.fromList [10]) ]
+          M.fromList [ ("_f_t#0",IS.fromList [2]),("a",IS.fromList [9]),("b",IS.fromList [8]),("f",IS.fromList [7]),("f[0]",IS.fromList [14]),("f[1]",IS.fromList [4,15]),("i",IS.fromList [10]),("x",IS.fromList [13]) ]
 
       it "reachingDefinitions" $ do
         let pf = pParser programRd3
@@ -96,7 +93,7 @@ spec =
         let bm = genBlockMap pf
         let dm = genDefMap bm
         IM.lookup 3 (reachingDefinitions dm gr) `shouldBe`
-          Just (IS.fromList [5,6,7,10], IS.fromList [5,6,7,10])
+          Just (IS.fromList [8,9,10,13], IS.fromList [8,9,10,13])
 
       it "flowsTo" $ do
         let pf = pParser programRd3
@@ -104,8 +101,7 @@ spec =
         let bm = genBlockMap pf
         let dm = genDefMap bm
         (S.fromList . edges . flowsTo bm dm gr $ reachingDefinitions dm gr) `shouldBe`
-          S.fromList [ (4,11),(5,4),(5,5),(5,6),(5,11),(6,4),(6,5),(6,6),(6,11)
-                     , (7,4),(7,5),(7,6),(7,11),(10,4),(10,5),(10,6),(10,11),(10,12) ]
+          S.fromList [(7,14),(8,7),(8,8),(8,9),(8,14),(9,7),(9,8),(9,9),(9,14),(10,7),(10,8),(10,9),(10,14),(13,7),(13,8),(13,9),(13,14),(13,15)]
 
 programLoop4 = unlines [
       "      program loop4"
