@@ -2,7 +2,8 @@
 
 {-# LANGUAGE FlexibleContexts, PatternGuards #-}
 module Forpar.Analysis.BBlocks
-  ( analyseBBlocks, genBBlockMap, showBBGr, showAnalysedBBGr, showBBlocks, BBlockMap, genSuperBBGr )
+  ( analyseBBlocks, genBBlockMap, showBBGr, showAnalysedBBGr, showBBlocks, bbgrToDOT
+  , BBlockMap, genSuperBBGr )
 where
 
 import Data.Generics.Uniplate.Data
@@ -19,7 +20,7 @@ import qualified Data.Map as M
 import qualified Data.IntMap as IM
 import Data.Graph.Inductive
 import Data.Graph.Inductive.PatriciaTree (Gr)
-import Data.List (foldl')
+import Data.List (foldl', intercalate)
 import Data.Maybe
 
 --------------------------------------------------
@@ -438,12 +439,11 @@ genSuperBBGr bbm = superGraph'
 
 -- | Show a basic block graph in a somewhat decent way.
 showBBGr :: (Out a, Show a) => BBGr a -> String
-showBBGr gr = execWriter . forM ns $ \ (n, bs) -> do
-                let b = "BBLOCK " ++ show n ++ " -> " ++ show (map (\ (_, m, _) -> m) $ out gr n)
-                tell $ "\n\n" ++ b
-                tell $ "\n" ++ replicate (length b) '-' ++ "\n"
-                tell (((++"\n") . pretty) =<< bs)
-  where ns = labNodes gr
+showBBGr gr = execWriter . forM (labNodes gr) $ \ (n, bs) -> do
+  let b = "BBLOCK " ++ show n ++ " -> " ++ show (map (\ (_, m, _) -> m) $ out gr n)
+  tell $ "\n\n" ++ b
+  tell $ "\n" ++ replicate (length b) '-' ++ "\n"
+  tell (((++"\n") . pretty) =<< bs)
 
 showAnalysedBBGr :: (Out a, Show a) => BBGr (Analysis a) -> String
 showAnalysedBBGr = showBBGr . nmap strip
@@ -460,6 +460,77 @@ showBBlocks (ProgramFile cm_pus _) = (perPU . snd) =<< cm_pus
             dashes = replicate (length p) '-'
     perPU _ = ""
     strip = map (fmap insLabel)
+
+-- | Output a graph in the GraphViz DOT format
+bbgrToDOT :: BBGr a -> String
+bbgrToDOT gr = execWriter $ do
+  tell "strict digraph {\n"
+  tell "node [shape=box,fontname=\"Courier New\"]\n"
+  forM (labNodes gr) $ \ (n, bs) -> do
+    tell $ "bb" ++ show n ++ "[label=\"" ++ show n ++ "\\l" ++ (concatMap showBlock bs) ++ "\"]\n"
+    when (null bs) . tell $ "bb" ++ show n ++ "[shape=circle]"
+    tell $ "bb" ++ show n ++ " -> {"
+    forM (suc gr n) $ \ m -> tell (" bb" ++ show m)
+    tell "}\n"
+  tell "}\n"
+
+-- Some helper functions to output some pseudo-code for readability
+showBlock (BlStatement _ _ mlab st) | null str = "" | otherwise = showLab mlab ++ str ++ "\\l"
+  where
+    str =
+      case st of
+        StExpressionAssign _ _ e1 e2 -> showExpr e1 ++ " <- " ++ showExpr e2
+        StIfLogical _ _ e1 _         -> "if " ++ showExpr e1
+        StWrite _ _ _ (Just aexps)   -> "write " ++ aIntercalate ", " showExpr aexps
+        StCall _ _ cn _              -> "call " ++ showExpr cn
+        StDeclaration _ _ ty adecls  -> showType ty ++ " " ++ aIntercalate ", " showDecl adecls
+        StDimension _ _ adecls       -> "dimension " ++ aIntercalate ", " showDecl adecls
+        _                            -> ""
+showBlock (BlIf _ _ mlab (Just e1:_) _) = showLab mlab ++ "if " ++ showExpr e1 ++ "\\l"
+showBlock (BlDo _ _ mlab spec _) = showLab mlab ++ "do " ++ showExpr e1 ++ " <- " ++
+                                                            showExpr e2 ++ ", " ++
+                                                            showExpr e3 ++ ", " ++
+                                                            maybe "1" showExpr me4 ++ "\\l"
+  where DoSpecification _ _ (StExpressionAssign _ _ e1 e2) e3 me4 = spec
+showBlock _ = ""
+
+showLab Nothing = replicate 6 ' '
+showLab (Just (ExpValue _ _ (ValLabel l))) = ' ':l ++ replicate (5 - length l) ' '
+
+showValue (ValVariable _ v)     = v
+showValue (ValArray _ v)        = v
+showValue (ValInteger v)        = v
+showValue (ValSubroutineName n) = n
+showValue (ValFunctionName n)   = n
+showValue _                     = ""
+
+showExpr (ExpValue _ _ v)         = showValue v
+showExpr (ExpBinary _ _ op e1 e2) = "(" ++ showExpr e1 ++ showOp op ++ showExpr e2 ++ ")"
+showExpr (ExpSubscript _ _ e1 aexps) = showExpr e1 ++ "[" ++
+                                       aIntercalate ", " showExpr aexps ++ "]"
+showExpr _                        = ""
+
+showOp Addition = " + "
+showOp Multiplication = " * "
+showOp Subtraction = " - "
+showOp op = " ." ++ show op ++ ". "
+
+showType (TypeInteger _ _)         = "integer"
+showType (TypeReal _ _)            = "real"
+showType (TypeDoublePrecision _ _) = "double"
+showType (TypeComplex _ _)         = "complex"
+showType (TypeDoubleComplex _ _)   = "doublecomplex"
+showType (TypeLogical _ _)         = "logical"
+showType (TypeCharacter _ _ me)    = "character" ++ maybe "" ((' ':) . showExpr) me
+
+showDecl (DeclArray _ _ e adims) = showExpr e ++ "(" ++ aIntercalate "," showDim adims ++ ")"
+showDecl (DeclCharArray _ _ e1 adims me2) = showExpr e1 ++ "(" ++ aIntercalate "," showDim adims ++ ")"
+showDecl (DeclVariable _ _ e) = showExpr e
+showDecl (DeclCharVariable _ _ e1 me2) = showExpr e1
+
+showDim (DimensionDeclarator _ _ me1 e2) = maybe "" ((++":") . showExpr) me1 ++ showExpr e2
+
+aIntercalate sep f = intercalate sep . map f . aStrip
 
 --------------------------------------------------
 -- Some helper functions that really should be in fgl.

@@ -16,7 +16,8 @@ import qualified Forpar.Lexer.FreeForm as FreeForm (collectFreeTokens, Token(..)
 import Forpar.Parser.Fortran66 (fortran66Parser)
 import Forpar.Parser.Fortran77 (fortran77Parser, extended77Parser)
 import Forpar.Analysis.Types (TypeScope(..), inferTypes, IDType(..))
-import Forpar.Analysis.BBlocks (analyseBBlocks, showBBlocks, showAnalysedBBGr, genBBlockMap, genSuperBBGr)
+import Forpar.Analysis.BBlocks ( analyseBBlocks, showBBlocks, showAnalysedBBGr, bbgrToDOT
+                               , genBBlockMap, genSuperBBGr )
 import Forpar.Analysis.DataFlow (showDataFlow)
 import Forpar.Analysis.Renaming (renameAndStrip, analyseRenames)
 import Forpar.Analysis (initAnalysis)
@@ -41,6 +42,17 @@ main = do
                               [ (Fortran66, fortran66Parser)
                               , (Fortran77, fortran77Parser)
                               , (Fortran77Extended, extended77Parser) ]
+    let outfmt = outputFormat opts
+
+    let runRenamer = fst . renameAndStrip . analyseRenames . initAnalysis
+    let runBBlocks pf = showBBlocks pf' ++ "\n\n" ++ showDataFlow pf'
+          where pf' = analyseBBlocks (initAnalysis pf)
+    let runSuperGraph pf | outfmt == DOT = bbgrToDOT sgr
+                         | otherwise     = showAnalysedBBGr sgr
+          where pf' = analyseBBlocks (initAnalysis pf)
+                bbm = genBBlockMap pf'
+                sgr = genSuperBBGr bbm
+
     case action opts of
       Lex | version `elem` [ Fortran66, Fortran77, Fortran77Extended ] -> do
         print $ FixedForm.collectFixedTokens version contents
@@ -52,15 +64,6 @@ main = do
       Rename     -> pp . runRenamer $ parserF contents path
       BBlocks    -> putStrLn . runBBlocks $ parserF contents path
       SuperGraph -> putStrLn . runSuperGraph $ parserF contents path
-      where
-        runRenamer = fst . renameAndStrip . analyseRenames . initAnalysis
-        runBBlocks pf = showBBlocks pf' ++ "\n\n" ++ showDataFlow pf'
-          where pf' = analyseBBlocks (initAnalysis pf)
-        runSuperGraph pf = showAnalysedBBGr sgr
-          where pf' = analyseBBlocks (initAnalysis pf)
-                bbm = genBBlockMap pf'
-                sgr = genSuperBBGr bbm
-
 
 printTypes tenv = forM_ (M.toList tenv) $ \ (scope, tmap) -> do
   putStrLn $ "Scope: " ++ (case scope of Global -> "Global"; Local n -> show n)
@@ -78,11 +81,14 @@ instance Read Action where
         tryTypes ((attempt,result):xs) =
           if map toLower value == attempt then [(result, "")] else tryTypes xs
 
+data OutputFormat = Default | DOT deriving Eq
+
 data Options = Options
   { fortranVersion  :: Maybe FortranVersion
-  , action   :: Action }
+  , action          :: Action
+  , outputFormat    :: OutputFormat }
 
-initOptions = Options Nothing Parse
+initOptions = Options Nothing Parse Default
 
 options :: [OptDescr (Options -> Options)]
 options =
@@ -110,6 +116,10 @@ options =
       ["supergraph"]
       (NoArg $ \ opts -> opts { action = SuperGraph })
       "analyse super graph of basic blocks"
+  , Option []
+      ["dot"]
+      (NoArg $ \ opts -> opts { outputFormat = DOT })
+      "output graphs in GraphViz DOT format"
   ]
 
 compileArgs :: [ String ] -> IO (Options, [ String ])
