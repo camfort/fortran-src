@@ -2,8 +2,8 @@
 
 {-# LANGUAGE FlexibleContexts, PatternGuards #-}
 module Forpar.Analysis.BBlocks
-  ( analyseBBlocks, genBBlockMap, showBBGr, showAnalysedBBGr, showBBlocks, bbgrToDOT
-  , BBlockMap, genSuperBBGr, SuperBBGr, showSuperBBGr, superBBGrToDOT )
+  ( analyseBBlocks, genBBlockMap, showBBGr, showAnalysedBBGr, showBBlocks, bbgrToDOT, BBlockMap
+  , genSuperBBGr, SuperBBGr, showSuperBBGr, superBBGrToDOT, superBBGrGraph, superBBGrClusters )
 where
 
 import Data.Generics.Uniplate.Data
@@ -404,6 +404,14 @@ processFunctionCall e = return e
 -- Supergraph: all program units in one basic-block graph
 
 data SuperBBGr a = SuperBBGr { graph :: BBGr a, clusters :: IM.IntMap ProgramUnitName }
+
+-- | Extract graph from SuperBBGr
+superBBGrGraph :: SuperBBGr a -> BBGr a
+superBBGrGraph = graph
+
+-- | Extract cluster map from SuperBBGr
+superBBGrClusters :: SuperBBGr a -> IM.IntMap ProgramUnitName
+superBBGrClusters = clusters
 
 genSuperBBGr :: BBlockMap a -> SuperBBGr a
 genSuperBBGr bbm = SuperBBGr { graph = superGraph'', clusters = cmap }

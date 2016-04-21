@@ -16,12 +16,14 @@ import qualified Forpar.Lexer.FreeForm as FreeForm (collectFreeTokens, Token(..)
 import Forpar.Parser.Fortran66 (fortran66Parser)
 import Forpar.Parser.Fortran77 (fortran77Parser, extended77Parser)
 import Forpar.Analysis.Types (TypeScope(..), inferTypes, IDType(..))
-import Forpar.Analysis.BBlocks ( analyseBBlocks, showBBlocks, showAnalysedBBGr, bbgrToDOT
-                               , genBBlockMap, genSuperBBGr, showSuperBBGr, superBBGrToDOT )
-import Forpar.Analysis.DataFlow (showDataFlow)
+import Forpar.Analysis.BBlocks
+import Forpar.Analysis.DataFlow
 import Forpar.Analysis.Renaming (renameAndStrip, analyseRenames)
 import Forpar.Analysis (initAnalysis)
+import Data.Graph.Inductive hiding (trc)
+import Data.Graph.Inductive.PatriciaTree (Gr)
 
+import qualified Data.IntMap as IM
 import qualified Data.Map as M
 import Control.Monad
 import Text.Printf
@@ -48,7 +50,7 @@ main = do
     let runBBlocks pf = showBBlocks pf' ++ "\n\n" ++ showDataFlow pf'
           where pf' = analyseBBlocks (initAnalysis pf)
     let runSuperGraph pf | outfmt == DOT = superBBGrToDOT sgr
-                         | otherwise     = showSuperBBGr sgr
+                         | otherwise     = superGraphDataFlow pf' sgr
           where pf' = analyseBBlocks (initAnalysis pf)
                 bbm = genBBlockMap pf'
                 sgr = genSuperBBGr bbm
@@ -64,6 +66,37 @@ main = do
       Rename     -> pp . runRenamer $ parserF contents path
       BBlocks    -> putStrLn . runBBlocks $ parserF contents path
       SuperGraph -> putStrLn . runSuperGraph $ parserF contents path
+
+-- superGraphDataFlow :: ProgramFile (Analysis a) -> SuperBBGr a -> String
+superGraphDataFlow pf sgr = dfStr gr
+ where
+   gr = superBBGrGraph sgr
+   dfStr gr = (\ (l, x) -> '\n':l ++ ": " ++ x) =<< [
+                ("callMap",      show cm)
+              , ("postOrder",    show (postOrder gr))
+              , ("revPostOrder", show (revPostOrder gr))
+              , ("revPreOrder",  show (revPreOrder gr))
+              , ("dominators",   show (dominators gr))
+              , ("iDominators",  show (iDominators gr))
+              , ("defMap",       show dm)
+              , ("lva",          show (IM.toList $ lva gr))
+              , ("rd",           show (IM.toList $ rd gr))
+              , ("backEdges",    show bedges)
+              , ("topsort",      show (topsort gr))
+              , ("scc ",         show (scc gr))
+              , ("loopNodes",    show (loopNodes bedges gr))
+              , ("duMap",        show (genDUMap bm dm gr (rd gr)))
+              , ("udMap",        show (genUDMap bm dm gr (rd gr)))
+              , ("flowsTo",      show (edges $ flowsTo bm dm gr (rd gr)))
+              , ("varFlowsTo",   show (genVarFlowsToMap dm (flowsTo bm dm gr (rd gr))))
+              ] where
+                  bedges = genBackEdgeMap (dominators gr) gr
+   lva = liveVariableAnalysis
+   bm = genBlockMap pf
+   dm = genDefMap bm
+   rd = reachingDefinitions dm
+   cm = genCallMap pf
+
 
 printTypes tenv = forM_ (M.toList tenv) $ \ (scope, tmap) -> do
   putStrLn $ "Scope: " ++ (case scope of Global -> "Global"; Local n -> show n)

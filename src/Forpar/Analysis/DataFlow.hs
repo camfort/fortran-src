@@ -3,10 +3,10 @@
 {-# LANGUAGE FlexibleContexts, PatternGuards, ScopedTypeVariables, TupleSections #-}
 module Forpar.Analysis.DataFlow
   ( dominators, iDominators, DomMap, IDomMap
-  , postOrder, revPostOrder, OrderF
+  , postOrder, revPostOrder, preOrder, revPreOrder, OrderF
   , dataFlowSolver, showDataFlow, InOut, InOutMap, InF, OutF
   , liveVariableAnalysis, reachingDefinitions
-  , genUDMap, genDUMap, flowsTo, duMapToUdMap, UDMap, DUMap, FlowsGraph
+  , genUDMap, genDUMap, flowsTo, genVarFlowsToMap, duMapToUdMap, UDMap, DUMap, FlowsGraph, VarFlowsMap
   , genBlockMap, genDefMap, BlockMap, DefMap
   , genCallMap, CallMap
   , loopNodes, genBackEdgeMap, BackEdgeMap
