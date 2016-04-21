@@ -278,9 +278,12 @@ flowsTo bm dm gr = tc . mapToGraph bm . genDUMap bm dm gr
 
 type VarFlowsMap = M.Map Name (S.Set Name)
 genVarFlowsToMap :: Data a => DefMap -> FlowsGraph a -> VarFlowsMap
-genVarFlowsToMap dm fg = M.fromListWith S.union [ (conv u, S.singleton (conv v)) | (u, v) <- edges fg ]
+genVarFlowsToMap dm fg = M.fromListWith S.union [ (conv u, sconv v) | (u, v) <- edges fg ]
   where
-    conv = fromJust . flip IM.lookup revDM
+    sconv i | Just v  <- IM.lookup i revDM = S.singleton v
+            | otherwise                    = S.empty
+    conv i | Just v  <- IM.lookup i revDM = v
+           | otherwise                    = error $ "genVarFlowsToMap: convert failed, i=" ++ show i
     -- planning to make revDM a surjection, after I flatten-out Fortran functions
     revDM = IM.fromListWith (curry fst) [ (i, v) | (v, is) <- M.toList dm, i <- IS.toList is ]
 
