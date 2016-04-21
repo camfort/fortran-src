@@ -406,7 +406,7 @@ processFunctionCall e = return e
 data SuperBBGr a = SuperBBGr { graph :: BBGr a, clusters :: IM.IntMap ProgramUnitName }
 
 genSuperBBGr :: BBlockMap a -> SuperBBGr a
-genSuperBBGr bbm = SuperBBGr { graph = superGraph', clusters = cmap }
+genSuperBBGr bbm = SuperBBGr { graph = superGraph'', clusters = cmap }
   where
     -- [((PUName, Node), [Block a])]
     namedNodes = [ ((name, n), bs) | (name, gr) <- M.toList bbm, (n, bs) <- labNodes gr ]
@@ -436,7 +436,14 @@ genSuperBBGr bbm = SuperBBGr { graph = superGraph', clusters = cmap }
                          , let nEn = fromJust (M.lookup (Named sub) entryMap)
                          , let nEx = fromJust (M.lookup (Named sub) exitMap) ]
     superGraph' = insEdges stCallEdges . delNodes (map fst stCalls) $ superGraph
+    -- SuperNode -> PUName
     cmap = IM.fromList [ (n, name) | ((name, _), n) <- M.toList superNodeMap ]
+    -- SuperNode (possibly more than one, arbitrarily take first)
+    mainEntry:_ = [ n | (n, []) <- labNodes superGraph', null (pre superGraph' n) ]
+    -- Rename the main entry point to 0
+    superGraph'' = delNode mainEntry .
+                   insEdges [ (0, m, l) | (_, m, l) <- out superGraph' mainEntry ] .
+                   insNode (0, []) $ superGraph'
 
 --------------------------------------------------
 
