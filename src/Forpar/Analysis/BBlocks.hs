@@ -529,19 +529,27 @@ showLab (Just (ExpValue _ _ (ValLabel l))) = ' ':l ++ replicate (5 - length l) '
 showValue (ValVariable _ v)     = v
 showValue (ValArray _ v)        = v
 showValue (ValInteger v)        = v
+showValue (ValReal v)           = v
+showValue (ValComplex e1 e2)    = "( " ++ showExpr e1 ++ " , " ++ showExpr e2 ++ " )"
 showValue (ValSubroutineName n) = n
 showValue (ValFunctionName n)   = n
 showValue _                     = ""
 
 showExpr (ExpValue _ _ v)         = showValue v
 showExpr (ExpBinary _ _ op e1 e2) = "(" ++ showExpr e1 ++ showOp op ++ showExpr e2 ++ ")"
+showExpr (ExpUnary _ _ op e)      = "(" ++ showUOp op ++ showExpr e ++ ")"
 showExpr (ExpSubscript _ _ e1 aexps) = showExpr e1 ++ "[" ++
                                        aIntercalate ", " showExpr aexps ++ "]"
 showExpr _                        = ""
 
+showUOp Plus = "+"
+showUOp Minus = "-"
+showUOp Not = "!"
+
 showOp Addition = " + "
 showOp Multiplication = " * "
 showOp Subtraction = " - "
+showOp Division = " / "
 showOp op = " ." ++ show op ++ ". "
 
 showType (TypeInteger _ _)         = "integer"
