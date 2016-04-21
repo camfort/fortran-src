@@ -80,18 +80,20 @@ superGraphDataFlow pf sgr = dfStr gr
               , ("iDominators",  show (iDominators gr))
               , ("defMap",       show dm)
               , ("lva",          show (IM.toList $ lva gr))
-              , ("rd",           show (IM.toList $ rd gr))
+              , ("rd",           show (IM.toList rDefs))
               , ("backEdges",    show bedges)
               , ("topsort",      show (topsort gr))
               , ("scc ",         show (scc gr))
               , ("loopNodes",    show (loopNodes bedges gr))
-              , ("duMap",        show (genDUMap bm dm gr (rd gr)))
-              , ("udMap",        show (genUDMap bm dm gr (rd gr)))
-              , ("flowsTo",      show (edges $ flowsTo bm dm gr (rd gr)))
-              , ("varFlowsTo",   show (genVarFlowsToMap dm (flowsTo bm dm gr (rd gr))))
+              , ("duMap",        show (genDUMap bm dm gr rDefs))
+              , ("udMap",        show (genUDMap bm dm gr rDefs))
+              , ("flowsTo",      show (edges flTo))
+              , ("varFlowsTo",   show (genVarFlowsToMap dm flTo))
               , ("ivMap",        show (genInductionVarMap bedges gr))
               ] where
                   bedges = genBackEdgeMap (dominators gr) gr
+                  flTo   = genFlowsToGraph bm dm gr rDefs
+                  rDefs  = rd gr
    lva = liveVariableAnalysis
    bm = genBlockMap pf
    dm = genDefMap bm

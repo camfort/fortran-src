@@ -6,7 +6,9 @@ module Forpar.Analysis.DataFlow
   , postOrder, revPostOrder, preOrder, revPreOrder, OrderF
   , dataFlowSolver, showDataFlow, InOut, InOutMap, InF, OutF
   , liveVariableAnalysis, reachingDefinitions
-  , genUDMap, genDUMap, flowsTo, genVarFlowsToMap, duMapToUdMap, UDMap, DUMap, FlowsGraph, VarFlowsMap
+  , genUDMap, genDUMap, duMapToUdMap, UDMap, DUMap
+  , genFlowsToGraph, FlowsGraph
+  , genVarFlowsToMap, VarFlowsMap
   , genBlockMap, genDefMap, BlockMap, DefMap
   , genCallMap, CallMap
   , loopNodes, genBackEdgeMap, sccWith, BackEdgeMap
@@ -274,10 +276,17 @@ type FlowsGraph a = Gr (Block (Analysis a)) ()
 
 -- | "Flows-To" analysis. Compute the transitive closure of a def-use
 -- map and represent as a graph.
-flowsTo :: Data a => BlockMap a -> DefMap -> BBGr (Analysis a) -> InOutMap IS.IntSet -> FlowsGraph a
-flowsTo bm dm gr = tc . mapToGraph bm . genDUMap bm dm gr
+genFlowsToGraph :: Data a => BlockMap a
+                          -> DefMap
+                          -> BBGr (Analysis a)
+                          -> InOutMap IS.IntSet -- ^ result of reaching definitions
+                          -> FlowsGraph a
+genFlowsToGraph bm dm gr = tc . mapToGraph bm . genDUMap bm dm gr
 
+-- | Represent "flows" between variables
 type VarFlowsMap = M.Map Name (S.Set Name)
+
+-- | Create a map (A -> Bs) where A "flows" or contributes towards the variables Bs.
 genVarFlowsToMap :: Data a => DefMap -> FlowsGraph a -> VarFlowsMap
 genVarFlowsToMap dm fg = M.fromListWith S.union [ (conv u, sconv v) | (u, v) <- edges fg ]
   where
@@ -331,6 +340,7 @@ sccWith n g = case filter (n `elem`) $ scc g of
   []  -> []
   c:_ -> c
 
+-- | Map of loop header nodes to the induction variables within that loop.
 type InductionVarMap = IM.IntMap (S.Set Name)
 
 -- | Basic induction variables are induction variables that are the
@@ -376,8 +386,8 @@ showDataFlow pf@(ProgramFile cm_pus _) = (perPU . snd) =<< cm_pus
                        , ("loopNodes",    show (loopNodes bedges gr))
                        , ("duMap",        show (genDUMap bm dm gr (rd gr)))
                        , ("udMap",        show (genUDMap bm dm gr (rd gr)))
-                       , ("flowsTo",      show (edges $ flowsTo bm dm gr (rd gr)))
-                       , ("varFlowsTo",   show (genVarFlowsToMap dm (flowsTo bm dm gr (rd gr))))
+                       , ("flowsTo",      show (edges $ genFlowsToGraph bm dm gr (rd gr)))
+                       , ("varFlowsTo",   show (genVarFlowsToMap dm (genFlowsToGraph bm dm gr (rd gr))))
                        , ("ivMap",        show (genInductionVarMap bedges gr))
                        ] where
                            bedges = genBackEdgeMap (dominators gr) gr
