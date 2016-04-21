@@ -9,7 +9,8 @@ module Forpar.Analysis.DataFlow
   , genUDMap, genDUMap, flowsTo, genVarFlowsToMap, duMapToUdMap, UDMap, DUMap, FlowsGraph, VarFlowsMap
   , genBlockMap, genDefMap, BlockMap, DefMap
   , genCallMap, CallMap
-  , loopNodes, genBackEdgeMap, BackEdgeMap
+  , loopNodes, genBackEdgeMap, sccWith, BackEdgeMap
+  , genInductionVarMap, InductionVarMap
 ) where
 
 import Data.Generics.Uniplate.Data
@@ -305,7 +306,8 @@ tc g = newEdges `insEdges` insNodes ln empty
 type BackEdgeMap = IM.IntMap Node
 
 -- | Find the edges that 'loop back' in the graph; ones where the
--- target node dominates the source node.
+-- target node dominates the source node. If the backedges are viewed
+-- as (m -> n) then n is considered the 'loop-header'
 genBackEdgeMap :: Graph gr => DomMap -> gr a b -> BackEdgeMap
 genBackEdgeMap domMap = IM.filterWithKey isBackEdge . IM.fromList . edges
   where
@@ -328,6 +330,25 @@ sccWith :: (Graph gr) => Node -> gr a b -> [Node]
 sccWith n g = case filter (n `elem`) $ scc g of
   []  -> []
   c:_ -> c
+
+type InductionVarMap = IM.IntMap (S.Set Name)
+
+-- | Basic induction variables are induction variables that are the
+-- most easily derived from the syntactic structure of the program:
+-- for example, directly appearing in a Do-statement.
+basicInductionVars :: Data a => BackEdgeMap -> BBGr a -> InductionVarMap
+basicInductionVars bedges gr = IM.fromListWith S.union [
+    (n, S.singleton v) | (_, n)      <- IM.toList bedges
+                       , let Just bs = lab gr n
+                       , b@(BlDo {}) <- bs
+                       , v           <- blockVarDefs b
+  ]
+
+-- | For each loop in the program, figure out the names of the
+-- induction variables: the variables that are used to represent the
+-- current iteration of the loop.
+genInductionVarMap :: Data a => BackEdgeMap -> BBGr a -> InductionVarMap
+genInductionVarMap = basicInductionVars
 
 --------------------------------------------------
 
@@ -357,6 +378,7 @@ showDataFlow pf@(ProgramFile cm_pus _) = (perPU . snd) =<< cm_pus
                        , ("udMap",        show (genUDMap bm dm gr (rd gr)))
                        , ("flowsTo",      show (edges $ flowsTo bm dm gr (rd gr)))
                        , ("varFlowsTo",   show (genVarFlowsToMap dm (flowsTo bm dm gr (rd gr))))
+                       , ("ivMap",        show (genInductionVarMap bedges gr))
                        ] where
                            bedges = genBackEdgeMap (dominators gr) gr
     perPU _ = ""

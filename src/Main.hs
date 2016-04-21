@@ -89,6 +89,7 @@ superGraphDataFlow pf sgr = dfStr gr
               , ("udMap",        show (genUDMap bm dm gr (rd gr)))
               , ("flowsTo",      show (edges $ flowsTo bm dm gr (rd gr)))
               , ("varFlowsTo",   show (genVarFlowsToMap dm (flowsTo bm dm gr (rd gr))))
+              , ("ivMap",        show (genInductionVarMap bedges gr))
               ] where
                   bedges = genBackEdgeMap (dominators gr) gr
    lva = liveVariableAnalysis
