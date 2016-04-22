@@ -4,6 +4,11 @@ module Forpar.Parser.Fortran90 ( statementParser
                                ) where
 
 import Prelude hiding (EQ,LT,GT) -- Same constructors exist in the AST
+import Control.Monad.State (get)
+
+#ifdef DEBUG
+import Data.Data (toConstr)
+#endif
 
 import Forpar.Util.Position
 import Forpar.ParserMonad
@@ -36,6 +41,7 @@ import Debug.Trace
   '=>'                        { TArrow _ }
   '%'                         { TPercent _ }
   '('                         { TLeftPar _ }
+  '(2'                        { TLeftPar2 _ }
   ')'                         { TRightPar _ }
   '(/'                        { TLeftInitPar _ }
   '/)'                        { TRightInitPar _ }
@@ -224,17 +230,44 @@ NONEXECUTABLE_STATEMENT :: { Statement A0 }
 | target MAYBE_DCOLON DECLARATOR_LIST
   { let declAList = fromReverseList $3
     in StTarget () (getTransSpan $1 declAList) declAList }
-| data cSLASH DATA_GROUPS cPOP
+| data cDATA DATA_GROUPS cPOP
   { let dataAList = fromReverseList $3
     in StData () (getTransSpan $1 dataAList) dataAList }
 | parameter '(' PARAMETER_ASSIGNMENTS ')'
   { let declAList = fromReverseList $3
     in StParameter () (getTransSpan $1 $4) declAList }
-
-cSLASH :: { () } : {% pushContext ConSlash }
-cPOP :: { () } : {% popContext }
+| implicit none { StImplicit () (getTransSpan $1 $2) Nothing }
+| implicit cIMPLICIT IMP_LISTS cPOP
+  { StImplicit () (getTransSpan $1 $3) $ Just $ aReverse $3 }
 
 MAYBE_DCOLON :: { () } : '::' { () } | {- EMPTY -} { () }
+
+IMP_LISTS :: { AList ImpList A0 }
+: IMP_LISTS ',' IMP_LIST { setSpan (getTransSpan $1 $3) $ $3 `aCons` $1 }
+| IMP_LIST { AList () (getSpan $1) [ $1 ] }
+
+IMP_LIST :: { ImpList A0 }
+: TYPE_SPEC '(2' IMP_ELEMENTS ')'
+  { ImpList () (getTransSpan $1 $4) $1 (aReverse $3) }
+
+IMP_ELEMENTS :: { AList ImpElement A0 }
+: IMP_ELEMENTS ',' IMP_ELEMENT { setSpan (getTransSpan $1 $3) $ $3 `aCons` $1 }
+| IMP_ELEMENT { AList () (getSpan $1) [ $1 ] }
+
+IMP_ELEMENT :: { ImpElement A0 }
+: id {% do
+      let (TId s id) = $1
+      if length id /= 1
+      then fail "Implicit argument must be a character."
+      else return $ ImpCharacter () s id
+     }
+| id '-' id {% do
+             let (TId _ id1) = $1
+             let (TId _ id2) = $3
+             if length id1 /= 1 || length id2 /= 1
+             then fail "Implicit argument must be a character."
+             else return $ ImpRange () (getTransSpan $1 $3) id1 id2
+             }
 
 PARAMETER_ASSIGNMENTS :: { [ Declarator A0 ] }
 : PARAMETER_ASSIGNMENTS ',' PARAMETER_ASSIGNMENT { $3 : $1 }
@@ -517,9 +550,20 @@ LOGICAL_LITERAL :: { Expression A0 }
 STRING :: { Expression A0 }
 : string { let TString s c = $1 in ExpValue () s $ ValString c }
 
+cDATA :: { () } : {% pushContext ConData }
+cIMPLICIT :: { () } : {% pushContext ConImplicit }
+cPOP :: { () } : {% popContext }
+
 {
 
 parseError :: Token -> LexAction a
-parseError _ = fail "Parsing failed."
+parseError _ = do
+#ifdef DEBUG
+    tokens <- reverse <$> aiPreviousTokensInLine <$> getAlex
+#endif
+    fail $ "Parsing failed."
+#ifdef DEBUG
+      ++ '\n' : show tokens
+#endif
 
 }

@@ -71,21 +71,22 @@ $expLetter = [ed]
 -- scI         | For statements that can come after logical IF
 -- scC         | To be used in lexCharacter, it only appears to force Happy to
 --             | resolve it.
+-- scT         | For types
 -- scN         | For everything else
 --------------------------------------------------------------------------------
 tokens :-
 
 <0,scN> "!".*$                                    { addSpanAndMatch TComment }
 
-<0,scN> (\n\r|\r\n|\n)                            { resetPar >> toSC 0 >> addSpan TNewline }
-<0,scN,scI> [\t\ ]+                               ;
+<0,scN,scT> (\n\r|\r\n|\n)                            { resetPar >> toSC 0 >> addSpan TNewline }
+<0,scN,scI,scT> [\t\ ]+                           ;
 
-<scN> "("                                         { incPar >> addSpan TLeftPar }
+<scN> "("                                         { leftPar }
 <scN> ")" / { ifConditionEndP }                   { decPar >> toSC scI >> addSpan TRightPar }
+<scN> ")"                                         { decPar >> addSpan TRightPar }
 <scN> "(/"                                        { addSpan TLeftInitPar }
 <scN> "/)"                                        { addSpan TRightInitPar }
-<scN> ")"                                         { decPar >> addSpan TRightPar }
-<scN> ","                                         { addSpan TComma }
+<scN> ","                                         { comma }
 <scN> ";"                                         { addSpan TSemiColon }
 <scN> ":"                                         { addSpan TColon }
 <scN> "::"                                        { addSpan TDoubleColon }
@@ -123,17 +124,17 @@ tokens :-
 <0,scI> "return"                                  { addSpan TReturn }
 
 -- Type def related
-<0> "type"                                        { addSpan TType }
+<0,scT> "type"                                    { addSpan TType }
 <0> "end"\ *"type"                                { addSpan TEndType }
 <0> "sequence"                                    { addSpan TSequence }
 
 -- Intrinsic types
-<0> "integer"                                     { addSpan TInteger }
-<0> "real"                                        { addSpan TReal }
-<0> "double"\ *"precision"                        { addSpan TDoublePrecision }
-<0> "logical"                                     { addSpan TLogical }
-<0> "character"                                   { addSpan TCharacter }
-<0> "complex"                                     { addSpan TComplex }
+<0,scT> "integer"                                 { addSpan TInteger }
+<0,scT> "real"                                    { addSpan TReal }
+<0,scT> "double"\ *"precision"                    { addSpan TDoublePrecision }
+<0,scT> "logical"                                 { addSpan TLogical }
+<0,scT> "character"                               { addSpan TCharacter }
+<0,scT> "complex"                                 { addSpan TComplex }
 
 <scN> "kind" / { selectorP }                      { addSpan TKind }
 <scN> "len" / { selectorP }                       { addSpan TLen }
@@ -202,12 +203,12 @@ tokens :-
 <0,scI> "deallocate"                              { addSpan TDeallocate }
 <0,scI> "nullify"                                 { addSpan TNullify }
 <0> "namelist"                                    { addSpan TNamelist }
-<0> "implicit"                                    { addSpan TImplicit }
+<0> "implicit"                                    { toSC scT >> addSpan TImplicit }
 <0> "equivalence"                                 { addSpan TEquivalence }
 <0> "common"                                      { addSpan TCommon }
 <0> "end"                                         { addSpan TEnd }
 
-<scN> "none" / { implicitStP }                    { addSpan TNone }
+<scT> "none"                                      { addSpan TNone }
 
 -- I/O
 <0,scI> "open"                                    { addSpan TOpen }
@@ -266,11 +267,10 @@ selectorP user _ _ ai =
   where
     nextTokenIsOpAssign = nextTokenConstr user ai == (Just . fillConstr $ TOpAssign)
     commaOrLeftPar =
-        case previousToken of
+        case aiPreviousToken ai of
           Just TLeftPar{} -> True
           Just TComma{} -> True
           _ -> False
-    previousToken = aiPreviousToken ai
 
 ifConditionEndP :: User -> AlexInput -> Int -> AlexInput -> Bool
 ifConditionEndP (User _ pc) _ _ ai
@@ -388,9 +388,6 @@ caseStP _ _ _ ai = prevTokenConstr ai == (Just $ fillConstr TCase)
 assignStP :: User -> AlexInput -> Int -> AlexInput -> Bool
 assignStP _ _ _ ai = seenConstr (fillConstr TAssign) ai
 
-implicitStP :: User -> AlexInput -> Int -> AlexInput -> Bool
-implicitStP _ _ _ ai = prevTokenConstr ai == (Just $ fillConstr TImplicit)
-
 prevTokenConstr :: AlexInput -> Maybe Constr
 prevTokenConstr ai = toConstr <$> aiPreviousToken ai
 
@@ -417,11 +414,49 @@ fillConstr = toConstr . ($ undefined)
 -- Lexer helpers
 --------------------------------------------------------------------------------
 
+leftPar :: LexAction (Maybe Token)
+leftPar = do
+    incPar
+    context <- topContext
+    if context == ConImplicit
+      then do
+        parseState <- get
+        case unParse f parseState of
+          ParseOk tokenCons _ -> do
+            span <- getLexemeSpan
+            return $ Just $ tokenCons span
+          ParseFailed e -> fail "Left parantheses is not matched."
+      else addSpan TLeftPar
+  where
+    f :: LexAction (SrcSpan -> Token)
+    f = do
+      (ParanthesesCount pc _) <- getParanthesesCount
+      mPrevToken <- aiPreviousToken <$> getAlex
+      case mPrevToken of
+        Just TRightPar{} | pc == 0 -> do
+          span <- getLexemeSpan
+          curToken <- lexer'
+          case curToken of
+            TComma{} -> return TLeftPar2
+            TNewline{} -> return TLeftPar2
+            TEOF{} -> return TLeftPar2
+            _ -> return TLeftPar
+        _ -> lexer' >> f
+
+comma :: LexAction (Maybe Token)
+comma = do
+  context <- topContext
+  mToken <- aiPreviousToken <$> getAlex
+  case (context, mToken) of
+    (ConImplicit, Just TRightPar{}) -> toSC scT
+    _ -> return ()
+  addSpan TComma
+
 slashOrDivision :: LexAction (Maybe Token)
 slashOrDivision = do
   context <- topContext
   case context of
-    ConSlash -> addSpan TSlash
+    ConData -> addSpan TSlash
     _ -> addSpan TOpDivision
 
 addSpan :: (SrcSpan -> Token) -> LexAction (Maybe Token)
@@ -464,8 +499,8 @@ instance Spanned Lexeme where
         me = lexemeEnd lexeme in
       case ms of
         Just s -> SrcSpan s (fromJust me)
-        Nothing -> error $ "Span access on nonexistant lexeme"
-                           ++  lexemeMatch lexeme
+        Nothing -> error $ "Span access on nonexistant lexeme."
+                           ++ lexemeMatch lexeme
   setSpan _ = error "Lexeme span cannot be set."
 
 updatePreviousToken :: Maybe Token -> LexAction ()
@@ -816,7 +851,11 @@ lexer' = do
   let user = User version paranthesesCount
   case alexScanUser user newAlex startCode of
     AlexEOF -> return $ TEOF $ SrcSpan (getPos alex) (getPos alex)
-    AlexError _ -> fail "Lexing failed. "
+    AlexError _ ->
+      fail $ "Lexing failed. "
+#ifdef DEBUG
+        ++ '\n' : show newAlex ++ "\n"
+#endif
     AlexSkip newAlex _ -> do
       putAlex $ newAlex { aiStartCode = StartCode startCode Return }
       lexer'
@@ -852,6 +891,7 @@ data Token =
   | TArrow              SrcSpan
   | TPercent            SrcSpan
   | TLeftPar            SrcSpan
+  | TLeftPar2           SrcSpan
   | TRightPar           SrcSpan
   | TLeftInitPar        SrcSpan
   | TRightInitPar       SrcSpan

@@ -36,8 +36,9 @@ data ParanthesesCount = ParanthesesCount
 
 data Context =
     ConStart
-  | ConSlash
-  deriving (Show)
+  | ConData
+  | ConImplicit
+  deriving (Show, Eq)
 
 data ParseState a = ParseState
   { psAlexInput :: a
