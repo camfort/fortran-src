@@ -274,14 +274,13 @@ mapToGraph bm m = buildGr $ [
 -- showing which definitions contribute to which uses.
 type FlowsGraph a = Gr (Block (Analysis a)) ()
 
--- | "Flows-To" analysis. Compute the transitive closure of a def-use
--- map and represent as a graph.
+-- | "Flows-To" analysis. Represent def-use map as a graph.
 genFlowsToGraph :: Data a => BlockMap a
                           -> DefMap
                           -> BBGr (Analysis a)
                           -> InOutMap IS.IntSet -- ^ result of reaching definitions
                           -> FlowsGraph a
-genFlowsToGraph bm dm gr = tc . mapToGraph bm . genDUMap bm dm gr
+genFlowsToGraph bm dm gr = mapToGraph bm . genDUMap bm dm gr
 
 -- | Represent "flows" between variables
 type VarFlowsMap = M.Map Name (S.Set Name)
