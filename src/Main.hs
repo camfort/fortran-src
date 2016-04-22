@@ -46,7 +46,7 @@ main = do
                               , (Fortran77Extended, extended77Parser) ]
     let outfmt = outputFormat opts
 
-    let runRenamer = fst . renameAndStrip . analyseRenames . initAnalysis
+    let runRenamer = snd . renameAndStrip . analyseRenames . initAnalysis
     let runBBlocks pf = showBBlocks pf' ++ "\n\n" ++ showDataFlow pf'
           where pf' = analyseBBlocks (initAnalysis pf)
     let runSuperGraph pf | outfmt == DOT = superBBGrToDOT sgr

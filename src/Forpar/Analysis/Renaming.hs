@@ -8,7 +8,7 @@
 -- analysis.
 
 module Forpar.Analysis.Renaming
-  ( analyseRenames, rename, extractNameMap, renameAndStrip, unrename, NameMap )
+  ( analyseRenames, rename, extractNameMap, renameAndStrip, unrename, underRenaming, NameMap )
 where
 
 import Forpar.AST
@@ -65,8 +65,8 @@ analyseRenames pf = globaliseFuncsAndSubs pf'
         transPU = transformBiM -- work from the bottom up
 
 -- | Take the unique name annotations and substitute them into the actual AST.
-rename :: Data a => ProgramFile (Analysis a) -> ProgramFile (Analysis a)
-rename pf = trPU fPU . trV fV $ pf
+rename :: Data a => ProgramFile (Analysis a) -> (NameMap, ProgramFile (Analysis a))
+rename pf = (extractNameMap pf, trPU fPU (trV fV pf))
   where
     trV :: Data a => (Value a -> Value a) -> ProgramFile a -> ProgramFile a
     trV = transformBi
@@ -96,12 +96,12 @@ extractNameMap pf = vMap `union` aMap `union` puMap
     uniPU = universeBi
 
 -- | Perform the rename, stripAnalysis, and extractNameMap functions.
-renameAndStrip :: Data a => ProgramFile (Analysis a) -> (ProgramFile a, NameMap)
-renameAndStrip pf = (stripAnalysis (rename pf), extractNameMap pf)
+renameAndStrip :: Data a => ProgramFile (Analysis a) -> (NameMap, ProgramFile a)
+renameAndStrip pf = fmap stripAnalysis (rename pf)
 
 -- | Take a renamed program and its corresponding NameMap, and undo the renames.
-unrename :: Data a => (ProgramFile a, NameMap) -> ProgramFile a
-unrename (pf, nm) = trPU fPU . trV fV $ pf
+unrename :: Data a => (NameMap, ProgramFile a) -> ProgramFile a
+unrename (nm, pf) = trPU fPU . trV fV $ pf
   where
     trV :: Data a => (Value a -> Value a) -> ProgramFile a -> ProgramFile a
     trV = transformBi
@@ -115,6 +115,14 @@ unrename (pf, nm) = trPU fPU . trV fV $ pf
     fPU :: Data a => ProgramUnit a -> ProgramUnit a
     fPU (PUFunction a s ty n args b) = PUFunction a s ty (fromMaybe n (n `lookup` nm)) args b
     fPU x               = x
+
+-- | Run a function with the program file placed under renaming
+-- analysis, then undo the renaming in the result of the function.
+underRenaming :: (Data a, Data b) => (ProgramFile (Analysis a) -> b) -> ProgramFile a -> b
+underRenaming f pf = tryUnrename `descendBi` f pf'
+  where
+    (renameMap, pf') = rename . analyseRenames . initAnalysis $ pf
+    tryUnrename n = n `fromMaybe` lookup n renameMap
 
 --------------------------------------------------
 

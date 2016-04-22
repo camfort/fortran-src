@@ -49,7 +49,7 @@ modifyProgramFile f = do
 renameProgramFile :: Data a => Transform a ()
 renameProgramFile = do
   pf <- getProgramFile
-  let (pf', nm) = renameAndStrip . analyseRenames . initAnalysis $ pf
+  let (nm, pf') = renameAndStrip . analyseRenames . initAnalysis $ pf
   modify $ \ s -> s { transUnrenameMap = Just nm, transProgramFile = pf', transTypes = Nothing }
 
 unrenameProgramFile :: Data a => Transform a ()
@@ -58,7 +58,7 @@ unrenameProgramFile = do
   m_nm <- gets transUnrenameMap
   case m_nm of
     Just nm -> modify $ \ s -> s { transUnrenameMap = Nothing
-                                 , transProgramFile = unrename (pf, nm), transTypes = Nothing }
+                                 , transProgramFile = unrename (nm, pf), transTypes = Nothing }
     Nothing -> return ()
 
 -- If types are requested and are not available automatically infer them.
