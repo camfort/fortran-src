@@ -105,6 +105,7 @@ data Statement a  =
   | StPointer             a SrcSpan (AList Declarator a)
   | StTarget              a SrcSpan (AList Declarator a)
   | StData                a SrcSpan (AList DataGroup a)
+  | StNamelist            a SrcSpan (AList Namelist a)
   | StParameter           a SrcSpan (AList Declarator a)
   | StExternal            a SrcSpan (AList Expression a)
   | StIntrinsic           a SrcSpan (AList Expression a)
@@ -182,6 +183,10 @@ data CommonGroup a =
   CommonGroup a SrcSpan (Maybe (Expression a)) (AList Expression a)
   deriving (Eq, Show, Data, Typeable, Generic, Functor)
 
+data Namelist a =
+  Namelist a SrcSpan (Expression a) (AList Expression a)
+  deriving (Eq, Show, Data, Typeable, Generic, Functor)
+
 data DataGroup a =
   DataGroup a SrcSpan (AList Expression a) (AList Expression a)
   deriving (Eq, Show, Data, Typeable, Generic, Functor)
@@ -237,7 +242,6 @@ data Value a =
   | ValOperator          String
   | ValAssignment
   | ValType              String
-  | ValNamelist          String
   | ValStar
   deriving (Eq, Show, Data, Typeable, Generic, Functor)
 
@@ -312,6 +316,7 @@ instance FirstParameter (ImpList a) a
 instance FirstParameter (ImpElement a) a
 instance FirstParameter (CommonGroup a) a
 instance FirstParameter (DataGroup a) a
+instance FirstParameter (Namelist a) a
 instance FirstParameter (FormatItem a) a
 instance FirstParameter (Expression a) a
 instance FirstParameter (Index a) a
@@ -331,6 +336,7 @@ instance SecondParameter (ImpList a) SrcSpan
 instance SecondParameter (ImpElement a) SrcSpan
 instance SecondParameter (CommonGroup a) SrcSpan
 instance SecondParameter (DataGroup a) SrcSpan
+instance SecondParameter (Namelist a) SrcSpan
 instance SecondParameter (FormatItem a) SrcSpan
 instance SecondParameter (Expression a) SrcSpan
 instance SecondParameter (Index a) SrcSpan
@@ -350,6 +356,7 @@ instance Annotated ImpList
 instance Annotated ImpElement
 instance Annotated CommonGroup
 instance Annotated DataGroup
+instance Annotated Namelist
 instance Annotated FormatItem
 instance Annotated Expression
 instance Annotated Index
@@ -369,6 +376,7 @@ instance Spanned (ImpElement a)
 instance Spanned (Block a)
 instance Spanned (CommonGroup a)
 instance Spanned (DataGroup a)
+instance Spanned (Namelist a)
 instance Spanned (FormatItem a)
 instance Spanned (Expression a)
 instance Spanned (Index a)
@@ -492,6 +500,7 @@ instance Out a => Out (ImpElement a)
 instance Out a => Out (Block a)
 instance Out a => Out (CommonGroup a)
 instance Out a => Out (DataGroup a)
+instance Out a => Out (Namelist a)
 instance Out a => Out (FormatItem a)
 instance Out a => Out (Expression a)
 instance Out a => Out (Index a)

@@ -34,6 +34,7 @@ import Debug.Trace
   float                       { TRealLiteral _ _ }
   boz                         { TBozLiteral _ _ }
   ','                         { TComma _ }
+  ',2'                        { TComma2 _ }
   ';'                         { TSemiColon _ }
   ':'                         { TColon _ }
   '::'                        { TDoubleColon _ }
@@ -239,8 +240,23 @@ NONEXECUTABLE_STATEMENT :: { Statement A0 }
 | implicit none { StImplicit () (getTransSpan $1 $2) Nothing }
 | implicit cIMPLICIT IMP_LISTS cPOP
   { StImplicit () (getTransSpan $1 $3) $ Just $ aReverse $3 }
+| namelist cNAMELIST NAMELISTS cPOP
+  { StNamelist () (getTransSpan $1 $3) $ fromReverseList $3 }
 
 MAYBE_DCOLON :: { () } : '::' { () } | {- EMPTY -} { () }
+
+NAMELISTS :: { [ Namelist A0 ] }
+: NAMELISTS NAMELIST { $2 : $1 }
+| NAMELISTS ',2' NAMELIST { $3 : $1 }
+| NAMELIST { [ $1 ] }
+
+NAMELIST :: { Namelist A0 }
+: '/' VARIABLE '/' VARIABLES
+  { Namelist () (getTransSpan $1 $4) $2 $ fromReverseList $4 }
+
+VARIABLES :: { [ Expression A0 ] }
+: VARIABLES ',' VARIABLE { $3 : $1 }
+| VARIABLE { [ $1 ] }
 
 IMP_LISTS :: { AList ImpList A0 }
 : IMP_LISTS ',' IMP_LIST { setSpan (getTransSpan $1 $3) $ $3 `aCons` $1 }
@@ -308,22 +324,22 @@ ATTRIBUTE_SPEC :: { Attribute A0 }
 INTENT_CHOICE :: { Intent } : in { In } | out { Out } | inout { InOut }
 
 DATA_GROUPS :: { [ DataGroup A0 ] }
-: DATA_GROUPS MAYBE_COMMA NAME_LIST slash EXPRESSION_LIST slash
+: DATA_GROUPS MAYBE_COMMA DATA_LIST slash EXPRESSION_LIST slash
   { let { nameAList = fromReverseList $3;
           dataAList = fromReverseList $5 }
     in DataGroup () (getTransSpan nameAList $6) nameAList dataAList : $1 }
-| NAME_LIST slash EXPRESSION_LIST slash
+| DATA_LIST slash EXPRESSION_LIST slash
   { let { nameAList = fromReverseList $1;
           dataAList = fromReverseList $3 }
     in [ DataGroup () (getTransSpan nameAList $4) nameAList dataAList ] }
 
 MAYBE_COMMA :: { () } : ',' { () } | {- EMPTY -} { () }
 
-NAME_LIST :: { [ Expression A0 ] }
-: NAME_LIST ',' NAME_LIST_ELEMENT { $3 : $1 }
-| NAME_LIST_ELEMENT { [ $1 ] }
+DATA_LIST :: { [ Expression A0 ] }
+: DATA_LIST ',' DATA_ELEMENT { $3 : $1 }
+| DATA_ELEMENT { [ $1 ] }
 
-NAME_LIST_ELEMENT :: { Expression A0 }
+DATA_ELEMENT :: { Expression A0 }
 : DATA_REF { $1 } | IMPLIED_DO { $1 }
 
 SAVE_ARGS :: { [ Expression A0 ] }
@@ -552,6 +568,7 @@ STRING :: { Expression A0 }
 
 cDATA :: { () } : {% pushContext ConData }
 cIMPLICIT :: { () } : {% pushContext ConImplicit }
+cNAMELIST :: { () } : {% pushContext ConNamelist }
 cPOP :: { () } : {% popContext }
 
 {

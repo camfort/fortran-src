@@ -446,11 +446,19 @@ leftPar = do
 comma :: LexAction (Maybe Token)
 comma = do
   context <- topContext
-  mToken <- aiPreviousToken <$> getAlex
-  case (context, mToken) of
-    (ConImplicit, Just TRightPar{}) -> toSC scT
-    _ -> return ()
-  addSpan TComma
+  case context of
+    ConImplicit -> do
+      mToken <- aiPreviousToken <$> getAlex
+      case mToken of
+        Just TRightPar{} -> toSC scT >> addSpan TComma
+        _ -> addSpan TComma
+    ConNamelist -> do
+      parseState <- get
+      case unParse lexer' parseState of
+        ParseOk TOpDivision{} _ -> addSpan TComma2
+        ParseFailed _ -> fail "Expecting variable name or slash."
+        _ -> addSpan TComma
+    _ -> addSpan TComma
 
 slashOrDivision :: LexAction (Maybe Token)
 slashOrDivision = do
@@ -884,6 +892,7 @@ data Token =
   | TRealLiteral        SrcSpan String
   | TBozLiteral         SrcSpan String
   | TComma              SrcSpan
+  | TComma2             SrcSpan
   | TSemiColon          SrcSpan
   | TColon              SrcSpan
   | TDoubleColon        SrcSpan
