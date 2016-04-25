@@ -61,8 +61,8 @@ spec =
         let bm = genBlockMap pf
         let dm = genDefMap bm
         (S.fromList . edges . genFlowsToGraph bm dm gr $ reachingDefinitions dm gr) `shouldBe`
-          S.fromList [ (2,1),(2,2),(2,4),(2,12),(4,1),(4,4),(5,1),(5,4),(5,5),(5,8)
-                     , (10,1),(10,4),(10,5),(10,8),(14,1),(14,4),(16,1),(16,2),(16,4),(16,12) ]
+          S.fromList [ (2,2),(2,4),(2,12),(4,1),(4,4),(5,4),(5,5),(5,8)
+                     , (10,4),(10,5),(10,8),(14,1),(14,4),(16,2),(16,4),(16,12) ]
 
     describe "rd3" $ do
       it "genBackEdgeMap" $ do
@@ -101,7 +101,7 @@ spec =
         let bm = genBlockMap pf
         let dm = genDefMap bm
         (S.fromList . edges . genFlowsToGraph bm dm gr $ reachingDefinitions dm gr) `shouldBe`
-          S.fromList [(7,14),(8,7),(8,8),(8,9),(8,14),(9,7),(9,8),(9,9),(9,14),(10,7),(10,8),(10,9),(10,14),(13,7),(13,8),(13,9),(13,14),(13,15)]
+          S.fromList [ (7,14),(8,9),(9,7),(9,8),(10,8),(10,9),(13,8),(13,15) ]
 
 programLoop4 = unlines [
       "      program loop4"
