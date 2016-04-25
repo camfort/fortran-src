@@ -239,7 +239,8 @@ NONEXECUTABLE_STATEMENT :: { Statement A0 }
     in StParameter () (getTransSpan $1 $4) declAList }
 | implicit none { StImplicit () (getTransSpan $1 $2) Nothing }
 | implicit cIMPLICIT IMP_LISTS cPOP
-  { StImplicit () (getTransSpan $1 $3) $ Just $ aReverse $3 }
+  { let impAList = fromReverseList $3
+    in StImplicit () (getTransSpan $1 impAList) $ Just $ impAList }
 | namelist cNAMELIST NAMELISTS cPOP
   { StNamelist () (getTransSpan $1 $3) $ fromReverseList $3 }
 
@@ -258,9 +259,9 @@ VARIABLES :: { [ Expression A0 ] }
 : VARIABLES ',' VARIABLE { $3 : $1 }
 | VARIABLE { [ $1 ] }
 
-IMP_LISTS :: { AList ImpList A0 }
-: IMP_LISTS ',' IMP_LIST { setSpan (getTransSpan $1 $3) $ $3 `aCons` $1 }
-| IMP_LIST { AList () (getSpan $1) [ $1 ] }
+IMP_LISTS :: { [ ImpList A0 ] }
+: IMP_LISTS ',' IMP_LIST { $3 : $1 }
+| IMP_LIST { [ $1 ] }
 
 IMP_LIST :: { ImpList A0 }
 : TYPE_SPEC '(2' IMP_ELEMENTS ')'
