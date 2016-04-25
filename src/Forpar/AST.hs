@@ -234,10 +234,7 @@ data Value a =
   | ValHollerith         String
   | ValLabel             String
   | ValVariable          a Name
-  | ValParameter         Name
   | ValLogical           String
-  | ValFunctionName      Name
-  | ValSubroutineName    Name
   | ValCommonName        Name
   | ValOperator          String
   | ValAssignment

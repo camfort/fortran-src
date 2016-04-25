@@ -240,7 +240,7 @@ perBlock b@(BlStatement _ _ _ (StReturn {})) =
   processLabel b >> addToBBlock b >> closeBBlock_
 perBlock b@(BlStatement _ _ _ (StGotoUnconditional {})) =
   processLabel b >> addToBBlock b >> closeBBlock_
-perBlock b@(BlStatement a s l (StCall a' s' cn@(ExpValue _ _ (ValSubroutineName n)) (Just aexps))) = do
+perBlock b@(BlStatement a s l (StCall a' s' cn@(ExpValue _ _ (ValVariable _ n)) (Just aexps))) = do
   (prevN, formalN) <- closeBBlock
 
   -- create bblock that assigns formal parameters (n[1], n[2], ...)
@@ -432,7 +432,7 @@ genSuperBBGr bbm = SuperBBGr { graph = superGraph'', clusters = cmap }
     exitMap  = M.fromList [ (name, n') | ((name, n), n') <- M.toList superNodeMap, n == -1 ]
     -- [(SuperNode, String)]
     stCalls  = [ (getSuperNode n, sub) | (n, [BlStatement _ _ _ (StCall _ _ e Nothing)]) <- namedNodes
-                                       , ExpValue _ _ (ValSubroutineName sub)            <- [e] ]
+                                       , ExpValue _ _ (ValVariable _ sub)            <- [e] ]
     -- [([SuperEdge], SuperNode, String, [SuperEdge])]
     stCallCtxts = [ (inn superGraph n, n, sub, out superGraph n) | (n, sub) <- stCalls ]
     -- [SuperEdge]

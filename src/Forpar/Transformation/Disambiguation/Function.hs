@@ -34,12 +34,12 @@ disambiguateFunctionStatements = do
       mInnerMapping
       st@(StExpressionAssign a1 s
         (ExpSubscript _ _
-          (ExpValue a3 s'' (ValVariable _ n)) indicies)
+          (ExpValue a3 s'' (ValVariable a4 n)) indicies)
         e2)
       | Just innerMapping <- mInnerMapping
       , Just (IDType _ (Just CTFunction)) <- n `lookup` innerMapping =
           StFunction a1 s
-            (ExpValue a3 s'' (ValFunctionName n))
+            (ExpValue a3 s'' (ValVariable a4 n))
             (aMap fromIndex indicies)
             e2
       | otherwise = st
@@ -62,12 +62,12 @@ disambiguateFunctionCalls = do
       | Just innerMapping <- mInnerMapping
       , Just (IDType _ (Just CTFunction)) <- n `lookup` innerMapping
       = ExpFunctionCall a1 s
-                        (ExpValue a2 s' (ValFunctionName n))
+                        (ExpValue a2 s' (ValVariable a3 n))
                         (aMap fromIndex l)
       | Just globalMapping <- mGlobalMapping
       , Just (IDType _ (Just CTFunction)) <- n `lookup` globalMapping
       = ExpFunctionCall a1 s
-                        (ExpValue a2 s' (ValFunctionName n))
+                        (ExpValue a2 s' (ValVariable a3 n))
                         (aMap fromIndex l)
       | otherwise = exp
     transform'' mGlobalMapping mLocalMapping x =

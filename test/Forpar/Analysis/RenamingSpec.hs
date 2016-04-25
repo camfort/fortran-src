@@ -111,7 +111,7 @@ ex4pu1bs =
       , DeclVariable () u (varGen "r") Nothing Nothing ]))
   , BlStatement () u Nothing (StExpressionAssign () u
       (ExpValue () u (ValVariable () "r"))
-      (ExpFunctionCall () u (ExpValue () u (ValFunctionName "f1"))
+      (ExpFunctionCall () u (ExpValue () u (ValVariable () "f1"))
                             (AList () u [ intGen 1 ]))) ]
 ex4pu2 = PUFunction () u (Just $ TypeSpec () u TypeInteger Nothing) "f1" (AList () u [ValVariable () "x"]) ([ BlStatement () u Nothing (StExpressionAssign () u (varGen "f1") (varGen "x")) ])
 

@@ -64,9 +64,9 @@ expectedEx1pu1bs =
   , BlStatement () u Nothing (StExpressionAssign () u
       (ExpSubscript () u (varGen "b") (AList () u [ ixSinGen 1 ])) (intGen 1))
   , BlStatement () u Nothing (StFunction () u
-      (ExpValue () u $ ValFunctionName "c") (AList () u [ varGen "x" ]) (intGen 1))
+      (ExpValue () u $ ValVariable () "c") (AList () u [ varGen "x" ]) (intGen 1))
   , BlStatement () u Nothing (StFunction () u
-      (ExpValue () u $ ValFunctionName "d") (AList () u [ varGen "x" ]) (intGen 1)) ]
+      (ExpValue () u $ ValVariable () "d") (AList () u [ varGen "x" ]) (intGen 1)) ]
 
 {-
 - program
@@ -86,7 +86,7 @@ ex2pu2 = PUFunction () u Nothing "y" (AList () u [ ValVariable () "i", ValVariab
 ex2pu1bs =
   [ BlStatement () u Nothing
       (StFunction () u
-        (ExpValue () u (ValFunctionName "f"))
+        (ExpValue () u (ValVariable () "f"))
         (AList () u [ varGen "x" ])
         (intGen 1))
   , BlStatement () u Nothing
@@ -102,7 +102,7 @@ expectedEx2pu1 = PUMain () u Nothing expectedEx2pu1bs
 expectedEx2pu1bs =
   [ BlStatement () u Nothing
       (StFunction () u
-        (ExpValue () u (ValFunctionName "f"))
+        (ExpValue () u (ValVariable () "f"))
         (AList () u [ varGen "x" ])
         (intGen 1))
   , BlStatement () u Nothing
@@ -110,5 +110,5 @@ expectedEx2pu1bs =
         (ExpBinary () u Addition
           (intGen 1)
           (ExpFunctionCall () u
-            (ExpValue () u $ ValFunctionName "f")
+            (ExpValue () u $ ValVariable () "f")
             (AList () u [ intGen 1 ])))) ]

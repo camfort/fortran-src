@@ -151,7 +151,7 @@ inferFromFuncStatements pu = do
   idts <- mapM (queryIDType puName) lhsNames
   let filteredNames = map fst $ filter p $ zip lhsNames idts
   mapM_ (\n -> addConstructToMapping puName n CTFunction) filteredNames
-  let lhsNames = [ s | StFunction _ _ (ExpValue _ _ (ValFunctionName s)) _ _ <- statements pu ]
+  let lhsNames = [ s | StFunction _ _ (ExpValue _ _ (ValVariable _ s)) _ _ <- statements pu ]
   mapM_ (\n -> addConstructToMapping puName n CTFunction) lhsNames
   where
     puName = Local $ getName pu

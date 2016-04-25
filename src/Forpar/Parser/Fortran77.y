@@ -220,8 +220,9 @@ EXECUTABLE_STATEMENT
 | endif { StEndif () (getSpan $1) }
 | doWhile '(' EXPRESSION ')' { StDoWhile () (getTransSpan $1 $4) $3 }
 | enddo { StEnddo () (getSpan $1) }
-| call SUBROUTINE_NAME CALLABLE_EXPRESSIONS { StCall () (getTransSpan $1 $3) $2 $ Just $3 }
-| call SUBROUTINE_NAME { StCall () (getTransSpan $1 $2) $2 Nothing }
+| call VARIABLE CALLABLE_EXPRESSIONS
+  { StCall () (getTransSpan $1 $3) $2 $ Just $3 }
+| call VARIABLE { StCall () (getTransSpan $1 $2) $2 Nothing }
 | return { StReturn () (getSpan $1) Nothing }
 | return EXPRESSION { StReturn () (getTransSpan $1 $2) $ Just $2 }
 | save SAVE_ARGS { StSave () (getSpan ($1, $2)) $2 }
@@ -390,8 +391,8 @@ NONEXECUTABLE_STATEMENT
 | implicit IMP_LISTS { StImplicit () (getTransSpan $1 $2) $ Just $ aReverse $2 }
 | parameter '(' PARAMETER_ASSIGNMENTS ')'
   { StParameter () (getTransSpan $1 $4) $ fromReverseList $3 }
-| entry FUNCTION_NAME { StEntry () (getTransSpan $1 $2) $2 Nothing }
-| entry FUNCTION_NAME ENTRY_ARGS { StEntry () (getTransSpan $1 $3) $2 $ Just $3 }
+| entry VARIABLE { StEntry () (getTransSpan $1 $2) $2 Nothing }
+| entry VARIABLE ENTRY_ARGS { StEntry () (getTransSpan $1 $3) $2 $ Just $3 }
 
 ENTRY_ARGS :: { AList Expression A0 }
 ENTRY_ARGS
@@ -573,8 +574,8 @@ DIMENSION_DECLARATOR
 -- are also emitted as function names.
 FUNCTION_NAMES :: { AList Expression A0 }
 FUNCTION_NAMES
-: FUNCTION_NAMES ',' FUNCTION_NAME { setSpan (getTransSpan $1 $3) $ $3 `aCons` $1 }
-| FUNCTION_NAME { AList () (getSpan $1) [ $1 ] }
+: FUNCTION_NAMES ',' VARIABLE { setSpan (getTransSpan $1 $3) $ $3 `aCons` $1 }
+| VARIABLE { AList () (getSpan $1) [ $1 ] }
 
 CALLABLE_EXPRESSIONS :: { AList Expression A0 }
 CALLABLE_EXPRESSIONS
@@ -723,14 +724,6 @@ ARITHMETIC_SIGN
 VARIABLE :: { Expression A0 }
 VARIABLE
 : id { ExpValue () (getSpan $1) $ let (TId _ s) = $1 in ValVariable () s }
-
-FUNCTION_NAME :: { Expression A0 }
-FUNCTION_NAME
-: id { ExpValue () (getSpan $1) $ let (TId _ s) = $1 in ValFunctionName s }
-
-SUBROUTINE_NAME :: { Expression A0 }
-SUBROUTINE_NAME
-: id { ExpValue () (getSpan $1) $ let (TId _ s) = $1 in ValSubroutineName s }
 
 INTEGER_LITERAL :: { Expression A0 } : int { ExpValue () (getSpan $1) $ let (TInt _ i) = $1 in ValInteger i }
 

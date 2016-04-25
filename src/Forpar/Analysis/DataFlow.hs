@@ -413,8 +413,8 @@ genCallMap pf = flip execState M.empty $ do
     let uE :: Data a => ProgramUnit a -> [Expression a]
         uE = universeBi
     m <- get
-    let ns = [ n' | StCall _ _ (ExpValue _ _ (ValSubroutineName n')) _ <- uS pu ] ++
-             [ n' | ExpFunctionCall _ _ (ExpValue _ _ (ValFunctionName n')) _ <- uE pu ]
+    let ns = [ n' | StCall _ _ (ExpValue _ _ (ValVariable _ n')) _ <- uS pu ] ++
+             [ n' | ExpFunctionCall _ _ (ExpValue _ _ (ValVariable _ n')) _ <- uE pu ]
     put $ M.insert n (S.fromList ns) m
 
 --------------------------------------------------

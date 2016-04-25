@@ -57,9 +57,9 @@ ex2pu1 = PUSubroutine () u "s1" (AList () u []) []
 ex3 = ProgramFile [ ([ ], ex3pu1) ] [ ]
 ex3pu1 = PUSubroutine () u "s1" (AList () u []) ex3pu1bs
 ex3pu1bs =
-  [ BlStatement () u Nothing (StEntry () u (ExpValue () u (ValFunctionName "e1")) Nothing)
-  , BlStatement () u Nothing (StEntry () u (ExpValue () u (ValFunctionName "e2")) Nothing)
-  , BlStatement () u Nothing (StEntry () u (ExpValue () u (ValFunctionName "e3")) Nothing) ]
+  [ BlStatement () u Nothing (StEntry () u (ExpValue () u (ValVariable () "e1")) Nothing)
+  , BlStatement () u Nothing (StEntry () u (ExpValue () u (ValVariable () "e2")) Nothing)
+  , BlStatement () u Nothing (StEntry () u (ExpValue () u (ValVariable () "e3")) Nothing) ]
 
 ex4 = ProgramFile [ ([ ], ex4pu1) ] [ ]
 ex4pu1 = PUMain () u Nothing ex4pu1bs

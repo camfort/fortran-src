@@ -178,8 +178,8 @@ OTHER_EXECUTABLE_STATEMENT
 | goto VARIABLE LABELS_IN_STATEMENT { StGotoAssigned () (getTransSpan $1 $3) $2 $3 }
 | goto LABELS_IN_STATEMENT VARIABLE { StGotoComputed () (getTransSpan $1 $3) $2 $3 }
 | if '(' EXPRESSION ')' LABEL_IN_STATEMENT ',' LABEL_IN_STATEMENT ',' LABEL_IN_STATEMENT { StIfArithmetic () (getTransSpan $1 $9) $3 $5 $7 $9 }
-| call SUBROUTINE_NAME CALLABLE_EXPRESSIONS { StCall () (getTransSpan $1 $3) $2 $ Just $3 }
-| call SUBROUTINE_NAME { StCall () (getTransSpan $1 $2) $2 Nothing }
+| call VARIABLE CALLABLE_EXPRESSIONS { StCall () (getTransSpan $1 $3) $2 $ Just $3 }
+| call VARIABLE { StCall () (getTransSpan $1 $2) $2 Nothing }
 | return { StReturn () (getSpan $1) Nothing }
 | continue { StContinue () $ getSpan $1 }
 | stop INTEGER_LITERAL { StStop () (getTransSpan $1 $2) $ Just $2 }
@@ -347,8 +347,8 @@ VARIABLE_DECLARATOR
 -- are also emitted as function names.
 FUNCTION_NAMES :: { AList Expression A0 }
 FUNCTION_NAMES
-: FUNCTION_NAMES ',' FUNCTION_NAME { setSpan (getTransSpan $1 $3) $ $3 `aCons` $1 }
-| FUNCTION_NAME { AList () (getSpan $1) [ $1 ] }
+: FUNCTION_NAMES ',' VARIABLE { setSpan (getTransSpan $1 $3) $ $3 `aCons` $1 }
+| VARIABLE { AList () (getSpan $1) [ $1 ] }
 
 CALLABLE_EXPRESSIONS :: { AList Expression A0 }
 CALLABLE_EXPRESSIONS
@@ -419,14 +419,6 @@ ARITHMETIC_SIGN
 VARIABLE :: { Expression A0 }
 VARIABLE
 : id { ExpValue () (getSpan $1) $ let (TId _ s) = $1 in ValVariable () s }
-
-FUNCTION_NAME :: { Expression A0 }
-FUNCTION_NAME
-: id { ExpValue () (getSpan $1) $ let (TId _ s) = $1 in ValFunctionName s }
-
-SUBROUTINE_NAME :: { Expression A0 }
-SUBROUTINE_NAME
-: id { ExpValue () (getSpan $1) $ let (TId _ s) = $1 in ValSubroutineName s }
 
 SIGNED_INTEGER_LITERAL :: { Expression A0 }
 SIGNED_INTEGER_LITERAL
