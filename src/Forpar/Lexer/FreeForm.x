@@ -452,13 +452,16 @@ comma = do
       case mToken of
         Just TRightPar{} -> toSC scT >> addSpan TComma
         _ -> addSpan TComma
-    ConNamelist -> do
+    ConNamelist -> secondCommaIfSlashFollows
+    ConCommon -> secondCommaIfSlashFollows
+    _ -> addSpan TComma
+  where
+    secondCommaIfSlashFollows = do
       parseState <- get
       case unParse lexer' parseState of
         ParseOk TOpDivision{} _ -> addSpan TComma2
         ParseFailed _ -> fail "Expecting variable name or slash."
         _ -> addSpan TComma
-    _ -> addSpan TComma
 
 slashOrDivision :: LexAction (Maybe Token)
 slashOrDivision = do

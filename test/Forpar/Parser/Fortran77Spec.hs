@@ -162,7 +162,7 @@ spec =
 
     describe "SAVE" $ do
       it "parses 'save /cb/, var, /key/'" $ do
-        let saveArgs = [ cbNameGen "cb", varGen "var", cbNameGen "key" ]
+        let saveArgs = [ varGen "cb", varGen "var", varGen "key" ]
         let st = StSave () u (Just $ AList () u saveArgs)
         sParser "      save /cb/, var, /key/" `shouldBe'` st
 

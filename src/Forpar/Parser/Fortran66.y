@@ -290,17 +290,19 @@ COMMON_GROUPS
 
 COMMON_GROUP :: { CommonGroup A0 }
 COMMON_GROUP
-: '/' COMMON_NAME '/' NAME_LIST { CommonGroup () (getTransSpan $1 $4) (Just $2) $ aReverse $4 }
+: COMMON_NAME NAME_LIST
+  { CommonGroup () (getTransSpan $1 $2) (Just $1) $ aReverse $2 }
 | '/' '/' NAME_LIST { CommonGroup () (getTransSpan $1 $3) Nothing $ aReverse $3 }
 
 INIT_COMMON_GROUP :: { CommonGroup A0 }
 INIT_COMMON_GROUP
-: '/' COMMON_NAME '/' NAME_LIST { CommonGroup () (getTransSpan $1 $4) (Just $2) $ aReverse $4 }
+: COMMON_NAME NAME_LIST
+  { CommonGroup () (getTransSpan $1 $2) (Just $1) $ aReverse $2 }
 | '/' '/' NAME_LIST { CommonGroup () (getTransSpan $1 $3) Nothing $ aReverse $3 }
 | NAME_LIST { CommonGroup () (getSpan $1) Nothing $ aReverse $1 }
 
 COMMON_NAME :: { Expression A0 }
-COMMON_NAME : id { let (TId s cn) = $1 in ExpValue () s (ValCommonName cn) }
+COMMON_NAME : '/' VARIABLE '/' { setSpan (getTransSpan $1 $3) $2 }
 
 NAME_LIST :: { AList Expression A0 }
 NAME_LIST

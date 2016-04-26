@@ -141,7 +141,7 @@ spec =
         sParser "private operator ( * )" `shouldBe'` expected
 
       it "parses save statement" $ do
-        let list = [ comGen "hello", varGen "bye" ]
+        let list = [ varGen "hello", varGen "bye" ]
         let expected = StSave () u (Just $ fromList () list)
         let stStr = "save /hello/, bye"
         sParser stStr `shouldBe'` expected
@@ -219,6 +219,22 @@ spec =
 
         it "parses namelist statement (2)" $
           sParser "namelist /something/a,b,c/other/y" `shouldBe'` st
+
+      describe "Common" $ do
+        let commonNames = [ ExpValue () u (ValVariable () "something")
+                          , ExpValue () u (ValVariable () "other") ]
+        let itemss = [ fromList () [ varGen "a", varGen "b", varGen "c" ]
+                     , fromList () [ varGen "y" ] ]
+        let st = StCommon () u $ fromList ()
+              [ CommonGroup () u Nothing (fromList () [ varGen "q" ])
+              , CommonGroup () u (Just $ head commonNames) (head itemss)
+              , CommonGroup () u (Just $ last commonNames) (last itemss) ]
+
+        it "parses common statement (comma delimited) (1)" $
+          sParser "common q /something/a,b,c, /other/y" `shouldBe'` st
+
+        it "parses common statement (2)" $
+          sParser "common q /something/a,b,c /other/y" `shouldBe'` st
 
       it "parses equivalence statement" $ do
         let eqALists = fromList ()

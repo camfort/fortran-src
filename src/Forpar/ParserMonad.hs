@@ -39,6 +39,7 @@ data Context =
   | ConData
   | ConImplicit
   | ConNamelist
+  | ConCommon
   deriving (Show, Eq)
 
 data ParseState a = ParseState

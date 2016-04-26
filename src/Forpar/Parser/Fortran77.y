@@ -523,7 +523,7 @@ INIT_COMMON_GROUP
 | NAME_LIST { CommonGroup () (getSpan $1) Nothing $ aReverse $1 }
 
 COMMON_NAME :: { Expression A0 }
-COMMON_NAME : '/' id '/' { let (TId _ cn) = $2 in ExpValue () (getTransSpan $1 $3) (ValCommonName cn) }
+COMMON_NAME : '/' VARIABLE '/' { setSpan (getTransSpan $1 $3) $2 }
 
 NAME_LIST :: { AList Expression A0 }
 NAME_LIST

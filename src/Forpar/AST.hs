@@ -235,7 +235,6 @@ data Value a =
   | ValLabel             String
   | ValVariable          a Name
   | ValLogical           String
-  | ValCommonName        Name
   | ValOperator          String
   | ValAssignment
   | ValType              String

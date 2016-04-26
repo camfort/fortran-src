@@ -242,17 +242,50 @@ NONEXECUTABLE_STATEMENT :: { Statement A0 }
   { let impAList = fromReverseList $3
     in StImplicit () (getTransSpan $1 impAList) $ Just $ impAList }
 | namelist cNAMELIST NAMELISTS cPOP
-  { StNamelist () (getTransSpan $1 $3) $ fromReverseList $3 }
+  { let nameALists = fromReverseList $3
+    in StNamelist () (getTransSpan $1 nameALists) nameALists }
 | equivalence EQUIVALENCE_GROUPS
-  { StEquivalence () (getTransSpan $1 $2) $ fromReverseList $2 }
+  { let eqALists = fromReverseList $2
+    in StEquivalence () (getTransSpan $1 eqALists) eqALists }
+| common cCOMMON COMMON_GROUPS cPOP
+  { let commonAList = fromReverseList $3
+    in StCommon () (getTransSpan $1 commonAList) commonAList }
 
 MAYBE_DCOLON :: { () } : '::' { () } | {- EMPTY -} { () }
 
+COMMON_GROUPS :: { [ CommonGroup A0 ] }
+: COMMON_GROUPS COMMON_GROUP { $2 : $1 }
+| COMMON_GROUPS ',2' COMMON_GROUP { $3 : $1 }
+| INIT_COMMON_GROUP { [ $1 ] }
+
+COMMON_GROUP :: { CommonGroup A0 }
+: COMMON_NAME PART_REFS
+  { let alist = fromReverseList $2
+    in CommonGroup () (getTransSpan $1 alist) (Just $1) alist }
+| '/' '/' PART_REFS
+  { let alist = fromReverseList $3
+    in CommonGroup () (getTransSpan $1 alist) Nothing alist }
+
+INIT_COMMON_GROUP :: { CommonGroup A0 }
+: COMMON_NAME PART_REFS
+  { let alist = fromReverseList $2
+    in CommonGroup () (getTransSpan $1 alist) (Just $1) alist }
+| '/' '/' PART_REFS
+  { let alist = fromReverseList $3
+    in CommonGroup () (getTransSpan $1 alist) Nothing alist }
+| PART_REFS
+  { let alist = fromReverseList $1
+    in CommonGroup () (getSpan alist) Nothing alist }
+
 EQUIVALENCE_GROUPS :: { [ AList Expression A0 ] }
-: EQUIVALENCE_GROUPS ',' '(' EXPRESSION_LIST ')'
+: EQUIVALENCE_GROUPS ',' '(' PART_REFS ')'
   { setSpan (getTransSpan $3 $5) (fromReverseList $4) : $1 }
-| '(' EXPRESSION_LIST ')'
+| '(' PART_REFS ')'
   { [ setSpan (getTransSpan $1 $3) (fromReverseList $2) ] }
+
+PART_REFS :: { [ Expression A0 ] }
+: PART_REFS ',' PART_REF { $3 : $1 }
+| PART_REF { [ $1 ] }
 
 NAMELISTS :: { [ Namelist A0 ] }
 : NAMELISTS NAMELIST { $2 : $1 }
@@ -356,9 +389,7 @@ SAVE_ARGS :: { [ Expression A0 ] }
 SAVE_ARG :: { Expression A0 } : COMMON_NAME { $1 } | VARIABLE { $1 }
 
 COMMON_NAME :: { Expression A0 }
-: '/' id '/'
-  { let (TId _ cn) = $2 in
-    ExpValue () (getTransSpan $1 $3) (ValCommonName cn) }
+: '/' VARIABLE '/' { setSpan (getTransSpan $1 $3) $2 }
 
 DECLARATOR_LIST :: { [ Declarator A0 ] }
 : DECLARATOR_LIST ',' INITIALISED_DECLARATOR { $3 : $1 }
@@ -577,6 +608,7 @@ STRING :: { Expression A0 }
 cDATA :: { () } : {% pushContext ConData }
 cIMPLICIT :: { () } : {% pushContext ConImplicit }
 cNAMELIST :: { () } : {% pushContext ConNamelist }
+cCOMMON :: { () } : {% pushContext ConCommon }
 cPOP :: { () } : {% popContext }
 
 {

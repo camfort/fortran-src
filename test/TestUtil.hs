@@ -30,17 +30,11 @@ strGen str = ExpValue () u $ ValString str
 labelGen :: Integer -> Expression ()
 labelGen i = ExpValue () u $ ValLabel $ show i
 
-cbNameGen :: String -> Expression ()
-cbNameGen str = ExpValue () u $ ValCommonName str
-
 starVal :: Expression ()
 starVal = ExpValue () u ValStar
 
 opGen :: String -> Expression ()
 opGen s = ExpValue () u (ValOperator s)
-
-comGen :: String -> Expression ()
-comGen s = ExpValue () u (ValCommonName s)
 
 assVal :: Expression ()
 assVal = ExpValue () u ValAssignment
