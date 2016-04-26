@@ -243,8 +243,16 @@ NONEXECUTABLE_STATEMENT :: { Statement A0 }
     in StImplicit () (getTransSpan $1 impAList) $ Just $ impAList }
 | namelist cNAMELIST NAMELISTS cPOP
   { StNamelist () (getTransSpan $1 $3) $ fromReverseList $3 }
+| equivalence EQUIVALENCE_GROUPS
+  { StEquivalence () (getTransSpan $1 $2) $ fromReverseList $2 }
 
 MAYBE_DCOLON :: { () } : '::' { () } | {- EMPTY -} { () }
+
+EQUIVALENCE_GROUPS :: { [ AList Expression A0 ] }
+: EQUIVALENCE_GROUPS ',' '(' EXPRESSION_LIST ')'
+  { setSpan (getTransSpan $3 $5) (fromReverseList $4) : $1 }
+| '(' EXPRESSION_LIST ')'
+  { [ setSpan (getTransSpan $1 $3) (fromReverseList $2) ] }
 
 NAMELISTS :: { [ Namelist A0 ] }
 : NAMELISTS NAMELIST { $2 : $1 }
@@ -308,8 +316,7 @@ ATTRIBUTE_LIST :: { [ Attribute A0 ] }
 | {- EMPTY -} { [ ] }
 
 ATTRIBUTE_SPEC :: { Attribute A0 }
-: parameter { AttrParameter () (getSpan $1) }
-| public { AttrPublic () (getSpan $1) }
+: public { AttrPublic () (getSpan $1) }
 | private { AttrPrivate () (getSpan $1) }
 | allocatable { AttrAllocatable () (getSpan $1) }
 | dimension '(' DIMENSION_DECLARATORS ')'

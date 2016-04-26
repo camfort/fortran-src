@@ -219,3 +219,22 @@ spec =
 
         it "parses namelist statement (2)" $
           sParser "namelist /something/a,b,c/other/y" `shouldBe'` st
+
+      it "parses equivalence statement" $ do
+        let eqALists = fromList ()
+              [ fromList ()
+                  [ let indicies = fromList () [ IxSingle () u (intGen 1) ]
+                    in ExpSubscript () u (varGen "a") indicies
+                  , varGen "x"
+                  ]
+              , fromList ()
+                  [ varGen "y"
+                  , varGen "z"
+                  , let indicies = fromList () [ IxRange () u (Just $ intGen 1)
+                                                              (Just $ intGen 42)
+                                                              Nothing ]
+                    in ExpSubscript () u (varGen "d") indicies
+                  ]
+              ]
+        let st = StEquivalence () u eqALists
+        sParser "equivalence (a(1), x), (y, z, d(1:42))" `shouldBe'` st
