@@ -205,7 +205,7 @@ spec =
           it "parses non-comma delimited init groups" $
             sParser "data x/1/ y/2/" `shouldBe'` expected
 
-      it "parses namelist statement" $ do
+      describe "Namelist" $ do
         let groupNames = [ ExpValue () u (ValVariable () "something")
                          , ExpValue () u (ValVariable () "other") ]
         let itemss = [ fromList () [ varGen "a", varGen "b", varGen "c" ]
@@ -213,5 +213,9 @@ spec =
         let st = StNamelist () u $
               fromList () [ Namelist () u (head groupNames) (head itemss)
                           , Namelist () u (last groupNames) (last itemss) ]
-        sParser "namelist /something/a,b,c,/other/y" `shouldBe'` st
-        sParser "namelist /something/a,b,c/other/y" `shouldBe'` st
+
+        it "parses namelist statement (comma delimited) (1)" $
+          sParser "namelist /something/a,b,c,/other/y" `shouldBe'` st
+
+        it "parses namelist statement (2)" $
+          sParser "namelist /something/a,b,c/other/y" `shouldBe'` st
