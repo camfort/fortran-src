@@ -254,3 +254,25 @@ spec =
               ]
         let st = StEquivalence () u eqALists
         sParser "equivalence (a(1), x), (y, z, d(1:42))" `shouldBe'` st
+
+      describe "Dynamic allocation" $ do
+        it "parses allocate statement" $ do
+          let controlPair = ControlPair () u (Just "stat") (varGen "a")
+          let allocs = fromList ()
+                [ varGen "x"
+                , ExpDataRef () u (varGen "st") (varGen "part")
+                ]
+          let s = StAllocate () u allocs (Just controlPair)
+          sParser "allocate (x, st % part, STAT = a)" `shouldBe'` s
+
+        it "parses deallocate statement" $ do
+          let allocs = fromList ()
+                [ let indicies = fromList () [ IxSingle () u (intGen 20) ]
+                  in ExpSubscript () u (varGen "smt") indicies
+                ]
+          let s = StDeallocate () u allocs Nothing
+          sParser "deallocate (smt ( 20 ))" `shouldBe'` s
+
+        it "parses nullify statement" $ do
+          let s = StNullify () u (fromList () [ varGen "x" ])
+          sParser "nullify (x)" `shouldBe'` s

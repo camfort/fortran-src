@@ -148,6 +148,9 @@ data Statement a  =
   | StBackspace2          a SrcSpan (Expression a)
   | StEndfile             a SrcSpan (AList ControlPair a)
   | StEndfile2            a SrcSpan (Expression a)
+  | StAllocate            a SrcSpan (AList Expression a) (Maybe (ControlPair a))
+  | StNullify             a SrcSpan (AList Expression a)
+  | StDeallocate          a SrcSpan (AList Expression a) (Maybe (ControlPair a))
   deriving (Eq, Show, Data, Typeable, Generic, Functor)
 
 data Attribute a =

@@ -192,6 +192,7 @@ import Debug.Trace
 STATEMENT :: { Statement A0 }
 : OTHER_EXECUTABLE_STATEMENT { $1 }
 | NONEXECUTABLE_STATEMENT { $1 }
+| EXECUTABLE_STATEMENT { $1 }
 
 OTHER_EXECUTABLE_STATEMENT :: { Statement A0 }
 : EXPRESSION_ASSIGNMENT_STATEMENT { $1 }
@@ -251,6 +252,26 @@ NONEXECUTABLE_STATEMENT :: { Statement A0 }
   { let commonAList = fromReverseList $3
     in StCommon () (getTransSpan $1 commonAList) commonAList }
 
+EXECUTABLE_STATEMENT :: { Statement A0 }
+: allocate '(' DATA_REFS ')'
+  { StAllocate () (getTransSpan $1 $4) (fromReverseList $3) Nothing }
+| allocate '(' DATA_REFS ',' CILIST_PAIR ')'
+  { StAllocate () (getTransSpan $1 $6) (fromReverseList $3) (Just $5) }
+| nullify '(' DATA_REFS ')'
+  { StNullify () (getTransSpan $1 $4) (fromReverseList $3) }
+| deallocate '(' DATA_REFS ')'
+  { StDeallocate () (getTransSpan $1 $4) (fromReverseList $3) Nothing }
+| deallocate '(' DATA_REFS ',' CILIST_PAIR ')'
+  { StDeallocate () (getTransSpan $1 $6) (fromReverseList $3) (Just $5) }
+
+CILIST_PAIR :: { ControlPair A0 }
+: id '=' CILIST_ELEMENT
+  { let (TId s id) = $1 in ControlPair () (getTransSpan s $3) (Just id) $3 }
+
+CILIST_ELEMENT :: { Expression A0 }
+: EXPRESSION { $1 }
+| '*' { ExpValue () (getSpan $1) ValStar }
+
 MAYBE_DCOLON :: { () } : '::' { () } | {- EMPTY -} { () }
 
 COMMON_GROUPS :: { [ CommonGroup A0 ] }
@@ -282,10 +303,6 @@ EQUIVALENCE_GROUPS :: { [ AList Expression A0 ] }
   { setSpan (getTransSpan $3 $5) (fromReverseList $4) : $1 }
 | '(' PART_REFS ')'
   { [ setSpan (getTransSpan $1 $3) (fromReverseList $2) ] }
-
-PART_REFS :: { [ Expression A0 ] }
-: PART_REFS ',' PART_REF { $3 : $1 }
-| PART_REF { [ $1 ] }
 
 NAMELISTS :: { [ Namelist A0 ] }
 : NAMELISTS NAMELIST { $2 : $1 }
@@ -522,9 +539,17 @@ EXPRESSION :: { Expression A0 }
     in ExpValue () (getTransSpan $1 $4) (ValOperator op) }
 | assignment { ExpValue () (getSpan $1) ValAssignment }
 
+DATA_REFS :: { [ Expression A0 ] }
+: DATA_REFS ',' DATA_REF { $3 : $1 }
+| DATA_REF { [ $1 ] }
+
 DATA_REF :: { Expression A0 }
 : DATA_REF '%' PART_REF { ExpDataRef () (getTransSpan $1 $3) $1 $3 }
 | PART_REF { $1 }
+
+PART_REFS :: { [ Expression A0 ] }
+: PART_REFS ',' PART_REF { $3 : $1 }
+| PART_REF { [ $1 ] }
 
 PART_REF :: { Expression A0 }
 : VARIABLE { $1 }
