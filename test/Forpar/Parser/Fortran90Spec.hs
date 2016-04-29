@@ -291,3 +291,13 @@ spec =
           let assignment = StExpressionAssign () u (varGen "temp") exp
           let st = StWhere () u pred assignment
           sParser "where (temp > 100) temp = temp - r_temp"`shouldBe'` st
+
+        describe "Where block" $ do
+          it "parses where construct statement" $
+            sParser "where (.true.)" `shouldBe'` StWhereConstruct () u valTrue
+
+          it "parses elsewhere statement" $
+            sParser "elsewhere" `shouldBe'` StElsewhere () u
+
+          it "parses endwhere statement" $
+            sParser "endwhere" `shouldBe'` StEndwhere () u

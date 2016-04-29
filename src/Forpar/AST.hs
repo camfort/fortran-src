@@ -153,6 +153,9 @@ data Statement a  =
   | StNullify             a SrcSpan (AList Expression a)
   | StDeallocate          a SrcSpan (AList Expression a) (Maybe (ControlPair a))
   | StWhere               a SrcSpan (Expression a) (Statement a)
+  | StWhereConstruct      a SrcSpan (Expression a)
+  | StElsewhere           a SrcSpan
+  | StEndwhere            a SrcSpan
   deriving (Eq, Show, Data, Typeable, Generic, Functor)
 
 data Attribute a =

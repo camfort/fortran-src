@@ -133,7 +133,7 @@ import Debug.Trace
   exit                        { TExit _ }
   where                       { TWhere _ }
   elsewhere                   { TElsewhere _ }
-  endWhere                    { TEndWhere _ }
+  endwhere                    { TEndWhere _ }
   type                        { TType _ }
   endType                     { TEndType _ }
   sequence                    { TSequence _ }
@@ -266,6 +266,9 @@ EXECUTABLE_STATEMENT :: { Statement A0 }
 | DATA_REF '=>' EXPRESSION { StPointerAssign () (getTransSpan $1 $3) $1 $3 }
 | where '(' EXPRESSION ')' EXPRESSION_ASSIGNMENT_STATEMENT
   { StWhere () (getTransSpan $1 $5) $3 $5 }
+| where '(' EXPRESSION ')' { StWhereConstruct () (getTransSpan $1 $4) $3 }
+| elsewhere { StElsewhere () (getSpan $1) }
+| endwhere { StEndwhere () (getSpan $1) }
 
 CILIST_PAIR :: { ControlPair A0 }
 : id '=' CILIST_ELEMENT
