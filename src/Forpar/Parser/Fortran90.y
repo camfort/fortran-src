@@ -264,6 +264,8 @@ EXECUTABLE_STATEMENT :: { Statement A0 }
 | deallocate '(' DATA_REFS ',' CILIST_PAIR ')'
   { StDeallocate () (getTransSpan $1 $6) (fromReverseList $3) (Just $5) }
 | DATA_REF '=>' EXPRESSION { StPointerAssign () (getTransSpan $1 $3) $1 $3 }
+| where '(' EXPRESSION ')' EXPRESSION_ASSIGNMENT_STATEMENT
+  { StWhere () (getTransSpan $1 $5) $3 $5 }
 
 CILIST_PAIR :: { ControlPair A0 }
 : id '=' CILIST_ELEMENT

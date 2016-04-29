@@ -1,5 +1,7 @@
 module Forpar.Parser.Fortran90Spec (spec) where
 
+import Prelude hiding (GT)
+
 import TestUtil
 import Test.Hspec
 
@@ -281,3 +283,11 @@ spec =
         let src = ExpDataRef () u (varGen "x") (varGen "y")
         let st = StPointerAssign () u src (varGen "exp")
         sParser "x % y => exp" `shouldBe'` st
+
+      describe "Where" $ do
+        it "parses where statement" $ do
+          let exp = ExpBinary () u Subtraction (varGen "temp") (varGen "r_temp")
+          let pred = ExpBinary () u GT (varGen "temp") (intGen 100)
+          let assignment = StExpressionAssign () u (varGen "temp") exp
+          let st = StWhere () u pred assignment
+          sParser "where (temp > 100) temp = temp - r_temp"`shouldBe'` st
