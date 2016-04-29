@@ -351,7 +351,7 @@ stripNestedBlocks (BlDo a s l ds _)         = BlDo a s l ds []
 stripNestedBlocks (BlDoWhile a s l e _)     = BlDoWhile a s l e []
 stripNestedBlocks (BlIf a s l exps _)       = BlIf a s l exps []
 stripNestedBlocks (BlStatement a s l
-                   (StIfLogical a' s' e _)) = BlStatement a s l (StIfLogical a' s' e (StEndif a' s'))
+                   (StIfLogical a' s' e _)) = BlStatement a s l (StIfLogical a' s' e (StEndif a' s' Nothing))
 stripNestedBlocks b                         = b
 
 -- Flatten out function calls within the expression, returning an

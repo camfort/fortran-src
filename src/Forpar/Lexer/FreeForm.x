@@ -174,7 +174,7 @@ tokens :-
 <0> "do"                                          { addSpan TDo }
 <0> "end"\ *"do"                                  { addSpan TEndDo }
 <0> "while"                                       { addSpan TWhile }
-<0> "if"                                          { addSpan TIf }
+<0,scN> "if"                                      { addSpan TIf }
 <scI> "then"                                      { addSpan TThen }
 <0> "else"                                        { addSpan TElse }
 <0> "else"\ *"if"                                 { addSpan TElsif }
@@ -275,6 +275,8 @@ selectorP user _ _ ai =
 ifConditionEndP :: User -> AlexInput -> Int -> AlexInput -> Bool
 ifConditionEndP (User _ pc) _ _ ai
     | (TIf{}:_) <- prevTokens = pc == ParanthesesCount 1 False
+    | (TId{}:TColon{}:TIf{}:_) <- prevTokens = pc == ParanthesesCount 1 False
+    | (TElsif{}:_) <- prevTokens = pc == ParanthesesCount 1 False
     | otherwise = False
   where
     prevTokens = reverse . aiPreviousTokensInLine $ ai

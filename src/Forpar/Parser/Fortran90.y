@@ -190,12 +190,9 @@ import Debug.Trace
 %%
 
 STATEMENT :: { Statement A0 }
-: OTHER_EXECUTABLE_STATEMENT { $1 }
+: LOGICAL_IF_STATEMENT { $1 }
 | NONEXECUTABLE_STATEMENT { $1 }
 | EXECUTABLE_STATEMENT { $1 }
-
-OTHER_EXECUTABLE_STATEMENT :: { Statement A0 }
-: EXPRESSION_ASSIGNMENT_STATEMENT { $1 }
 
 EXPRESSION_ASSIGNMENT_STATEMENT :: { Statement A0 }
 : DATA_REF '=' EXPRESSION { StExpressionAssign () (getTransSpan $1 $3) $1 $3 }
@@ -263,12 +260,29 @@ EXECUTABLE_STATEMENT :: { Statement A0 }
   { StDeallocate () (getTransSpan $1 $4) (fromReverseList $3) Nothing }
 | deallocate '(' DATA_REFS ',' CILIST_PAIR ')'
   { StDeallocate () (getTransSpan $1 $6) (fromReverseList $3) (Just $5) }
+| EXPRESSION_ASSIGNMENT_STATEMENT { $1 }
 | DATA_REF '=>' EXPRESSION { StPointerAssign () (getTransSpan $1 $3) $1 $3 }
 | where '(' EXPRESSION ')' EXPRESSION_ASSIGNMENT_STATEMENT
   { StWhere () (getTransSpan $1 $5) $3 $5 }
 | where '(' EXPRESSION ')' { StWhereConstruct () (getTransSpan $1 $4) $3 }
 | elsewhere { StElsewhere () (getSpan $1) }
 | endwhere { StEndwhere () (getSpan $1) }
+| if '(' EXPRESSION ')' INTEGER_LITERAL ',' INTEGER_LITERAL ',' INTEGER_LITERAL
+  { StIfArithmetic () (getTransSpan $1 $9) $3 $5 $7 $9 }
+| if '(' EXPRESSION ')' then { StIfThen () (getTransSpan $1 $5) Nothing $3 }
+| VARIABLE ':' if '(' EXPRESSION ')' then
+  { StIfThen () (getTransSpan $1 $7) (Just $1) $5 }
+| elsif '(' EXPRESSION ')' then { StElsif () (getTransSpan $1 $5) Nothing $3 }
+| elsif '(' EXPRESSION ')' then VARIABLE
+  { StElsif () (getTransSpan $1 $6) (Just $6) $3 }
+| else { StElse () (getSpan $1) Nothing }
+| else VARIABLE { StElse () (getSpan $1) (Just $2) }
+| endif { StEndif () (getSpan $1) Nothing }
+| endif VARIABLE { StEndif () (getSpan $1) (Just $2) }
+
+LOGICAL_IF_STATEMENT :: { Statement A0 }
+: if '(' EXPRESSION ')' EXECUTABLE_STATEMENT
+  { StIfLogical () (getTransSpan $1 $5) $3 $5 }
 
 CILIST_PAIR :: { ControlPair A0 }
 : id '=' CILIST_ELEMENT

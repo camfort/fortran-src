@@ -214,10 +214,10 @@ EXECUTABLE_STATEMENT
 | assign LABEL_IN_STATEMENT to VARIABLE { StLabelAssign () (getTransSpan $1 $4) $2 $4 }
 | GOTO_STATEMENT { $1 }
 | if '(' EXPRESSION ')' LABEL_IN_STATEMENT ',' LABEL_IN_STATEMENT ',' LABEL_IN_STATEMENT { StIfArithmetic () (getTransSpan $1 $9) $3 $5 $7 $9 }
-| if '(' EXPRESSION ')' then { StIfThen () (getTransSpan $1 $5) $3 }
-| elsif '(' EXPRESSION ')' then { StElsif () (getTransSpan $1 $5) $3 }
-| else { StElse () (getSpan $1) }
-| endif { StEndif () (getSpan $1) }
+| if '(' EXPRESSION ')' then { StIfThen () (getTransSpan $1 $5) Nothing $3 }
+| elsif '(' EXPRESSION ')' then { StElsif () (getTransSpan $1 $5) Nothing $3 }
+| else { StElse () (getSpan $1) Nothing }
+| endif { StEndif () (getSpan $1) Nothing }
 | doWhile '(' EXPRESSION ')' { StDoWhile () (getTransSpan $1 $4) $3 }
 | enddo { StEnddo () (getSpan $1) }
 | call VARIABLE CALLABLE_EXPRESSIONS

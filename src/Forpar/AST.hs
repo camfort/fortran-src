@@ -119,10 +119,10 @@ data Statement a  =
   | StEnddo               a SrcSpan
   | StIfLogical           a SrcSpan (Expression a) (Statement a) -- Statement should not further recurse
   | StIfArithmetic        a SrcSpan (Expression a) (Expression a) (Expression a) (Expression a)
-  | StIfThen              a SrcSpan (Expression a)
-  | StElse                a SrcSpan
-  | StElsif               a SrcSpan (Expression a)
-  | StEndif               a SrcSpan
+  | StIfThen              a SrcSpan (Maybe (Expression a)) (Expression a)
+  | StElse                a SrcSpan (Maybe (Expression a))
+  | StElsif               a SrcSpan (Maybe (Expression a)) (Expression a)
+  | StEndif               a SrcSpan (Maybe (Expression a))
   | StFunction            a SrcSpan (Expression a) (AList Expression a) (Expression a)
   | StExpressionAssign    a SrcSpan (Expression a) (Expression a)
   | StPointerAssign       a SrcSpan (Expression a) (Expression a)
@@ -465,8 +465,8 @@ instance Conditioned Block where
   getCondition _ = Nothing
 
 instance Conditioned Statement where
-  getCondition (StIfThen _ _ c) = Just c
-  getCondition (StElsif _ _ c) = Just c
+  getCondition (StIfThen _ _ _ c) = Just c
+  getCondition (StElsif _ _ _ c) = Just c
   getCondition _ = Nothing
 
 data ProgramUnitName =

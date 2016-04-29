@@ -301,3 +301,31 @@ spec =
 
           it "parses endwhere statement" $
             sParser "endwhere" `shouldBe'` StEndwhere () u
+
+    describe "If" $ do
+      it "parses if-then statement" $
+        sParser "if (.false.) then" `shouldBe'` StIfThen () u Nothing valFalse
+
+      it "parses if-then statement with construct name" $ do
+        let st = StIfThen () u (Just $ varGen "my_if") valFalse
+        sParser "my_if: if (.false.) then" `shouldBe'` st
+
+      it "parses else statement" $
+        sParser "else" `shouldBe'` StElse () u Nothing
+
+      it "parses else-if statement" $
+        sParser "else if (.true.) then" `shouldBe'` StElsif () u Nothing valTrue
+
+      it "parses end if statement" $
+        sParser "end if" `shouldBe'` StEndif () u Nothing
+
+      it "parses logical if statement" $ do
+        let assignment = StExpressionAssign () u (varGen "a") (varGen "b")
+        let stIf = StIfLogical () u valTrue assignment
+        sParser "if (.true.) a = b" `shouldBe'` stIf
+
+      it "parses arithmetic if statement" $ do
+        let stIf = StIfArithmetic () u (varGen "x") (intGen 1)
+                                                    (intGen 2)
+                                                    (intGen 3)
+        sParser "if (x) 1, 2, 3" `shouldBe'` stIf

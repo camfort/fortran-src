@@ -77,8 +77,8 @@ breakIntoIfComponents blocks@(BlStatement _ _ _ StIfThen{}:rest) =
   where
     breakIntoIfComponents' (BlStatement _ _ _ st:rest) =
       case st of
-        StIfThen _ _ condition -> go (Just condition) rest
-        StElsif _ _ condition -> go (Just condition) rest
+        StIfThen _ _ _ condition -> go (Just condition) rest
+        StElsif _ _ _ condition -> go (Just condition) rest
         StElse{} -> go Nothing rest
         StEndif{} -> ([], [], rest)
         _ -> error "Block with non-if related statement. Should never occur."
