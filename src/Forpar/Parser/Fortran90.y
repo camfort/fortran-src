@@ -303,6 +303,11 @@ EXECUTABLE_STATEMENT :: { Statement A0 }
   { StGotoComputed () (getTransSpan $1 $6) (fromReverseList $3) $6 }
 | assign INTEGER_LITERAL to VARIABLE
   { StLabelAssign () (getTransSpan $1 $4) $2 $4 }
+| continue { StContinue () (getSpan $1) }
+| stop { StStop () (getSpan $1) Nothing }
+| stop INTEGER_LITERAL { StStop () (getTransSpan $1 $2) (Just $2) }
+| pause { StPause () (getSpan $1) Nothing }
+| pause INTEGER_LITERAL { StPause () (getTransSpan $1 $2) (Just $2) }
 | selectcase '(' EXPRESSION ')'
   { StSelectCase () (getTransSpan $1 $4) Nothing $3 }
 | VARIABLE ':' selectcase '(' EXPRESSION ')'
