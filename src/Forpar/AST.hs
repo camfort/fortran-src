@@ -117,6 +117,8 @@ data Statement a  =
   | StDo                  a SrcSpan (Maybe (Expression a)) (Maybe (Expression a)) (DoSpecification a)
   | StDoWhile             a SrcSpan (Maybe (Expression a)) (Maybe (Expression a)) (Expression a)
   | StEnddo               a SrcSpan (Maybe (Expression a))
+  | StCycle               a SrcSpan (Maybe (Expression a))
+  | StExit                a SrcSpan (Maybe (Expression a))
   | StIfLogical           a SrcSpan (Expression a) (Statement a) -- Statement should not further recurse
   | StIfArithmetic        a SrcSpan (Expression a) (Expression a) (Expression a) (Expression a)
   | StIfThen              a SrcSpan (Maybe (Expression a)) (Expression a)
@@ -137,7 +139,6 @@ data Statement a  =
   | StReturn              a SrcSpan (Maybe (Expression a))
   | StContinue            a SrcSpan
   | StStop                a SrcSpan (Maybe (Expression a))
-  | StExit                a SrcSpan
   | StPause               a SrcSpan (Maybe (Expression a))
   | StRead                a SrcSpan (AList ControlPair a) (Maybe (AList Expression a))
   | StRead2               a SrcSpan (Expression a) (Maybe (AList Expression a))

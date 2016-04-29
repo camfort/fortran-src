@@ -230,7 +230,7 @@ EXECUTABLE_STATEMENT
 | continue { StContinue () $ getSpan $1 }
 | stop INTEGER_OR_STRING { StStop () (getTransSpan $1 $2) $ Just $2 }
 | stop { StStop () (getSpan $1) Nothing }
-| exit { StExit () (getSpan $1) }
+| exit { StExit () (getSpan $1) Nothing }
 | pause INTEGER_OR_STRING { StPause () (getTransSpan $1 $2) $ Just $2 }
 | pause { StPause () (getSpan $1) Nothing }
 -- IO Statements

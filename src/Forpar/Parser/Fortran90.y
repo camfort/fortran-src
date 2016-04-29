@@ -291,7 +291,11 @@ EXECUTABLE_STATEMENT :: { Statement A0 }
 | VARIABLE ':' do while '(' EXPRESSION ')'
   { StDoWhile () (getTransSpan $1 $7) (Just $1) Nothing $6 }
 | enddo { StEnddo () (getSpan $1) Nothing }
-| enddo VARIABLE { StEnddo () (getSpan $1) (Just $2) }
+| enddo VARIABLE { StEnddo () (getTransSpan $1 $2) (Just $2) }
+| cycle { StCycle () (getSpan $1) Nothing }
+| cycle VARIABLE { StCycle () (getTransSpan $1 $2) (Just $2) }
+| exit { StExit () (getSpan $1) Nothing }
+| exit VARIABLE { StExit () (getTransSpan $1 $2) (Just $2) }
 | selectcase '(' EXPRESSION ')'
   { StSelectCase () (getTransSpan $1 $4) Nothing $3 }
 | VARIABLE ':' selectcase '(' EXPRESSION ')'
