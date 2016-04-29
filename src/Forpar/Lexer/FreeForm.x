@@ -174,12 +174,14 @@ tokens :-
 <0> "do"                                          { addSpan TDo }
 <0> "end"\ *"do"                                  { addSpan TEndDo }
 <0> "while"                                       { addSpan TWhile }
-<0,scN> "if"                                      { addSpan TIf }
+<0> "if"                                          { addSpan TIf }
+<scN> "if" / { followsColonP }                    { addSpan TIf }
 <scI> "then"                                      { addSpan TThen }
 <0> "else"                                        { addSpan TElse }
 <0> "else"\ *"if"                                 { addSpan TElsif }
 <0> "end"\ *"if"                                  { addSpan TEndIf }
 <0> "select"\ *"case"                             { addSpan TSelectCase }
+<scN> "select"\ *"case" / { followsColonP }       { addSpan TSelectCase }
 <0> "case"                                        { addSpan TCase }
 <0> "end"\ *"select"                              { addSpan TEndSelect }
 <scN> "default" / { caseStP }                     { addSpan TDefault }
@@ -260,6 +262,12 @@ tokens :-
 --------------------------------------------------------------------------------
 -- Predicated lexer helpers
 --------------------------------------------------------------------------------
+
+followsColonP :: User -> AlexInput -> Int -> AlexInput -> Bool
+followsColonP _ _ _ ai =
+  case aiPreviousToken ai of
+    Just TColon{} -> True
+    _ -> False
 
 selectorP :: User -> AlexInput -> Int -> AlexInput -> Bool
 selectorP user _ _ ai =

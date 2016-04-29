@@ -126,8 +126,8 @@ import Debug.Trace
   elsif                       { TElsif _ }
   endif                       { TEndIf _ }
   case                        { TCase _ }
-  selectCase                  { TSelectCase _ }
-  endSelect                   { TEndSelect _ }
+  selectcase                  { TSelectCase _ }
+  endselect                   { TEndSelect _ }
   default                     { TDefault _ }
   cycle                       { TCycle _ }
   exit                        { TExit _ }
@@ -279,6 +279,17 @@ EXECUTABLE_STATEMENT :: { Statement A0 }
 | else VARIABLE { StElse () (getSpan $1) (Just $2) }
 | endif { StEndif () (getSpan $1) Nothing }
 | endif VARIABLE { StEndif () (getSpan $1) (Just $2) }
+| selectcase '(' EXPRESSION ')'
+  { StSelectCase () (getTransSpan $1 $4) Nothing $3 }
+| VARIABLE ':' selectcase '(' EXPRESSION ')'
+  { StSelectCase () (getTransSpan $1 $6) (Just $1) $5 }
+| case default { StCase () (getTransSpan $1 $2) Nothing Nothing }
+| case default VARIABLE { StCase () (getTransSpan $1 $3) (Just $3) Nothing }
+| case '(' RANGE ')' { StCase () (getTransSpan $1 $4) Nothing (Just $3) }
+| case '(' RANGE ')' VARIABLE
+  { StCase () (getTransSpan $1 $5) (Just $5) (Just $3) }
+| endselect { StEndcase () (getSpan $1) Nothing }
+| endselect VARIABLE { StEndcase () (getTransSpan $1 $2) (Just $2) }
 
 LOGICAL_IF_STATEMENT :: { Statement A0 }
 : if '(' EXPRESSION ')' EXECUTABLE_STATEMENT

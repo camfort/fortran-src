@@ -329,3 +329,23 @@ spec =
                                                     (intGen 2)
                                                     (intGen 3)
         sParser "if (x) 1, 2, 3" `shouldBe'` stIf
+
+    describe "Case" $ do
+      it "parses select case statement" $ do
+        let st = StSelectCase () u Nothing (varGen "n")
+        sParser "select case (n)" `shouldBe'` st
+
+      it "parses select case statement with construct name" $ do
+        let st = StSelectCase () u (Just $ varGen "case") (varGen "n")
+        sParser "case: select case (n)" `shouldBe'` st
+
+      it "parses case statement" $ do
+        let range = IxRange () u (Just $ intGen 42) Nothing Nothing
+        sParser "case (42:)" `shouldBe'` StCase () u Nothing (Just range)
+
+      it "parses case statement" $
+        sParser "case default" `shouldBe'` StCase () u Nothing Nothing
+
+      it "parses end select statement" $ do
+        let st = StEndcase () u (Just $ varGen "name")
+        sParser "end select name" `shouldBe'` st
