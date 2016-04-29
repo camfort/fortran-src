@@ -125,6 +125,7 @@ data Statement a  =
   | StEndif               a SrcSpan
   | StFunction            a SrcSpan (Expression a) (AList Expression a) (Expression a)
   | StExpressionAssign    a SrcSpan (Expression a) (Expression a)
+  | StPointerAssign       a SrcSpan (Expression a) (Expression a)
   | StLabelAssign         a SrcSpan (Expression a) (Expression a)
   | StGotoUnconditional   a SrcSpan (Expression a)
   | StGotoAssigned        a SrcSpan (Expression a) (AList Expression a)

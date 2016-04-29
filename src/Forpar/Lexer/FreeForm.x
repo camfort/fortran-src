@@ -301,6 +301,7 @@ partOfExpOrPointerAssignmentP (User fv _) _ _ ai =
         case token of
           TNewline{} -> return False
           TEOF{} -> return False
+          TPercent{} -> return True
           TArrow{} -> return True
           TOpAssign{} -> return True
           TLeftPar{} -> lexer $ f True 1

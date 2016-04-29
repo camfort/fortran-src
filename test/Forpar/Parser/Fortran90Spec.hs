@@ -276,3 +276,8 @@ spec =
         it "parses nullify statement" $ do
           let s = StNullify () u (fromList () [ varGen "x" ])
           sParser "nullify (x)" `shouldBe'` s
+
+      it "parses pointer assignment" $ do
+        let src = ExpDataRef () u (varGen "x") (varGen "y")
+        let st = StPointerAssign () u src (varGen "exp")
+        sParser "x % y => exp" `shouldBe'` st
