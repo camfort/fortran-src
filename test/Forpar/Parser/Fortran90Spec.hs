@@ -370,3 +370,22 @@ spec =
       it "parses end do while statement" $ do
         let st = StDoWhile () u (Just $ varGen "name") Nothing valTrue
         sParser "name: do while (.true.)" `shouldBe'` st
+
+    describe "Goto" $ do
+      it "parses vanilla goto" $ do
+        let st = StGotoUnconditional () u (intGen 999)
+        sParser "goto 999" `shouldBe'` st
+
+      it "parses computed goto" $ do
+        let list = fromList () [ intGen 10, intGen 20, intGen 30 ]
+        let st = StGotoComputed () u list (intGen 20)
+        sParser "goto (10, 20, 30) 20" `shouldBe'` st
+
+      it "parses assigned goto" $ do
+        let list = fromList () [ intGen 10, intGen 20, intGen 30 ]
+        let st = StGotoAssigned () u (varGen "i") list
+        sParser "goto i, (10, 20, 30)" `shouldBe'` st
+
+      it "parses label assignment" $ do
+        let st = StLabelAssign () u (intGen 20) (varGen "l")
+        sParser "assign 20 to l" `shouldBe'` st

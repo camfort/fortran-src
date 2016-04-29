@@ -296,6 +296,13 @@ EXECUTABLE_STATEMENT :: { Statement A0 }
 | cycle VARIABLE { StCycle () (getTransSpan $1 $2) (Just $2) }
 | exit { StExit () (getSpan $1) Nothing }
 | exit VARIABLE { StExit () (getTransSpan $1 $2) (Just $2) }
+| goto INTEGER_LITERAL { StGotoUnconditional () (getTransSpan $1 $2) $2 }
+| goto VARIABLE MAYBE_COMMA '(' INTEGERS ')'
+  { StGotoAssigned () (getTransSpan $1 $6) $2 (fromReverseList $5) }
+| goto '(' INTEGERS ')' MAYBE_COMMA EXPRESSION
+  { StGotoComputed () (getTransSpan $1 $6) (fromReverseList $3) $6 }
+| assign INTEGER_LITERAL to VARIABLE
+  { StLabelAssign () (getTransSpan $1 $4) $2 $4 }
 | selectcase '(' EXPRESSION ')'
   { StSelectCase () (getTransSpan $1 $4) Nothing $3 }
 | VARIABLE ':' selectcase '(' EXPRESSION ')'
@@ -664,6 +671,10 @@ VARIABLE :: { Expression A0 }
 
 NUMERIC_LITERAL :: { Expression A0 }
 : INTEGER_LITERAL { $1 } | REAL_LITERAL { $1 }
+
+INTEGERS :: { [ Expression A0 ] }
+: INTEGERS ',' INTEGER_LITERAL { $3 : $1 }
+| INTEGER_LITERAL { [ $1 ] }
 
 INTEGER_LITERAL :: { Expression A0 }
 : int { let TIntegerLiteral s i = $1 in ExpValue () s $ ValInteger i }
