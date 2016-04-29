@@ -199,9 +199,9 @@ LOGICAL_IF_STATEMENT : if '(' EXPRESSION ')' EXECUTABLE_STATEMENT { StIfLogical 
 
 DO_STATEMENT :: { Statement A0 }
 DO_STATEMENT
-: do LABEL_IN_STATEMENT DO_SPECIFICATION { StDo () (getTransSpan $1 $3) (Just $2) $3 }
-| do LABEL_IN_STATEMENT ',' DO_SPECIFICATION { StDo () (getTransSpan $1 $4) (Just $2) $4 }
-| do DO_SPECIFICATION { StDo () (getTransSpan $1 $2) Nothing $2 }
+: do LABEL_IN_STATEMENT DO_SPECIFICATION { StDo () (getTransSpan $1 $3) Nothing (Just $2) $3 }
+| do LABEL_IN_STATEMENT ',' DO_SPECIFICATION { StDo () (getTransSpan $1 $4) Nothing (Just $2) $4 }
+| do DO_SPECIFICATION { StDo () (getTransSpan $1 $2) Nothing Nothing $2 }
 
 DO_SPECIFICATION :: { DoSpecification A0 }
 DO_SPECIFICATION
@@ -218,8 +218,9 @@ EXECUTABLE_STATEMENT
 | elsif '(' EXPRESSION ')' then { StElsif () (getTransSpan $1 $5) Nothing $3 }
 | else { StElse () (getSpan $1) Nothing }
 | endif { StEndif () (getSpan $1) Nothing }
-| doWhile '(' EXPRESSION ')' { StDoWhile () (getTransSpan $1 $4) $3 }
-| enddo { StEnddo () (getSpan $1) }
+| doWhile '(' EXPRESSION ')'
+  { StDoWhile () (getTransSpan $1 $4) Nothing Nothing $3 }
+| enddo { StEnddo () (getSpan $1) Nothing }
 | call VARIABLE CALLABLE_EXPRESSIONS
   { StCall () (getTransSpan $1 $3) $2 $ Just $3 }
 | call VARIABLE { StCall () (getTransSpan $1 $2) $2 Nothing }

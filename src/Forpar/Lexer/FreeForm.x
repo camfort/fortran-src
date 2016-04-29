@@ -172,8 +172,9 @@ tokens :-
 
 -- Control flow
 <0> "do"                                          { addSpan TDo }
+<scN> "do" / { followsColonP }                    { addSpan TDo }
 <0> "end"\ *"do"                                  { addSpan TEndDo }
-<0> "while"                                       { addSpan TWhile }
+<scN> "while" / { followsDoP }                    { addSpan TWhile }
 <0> "if"                                          { addSpan TIf }
 <scN> "if" / { followsColonP }                    { addSpan TIf }
 <scI> "then"                                      { addSpan TThen }
@@ -263,11 +264,15 @@ tokens :-
 -- Predicated lexer helpers
 --------------------------------------------------------------------------------
 
+followsDoP :: User -> AlexInput -> Int -> AlexInput -> Bool
+followsDoP _ _ _ ai
+  | Just TDo {} <- aiPreviousToken ai = True
+  | otherwise = False
+
 followsColonP :: User -> AlexInput -> Int -> AlexInput -> Bool
-followsColonP _ _ _ ai =
-  case aiPreviousToken ai of
-    Just TColon{} -> True
-    _ -> False
+followsColonP _ _ _ ai
+  | Just TColon{} <- aiPreviousToken ai = True
+  | otherwise = False
 
 selectorP :: User -> AlexInput -> Int -> AlexInput -> Bool
 selectorP user _ _ ai =

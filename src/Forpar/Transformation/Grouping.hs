@@ -118,12 +118,14 @@ groupDo' [ ] = [ ]
 groupDo' blocks@(b:bs) = b' : bs'
   where
     (b', bs') = case b of
-      BlStatement a s label (StDoWhile _ _ condition) -> -- Do While statement
+      -- Do While statement
+      BlStatement a s label (StDoWhile _ _ _ _ condition) ->
         let ( blocks, leftOverBlocks ) =
               collectNonDoBlocks groupedBlocks
         in ( BlDoWhile a (getTransSpan s blocks) label condition blocks
            , leftOverBlocks)
-      BlStatement a s label (StDo _ _ Nothing doSpec) -> -- Vanilla do statement
+      -- Vanilla do statement
+      BlStatement a s label (StDo _ _ _ Nothing doSpec) ->
         let ( blocks, leftOverBlocks ) =
               collectNonDoBlocks groupedBlocks
         in ( BlDo a (getTransSpan s blocks) label doSpec blocks
@@ -156,7 +158,7 @@ groupLabeledDo' [ ] = [ ]
 groupLabeledDo' blos@(b:bs) = b' : bs'
   where
     (b', bs') = case b of
-      BlStatement a s label (StDo _ _ (Just (ExpValue _ _ (ValLabel targetLabel))) doSpec) ->
+      BlStatement a s label (StDo _ _ _ (Just (ExpValue _ _ (ValLabel targetLabel))) doSpec) ->
         let ( blocks, leftOverBlocks ) =
               collectNonLabeledDoBlocks targetLabel groupedBlocks
         in ( BlDo a (getTransSpan s blocks) label doSpec blocks

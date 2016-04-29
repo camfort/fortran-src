@@ -114,9 +114,9 @@ data Statement a  =
   | StFormat              a SrcSpan (AList FormatItem a)
   | StImplicit            a SrcSpan (Maybe (AList ImpList a))
   | StEntry               a SrcSpan (Expression a) (Maybe (AList Expression a))
-  | StDo                  a SrcSpan (Maybe (Expression a)) (DoSpecification a)
-  | StDoWhile             a SrcSpan (Expression a)
-  | StEnddo               a SrcSpan
+  | StDo                  a SrcSpan (Maybe (Expression a)) (Maybe (Expression a)) (DoSpecification a)
+  | StDoWhile             a SrcSpan (Maybe (Expression a)) (Maybe (Expression a)) (Expression a)
+  | StEnddo               a SrcSpan (Maybe (Expression a))
   | StIfLogical           a SrcSpan (Expression a) (Statement a) -- Statement should not further recurse
   | StIfArithmetic        a SrcSpan (Expression a) (Expression a) (Expression a) (Expression a)
   | StIfThen              a SrcSpan (Maybe (Expression a)) (Expression a)

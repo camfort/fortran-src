@@ -118,7 +118,7 @@ import Debug.Trace
   stop                        { TStop _ }
   pause                       { TPause _ }
   do                          { TDo _ }
-  endDo                       { TEndDo _ }
+  enddo                       { TEndDo _ }
   while                       { TWhile _ }
   if                          { TIf _ }
   then                        { TThen _ }
@@ -279,6 +279,19 @@ EXECUTABLE_STATEMENT :: { Statement A0 }
 | else VARIABLE { StElse () (getSpan $1) (Just $2) }
 | endif { StEndif () (getSpan $1) Nothing }
 | endif VARIABLE { StEndif () (getSpan $1) (Just $2) }
+| do INTEGER_LITERAL MAYBE_COMMA DO_SPECIFICATION
+  { StDo () (getTransSpan $1 $4) Nothing (Just $2) $4 }
+| do DO_SPECIFICATION { StDo () (getTransSpan $1 $2) Nothing Nothing $2 }
+| VARIABLE ':' do DO_SPECIFICATION
+  { StDo () (getTransSpan $1 $4) (Just $1) Nothing $4 }
+| do INTEGER_LITERAL MAYBE_COMMA while '(' EXPRESSION ')'
+  { StDoWhile () (getTransSpan $1 $7) Nothing (Just $2) $6 }
+| do while '(' EXPRESSION ')'
+  { StDoWhile () (getTransSpan $1 $5) Nothing Nothing $4 }
+| VARIABLE ':' do while '(' EXPRESSION ')'
+  { StDoWhile () (getTransSpan $1 $7) (Just $1) Nothing $6 }
+| enddo { StEnddo () (getSpan $1) Nothing }
+| enddo VARIABLE { StEnddo () (getSpan $1) (Just $2) }
 | selectcase '(' EXPRESSION ')'
   { StSelectCase () (getTransSpan $1 $4) Nothing $3 }
 | VARIABLE ':' selectcase '(' EXPRESSION ')'

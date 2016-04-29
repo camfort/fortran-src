@@ -349,3 +349,24 @@ spec =
       it "parses end select statement" $ do
         let st = StEndcase () u (Just $ varGen "name")
         sParser "end select name" `shouldBe'` st
+
+    describe "Do" $ do
+      it "parses do statement with label" $ do
+        let assign = StExpressionAssign () u (varGen "i") (intGen 0)
+        let doSpec = DoSpecification () u assign (intGen 42) Nothing
+        let st = StDo () u Nothing (Just $ intGen 24) doSpec
+        sParser "do 24, i = 0, 42" `shouldBe'` st
+
+      it "parses do statement without label" $ do
+        let assign = StExpressionAssign () u (varGen "i") (intGen 0)
+        let doSpec = DoSpecification () u assign (intGen 42) Nothing
+        let st = StDo () u Nothing Nothing doSpec
+        sParser "do i = 0, 42" `shouldBe'` st
+
+      it "parses end do statement" $ do
+        let st = StEnddo () u (Just $ varGen "constructor")
+        sParser "end do constructor" `shouldBe'` st
+
+      it "parses end do while statement" $ do
+        let st = StDoWhile () u (Just $ varGen "name") Nothing valTrue
+        sParser "name: do while (.true.)" `shouldBe'` st
