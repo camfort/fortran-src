@@ -389,3 +389,19 @@ spec =
       it "parses label assignment" $ do
         let st = StLabelAssign () u (intGen 20) (varGen "l")
         sParser "assign 20 to l" `shouldBe'` st
+
+    describe "IO" $ do
+      it "parses vanilla print" $ do
+        let st = StPrint () u starVal (Just $ fromList () [ varGen "hex" ])
+        sParser "print *, hex" `shouldBe'` st
+
+      it "parses write with implied do" $ do
+        let cp1 = ControlPair () u Nothing (intGen 10)
+        let cp2 = ControlPair () u (Just "format") (varGen "x")
+        let ciList = fromList () [ cp1, cp2 ]
+        let assign = StExpressionAssign () u (varGen "i") (intGen 1)
+        let doSpec = DoSpecification () u assign (intGen 42) (Just $ intGen 2)
+        let alist = fromList () [ varGen "i", varGen "j" ]
+        let outList = fromList () [ ExpImpliedDo () u alist doSpec ]
+        let st = StWrite () u ciList (Just outList)
+        sParser "write (10, FORMAT = x) (i, j,  i = 1, 42, 2)" `shouldBe'` st

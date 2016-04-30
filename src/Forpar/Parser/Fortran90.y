@@ -190,8 +190,7 @@ import Debug.Trace
 %%
 
 STATEMENT :: { Statement A0 }
-: LOGICAL_IF_STATEMENT { $1 }
-| NONEXECUTABLE_STATEMENT { $1 }
+: NONEXECUTABLE_STATEMENT { $1 }
 | EXECUTABLE_STATEMENT { $1 }
 
 EXPRESSION_ASSIGNMENT_STATEMENT :: { Statement A0 }
@@ -319,20 +318,131 @@ EXECUTABLE_STATEMENT :: { Statement A0 }
   { StCase () (getTransSpan $1 $5) (Just $5) (Just $3) }
 | endselect { StEndcase () (getSpan $1) Nothing }
 | endselect VARIABLE { StEndcase () (getTransSpan $1 $2) (Just $2) }
-
-LOGICAL_IF_STATEMENT :: { Statement A0 }
-: if '(' EXPRESSION ')' EXECUTABLE_STATEMENT
+| if '(' EXPRESSION ')' EXECUTABLE_STATEMENT
   { StIfLogical () (getTransSpan $1 $5) $3 $5 }
+| read CILIST IN_IOLIST
+  { let alist = fromReverseList $3
+    in StRead () (getTransSpan $1 alist) $2 (Just alist) }
+| read CILIST { StRead () (getTransSpan $1 $2) $2 Nothing }
+| read FORMAT_ID ',' IN_IOLIST
+  { let alist = fromReverseList $4
+    in StRead2 () (getTransSpan $1 alist) $2 (Just alist) }
+| read FORMAT_ID { StRead2 () (getTransSpan $1 $2) $2 Nothing }
+| write CILIST OUT_IOLIST
+  { let alist = fromReverseList $3
+    in StWrite () (getTransSpan $1 alist) $2 (Just alist) }
+| write CILIST { StWrite () (getTransSpan $1 $2) $2 Nothing }
+| print FORMAT_ID ',' OUT_IOLIST
+  { let alist = fromReverseList $4
+    in StPrint () (getTransSpan $1 alist) $2 (Just alist) }
+| print FORMAT_ID { StPrint () (getTransSpan $1 $2) $2 Nothing }
+| open CILIST { StOpen () (getTransSpan $1 $2) $2 }
+| close CILIST { StClose () (getTransSpan $1 $2) $2 }
+| inquire CILIST { StInquire () (getTransSpan $1 $2) $2 }
+| rewind CILIST { StRewind () (getTransSpan $1 $2) $2 }
+| rewind UNIT { StRewind2 () (getTransSpan $1 $2) $2 }
+| endfile CILIST { StEndfile () (getTransSpan $1 $2) $2 }
+| endfile UNIT { StEndfile2 () (getTransSpan $1 $2) $2 }
+| backspace CILIST { StBackspace () (getTransSpan $1 $2) $2 }
+| backspace UNIT { StBackspace2 () (getTransSpan $1 $2) $2 }
+
+MAYBE_DCOLON :: { () } : '::' { () } | {- EMPTY -} { () }
+
+FORMAT_ID :: { Expression A0 }
+: FORMAT_ID '/' '/' FORMAT_ID %prec CONCAT
+  { ExpBinary () (getTransSpan $1 $4) Concatenation $1 $4 }
+| INTEGER_LITERAL { $1 }
+| STRING { $1 }
+| DATA_REF { $1 }
+| '*' { ExpValue () (getSpan $1) ValStar }
+
+UNIT :: { Expression A0 }
+: INTEGER_LITERAL { $1 }
+| DATA_REF { $1 }
+| '*' { ExpValue () (getSpan $1) ValStar }
+
+CILIST :: { AList ControlPair A0 }
+: '(' UNIT ',' FORMAT_ID ',' CILIST_PAIRS ')'
+  { let { cp1 = ControlPair () (getSpan $2) Nothing $2;
+          cp2 = ControlPair () (getSpan $4) Nothing $4;
+          tail = fromReverseList $6 }
+    in setSpan (getTransSpan $1 $7) $ cp1 `aCons` cp2 `aCons` tail }
+| '(' UNIT ',' FORMAT_ID ')'
+  { let { cp1 = ControlPair () (getSpan $2) Nothing $2;
+          cp2 = ControlPair () (getSpan $4) Nothing $4 }
+    in AList () (getTransSpan $1 $5) [ cp1,  cp2 ] }
+| '(' UNIT ',' CILIST_PAIRS ')'
+  { let { cp1 = ControlPair () (getSpan $2) Nothing $2;
+          tail = fromReverseList $4 }
+    in setSpan (getTransSpan $1 $5) $ cp1 `aCons` tail }
+| '(' UNIT ')'
+  { let cp1 = ControlPair () (getSpan $2) Nothing $2
+    in AList () (getTransSpan $1 $3) [ cp1 ] }
+| '(' CILIST_PAIRS ')' { fromReverseList $2 }
+
+CILIST_PAIRS :: { [ ControlPair A0 ] }
+: CILIST_PAIRS ',' CILIST_PAIR { $3 : $1 }
+| CILIST_PAIR { [ $1 ] }
 
 CILIST_PAIR :: { ControlPair A0 }
 : id '=' CILIST_ELEMENT
   { let (TId s id) = $1 in ControlPair () (getTransSpan s $3) (Just id) $3 }
 
 CILIST_ELEMENT :: { Expression A0 }
-: EXPRESSION { $1 }
+: CI_EXPRESSION { $1 }
 | '*' { ExpValue () (getSpan $1) ValStar }
 
-MAYBE_DCOLON :: { () } : '::' { () } | {- EMPTY -} { () }
+CI_EXPRESSION :: { Expression A0 }
+: CI_EXPRESSION '+' CI_EXPRESSION
+  { ExpBinary () (getTransSpan $1 $3) Addition $1 $3 }
+| CI_EXPRESSION '-' CI_EXPRESSION
+  { ExpBinary () (getTransSpan $1 $3) Subtraction $1 $3 }
+| CI_EXPRESSION '*' CI_EXPRESSION
+  { ExpBinary () (getTransSpan $1 $3) Multiplication $1 $3 }
+| CI_EXPRESSION '/' CI_EXPRESSION
+  { ExpBinary () (getTransSpan $1 $3) Division $1 $3 }
+| CI_EXPRESSION '**' CI_EXPRESSION
+  { ExpBinary () (getTransSpan $1 $3) Exponentiation $1 $3 }
+| CI_EXPRESSION '/' '/' CI_EXPRESSION %prec CONCAT
+  { ExpBinary () (getTransSpan $1 $4) Concatenation $1 $4 }
+| ARITHMETIC_SIGN CI_EXPRESSION %prec SIGN
+  { ExpUnary () (getTransSpan (fst $1) $2) (snd $1) $2 }
+| CI_EXPRESSION or CI_EXPRESSION
+  { ExpBinary () (getTransSpan $1 $3) Or $1 $3 }
+| CI_EXPRESSION and CI_EXPRESSION
+  { ExpBinary () (getTransSpan $1 $3) And $1 $3 }
+| not CI_EXPRESSION
+  { ExpUnary () (getTransSpan $1 $2) Not $2 }
+| CI_EXPRESSION eqv CI_EXPRESSION
+  { ExpBinary () (getTransSpan $1 $3) Equivalent $1 $3 }
+| CI_EXPRESSION neqv CI_EXPRESSION
+  { ExpBinary () (getTransSpan $1 $3) NotEquivalent $1 $3 }
+| CI_EXPRESSION RELATIONAL_OPERATOR CI_EXPRESSION %prec RELATIONAL
+  { ExpBinary () (getTransSpan $1 $3) $2 $1 $3 }
+| opCustom CI_EXPRESSION %prec DEFINED_UNARY
+  { let TOpCustom span str = $1
+    in ExpUnary () (getTransSpan span $2) (UnCustom str) $2 }
+| CI_EXPRESSION opCustom CI_EXPRESSION
+  { let TOpCustom _ str = $2
+    in ExpBinary () (getTransSpan $1 $3) (BinCustom str) $1 $3 }
+| '(' CI_EXPRESSION ')' { setSpan (getTransSpan $1 $3) $2 }
+| INTEGER_LITERAL { $1 }
+| LOGICAL_LITERAL { $1 }
+| STRING { $1 }
+| DATA_REF { $1 }
+
+IN_IOLIST :: { [ Expression A0 ] }
+: IN_IOLIST ',' IN_IO_ELEMENT { $3 : $1}
+| IN_IO_ELEMENT { [ $1 ] }
+
+IN_IO_ELEMENT :: { Expression A0 }
+: DATA_REF { $1 }
+| '(' IN_IOLIST ',' DO_SPECIFICATION ')'
+  { ExpImpliedDo () (getTransSpan $1 $5) (fromReverseList $2) $4 }
+
+OUT_IOLIST :: { [ Expression A0 ] }
+: OUT_IOLIST ',' EXPRESSION { $3 : $1}
+| EXPRESSION { [ $1 ] }
 
 COMMON_GROUPS :: { [ CommonGroup A0 ] }
 : COMMON_GROUPS COMMON_GROUP { $2 : $1 }
@@ -578,11 +688,11 @@ EXPRESSION :: { Expression A0 }
   { ExpBinary () (getTransSpan $1 $3) NotEquivalent $1 $3 }
 | EXPRESSION RELATIONAL_OPERATOR EXPRESSION %prec RELATIONAL
   { ExpBinary () (getTransSpan $1 $3) $2 $1 $3 }
-| opCustom EXPRESSION %prec DEFINED_UNARY {
-    let TOpCustom span str = $1
+| opCustom EXPRESSION %prec DEFINED_UNARY
+  { let TOpCustom span str = $1
     in ExpUnary () (getTransSpan span $2) (UnCustom str) $2 }
-| EXPRESSION opCustom EXPRESSION {
-    let TOpCustom _ str = $2
+| EXPRESSION opCustom EXPRESSION
+  { let TOpCustom _ str = $2
     in ExpBinary () (getTransSpan $1 $3) (BinCustom str) $1 $3 }
 | '(' EXPRESSION ')' { setSpan (getTransSpan $1 $3) $2 }
 | NUMERIC_LITERAL                   { $1 }
