@@ -274,14 +274,18 @@ NAME :: { Name } : id { let (TId _ name) = $1 in name }
 BLOCKS :: { [ Block A0 ] } : BLOCKS BLOCK { $2 : $1 } | BLOCK { [ $1 ] }
 
 BLOCK :: { Block A0 }
-: INTEGER_LITERAL STATEMENT NEWLINE
+: INTEGER_LITERAL STATEMENT MAYBE_COMMENT NEWLINE
   { BlStatement () (getTransSpan $1 $2) (Just $1) $2 }
-| STATEMENT NEWLINE { BlStatement () (getSpan $1) Nothing $1 }
+| STATEMENT MAYBE_COMMENT NEWLINE { BlStatement () (getSpan $1) Nothing $1 }
 | interface EXPRESSION NEWLINE SUBPROGRAM_UNITS2 MODULE_PROCEDURES endInterface NEWLINE
   { BlInterface () (getTransSpan $1 $7) $2 $4 $5 }
 | interface EXPRESSION NEWLINE MODULE_PROCEDURES endInterface NEWLINE
   { BlInterface () (getTransSpan $1 $6) $2 [ ] $4 }
 | COMMENT_BLOCK { $1 }
+
+MAYBE_COMMENT :: { Maybe Token }
+: comment { Just $1 }
+| {- EMPTY -} { Nothing }
 
 SUBPROGRAM_UNITS2 :: { [ ProgramUnit A0 ] }
 : SUBPROGRAM_UNITS SUBPROGRAM_UNIT NEWLINE { $2 : $1 }
@@ -720,6 +724,7 @@ ATTRIBUTE_SPEC :: { Attribute A0 }
 | intrinsic { AttrIntrinsic () (getSpan $1) }
 | optional { AttrOptional () (getSpan $1) }
 | pointer { AttrPointer () (getSpan $1) }
+| parameter { AttrParameter () (getSpan $1) }
 | save { AttrSave () (getSpan $1) }
 | target { AttrTarget () (getSpan $1) }
 
@@ -821,19 +826,23 @@ CHAR_SELECTOR :: { Maybe (Selector A0) }
 | '*' '(' '*' ')'
   { let star = ExpValue () (getSpan $3) ValStar
     in Just $ Selector () (getTransSpan $1 $4) (Just star) Nothing }
-| '(' EXPRESSION ')'
+| '(' LEN_EXPRESSION ')'
   { Just $ Selector () (getTransSpan $1 $3) (Just $2) Nothing }
-| '(' len '=' EXPRESSION ')'
+| '(' len '=' LEN_EXPRESSION ')'
   { Just $ Selector () (getTransSpan $1 $5) (Just $4) Nothing }
-| '(' EXPRESSION ',' EXPRESSION ')'
+| '(' LEN_EXPRESSION ',' EXPRESSION ')'
   { Just $ Selector () (getTransSpan $1 $5) (Just $2) (Just $4) }
-| '(' EXPRESSION ',' kind '=' EXPRESSION ')'
+| '(' LEN_EXPRESSION ',' kind '=' EXPRESSION ')'
   { Just $ Selector () (getTransSpan $1 $7) (Just $2) (Just $6) }
-| '(' len '=' EXPRESSION ',' kind '=' EXPRESSION ')'
+| '(' len '=' LEN_EXPRESSION ',' kind '=' EXPRESSION ')'
   { Just $ Selector () (getTransSpan $1 $9) (Just $4) (Just $8) }
-| '(' kind '=' EXPRESSION ',' len '=' EXPRESSION ')'
+| '(' kind '=' EXPRESSION ',' len '=' LEN_EXPRESSION ')'
   { Just $ Selector () (getTransSpan $1 $9) (Just $8) (Just $4) }
 | {- EMPTY -} { Nothing }
+
+LEN_EXPRESSION :: { Expression A0 }
+: EXPRESSION { $1 }
+| '*' { ExpValue () (getSpan $1) ValStar }
 
 EXPRESSION :: { Expression A0 }
 : EXPRESSION '+' EXPRESSION
