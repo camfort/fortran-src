@@ -9,6 +9,7 @@ import Data.Map ((!), lookup, Map)
 import Data.Maybe (isJust, fromJust)
 import Data.Data
 
+import Forpar.Util.Position (getSpan)
 import Forpar.Analysis.Types (IDType(..), ConstructType(..), TypeScope(..))
 import Forpar.AST
 import Forpar.Transformation.TransformMonad
@@ -73,7 +74,15 @@ disambiguateFunctionCalls = do
     transform'' mGlobalMapping mLocalMapping x =
       descend (transform'' mGlobalMapping mLocalMapping) x
 
-fromIndex (IxSingle _ _ e) = e
-fromIndex IxRange{} =
-  error "Deduced a function but argument is not an expression."
+class Indexed a where
+  fromIndex :: Index b -> a b
 
+instance Indexed Argument where
+  fromIndex (IxSingle a _ e) = Argument a (getSpan e) Nothing e
+  fromIndex IxRange{} =
+    error "Deduced a function but argument is not an expression."
+
+instance Indexed Expression where
+  fromIndex (IxSingle _ _ e) = e
+  fromIndex IxRange{} =
+    error "Deduced a function but argument is not an expression."

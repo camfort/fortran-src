@@ -64,7 +64,8 @@ lhsExprs x = [ e | StExpressionAssign _ _ e _  <- universeBi x                  
              [ e | StCall _ _ _ (Just aexps)   <- universeBi x, e <- fstLvl aexps ] ++
              [ e | ExpFunctionCall _ _ _ aexps <- universeBi x, e <- fstLvl aexps ]
   where
-    fstLvl = filter isLExpr . aStrip
+    fstLvl = filter isLExpr . map extractExp . aStrip
+    extractExp (Argument _ _ _ exp) = exp
 
 -- | Is this an expression capable of assignment?
 isLExpr :: Expression a -> Bool

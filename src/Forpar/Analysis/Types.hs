@@ -107,10 +107,10 @@ inferGlobal = do
 inferSubprograms :: Data a => ProgramUnit a -> TypeMapping a ()
 inferSubprograms pu =
   case pu of
-    (PUFunction _ _ mts n _ _) -> do
+    (PUFunction _ _ mts _ n _ _ _) -> do
       addToMappingViaFunc Global n $ updateForFunction mts
       addEntries (updateForFunction mts)
-    (PUSubroutine _ _ n _ _) -> do
+    (PUSubroutine _ _ _ n _ _) -> do
       addConstructToMapping Global n CTSubroutine
       addEntries (\idt -> idt { idCType = Just CTSubroutine })
     _ -> return ()
@@ -118,7 +118,7 @@ inferSubprograms pu =
     addEntries :: Data a => (IDType -> IDType) -> TypeMapping a ()
     addEntries func = do
       let statements = universeBi :: Data a => ProgramUnit a -> [Statement a]
-      let entryExps = [ e | (StEntry _ _ e _) <- statements pu ]
+      let entryExps = [ e | (StEntry _ _ e _ _) <- statements pu ]
       let entryNames = [ n | n :: String <- universeBi entryExps :: [String] ]
       mapM_ (\n' -> addToMappingViaFunc Global n' func) entryNames
     updateForFunction Nothing it = 

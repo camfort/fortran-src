@@ -13,9 +13,9 @@ genericGroup groupingFunction = do
   where
     go pu =
       case pu of
-        PUMain a s n bs -> PUMain a s n $ groupingFunction bs
-        PUSubroutine a s n as bs -> PUSubroutine a s n as $ groupingFunction bs
-        PUFunction a s r n as bs -> PUFunction a s r n as $ groupingFunction bs
+        PUMain a s n bs pus -> PUMain a s n (groupingFunction bs) pus
+        PUSubroutine a s r n as bs -> PUSubroutine a s r n as $ groupingFunction bs
+        PUFunction a s r rec n as res bs -> PUFunction a s r rec n as res $ groupingFunction bs
         bd@PUBlockData{} -> bd -- Block data cannot have any if statements.
 
 --------------------------------------------------------------------------------

@@ -60,7 +60,7 @@ spec =
       let decl = DeclVariable () u (varGen "x") Nothing Nothing
       let st = StDeclaration () u (TypeSpec () u TypeInteger Nothing) Nothing (AList () u [ decl ])
       let bl = BlStatement () u Nothing st
-      let pu = ProgramFile [ ([ ], PUMain () u (Just "hello") [ bl ]) ] [ ]
+      let pu = ProgramFile [ ([ ], PUMain () u (Just "hello") [ bl ] Nothing) ] [ ]
       pParser exampleProgram1 `shouldBe'` pu
 
     it "parses block data unit" $ do
@@ -179,7 +179,7 @@ spec =
     it "parses 'entry me (a,b,*)'" $ do
       let func = ExpValue () u (ValVariable () "me")
       let args = [ varGen "a", varGen "b", starVal ]
-      let st = StEntry () u func (Just $ AList () u args)
+      let st = StEntry () u func (Just $ AList () u args) Nothing
       sParser "      entry me (a,b,*)" `shouldBe'` st
 
 exampleProgram1 = unlines

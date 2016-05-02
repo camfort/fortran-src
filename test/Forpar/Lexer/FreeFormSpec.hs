@@ -165,7 +165,7 @@ spec =
       describe "Label" $
         it "lexes simple label" $
           shouldBe' (collectF90 "010 print *, 'hello'") $
-                    fmap ($u) [ flip TLabel "010", TPrint, TStar, TComma
+                    fmap ($u) [ flip TIntegerLiteral "010", TPrint, TStar, TComma
                               , flip TString "hello", TEOF ]
 
       describe "Conditional" $ do

@@ -5,6 +5,7 @@ module Forpar.Parser.Fortran90 ( statementParser
 
 import Prelude hiding (EQ,LT,GT) -- Same constructors exist in the AST
 import Control.Monad.State (get)
+import Data.Maybe (fromMaybe)
 
 #ifdef DEBUG
 import Data.Data (toConstr)
@@ -19,6 +20,7 @@ import Debug.Trace
 
 }
 
+%name programParser PROGRAM
 %name statementParser STATEMENT
 %monad { LexAction }
 %lexer { lexer } { TEOF _ }
@@ -29,7 +31,6 @@ import Debug.Trace
   id                          { TId _ _ }
   comment                     { TComment _ _ }
   string                      { TString _ _ }
-  label                       { TLabel _ _ }
   int                         { TIntegerLiteral _ _ }
   float                       { TRealLiteral _ _ }
   boz                         { TBozLiteral _ _ }
@@ -82,11 +83,12 @@ import Debug.Trace
   only                        { TOnly _ }
   interface                   { TInterface _ }
   endInterface                { TEndInterface _ }
-  procedure                   { TProcedure _ }
+  moduleProcedure             { TModuleProcedure _ }
   assignment                  { TAssignment _ }
   operator                    { TOperator _ }
   call                        { TCall _ }
   return                      { TReturn _ }
+  entry                       { TEntry _ }
   public                      { TPublic _ }
   private                     { TPrivate _ }
   parameter                   { TParameter _ }
@@ -189,6 +191,122 @@ import Debug.Trace
 
 %%
 
+PROGRAM :: { ProgramFile A0 }
+: PROGRAM_UNITS { ProgramFile (reverse $1) [ ] }
+| PROGRAM_UNITS COMMENT_BLOCKS { ProgramFile (reverse $1) (reverse $2) }
+
+PROGRAM_UNITS :: { [ ([ Block A0 ], ProgramUnit A0) ] }
+: PROGRAM_UNITS PROGRAM_UNIT NEWLINE { ([ ], $2) : $1 }
+| PROGRAM_UNITS COMMENT_BLOCKS PROGRAM_UNIT NEWLINE { (reverse $2, $3) : $1 }
+| PROGRAM_UNIT NEWLINE { [ ([ ], $1) ] }
+| COMMENT_BLOCKS PROGRAM_UNIT NEWLINE { [ (reverse $1, $2) ] }
+
+PROGRAM_UNIT :: { ProgramUnit A0 }
+: program NAME NEWLINE BLOCKS PROGRAM_END
+  {% do { unitNameCheck $5 $2;
+          return $ PUMain () (getTransSpan $1 $5) (Just $2)
+                                                  (reverse $4)
+                                                  Nothing } }
+| program NAME NEWLINE BLOCKS contains NEWLINE SUBPROGRAM_UNITS PROGRAM_END
+  {% do { unitNameCheck $8 $2;
+          return $ PUMain () (getTransSpan $1 $8) (Just $2)
+                                                  (reverse $4)
+                                                  (Just $ reverse $7) } }
+| module NAME NEWLINE BLOCKS MODULE_END
+  {% do { unitNameCheck $5 $2;
+          return $ PUModule () (getTransSpan $1 $5) $2
+                                                    (reverse $4)
+                                                    Nothing } }
+| module NAME NEWLINE BLOCKS contains NEWLINE SUBPROGRAM_UNITS MODULE_END
+  {% do { unitNameCheck $8 $2;
+          return $ PUModule () (getTransSpan $1 $8) $2
+                                                    (reverse $4)
+                                                    (Just $ reverse $7) } }
+| blockData NEWLINE BLOCKS BLOCK_DATA_END
+  { PUBlockData () (getTransSpan $1 $4) Nothing (reverse $3) }
+| blockData NAME NEWLINE BLOCKS BLOCK_DATA_END
+  {% do { unitNameCheck $5 $2;
+          return $ PUBlockData () (getTransSpan $1 $5) (Just $2) (reverse $4) } }
+| SUBPROGRAM_UNIT { $1 }
+
+SUBPROGRAM_UNITS :: { [ ProgramUnit A0 ] }
+: SUBPROGRAM_UNITS SUBPROGRAM_UNIT NEWLINE { $2 : $1 }
+| {- EMPTY -} { [ ] }
+
+SUBPROGRAM_UNIT :: { ProgramUnit A0 }
+: TYPE_SPEC function NAME '(' VARIABLES ')' RESULT NEWLINE BLOCKS FUNCTION_END
+  {% do { unitNameCheck $10 $3;
+          return $ PUFunction () (getTransSpan $1 $10) (Just $1) False $3 (fromReverseList $5) $7 (reverse $9) } }
+| TYPE_SPEC recursive function NAME '(' VARIABLES ')' RESULT NEWLINE BLOCKS FUNCTION_END
+  {% do { unitNameCheck $11 $4;
+          return $ PUFunction () (getTransSpan $1 $11) (Just $1) True $4 (fromReverseList $6) $8 (reverse $10) } }
+| recursive TYPE_SPEC function NAME '(' VARIABLES ')' RESULT NEWLINE BLOCKS FUNCTION_END
+  {% do { unitNameCheck $11 $4;
+          return $ PUFunction () (getTransSpan $1 $11) (Just $2) True $4 (fromReverseList $6) $8 (reverse $10) } }
+| function NAME '(' VARIABLES ')' RESULT NEWLINE BLOCKS FUNCTION_END
+  {% do { unitNameCheck $9 $2;
+          return $ PUFunction () (getTransSpan $1 $9) Nothing False $2 (fromReverseList $4) $6 (reverse $8) } }
+| subroutine NAME '(' VARIABLES ')' NEWLINE BLOCKS SUBROUTINE_END
+  {% do { unitNameCheck $8 $2;
+          return $ PUSubroutine () (getTransSpan $1 $8) False $2 (fromReverseList $4) (reverse $7) } }
+| recursive subroutine NAME '(' VARIABLES ')' NEWLINE BLOCKS SUBROUTINE_END
+  {% do { unitNameCheck $9 $3;
+          return $ PUSubroutine () (getTransSpan $1 $9) True $3 (fromReverseList $5) (reverse $8) } }
+
+RESULT :: { Maybe (Expression a) }
+: result '(' VARIABLE ')' { Just $3 }
+| {- EMPTY -} { Nothing }
+
+PROGRAM_END :: { Token }
+: end { $1 } | endProgram { $1 } | endProgram id { $2 }
+MODULE_END :: { Token }
+: end { $1 } | endModule { $1 } | endModule id { $2 }
+FUNCTION_END :: { Token }
+: end { $1 } | endFunction { $1 } | endFunction id { $2 }
+SUBROUTINE_END :: { Token }
+: end { $1 } | endSubroutine { $1 } | endSubroutine id { $2 }
+BLOCK_DATA_END :: { Token }
+: end { $1 } | endBlockData { $1 } | endBlockData id { $2 }
+
+NAME :: { Name } : id { let (TId _ name) = $1 in name }
+
+BLOCKS :: { [ Block A0 ] } : BLOCKS BLOCK { $2 : $1 } | BLOCK { [ $1 ] }
+
+BLOCK :: { Block A0 }
+: INTEGER_LITERAL STATEMENT NEWLINE
+  { BlStatement () (getTransSpan $1 $2) (Just $1) $2 }
+| STATEMENT NEWLINE { BlStatement () (getSpan $1) Nothing $1 }
+| interface EXPRESSION NEWLINE SUBPROGRAM_UNITS2 MODULE_PROCEDURES endInterface NEWLINE
+  { BlInterface () (getTransSpan $1 $7) $2 $4 $5 }
+| interface EXPRESSION NEWLINE MODULE_PROCEDURES endInterface NEWLINE
+  { BlInterface () (getTransSpan $1 $6) $2 [ ] $4 }
+| COMMENT_BLOCK { $1 }
+
+SUBPROGRAM_UNITS2 :: { [ ProgramUnit A0 ] }
+: SUBPROGRAM_UNITS SUBPROGRAM_UNIT NEWLINE { $2 : $1 }
+
+MODULE_PROCEDURES :: { [ Block A0 ] }
+: MODULE_PROCEDURES MODULE_PROCEDURE { $2 : $1 }
+| { [ ] }
+
+MODULE_PROCEDURE :: { Block A0 }
+: moduleProcedure VARIABLES NEWLINE
+  { let { al = fromReverseList $2;
+          st = StModuleProcedure () (getTransSpan $1 al) (fromReverseList $2) }
+    in BlStatement () (getTransSpan $1 $3) Nothing st }
+
+COMMENT_BLOCKS :: { [ Block A0 ] }
+: COMMENT_BLOCKS COMMENT_BLOCK { $2 : $1 } | COMMENT_BLOCK { [ $1 ] }
+
+COMMENT_BLOCK :: { Block A0 }
+: comment NEWLINE { let (TComment s c) = $1 in BlComment () s c }
+
+NEWLINE :: { Token }
+: NEWLINE newline { $1 }
+| NEWLINE ';' { $1 }
+| newline { $1 }
+| ';' { $1 }
+
 STATEMENT :: { Statement A0 }
 : NONEXECUTABLE_STATEMENT { $1 }
 | EXECUTABLE_STATEMENT { $1 }
@@ -247,6 +365,35 @@ NONEXECUTABLE_STATEMENT :: { Statement A0 }
 | common cCOMMON COMMON_GROUPS cPOP
   { let commonAList = fromReverseList $3
     in StCommon () (getTransSpan $1 commonAList) commonAList }
+| external VARIABLES
+  { let alist = fromReverseList $2
+    in StExternal () (getTransSpan $1 alist) alist }
+| intrinsic VARIABLES
+  { let alist = fromReverseList $2
+    in StIntrinsic () (getTransSpan $1 alist) alist }
+| use VARIABLE { StUse () (getTransSpan $1 $2) $2 Nothing }
+| use VARIABLE ',' RENAME_LIST
+  { let alist = fromReverseList $4
+    in StUse () (getTransSpan $1 alist) $2 (Just alist) }
+| use VARIABLE ',' only ':' RENAME_LIST
+  { let alist = fromReverseList $6
+    in StUse () (getTransSpan $1 alist) $2 (Just alist) }
+| entry VARIABLE RESULT
+  { StEntry () (getTransSpan $1 $ maybe (getSpan $2) getSpan $3) $2 Nothing $3 }
+| entry VARIABLE '(' ')' RESULT
+  { StEntry () (getTransSpan $1 $ maybe (getSpan $4) getSpan $5) $2 Nothing $5 }
+| entry VARIABLE '(' VARIABLES ')' RESULT
+  { StEntry () (getTransSpan $1 $ maybe (getSpan $5) getSpan $6) $2 (Just $ fromReverseList $4) $6 }
+| sequence { StSequence () (getSpan $1) }
+| type ATTRIBUTE_LIST '::' id
+  { let { TId span id = $4;
+          alist = fromReverseList $2 }
+    in StType () (getTransSpan $1 span) (Just alist) id }
+| type id
+  { let TId span id = $2 in StType () (getTransSpan $1 span) Nothing id }
+| endType { StEndType () (getSpan $1) Nothing }
+| endType id
+  { let TId span id = $2 in StEndType () (getTransSpan $1 span) (Just id) }
 
 EXECUTABLE_STATEMENT :: { Statement A0 }
 : allocate '(' DATA_REFS ')'
@@ -265,7 +412,7 @@ EXECUTABLE_STATEMENT :: { Statement A0 }
   { StWhere () (getTransSpan $1 $5) $3 $5 }
 | where '(' EXPRESSION ')' { StWhereConstruct () (getTransSpan $1 $4) $3 }
 | elsewhere { StElsewhere () (getSpan $1) }
-| endwhere { StEndwhere () (getSpan $1) }
+| endwhere { StEndWhere () (getSpan $1) }
 | if '(' EXPRESSION ')' INTEGER_LITERAL ',' INTEGER_LITERAL ',' INTEGER_LITERAL
   { StIfArithmetic () (getTransSpan $1 $9) $3 $5 $7 $9 }
 | if '(' EXPRESSION ')' then { StIfThen () (getTransSpan $1 $5) Nothing $3 }
@@ -345,6 +492,32 @@ EXECUTABLE_STATEMENT :: { Statement A0 }
 | endfile UNIT { StEndfile2 () (getTransSpan $1 $2) $2 }
 | backspace CILIST { StBackspace () (getTransSpan $1 $2) $2 }
 | backspace UNIT { StBackspace2 () (getTransSpan $1 $2) $2 }
+| call VARIABLE { StCall () (getTransSpan $1 $2) $2 Nothing }
+| call VARIABLE '(' ')' { StCall () (getTransSpan $1 $4) $2 Nothing }
+| call VARIABLE '(' ARGUMENTS ')'
+  { let alist = fromReverseList $4
+    in StCall () (getTransSpan $1 $5) $2 (Just alist) }
+| return { StReturn () (getSpan $1) Nothing }
+| return EXPRESSION { StReturn () (getTransSpan $1 $2) (Just $2) }
+
+ARGUMENTS :: { [ Argument A0 ] }
+: ARGUMENTS ',' ARGUMENT { $3 : $1 }
+| ARGUMENT { [ $1 ] }
+
+ARGUMENT :: { Argument A0 }
+: id '=' EXPRESSION
+  { let TId span keyword = $1
+    in Argument () (getTransSpan span $3) (Just keyword) $3 }
+| EXPRESSION
+  { Argument () (getSpan $1) Nothing $1 }
+
+RENAME_LIST :: { [ Use A0 ] }
+: RENAME_LIST ',' RENAME { $3 : $1 }
+| RENAME { [ $1 ] }
+
+RENAME :: { Use A0  }
+: VARIABLE '=>' VARIABLE { UseRename () (getTransSpan $1 $3) $1 $3 }
+| VARIABLE { UseID () (getSpan $1) $1 }
 
 MAYBE_DCOLON :: { () } : '::' { () } | {- EMPTY -} { () }
 
@@ -708,6 +881,7 @@ EXPRESSION :: { Expression A0 }
   { let TOpCustom _ op = $3
     in ExpValue () (getTransSpan $1 $4) (ValOperator op) }
 | assignment { ExpValue () (getSpan $1) ValAssignment }
+| '*' INTEGER_LITERAL { ExpReturnSpec () (getTransSpan $1 $2) $2 }
 
 DATA_REFS :: { [ Expression A0 ] }
 : DATA_REFS ',' DATA_REF { $3 : $1 }
@@ -811,6 +985,19 @@ cCOMMON :: { () } : {% pushContext ConCommon }
 cPOP :: { () } : {% popContext }
 
 {
+
+unitNameCheck :: Token -> String -> Parse AlexInput Token ()
+unitNameCheck (TId _ name1) name2
+  | name1 == name2 = return ()
+  | otherwise = fail "Unit name does not match the corresponding END statement."
+
+parse = evalParse programParser
+
+fortran90Parser :: String -> String -> ProgramFile A0
+fortran90Parser sourceCode filename =
+    parse parseState
+  where
+    parseState = initParseState sourceCode Fortran77Extended filename
 
 parseError :: Token -> LexAction a
 parseError _ = do

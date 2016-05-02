@@ -78,11 +78,34 @@ data ProgramFile a = ProgramFile [ ([ Block a ], ProgramUnit a) ] [ Block a ]
   deriving (Eq, Show, Data, Typeable, Generic, Functor)
 
 data ProgramUnit a =
---    program type  | a  | span    | return               | name         | arguments        | body
-      PUMain          a    SrcSpan                          (Maybe Name)                      [Block a]
-  |   PUSubroutine    a    SrcSpan                          Name           (AList Value a)    [Block a]
-  |   PUFunction      a    SrcSpan   (Maybe (TypeSpec a))   Name           (AList Value a)    [Block a]
-  |   PUBlockData     a    SrcSpan                          (Maybe Name)                      [Block a]
+    PUMain
+      a SrcSpan
+      (Maybe Name) -- Program name
+      [Block a] -- Body
+      (Maybe [ProgramUnit a]) -- Subprograms
+  | PUModule
+      a SrcSpan
+      Name -- Program name
+      [Block a] -- Body
+      (Maybe [ProgramUnit a]) -- Subprograms
+  | PUSubroutine
+      a SrcSpan
+      Bool -- Recursive or not
+      Name
+      (AList Expression a) -- Arguments
+      [Block a] -- Body
+  | PUFunction
+      a SrcSpan
+      (Maybe (TypeSpec a)) -- Return type
+      Bool -- Recursive or not
+      Name
+      (AList Expression a) -- Arguments
+      (Maybe (Expression a)) -- Result
+      [Block a] -- Body
+  | PUBlockData
+      a SrcSpan
+      (Maybe Name)
+      [Block a] -- Body
   deriving (Eq, Show, Data, Typeable, Generic, Functor)
 
 data Block a =
@@ -90,6 +113,7 @@ data Block a =
   | BlIf a SrcSpan (Maybe (Expression a)) [ Maybe (Expression a) ] [ [ Block a ] ]
   | BlDo a SrcSpan (Maybe (Expression a)) (DoSpecification a) [ Block a ]
   | BlDoWhile a SrcSpan (Maybe (Expression a)) (Expression a) [ Block a ]
+  | BlInterface a SrcSpan (Expression a) [ ProgramUnit a ] [ Block a ]
   | BlComment a SrcSpan String
   deriving (Eq, Show, Data, Typeable, Generic, Functor)
 
@@ -113,7 +137,7 @@ data Statement a  =
   | StEquivalence         a SrcSpan (AList (AList Expression) a)
   | StFormat              a SrcSpan (AList FormatItem a)
   | StImplicit            a SrcSpan (Maybe (AList ImpList a))
-  | StEntry               a SrcSpan (Expression a) (Maybe (AList Expression a))
+  | StEntry               a SrcSpan (Expression a) (Maybe (AList Expression a)) (Maybe (Expression a))
   | StDo                  a SrcSpan (Maybe (Expression a)) (Maybe (Expression a)) (DoSpecification a)
   | StDoWhile             a SrcSpan (Maybe (Expression a)) (Maybe (Expression a)) (Expression a)
   | StEnddo               a SrcSpan (Maybe (Expression a))
@@ -135,7 +159,7 @@ data Statement a  =
   | StGotoUnconditional   a SrcSpan (Expression a)
   | StGotoAssigned        a SrcSpan (Expression a) (AList Expression a)
   | StGotoComputed        a SrcSpan (AList Expression a) (Expression a)
-  | StCall                a SrcSpan (Expression a) (Maybe (AList Expression a))
+  | StCall                a SrcSpan (Expression a) (Maybe (AList Argument a))
   | StReturn              a SrcSpan (Maybe (Expression a))
   | StContinue            a SrcSpan
   | StStop                a SrcSpan (Maybe (Expression a))
@@ -159,7 +183,20 @@ data Statement a  =
   | StWhere               a SrcSpan (Expression a) (Statement a)
   | StWhereConstruct      a SrcSpan (Expression a)
   | StElsewhere           a SrcSpan
-  | StEndwhere            a SrcSpan
+  | StEndWhere            a SrcSpan
+  | StUse                 a SrcSpan (Expression a) (Maybe (AList Use a))
+  | StModuleProcedure     a SrcSpan (AList Expression a)
+  | StType                a SrcSpan (Maybe (AList Attribute a)) String
+  | StEndType             a SrcSpan (Maybe String)
+  | StSequence            a SrcSpan
+  deriving (Eq, Show, Data, Typeable, Generic, Functor)
+
+data Use a =
+    UseRename a SrcSpan (Expression a) (Expression a)
+  | UseID a SrcSpan (Expression a)
+  deriving (Eq, Show, Data, Typeable, Generic, Functor)
+
+data Argument a = Argument a SrcSpan (Maybe String) (Expression a)
   deriving (Eq, Show, Data, Typeable, Generic, Functor)
 
 data Attribute a =
@@ -224,9 +261,10 @@ data Expression a =
   | ExpUnary         a SrcSpan UnaryOp (Expression a)
   | ExpSubscript     a SrcSpan (Expression a) (AList Index a)
   | ExpDataRef       a SrcSpan (Expression a) (Expression a)
-  | ExpFunctionCall  a SrcSpan (Expression a) (AList Expression a)
+  | ExpFunctionCall  a SrcSpan (Expression a) (AList Argument a)
   | ExpImpliedDo     a SrcSpan (AList Expression a) (DoSpecification a)
   | ExpInitialisation  a SrcSpan (AList Expression a)
+  | ExpReturnSpec    a SrcSpan (Expression a)
   deriving (Eq, Show, Data, Typeable, Generic, Functor)
 
 data Index a =
@@ -317,6 +355,8 @@ instance FirstParameter (AList t a) a
 instance FirstParameter (ProgramUnit a) a
 instance FirstParameter (Block a) a
 instance FirstParameter (Statement a) a
+instance FirstParameter (Argument a) a
+instance FirstParameter (Use a) a
 instance FirstParameter (TypeSpec a) a
 instance FirstParameter (Selector a) a
 instance FirstParameter (Attribute a) a
@@ -337,6 +377,8 @@ instance SecondParameter (AList t a) SrcSpan
 instance SecondParameter (ProgramUnit a) SrcSpan
 instance SecondParameter (Block a) SrcSpan
 instance SecondParameter (Statement a) SrcSpan
+instance SecondParameter (Argument a) SrcSpan
+instance SecondParameter (Use a) SrcSpan
 instance SecondParameter (TypeSpec a) SrcSpan
 instance SecondParameter (Selector a) SrcSpan
 instance SecondParameter (Attribute a) SrcSpan
@@ -357,6 +399,8 @@ instance Annotated (AList t)
 instance Annotated ProgramUnit
 instance Annotated Block
 instance Annotated Statement
+instance Annotated Argument
+instance Annotated Use
 instance Annotated TypeSpec
 instance Annotated Selector
 instance Annotated Attribute
@@ -376,6 +420,8 @@ instance Annotated ControlPair
 instance Spanned (AList t a)
 instance Spanned (ProgramUnit a)
 instance Spanned (Statement a)
+instance Spanned (Argument a)
+instance Spanned (Use a)
 instance Spanned (Attribute a)
 instance Spanned (TypeSpec a)
 instance Spanned (Selector a)
@@ -484,16 +530,18 @@ class Named a where
   setName :: ProgramUnitName -> a -> a
 
 instance Named (ProgramUnit a) where
-  getName (PUMain _ _ Nothing _)       = NamelessMain
-  getName (PUMain _ _ (Just n) _)      = Named n
-  getName (PUSubroutine _ _ n _ _)     = Named n
-  getName (PUFunction _ _ _ n _ _)     = Named n
+  getName (PUMain _ _ Nothing _ _)     = NamelessMain
+  getName (PUMain _ _ (Just n) _ _)    = Named n
+  getName (PUModule _ _ n _ _)         = Named n
+  getName (PUSubroutine _ _ _ n _ _)   = Named n
+  getName (PUFunction _ _ _ _ n _ _ _) = Named n
   getName (PUBlockData _ _ Nothing _)  = NamelessBlockData
   getName (PUBlockData _ _ (Just n) _) = Named n
-  setName (Named n) (PUMain       a s _ b)     = PUMain       a s (Just n) b
-  setName _         (PUMain       a s _ b)     = PUMain       a s Nothing b
-  setName (Named n) (PUSubroutine a s _ p b)   = PUSubroutine a s n p b
-  setName (Named n) (PUFunction   a s r _ p b) = PUFunction   a s r n p b
+  setName (Named n) (PUMain       a s _ b pus) = PUMain a s (Just n) b pus
+  setName _         (PUMain       a s _ b pus) = PUMain a s Nothing b pus
+  setName (Named n) (PUModule     a s _ b pus) = PUModule a s n b pus
+  setName (Named n) (PUSubroutine a s r _ p b) = PUSubroutine a s r n p b
+  setName (Named n) (PUFunction   a s r rec _ p res b) = PUFunction a s r rec n p res b
   setName (Named n) (PUBlockData  a s _ b)     = PUBlockData  a s (Just n) b
   setName _         (PUBlockData  a s _ b)     = PUBlockData  a s Nothing b
 
@@ -501,6 +549,8 @@ instance Out a => Out (ProgramFile a)
 instance Out a => Out (ProgramUnit a)
 instance (Out a, Out (t a)) => Out (AList t a)
 instance Out a => Out (Statement a)
+instance Out a => Out (Argument a)
+instance Out a => Out (Use a)
 instance Out a => Out (Attribute a)
 instance Out Intent
 instance Out a => Out (ImpList a)

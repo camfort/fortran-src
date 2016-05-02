@@ -63,7 +63,7 @@ toBBlocksPerPU pu
   | null bs   = pu
   | otherwise = pu'
   where
-    bs  = case pu of PUMain _ _ _ bs -> bs; PUSubroutine _ _ _ _ bs -> bs; PUFunction _ _ _ _ _ bs -> bs
+    bs  = case pu of PUMain _ _ _ bs _ -> bs; PUSubroutine _ _ _ _ _ bs -> bs; PUFunction _ _ _ _ _ _ _ bs -> bs
                      _ -> []
     bbs = execBBlocker (processBlocks bs)
     fix = delEmptyBBlocks . delUnreachable . insExitEdges pu lm . delInvalidExits . insEntryEdges pu
@@ -81,21 +81,20 @@ insEntryEdges pu = insEdge (0, 1, ()) . insNode (0, bs)
 -- entry/exit bblocks.
 genInOutAssignments pu exit
   -- for now, designate return-value slot as a "ValVariable" without type-checking.
-  | exit, PUFunction _ _ _ n _ _ <- pu = zipWith genAssign (ValVariable a n:vs) [0..]
+  | exit, PUFunction _ _ _ _ n _ _ _ <- pu = zipWith genAssign (ExpValue a undefined (ValVariable a n):vs) [0..]
   | otherwise                          = zipWith genAssign vs [1..]
   where
     puName = getName pu
     name i = case puName of Named n -> n ++ "[" ++ show i ++ "]"
     (a, s, vs) = case pu of
-      PUFunction _ _ _ _ (AList a s vs) _ -> (a, s, vs)
-      PUSubroutine _ _ _ (AList a s vs) _ -> (a, s, vs)
+      PUFunction _ _ _ _ _ (AList a s vs) _ _ -> (a, s, vs)
+      PUSubroutine _ _ _ _ (AList a s vs) _ -> (a, s, vs)
       _                                   -> (undefined, undefined, [])
-    genAssign v i = BlStatement a s Nothing (StExpressionAssign a s (ExpValue a s vl)
-                                                                    (ExpValue a s vr))
+    genAssign v i = BlStatement a s Nothing (StExpressionAssign a s vl vr)
       where
         (vl, vr) = if exit then (v', v) else (v, v')
         v'       = case v of
-          ValVariable a _ -> ValVariable a (name i)
+          ExpValue a' s (ValVariable a _) -> ExpValue a' s (ValVariable a (name i))
           _               -> error $ "unhandled genAssign case: " ++ show (fmap (const ()) v)
 
 -- Remove exit edges for bblocks where standard construction doesn't apply.
@@ -240,7 +239,8 @@ perBlock b@(BlStatement _ _ _ (StReturn {})) =
   processLabel b >> addToBBlock b >> closeBBlock_
 perBlock b@(BlStatement _ _ _ (StGotoUnconditional {})) =
   processLabel b >> addToBBlock b >> closeBBlock_
-perBlock b@(BlStatement a s l (StCall a' s' cn@(ExpValue _ _ (ValVariable _ n)) (Just aexps))) = do
+perBlock b@(BlStatement a s l (StCall a' s' cn@(ExpValue _ _ (ValVariable _ n)) (Just aargs))) = do
+  let exps = map extractExp . aStrip $ aargs
   (prevN, formalN) <- closeBBlock
 
   -- create bblock that assigns formal parameters (n[1], n[2], ...)
@@ -251,7 +251,7 @@ perBlock b@(BlStatement a s l (StCall a' s' cn@(ExpValue _ _ (ValVariable _ n)) 
   let formal (ExpValue a s (ValVariable a' _)) i = ExpValue a s (ValVariable a' (name i))
       formal e i                                 = ExpValue a s (ValVariable a (name i))
         where a = getAnnotation e; s = getSpan e
-  forM_ (zip (aStrip aexps) [1..]) $ \ (e, i) -> do
+  forM_ (zip exps [1..]) $ \ (e, i) -> do
     e' <- processFunctionCalls e
     addToBBlock $ BlStatement a s Nothing (StExpressionAssign a' s' (formal e' i) e')
   (_, dummyCallN) <- closeBBlock
@@ -262,7 +262,7 @@ perBlock b@(BlStatement a s l (StCall a' s' cn@(ExpValue _ _ (ValVariable _ n)) 
 
   -- re-assign the variables using the values of the formal parameters, if possible
   -- (because call-by-reference)
-  forM_ (zip (aStrip aexps) [1..]) $ \ (e, i) ->
+  forM_ (zip exps [1..]) $ \ (e, i) ->
     -- this is only possible for l-expressions
     if isLExpr e then
       addToBBlock $ BlStatement a s Nothing (StExpressionAssign a' s' e (formal e i))
@@ -363,15 +363,17 @@ processFunctionCalls = transformBiM processFunctionCall -- work bottom-up
 -- Flatten out a single function call.
 processFunctionCall :: Expression a -> BBlocker a (Expression a)
 -- precondition: there are no more nested function calls within the actual arguments
-processFunctionCall (ExpFunctionCall a s (ExpValue a' s' (ValVariable _ fn)) aexps) = do
+processFunctionCall (ExpFunctionCall a s (ExpValue a' s' (ValVariable _ fn)) aargs) = do
   (prevN, formalN) <- closeBBlock
+
+  let exps = map extractExp . aStrip $ aargs
 
   -- create bblock that assigns formal parameters (fn[1], fn[2], ...)
   let name i   = fn ++ "[" ++ show i ++ "]"
   let formal (ExpValue a s (ValVariable a' _)) i = ExpValue a s (ValVariable a' (name i))
       formal e i                                 = ExpValue a s (ValVariable a (name i))
         where a = getAnnotation e; s = getSpan e
-  forM_ (zip (aStrip aexps) [1..]) $ \ (e, i) -> do
+  forM_ (zip exps [1..]) $ \ (e, i) -> do
     addToBBlock $ BlStatement a s Nothing (StExpressionAssign a' s' (formal e i) e)
   (_, dummyCallN) <- closeBBlock
 
@@ -381,7 +383,7 @@ processFunctionCall (ExpFunctionCall a s (ExpValue a' s' (ValVariable _ fn)) aex
 
   -- re-assign the variables using the values of the formal parameters, if possible
   -- (because call-by-reference)
-  forM_ (zip (aStrip aexps) [1..]) $ \ (e, i) ->
+  forM_ (zip exps [1..]) $ \ (e, i) ->
     -- this is only possible for l-expressions
     if isLExpr e then
       addToBBlock $ BlStatement a s Nothing (StExpressionAssign a' s' e (formal e i))
@@ -396,6 +398,8 @@ processFunctionCall (ExpFunctionCall a s (ExpValue a' s' (ValVariable _ fn)) aex
               , (dummyCallN, returnedN, ()), (returnedN, nextN, ()) ]
   return temp
 processFunctionCall e = return e
+
+extractExp (Argument _ _ _ exp) = exp
 
 --------------------------------------------------
 -- Supergraph: all program units in one basic-block graph

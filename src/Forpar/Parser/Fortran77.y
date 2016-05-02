@@ -148,17 +148,15 @@ PROGRAM_UNITS
 
 PROGRAM_UNIT :: { ProgramUnit A0 }
 PROGRAM_UNIT
-: program NAME NEWLINE BLOCKS end { PUMain () (getTransSpan $1 $5) (Just $2) (reverse $4) }
-| TYPE_SPEC function NAME '(' ARGS ')' NEWLINE BLOCKS end { PUFunction () (getTransSpan $1 $9) (Just $1) $3 (aReverse $5) (reverse $8) }
-| function NAME '(' ARGS ')' NEWLINE BLOCKS end { PUFunction () (getTransSpan $1 $8) Nothing $2 (aReverse $4) (reverse $7) }
-| subroutine NAME '(' ARGS ')' NEWLINE BLOCKS end { PUSubroutine () (getTransSpan $1 $8) $2 (aReverse $4) (reverse $7) }
+: program NAME NEWLINE BLOCKS end { PUMain () (getTransSpan $1 $5) (Just $2) (reverse $4) Nothing }
+| TYPE_SPEC function NAME '(' VARIABLES ')' NEWLINE BLOCKS end
+  { PUFunction () (getTransSpan $1 $9) (Just $1) False $3 (fromReverseList $5) Nothing (reverse $8) }
+| function NAME '(' VARIABLES ')' NEWLINE BLOCKS end
+  { PUFunction () (getTransSpan $1 $8) Nothing False $2 (fromReverseList $4) Nothing (reverse $7) }
+| subroutine NAME '(' VARIABLES ')' NEWLINE BLOCKS end
+  { PUSubroutine () (getTransSpan $1 $8) False $2 (fromReverseList $4) (reverse $7) }
 | blockData NEWLINE BLOCKS end { PUBlockData () (getTransSpan $1 $4) Nothing (reverse $3) }
 | blockData NAME NEWLINE BLOCKS end { PUBlockData () (getTransSpan $1 $5) (Just $2) (reverse $4) }
-
-ARGS :: { AList Value A0 }
-ARGS
-: ARGS ',' id { let (TId s arg) = $3 in setSpan s $ ValVariable () arg `aCons` $1}
-| id { let (TId s arg) = $1 in AList () s [ ValVariable () arg ] }
 
 NAME :: { Name } : id { let (TId _ name) = $1 in name }
 
@@ -221,7 +219,7 @@ EXECUTABLE_STATEMENT
 | doWhile '(' EXPRESSION ')'
   { StDoWhile () (getTransSpan $1 $4) Nothing Nothing $3 }
 | enddo { StEnddo () (getSpan $1) Nothing }
-| call VARIABLE CALLABLE_EXPRESSIONS
+| call VARIABLE ARGUMENTS
   { StCall () (getTransSpan $1 $3) $2 $ Just $3 }
 | call VARIABLE { StCall () (getTransSpan $1 $2) $2 Nothing }
 | return { StReturn () (getSpan $1) Nothing }
@@ -392,8 +390,8 @@ NONEXECUTABLE_STATEMENT
 | implicit IMP_LISTS { StImplicit () (getTransSpan $1 $2) $ Just $ aReverse $2 }
 | parameter '(' PARAMETER_ASSIGNMENTS ')'
   { StParameter () (getTransSpan $1 $4) $ fromReverseList $3 }
-| entry VARIABLE { StEntry () (getTransSpan $1 $2) $2 Nothing }
-| entry VARIABLE ENTRY_ARGS { StEntry () (getTransSpan $1 $3) $2 $ Just $3 }
+| entry VARIABLE { StEntry () (getTransSpan $1 $2) $2 Nothing Nothing }
+| entry VARIABLE ENTRY_ARGS { StEntry () (getTransSpan $1 $3) $2 (Just $3) Nothing }
 
 ENTRY_ARGS :: { AList Expression A0 }
 ENTRY_ARGS
@@ -578,21 +576,21 @@ FUNCTION_NAMES
 : FUNCTION_NAMES ',' VARIABLE { setSpan (getTransSpan $1 $3) $ $3 `aCons` $1 }
 | VARIABLE { AList () (getSpan $1) [ $1 ] }
 
-CALLABLE_EXPRESSIONS :: { AList Expression A0 }
-CALLABLE_EXPRESSIONS
-:  CALLABLE_EXPRESSIONS_LEVEL1 ')' { setSpan (getTransSpan $1 $2) $ aReverse $1 }
+ARGUMENTS :: { AList Argument A0 }
+ARGUMENTS
+: ARGUMENTS_LEVEL1 ')' { setSpan (getTransSpan $1 $2) $ aReverse $1 }
 
-CALLABLE_EXPRESSIONS_LEVEL1 :: { AList Expression A0 }
-CALLABLE_EXPRESSIONS_LEVEL1
-: CALLABLE_EXPRESSIONS_LEVEL1 ',' CALLABLE_EXPRESSION { setSpan (getTransSpan $1 $3) $ $3 `aCons` $1 }
+ARGUMENTS_LEVEL1 :: { AList Argument A0 }
+ARGUMENTS_LEVEL1
+: ARGUMENTS_LEVEL1 ',' CALLABLE_EXPRESSION { setSpan (getTransSpan $1 $3) $ $3 `aCons` $1 }
 | '(' CALLABLE_EXPRESSION { AList () (getTransSpan $1 $2) [ $2 ] }
 | '(' { AList () (getSpan $1) [ ] }
 
 -- Expression all by itself subsumes all other callable expressions.
-CALLABLE_EXPRESSION :: { Expression A0 }
+CALLABLE_EXPRESSION :: { Argument A0 }
 CALLABLE_EXPRESSION
-: HOLLERITH   { $1 }
-| EXPRESSION  { $1 }
+: HOLLERITH   { Argument () (getSpan $1) Nothing $1 }
+| EXPRESSION  { Argument () (getSpan $1) Nothing $1 }
 
 EXPRESSION :: { Expression A0 }
 EXPRESSION
@@ -717,6 +715,9 @@ ARITHMETIC_SIGN :: { (SrcSpan, UnaryOp) }
 ARITHMETIC_SIGN
 : '-' { (getSpan $1, Minus) }
 | '+' { (getSpan $1, Plus) }
+
+VARIABLES :: { [ Expression A0 ] }
+VARIABLES : VARIABLES ',' VARIABLE { $3 : $1 } | VARIABLE { [ $1 ] }
 
 -- This may also be used to parse a function name, or an array name. Since when
 -- are valid options in a production there is no way of differentiating them at

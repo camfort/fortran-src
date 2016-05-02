@@ -159,7 +159,7 @@ spec =
           sParser "      CALL me" `shouldBe'` expectedSt
 
         it "parses 'CALL me(baby)" $ do
-          let args = AList () u [varGen "baby"]
+          let args = AList () u [ Argument () u Nothing $ varGen "baby" ]
           let expectedSt = StCall () u (ExpValue () u (ValVariable () "me")) $ Just args
           sParser "      CALL me(baby)" `shouldBe'` expectedSt
 

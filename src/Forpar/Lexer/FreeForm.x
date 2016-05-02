@@ -117,11 +117,12 @@ tokens :-
 <scN> "only" / { useStP }                         { addSpan TOnly }
 <0> "interface"                                   { addSpan TInterface }
 <0> "end"\ *"interface"                           { addSpan TEndInterface }
-<scN> "procedure" / { moduleStP }                 { addSpan TProcedure }
+<0> "module"\ \ *"procedure"                      { addSpan TModuleProcedure }
 <scN> "assignment"\ *"("\ *"="\ *")" / { genericSpecP } { addSpan TAssignment }
 <scN> "operator" / { genericSpecP }               { addSpan TOperator }
 <0,scI> "call"                                    { addSpan TCall }
 <0,scI> "return"                                  { addSpan TReturn }
+<0> "entry"                                       { addSpan TEntry }
 
 -- Type def related
 <0,scT> "type"                                    { addSpan TType }
@@ -225,7 +226,7 @@ tokens :-
 <0,scI> "end"\ *"file"                            { addSpan TEndfile }
 
 -- Literals
-<0> @label                                        { toSC 0 >> addSpanAndMatch TLabel }
+<0> @label                                        { toSC 0 >> addSpanAndMatch TIntegerLiteral }
 <scN,scI> @intLiteralConst                        { addSpanAndMatch TIntegerLiteral  }
 <scN> @bozLiteralConst                            { addSpanAndMatch TBozLiteral  }
 
@@ -394,9 +395,6 @@ followsIntentP _ _ _ ai =
 
 useStP :: User -> AlexInput -> Int -> AlexInput -> Bool
 useStP _ _ _ ai = seenConstr (toConstr $ TUse undefined) ai
-
-moduleStP :: User -> AlexInput -> Int -> AlexInput -> Bool
-moduleStP _ _ _ ai = prevTokenConstr ai == (Just $ fillConstr TModule)
 
 caseStP :: User -> AlexInput -> Int -> AlexInput -> Bool
 caseStP _ _ _ ai = prevTokenConstr ai == (Just $ fillConstr TCase)
@@ -906,7 +904,6 @@ data Token =
     TId                 SrcSpan String
   | TComment            SrcSpan String
   | TString             SrcSpan String
-  | TLabel              SrcSpan String
   | TIntegerLiteral     SrcSpan String
   | TRealLiteral        SrcSpan String
   | TBozLiteral         SrcSpan String
@@ -962,11 +959,12 @@ data Token =
   | TOnly               SrcSpan
   | TInterface          SrcSpan
   | TEndInterface       SrcSpan
-  | TProcedure          SrcSpan
+  | TModuleProcedure    SrcSpan
   | TAssignment         SrcSpan
   | TOperator           SrcSpan
   | TCall               SrcSpan
   | TReturn             SrcSpan
+  | TEntry              SrcSpan
   -- Attributes
   | TPublic             SrcSpan
   | TPrivate            SrcSpan

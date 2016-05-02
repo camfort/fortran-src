@@ -300,7 +300,7 @@ spec =
             sParser "elsewhere" `shouldBe'` StElsewhere () u
 
           it "parses endwhere statement" $
-            sParser "endwhere" `shouldBe'` StEndwhere () u
+            sParser "endwhere" `shouldBe'` StEndWhere () u
 
     describe "If" $ do
       it "parses if-then statement" $
@@ -405,3 +405,10 @@ spec =
         let outList = fromList () [ ExpImpliedDo () u alist doSpec ]
         let st = StWrite () u ciList (Just outList)
         sParser "write (10, FORMAT = x) (i, j,  i = 1, 42, 2)" `shouldBe'` st
+
+    it "parses use statement" $ do
+      let renames = fromList ()
+            [ UseRename () u (varGen "sprod") (varGen "prod")
+            , UseRename () u (varGen "a") (varGen "b") ]
+      let st = StUse () u (varGen "stats_lib") (Just renames)
+      sParser "use stats_lib, sprod => prod, a => b" `shouldBe'` st
