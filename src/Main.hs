@@ -15,6 +15,7 @@ import qualified Forpar.Lexer.FixedForm as FixedForm (collectFixedTokens, Token(
 import qualified Forpar.Lexer.FreeForm as FreeForm (collectFreeTokens, Token(..))
 import Forpar.Parser.Fortran66 (fortran66Parser)
 import Forpar.Parser.Fortran77 (fortran77Parser, extended77Parser)
+import Forpar.Parser.Fortran90 (fortran90Parser)
 import Forpar.Analysis.Types (TypeScope(..), inferTypes, IDType(..))
 import Forpar.Analysis.BBlocks
 import Forpar.Analysis.DataFlow
@@ -43,7 +44,8 @@ main = do
     let Just parserF = lookup version
                               [ (Fortran66, fortran66Parser)
                               , (Fortran77, fortran77Parser)
-                              , (Fortran77Extended, extended77Parser) ]
+                              , (Fortran77Extended, extended77Parser)
+                              , (Fortran90, fortran90Parser) ]
     let outfmt = outputFormat opts
 
     let runRenamer = snd . renameAndStrip . analyseRenames . initAnalysis
@@ -56,9 +58,9 @@ main = do
                 sgr = genSuperBBGr bbm
 
     case action opts of
-      Lex | version `elem` [ Fortran66, Fortran77, Fortran77Extended ] -> do
+      Lex | version `elem` [ Fortran66, Fortran77, Fortran77Extended ] ->
         print $ FixedForm.collectFixedTokens version contents
-      Lex | version `elem` [Fortran90, Fortran2003, Fortran2008] -> do
+      Lex | version `elem` [Fortran90, Fortran2003, Fortran2008] ->
         print $ FreeForm.collectFreeTokens version contents
       Lex        -> ioError $ userError $ usageInfo programName options
       Parse      -> pp $ parserF contents path

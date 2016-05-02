@@ -1,6 +1,7 @@
 -- -*- Mode: Haskell -*-
 {
 module Forpar.Parser.Fortran90 ( statementParser
+                               , fortran90Parser
                                ) where
 
 import Prelude hiding (EQ,LT,GT) -- Same constructors exist in the AST
