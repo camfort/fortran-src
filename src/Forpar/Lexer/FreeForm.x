@@ -36,7 +36,7 @@ $letter = a-z
 $alphanumeric = [$letter $digit \_]
 
 @label = $digit{1,5}
-@name = $letter $alphanumeric{0,9} $alphanumeric{0,9} $alphanumeric{0,11} $alphanumeric?
+@name = $letter $alphanumeric{0,9} $alphanumeric{0,9} $alphanumeric{0,9} $alphanumeric{0,2} $alphanumeric?
 
 @binary = b\'$bit+
 @octal = o\'$octalDigit+
@@ -297,8 +297,7 @@ ifConditionEndP (User _ pc) _ _ ai
 
 opP :: User -> AlexInput -> Int ->AlexInput -> Bool
 opP _ _ _ ai
-
-| (TLeftPar{}:TOperator{}:_) <- aiPreviousTokensInLine ai = True
+  | (TLeftPar{}:TOperator{}:_) <- aiPreviousTokensInLine ai = True
   | otherwise = False
 
 partOfExpOrPointerAssignmentP :: User -> AlexInput -> Int -> AlexInput -> Bool
