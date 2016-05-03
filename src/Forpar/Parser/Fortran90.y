@@ -1000,6 +1000,7 @@ unitNameCheck :: Token -> String -> Parse AlexInput Token ()
 unitNameCheck (TId _ name1) name2
   | name1 == name2 = return ()
   | otherwise = fail "Unit name does not match the corresponding END statement."
+unitNameCheck _ _ = return ()
 
 parse = evalParse programParser
 
