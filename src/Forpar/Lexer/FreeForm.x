@@ -36,7 +36,7 @@ $letter = a-z
 $alphanumeric = [$letter $digit \_]
 
 @label = $digit{1,5}
-@name = $letter $alphanumeric{0,9} $alphanumeric{0,9} $alphanumeric{0,9} $alphanumeric{0,2} $alphanumeric?
+@name = $letter $alphanumeric*
 
 @binary = b\'$bit+
 @octal = o\'$octalDigit+
