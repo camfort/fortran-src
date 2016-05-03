@@ -232,6 +232,8 @@ PROGRAM_UNIT :: { ProgramUnit A0 }
 
 SUBPROGRAM_UNITS :: { [ ProgramUnit A0 ] }
 : SUBPROGRAM_UNITS SUBPROGRAM_UNIT NEWLINE { $2 : $1 }
+-- Ignore the comments before subprogram units (for now).
+| SUBPROGRAM_UNITS COMMENT_BLOCK { $1 }
 | {- EMPTY -} { [ ] }
 
 SUBPROGRAM_UNIT :: { ProgramUnit A0 }
