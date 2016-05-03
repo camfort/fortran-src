@@ -563,10 +563,10 @@ DIMENSION_DECLARATORS
 
 DIMENSION_DECLARATOR :: { DimensionDeclarator A0 }
 DIMENSION_DECLARATOR
-: EXPRESSION ':' EXPRESSION { DimensionDeclarator () (getTransSpan $1 $3) (Just $1) $3 }
-| EXPRESSION { DimensionDeclarator () (getSpan $1) Nothing $1 }
-| EXPRESSION ':' '*' { DimensionDeclarator () (getTransSpan $1 $3) (Just $1) (ExpValue () (getSpan $3) (ValStar)) }
-| '*' { DimensionDeclarator () (getSpan $1) Nothing (ExpValue () (getSpan $1) (ValStar)) }
+: EXPRESSION ':' EXPRESSION { DimensionDeclarator () (getTransSpan $1 $3) (Just $1) (Just $3) }
+| EXPRESSION { DimensionDeclarator () (getSpan $1) Nothing (Just $1) }
+| EXPRESSION ':' '*' { DimensionDeclarator () (getTransSpan $1 $3) (Just $1) (Just $ ExpValue () (getSpan $3) ValStar) }
+| '*' { DimensionDeclarator () (getSpan $1) Nothing (Just $ ExpValue () (getSpan $1) ValStar) }
 
 -- Here the procedure should be either a function or subroutine name, but
 -- since they are syntactically identical at this stage subroutine names

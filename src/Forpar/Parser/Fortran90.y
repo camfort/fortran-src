@@ -790,27 +790,22 @@ DIMENSION_DECLARATORS :: { AList DimensionDeclarator A0 }
 
 DIMENSION_DECLARATOR :: { DimensionDeclarator A0 }
 : EXPRESSION ':' EXPRESSION
-  { DimensionDeclarator () (getTransSpan $1 $3) (Just $1) $3 }
-| EXPRESSION { DimensionDeclarator () (getSpan $1) Nothing $1 }
+  { DimensionDeclarator () (getTransSpan $1 $3) (Just $1) (Just $3) }
+| EXPRESSION { DimensionDeclarator () (getSpan $1) Nothing (Just $1) }
 -- Lower bound only
 | EXPRESSION ':' 
-  { let { span = getSpan $2;
-          star = ExpValue () span ValStar }
-    in DimensionDeclarator () (getTransSpan $1 span) (Just $1) star }    
+  { DimensionDeclarator () (getTransSpan $1 $2) (Just $1) Nothing }    
 | EXPRESSION ':' '*'
   { let { span = getSpan $3;
           star = ExpValue () span ValStar }
-    in DimensionDeclarator () (getTransSpan $1 span) (Just $1) star }
+    in DimensionDeclarator () (getTransSpan $1 span) (Just $1) (Just star) }
 | '*'
   { let { span = getSpan $1;
           star = ExpValue () span ValStar }
-    in DimensionDeclarator () span Nothing star }
+    in DimensionDeclarator () span Nothing (Just star) }
 | ':'
-  { let { span = getSpan $1;
-          -- No lower bound defaults to 1, see §5.1.2.4.1
-          one = ExpValue () span (ValInteger "1");
-          star = ExpValue () span ValStar }
-    in DimensionDeclarator () span (Just one) star }
+  { let span = getSpan $1 
+    in DimensionDeclarator () span Nothing Nothing }
     
 TYPE_SPEC :: { TypeSpec A0 }
 : integer KIND_SELECTOR   { TypeSpec () (getSpan ($1, $2)) TypeInteger $2 }

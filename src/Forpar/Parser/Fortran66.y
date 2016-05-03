@@ -339,7 +339,7 @@ DIMENSION_DECLARATORS
 
 DIMENSION_DECLARATOR :: { DimensionDeclarator A0 }
 DIMENSION_DECLARATOR
-: EXPRESSION { DimensionDeclarator () (getSpan $1) Nothing $1 }
+: EXPRESSION { DimensionDeclarator () (getSpan $1) Nothing (Just $1) }
 
 VARIABLE_DECLARATOR :: { Declarator A0 }
 VARIABLE_DECLARATOR

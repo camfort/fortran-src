@@ -612,7 +612,7 @@ showDecl (DeclVariable _ _ e length initial) =
     maybe "" (\e -> "*" ++ showExpr e) length ++
     maybe "" (\e -> " = " ++ showExpr e) initial
 
-showDim (DimensionDeclarator _ _ me1 e2) = maybe "" ((++":") . showExpr) me1 ++ showExpr e2
+showDim (DimensionDeclarator _ _ me1 me2) = maybe "" ((++":") . showExpr) me1 ++ maybe "" showExpr me2
 
 aIntercalate sep f = intercalate sep . map f . aStrip
 

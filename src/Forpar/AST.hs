@@ -310,7 +310,7 @@ setInitialisation (DeclArray a s v ds l Nothing) init =
   DeclArray a (getTransSpan s init) v ds l (Just init)
 
 data DimensionDeclarator a =
-  DimensionDeclarator a SrcSpan (Maybe (Expression a)) (Expression a)
+  DimensionDeclarator a SrcSpan (Maybe (Expression a)) (Maybe (Expression a))
   deriving (Eq, Show, Data, Typeable, Generic, Functor)
 
 data UnaryOp =
