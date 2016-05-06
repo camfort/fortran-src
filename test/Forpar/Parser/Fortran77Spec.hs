@@ -99,9 +99,9 @@ spec =
         eParser "a(x, 2, 3)" `shouldBe'` exp
 
       it "parses array declarator" $ do
-        let dimDecls = [ DimensionDeclarator () u (Just $ intGen 1) (intGen 2)
-                       , DimensionDeclarator () u Nothing (intGen 15)
-                       , DimensionDeclarator () u (Just $ varGen "x") starVal ]
+        let dimDecls = [ DimensionDeclarator () u (Just $ intGen 1) (Just $ intGen 2)
+                       , DimensionDeclarator () u Nothing (Just $ intGen 15)
+                       , DimensionDeclarator () u (Just $ varGen "x") (Just $ starVal) ]
         let decl = DeclArray () u (varGen "a") (AList () u dimDecls) Nothing Nothing
         let st = StDeclaration () u (TypeSpec () u TypeInteger Nothing) Nothing (AList () u [ decl ])
         sParser "      integer a(1:2, 15, x:*)" `shouldBe'` st

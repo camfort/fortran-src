@@ -37,10 +37,10 @@ ex1pu1 = PUMain () u (Just "main") ex1pu1bs Nothing
 ex1pu1bs =
   [ BlStatement () u Nothing (StDeclaration () u (TypeSpec () u TypeInteger Nothing) Nothing (AList () u
       [ DeclVariable () u (varGen "a") Nothing Nothing
-      , DeclArray () u (varGen "b") (AList () u [ DimensionDeclarator () u Nothing (intGen 1) ]) Nothing Nothing
+      , DeclArray () u (varGen "b") (AList () u [ DimensionDeclarator () u Nothing (Just $ intGen 1) ]) Nothing Nothing
       , DeclVariable () u (varGen "c") Nothing Nothing ]))
   , BlStatement () u Nothing (StDimension () u (AList () u
-      [ DeclArray () u (varGen "a") (AList () u [ DimensionDeclarator () u Nothing (intGen 1 ) ]) Nothing Nothing ]))
+      [ DeclArray () u (varGen "a") (AList () u [ DimensionDeclarator () u Nothing (Just $ intGen 1 ) ]) Nothing Nothing ]))
   , BlStatement () u Nothing (StExpressionAssign () u
       (ExpSubscript () u (varGen "a") (AList () u [ ixSinGen 1 ])) (intGen 1))
   , BlStatement () u Nothing (StExpressionAssign () u
@@ -55,10 +55,10 @@ expectedEx1pu1 = PUMain () u (Just "main") expectedEx1pu1bs Nothing
 expectedEx1pu1bs =
   [ BlStatement () u Nothing (StDeclaration () u (TypeSpec () u TypeInteger Nothing) Nothing (AList () u
       [ DeclVariable () u (varGen "a") Nothing Nothing
-      , DeclArray () u (varGen "b") (AList () u [ DimensionDeclarator () u Nothing (intGen 1) ]) Nothing Nothing
+      , DeclArray () u (varGen "b") (AList () u [ DimensionDeclarator () u Nothing (Just $ intGen 1) ]) Nothing Nothing
       , DeclVariable () u (varGen "c") Nothing Nothing ]))
   , BlStatement () u Nothing (StDimension () u (AList () u
-      [ DeclArray () u (varGen "a") (AList () u [ DimensionDeclarator () u Nothing (intGen 1 ) ]) Nothing Nothing ]))
+      [ DeclArray () u (varGen "a") (AList () u [ DimensionDeclarator () u Nothing (Just $ intGen 1 ) ]) Nothing Nothing ]))
   , BlStatement () u Nothing (StExpressionAssign () u
       (ExpSubscript () u (varGen "a") (AList () u [ ixSinGen 1 ])) (intGen 1))
   , BlStatement () u Nothing (StExpressionAssign () u

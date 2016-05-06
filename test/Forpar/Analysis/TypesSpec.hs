@@ -68,7 +68,7 @@ ex4pu1bs =
       (AList () u
         [ DeclVariable () u (varGen "x") Nothing Nothing
         , DeclArray () u (varGen "y")
-            (AList () u [ DimensionDeclarator () u Nothing (intGen 10) ]) Nothing Nothing ]))
+            (AList () u [ DimensionDeclarator () u Nothing (Just $ intGen 10) ]) Nothing Nothing ]))
   , BlStatement () u Nothing (StDeclaration () u (TypeSpec () u TypeCharacter Nothing) Nothing
       (AList () u [ DeclVariable () u (varGen "c") Nothing Nothing ]))
   , BlStatement () u Nothing (StDeclaration () u (TypeSpec () u TypeLogical Nothing) Nothing
@@ -78,8 +78,8 @@ ex5 = ProgramFile [ ([ ], ex5pu1) ] [ ]
 ex5pu1 = PUBlockData () u (Just "bd") ex5pu1bs
 ex5pu1bs =
   [ BlStatement () u Nothing (StDimension () u (AList () u
-      [ DeclArray () u (varGen "x") (AList () u [ DimensionDeclarator () u Nothing (intGen 1) ]) Nothing Nothing
-      , DeclArray () u (varGen "y") (AList () u [ DimensionDeclarator () u Nothing (intGen 1) ]) Nothing Nothing])) ]
+      [ DeclArray () u (varGen "x") (AList () u [ DimensionDeclarator () u Nothing (Just $ intGen 1) ]) Nothing Nothing
+      , DeclArray () u (varGen "y") (AList () u [ DimensionDeclarator () u Nothing (Just $ intGen 1) ]) Nothing Nothing])) ]
 
 {-
 - program Main
@@ -96,10 +96,10 @@ ex6pu1 = PUMain () u (Just "main") ex6pu1bs Nothing
 ex6pu1bs =
   [ BlStatement () u Nothing (StDeclaration () u (TypeSpec () u TypeInteger Nothing) Nothing (AList () u
       [ DeclVariable () u (varGen "a") Nothing Nothing
-      , DeclArray () u (varGen "b") (AList () u [ DimensionDeclarator () u Nothing (intGen 1) ]) Nothing Nothing
+      , DeclArray () u (varGen "b") (AList () u [ DimensionDeclarator () u Nothing (Just $ intGen 1) ]) Nothing Nothing
       , DeclVariable () u (varGen "c") Nothing Nothing ]))
   , BlStatement () u Nothing (StDimension () u (AList () u
-      [ DeclArray () u (varGen "a") (AList () u [ DimensionDeclarator () u Nothing (intGen 1 ) ]) Nothing Nothing ]))
+      [ DeclArray () u (varGen "a") (AList () u [ DimensionDeclarator () u Nothing (Just $ intGen 1 ) ]) Nothing Nothing ]))
   , BlStatement () u Nothing (StExpressionAssign () u
       (ExpSubscript () u (varGen "a") (fromList () [ ixSinGen 1 ])) (intGen 1))
   , BlStatement () u Nothing (StExpressionAssign () u

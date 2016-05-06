@@ -71,7 +71,7 @@ spec =
                                , AttrIntent () u Out
                                , AttrDimension () u $ AList () u
                                   [ DimensionDeclarator () u
-                                      (Just $ intGen 3) (intGen 10)
+                                      (Just $ intGen 3) (Just $ intGen 10)
                                   ]
                                ]
         let declarators = AList () u

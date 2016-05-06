@@ -168,7 +168,7 @@ spec =
         sParser "      stop" `shouldBe'` expectedSt
 
       it "parses 'integer i, j(2,2), k'" $ do
-        let dimDecls = replicate 2 $ DimensionDeclarator () u Nothing (intGen 2)
+        let dimDecls = replicate 2 $ DimensionDeclarator () u Nothing (Just $ intGen 2)
             declarators = [ DeclVariable () u (varGen "i") Nothing Nothing
                           , DeclArray () u (varGen "j") (AList () u dimDecls) Nothing Nothing
                           , DeclVariable () u (varGen "k") Nothing Nothing ]
