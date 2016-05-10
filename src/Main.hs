@@ -10,17 +10,17 @@ import Data.List (isInfixOf, isSuffixOf, intercalate)
 import Data.Char (toLower)
 import Data.Maybe (fromMaybe)
 
-import Forpar.ParserMonad (FortranVersion(..))
-import qualified Forpar.Lexer.FixedForm as FixedForm (collectFixedTokens, Token(..))
-import qualified Forpar.Lexer.FreeForm as FreeForm (collectFreeTokens, Token(..))
-import Forpar.Parser.Fortran66 (fortran66Parser)
-import Forpar.Parser.Fortran77 (fortran77Parser, extended77Parser)
-import Forpar.Parser.Fortran90 (fortran90Parser)
-import Forpar.Analysis.Types (TypeScope(..), inferTypes, IDType(..))
-import Forpar.Analysis.BBlocks
-import Forpar.Analysis.DataFlow
-import Forpar.Analysis.Renaming (renameAndStrip, analyseRenames)
-import Forpar.Analysis (initAnalysis)
+import Language.Fortran.ParserMonad (FortranVersion(..))
+import qualified Language.Fortran.Lexer.FixedForm as FixedForm (collectFixedTokens, Token(..))
+import qualified Language.Fortran.Lexer.FreeForm as FreeForm (collectFreeTokens, Token(..))
+import Language.Fortran.Parser.Fortran66 (fortran66Parser)
+import Language.Fortran.Parser.Fortran77 (fortran77Parser, extended77Parser)
+import Language.Fortran.Parser.Fortran90 (fortran90Parser)
+import Language.Fortran.Analysis.Types (TypeScope(..), inferTypes, IDType(..))
+import Language.Fortran.Analysis.BBlocks
+import Language.Fortran.Analysis.DataFlow
+import Language.Fortran.Analysis.Renaming (renameAndStrip, analyseRenames)
+import Language.Fortran.Analysis (initAnalysis)
 import Data.Graph.Inductive hiding (trc)
 import Data.Graph.Inductive.PatriciaTree (Gr)
 
@@ -29,7 +29,7 @@ import qualified Data.Map as M
 import Control.Monad
 import Text.Printf
 
-programName = "Forpar"
+programName = "fortran-src"
 
 main :: IO ()
 main = do

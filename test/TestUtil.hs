@@ -7,8 +7,8 @@ import Test.Hspec
 import Data.Data
 import Data.Generics.Uniplate.Data
 
-import Forpar.AST
-import Forpar.Util.Position
+import Language.Fortran.AST
+import Language.Fortran.Util.Position
 
 u = undefined
 
