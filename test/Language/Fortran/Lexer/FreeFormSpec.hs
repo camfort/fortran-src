@@ -169,6 +169,13 @@ spec =
                               , flip TString "hello", TEOF ]
 
       describe "Conditional" $ do
+        it "lexes logical if with array assignment" $
+          shouldBe' (collectF90 "if (.true.) a(1) = 42") $
+                    fmap ($u) [ TIf, TLeftPar, flip TLogicalLiteral ".true."
+                              , TRightPar, flip TId "a", TLeftPar
+                              , flip TIntegerLiteral "1", TRightPar, TOpAssign
+                              , flip TIntegerLiteral "42", TEOF ]
+
         it "lexes block if statement" $
           shouldBe' (collectF90 "if (a > b) then") $
                     fmap ($u) [ TIf, TLeftPar, flip TId "a", TOpGT, flip TId "b"

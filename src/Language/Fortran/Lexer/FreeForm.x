@@ -78,7 +78,7 @@ tokens :-
 
 <0,scN> "!".*$                                    { addSpanAndMatch TComment }
 
-<0,scN,scT> (\n\r|\r\n|\n)                            { resetPar >> toSC 0 >> addSpan TNewline }
+<0,scN,scT> (\n\r|\r\n|\n)                        { resetPar >> toSC 0 >> addSpan TNewline }
 <0,scN,scI,scT> [\t\ ]+                           ;
 
 <scN> "("                                         { leftPar }
@@ -301,7 +301,7 @@ opP _ _ _ ai
   | otherwise = False
 
 partOfExpOrPointerAssignmentP :: User -> AlexInput -> Int -> AlexInput -> Bool
-partOfExpOrPointerAssignmentP (User fv _) _ _ ai =
+partOfExpOrPointerAssignmentP (User fv pc) _ _ ai =
     case unParse (lexer $ f False 0) ps of
       ParseOk True _ -> True
       _ -> False
@@ -310,7 +310,7 @@ partOfExpOrPointerAssignmentP (User fv _) _ _ ai =
       { psAlexInput = ai { aiStartCode = StartCode scN Return }
       , psVersion = fv
       , psFilename = "<unknown>"
-      , psParanthesesCount = ParanthesesCount 0 False
+      , psParanthesesCount = pc
       , psContext = [ ConStart ] }
     f leftParSeen parCount token
       | not leftParSeen =
@@ -321,6 +321,7 @@ partOfExpOrPointerAssignmentP (User fv _) _ _ ai =
           TArrow{} -> return True
           TOpAssign{} -> return True
           TLeftPar{} -> lexer $ f True 1
+          TLeftPar2{} -> lexer $ f True 1
           _ -> return False
       | parCount == 0 =
         case token of
@@ -332,6 +333,7 @@ partOfExpOrPointerAssignmentP (User fv _) _ _ ai =
           TNewline{} -> return False
           TEOF{} -> return False
           TLeftPar{} -> lexer $ f True (parCount + 1)
+          TLeftPar2{} -> lexer $ f True (parCount + 1)
           TRightPar{} -> lexer $ f True (parCount - 1)
           _ -> lexer $ f True parCount
       | otherwise =
