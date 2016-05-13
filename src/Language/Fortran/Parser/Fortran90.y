@@ -793,8 +793,8 @@ DIMENSION_DECLARATOR :: { DimensionDeclarator A0 }
   { DimensionDeclarator () (getTransSpan $1 $3) (Just $1) (Just $3) }
 | EXPRESSION { DimensionDeclarator () (getSpan $1) Nothing (Just $1) }
 -- Lower bound only
-| EXPRESSION ':' 
-  { DimensionDeclarator () (getTransSpan $1 $2) (Just $1) Nothing }    
+| EXPRESSION ':'
+  { DimensionDeclarator () (getTransSpan $1 $2) (Just $1) Nothing }
 | EXPRESSION ':' '*'
   { let { span = getSpan $3;
           star = ExpValue () span ValStar }
@@ -804,9 +804,9 @@ DIMENSION_DECLARATOR :: { DimensionDeclarator A0 }
           star = ExpValue () span ValStar }
     in DimensionDeclarator () span Nothing (Just star) }
 | ':'
-  { let span = getSpan $1 
+  { let span = getSpan $1
     in DimensionDeclarator () span Nothing Nothing }
-    
+
 TYPE_SPEC :: { TypeSpec A0 }
 : integer KIND_SELECTOR   { TypeSpec () (getSpan ($1, $2)) TypeInteger $2 }
 | real    KIND_SELECTOR   { TypeSpec () (getSpan ($1, $2)) TypeReal $2 }
