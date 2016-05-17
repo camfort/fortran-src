@@ -87,8 +87,8 @@ genInOutAssignments pu exit
     puName = getName pu
     name i = case puName of Named n -> n ++ "[" ++ show i ++ "]"
     (a, s, vs) = case pu of
-      PUFunction _ _ _ _ _ (AList a s vs) _ _ -> (a, s, vs)
-      PUSubroutine _ _ _ _ (AList a s vs) _ -> (a, s, vs)
+      PUFunction _ _ _ _ _ (Just (AList a s vs)) _ _ -> (a, s, vs)
+      PUSubroutine _ _ _ _ (Just (AList a s vs)) _ -> (a, s, vs)
       _                                   -> (undefined, undefined, [])
     genAssign v i = BlStatement a s Nothing (StExpressionAssign a s vl vr)
       where

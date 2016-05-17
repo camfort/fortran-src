@@ -237,24 +237,28 @@ SUBPROGRAM_UNITS :: { [ ProgramUnit A0 ] }
 | {- EMPTY -} { [ ] }
 
 SUBPROGRAM_UNIT :: { ProgramUnit A0 }
-: TYPE_SPEC function NAME '(' VARIABLES ')' RESULT NEWLINE BLOCKS FUNCTION_END
-  {% do { unitNameCheck $10 $3;
-          return $ PUFunction () (getTransSpan $1 $10) (Just $1) False $3 (fromReverseList $5) $7 (reverse $9) } }
-| TYPE_SPEC recursive function NAME '(' VARIABLES ')' RESULT NEWLINE BLOCKS FUNCTION_END
-  {% do { unitNameCheck $11 $4;
-          return $ PUFunction () (getTransSpan $1 $11) (Just $1) True $4 (fromReverseList $6) $8 (reverse $10) } }
-| recursive TYPE_SPEC function NAME '(' VARIABLES ')' RESULT NEWLINE BLOCKS FUNCTION_END
-  {% do { unitNameCheck $11 $4;
-          return $ PUFunction () (getTransSpan $1 $11) (Just $2) True $4 (fromReverseList $6) $8 (reverse $10) } }
-| function NAME '(' VARIABLES ')' RESULT NEWLINE BLOCKS FUNCTION_END
-  {% do { unitNameCheck $9 $2;
-          return $ PUFunction () (getTransSpan $1 $9) Nothing False $2 (fromReverseList $4) $6 (reverse $8) } }
-| subroutine NAME '(' VARIABLES ')' NEWLINE BLOCKS SUBROUTINE_END
-  {% do { unitNameCheck $8 $2;
-          return $ PUSubroutine () (getTransSpan $1 $8) False $2 (fromReverseList $4) (reverse $7) } }
-| recursive subroutine NAME '(' VARIABLES ')' NEWLINE BLOCKS SUBROUTINE_END
-  {% do { unitNameCheck $9 $3;
-          return $ PUSubroutine () (getTransSpan $1 $9) True $3 (fromReverseList $5) (reverse $8) } }
+: TYPE_SPEC function NAME MAYBE_ARGUMENTS RESULT NEWLINE BLOCKS FUNCTION_END
+  {% do { unitNameCheck $8 $3;
+          return $ PUFunction () (getTransSpan $1 $8) (Just $1) False $3 $4 $5 (reverse $7) } }
+| TYPE_SPEC recursive function NAME MAYBE_ARGUMENTS RESULT NEWLINE BLOCKS FUNCTION_END
+  {% do { unitNameCheck $9 $4;
+          return $ PUFunction () (getTransSpan $1 $9) (Just $1) True $4 $5 $6 (reverse $8) } }
+| recursive TYPE_SPEC function NAME MAYBE_ARGUMENTS RESULT NEWLINE BLOCKS FUNCTION_END
+  {% do { unitNameCheck $9 $4;
+          return $ PUFunction () (getTransSpan $1 $9) (Just $2) True $4 $5 $6 (reverse $8) } }
+| function NAME MAYBE_ARGUMENTS RESULT NEWLINE BLOCKS FUNCTION_END
+  {% do { unitNameCheck $7 $2;
+          return $ PUFunction () (getTransSpan $1 $7) Nothing False $2 $3 $4 (reverse $6) } }
+| subroutine NAME MAYBE_ARGUMENTS NEWLINE BLOCKS SUBROUTINE_END
+  {% do { unitNameCheck $6 $2;
+          return $ PUSubroutine () (getTransSpan $1 $6) False $2 $3 (reverse $5) } }
+| recursive subroutine NAME MAYBE_ARGUMENTS NEWLINE BLOCKS SUBROUTINE_END
+  {% do { unitNameCheck $7 $3;
+          return $ PUSubroutine () (getTransSpan $1 $7) True $3 $4 (reverse $6) } }
+
+MAYBE_ARGUMENTS :: { Maybe (AList Expression A0) }
+: '(' MAYBE_VARIABLES ')' { $2 }
+| {- Nothing -} { Nothing }
 
 RESULT :: { Maybe (Expression a) }
 : result '(' VARIABLE ')' { Just $3 }
@@ -662,6 +666,9 @@ NAMELISTS :: { [ Namelist A0 ] }
 NAMELIST :: { Namelist A0 }
 : '/' VARIABLE '/' VARIABLES
   { Namelist () (getTransSpan $1 $4) $2 $ fromReverseList $4 }
+
+MAYBE_VARIABLES :: { Maybe (AList Expression A0) }
+: VARIABLES { Just $ fromReverseList $1 } | {- EMPTY -} { Nothing }
 
 VARIABLES :: { [ Expression A0 ] }
 : VARIABLES ',' VARIABLE { $3 : $1 }

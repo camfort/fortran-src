@@ -123,13 +123,17 @@ MAIN_PROGRAM_UNIT
 
 OTHER_PROGRAM_UNIT :: { ProgramUnit A0 }
 OTHER_PROGRAM_UNIT
-: TYPE_SPEC function NAME '(' VARIABLES ')' NEWLINE BLOCKS end NEWLINE
-  { PUFunction () (getTransSpan $1 $9) (Just $1) False $3 (fromReverseList $5) Nothing (reverse $8) }
-| function NAME '(' VARIABLES ')' NEWLINE BLOCKS end NEWLINE
-  { PUFunction () (getTransSpan $1 $8) Nothing False $2 (fromReverseList $4) Nothing (reverse $7) }
-| subroutine NAME '(' VARIABLES ')' NEWLINE BLOCKS end NEWLINE
-  { PUSubroutine () (getTransSpan $1 $8) False $2 (fromReverseList $4) (reverse $7) }
+: TYPE_SPEC function NAME MAYBE_ARGUMENTS NEWLINE BLOCKS end NEWLINE
+  { PUFunction () (getTransSpan $1 $7) (Just $1) False $3 $4 Nothing (reverse $6) }
+| function NAME MAYBE_ARGUMENTS NEWLINE BLOCKS end NEWLINE
+  { PUFunction () (getTransSpan $1 $6) Nothing False $2 $3 Nothing (reverse $5) }
+| subroutine NAME MAYBE_ARGUMENTS NEWLINE BLOCKS end NEWLINE
+  { PUSubroutine () (getTransSpan $1 $6) False $2 $3 (reverse $5) }
 | blockData NEWLINE BLOCKS end NEWLINE { PUBlockData () (getTransSpan $1 $4) Nothing (reverse $3) }
+
+MAYBE_ARGUMENTS :: { Maybe (AList Expression A0) }
+: '(' MAYBE_VARIABLES ')' { $2 }
+| {- Nothing -} { Nothing }
 
 NAME :: { Name } : id { let (TId _ name) = $1 in name }
 
@@ -414,6 +418,9 @@ ARITHMETIC_SIGN :: { (SrcSpan, UnaryOp) }
 ARITHMETIC_SIGN
 : '-' { (getSpan $1, Minus) }
 | '+' { (getSpan $1, Plus) }
+
+MAYBE_VARIABLES :: { Maybe (AList Expression A0) }
+: VARIABLES { Just $ fromReverseList $1 } | {- EMPTY -} { Nothing }
 
 VARIABLES :: { [ Expression A0 ] }
 VARIABLES : VARIABLES ',' VARIABLE { $3 : $1 } | VARIABLE { [ $1 ] }

@@ -92,14 +92,14 @@ data ProgramUnit a =
       a SrcSpan
       Bool -- Recursive or not
       Name
-      (AList Expression a) -- Arguments
+      (Maybe (AList Expression a)) -- Arguments
       [Block a] -- Body
   | PUFunction
       a SrcSpan
       (Maybe (TypeSpec a)) -- Return type
       Bool -- Recursive or not
       Name
-      (AList Expression a) -- Arguments
+      (Maybe (AList Expression a)) -- Arguments
       (Maybe (Expression a)) -- Result
       [Block a] -- Body
   | PUBlockData
