@@ -340,8 +340,8 @@ spec =
         sParser "case: select case (n)" `shouldBe'` st
 
       it "parses case statement" $ do
-        let range = IxRange () u (Just $ intGen 42) Nothing Nothing
-        sParser "case (42:)" `shouldBe'` StCase () u Nothing (Just range)
+        let ranges = AList () u [ IxRange () u (Just $ intGen 42) Nothing Nothing ]
+        sParser "case (42:)" `shouldBe'` StCase () u Nothing (Just ranges)
 
       it "parses case statement" $
         sParser "case default" `shouldBe'` StCase () u Nothing Nothing

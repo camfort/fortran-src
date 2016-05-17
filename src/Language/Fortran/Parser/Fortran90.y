@@ -472,9 +472,9 @@ EXECUTABLE_STATEMENT :: { Statement A0 }
   { StSelectCase () (getTransSpan $1 $6) (Just $1) $5 }
 | case default { StCase () (getTransSpan $1 $2) Nothing Nothing }
 | case default VARIABLE { StCase () (getTransSpan $1 $3) (Just $3) Nothing }
-| case '(' INDEX ')' { StCase () (getTransSpan $1 $4) Nothing (Just $3) }
-| case '(' INDEX ')' VARIABLE
-  { StCase () (getTransSpan $1 $5) (Just $5) (Just $3) }
+| case '(' INDICIES ')' { StCase () (getTransSpan $1 $4) Nothing (Just $ fromReverseList $3) }
+| case '(' INDICIES ')' VARIABLE
+  { StCase () (getTransSpan $1 $5) (Just $5) (Just $ fromReverseList $3) }
 | endselect { StEndcase () (getSpan $1) Nothing }
 | endselect VARIABLE { StEndcase () (getTransSpan $1 $2) (Just $2) }
 | if '(' EXPRESSION ')' EXECUTABLE_STATEMENT

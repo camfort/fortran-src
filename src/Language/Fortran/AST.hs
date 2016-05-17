@@ -150,7 +150,7 @@ data Statement a  =
   | StElsif               a SrcSpan (Maybe (Expression a)) (Expression a)
   | StEndif               a SrcSpan (Maybe (Expression a))
   | StSelectCase          a SrcSpan (Maybe (Expression a)) (Expression a)
-  | StCase                a SrcSpan (Maybe (Expression a)) (Maybe (Index a))
+  | StCase                a SrcSpan (Maybe (Expression a)) (Maybe (AList Index a))
   | StEndcase             a SrcSpan (Maybe (Expression a))
   | StFunction            a SrcSpan (Expression a) (AList Expression a) (Expression a)
   | StExpressionAssign    a SrcSpan (Expression a) (Expression a)
