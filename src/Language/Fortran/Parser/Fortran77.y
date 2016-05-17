@@ -201,9 +201,9 @@ LOGICAL_IF_STATEMENT : if '(' EXPRESSION ')' EXECUTABLE_STATEMENT { StIfLogical 
 
 DO_STATEMENT :: { Statement A0 }
 DO_STATEMENT
-: do LABEL_IN_STATEMENT DO_SPECIFICATION { StDo () (getTransSpan $1 $3) Nothing (Just $2) $3 }
-| do LABEL_IN_STATEMENT ',' DO_SPECIFICATION { StDo () (getTransSpan $1 $4) Nothing (Just $2) $4 }
-| do DO_SPECIFICATION { StDo () (getTransSpan $1 $2) Nothing Nothing $2 }
+: do LABEL_IN_STATEMENT DO_SPECIFICATION { StDo () (getTransSpan $1 $3) Nothing (Just $2) (Just $3) }
+| do LABEL_IN_STATEMENT ',' DO_SPECIFICATION { StDo () (getTransSpan $1 $4) Nothing (Just $2) (Just $4) }
+| do DO_SPECIFICATION { StDo () (getTransSpan $1 $2) Nothing Nothing (Just $2) }
 
 DO_SPECIFICATION :: { DoSpecification A0 }
 DO_SPECIFICATION
@@ -694,7 +694,9 @@ RELATIONAL_OPERATOR
 
 SUBSCRIPT :: { Expression A0 }
 SUBSCRIPT
-: VARIABLE '(' INDICIES ')'
+: VARIABLE '(' ')'
+  { ExpFunctionCall () (getTransSpan $1 $3) $1 Nothing }
+| VARIABLE '(' INDICIES ')'
   { ExpSubscript () (getTransSpan $1 $4) $1 (fromReverseList $3) }
 | VARIABLE '(' INDICIES ')' '(' INDICIES ')'
   { let innerSub = ExpSubscript () (getTransSpan $1 $4) $1 (fromReverseList $3)

@@ -62,7 +62,7 @@ stripAnalysis = fmap prevAnnotation
 lhsExprs :: (Data a, Data (b a)) => b a -> [Expression a]
 lhsExprs x = [ e | StExpressionAssign _ _ e _  <- universeBi x                    ] ++
              [ e | StCall _ _ _ (Just aexps)   <- universeBi x, e <- fstLvl aexps ] ++
-             [ e | ExpFunctionCall _ _ _ aexps <- universeBi x, e <- fstLvl aexps ]
+             [ e | ExpFunctionCall _ _ _ (Just aexps) <- universeBi x, e <- fstLvl aexps ]
   where
     fstLvl = filter isLExpr . map extractExp . aStrip
     extractExp (Argument _ _ _ exp) = exp
@@ -91,7 +91,7 @@ blockVarUses :: Data a => Block a -> [Name]
 blockVarUses (BlStatement _ _ _ (StExpressionAssign _ _ lhs rhs))
   | ExpSubscript _ _ _ subs <- lhs = allVars rhs ++ allVars subs
   | otherwise                      = allVars rhs
-blockVarUses (BlDo _ _ _ (DoSpecification _ _ (StExpressionAssign _ _ lhs rhs) e1 e2) _)
+blockVarUses (BlDo _ _ _ (Just (DoSpecification _ _ (StExpressionAssign _ _ lhs rhs) e1 e2)) _)
   | ExpSubscript _ _ _ subs <- lhs = allVars (rhs, e1, e2) ++ allVars subs
   | otherwise                      = allVars (rhs, e1, e2)
 blockVarUses (BlStatement _ _ _ (StDeclaration {})) = []
@@ -102,7 +102,7 @@ blockVarUses b                         = allVars b
 -- | Set of names defined by an AST-block.
 blockVarDefs :: Data a => Block a -> [Name]
 blockVarDefs (BlStatement _ _ _ st) = allLhsVars st
-blockVarDefs (BlDo _ _ _ doSpec _)  = allLhsVars doSpec
+blockVarDefs (BlDo _ _ _ (Just doSpec) _)  = allLhsVars doSpec
 blockVarDefs _                      = []
 
 -- Local variables:

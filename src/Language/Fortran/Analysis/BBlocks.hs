@@ -228,13 +228,14 @@ perBlock b@(BlStatement a ss _ (StIfLogical _ _ exp stm)) = do
   createEdges [(ifN, thenN, ()), (ifN, nxtN, ()), (thenN, nxtN, ())]
 
 perBlock b@(BlStatement _ _ _ (StIfArithmetic {})) = error "BBlocks: StIfArithmetic unsupported"
-perBlock b@(BlDo _ _ mlab spec bs) = do
+perBlock b@(BlDo _ _ mlab (Just spec) bs) = do
   let DoSpecification _ _ (StExpressionAssign _ _ _ e1) e2 me3 = spec
   e1'  <- processFunctionCalls e1
   e2'  <- processFunctionCalls e2
   me3' <- case me3 of Just e3 -> Just `fmap` processFunctionCalls e3; Nothing -> return Nothing
   perDoBlock Nothing b bs
-perBlock b@(BlDoWhile _ _ mlab exp bs) = perDoBlock (Just exp) b bs
+perBlock b@(BlDo _ _ _ Nothing bs) = perDoBlock Nothing b bs
+perBlock b@(BlDoWhile _ _ _ exp bs) = perDoBlock (Just exp) b bs
 perBlock b@(BlStatement _ _ _ (StReturn {})) =
   processLabel b >> addToBBlock b >> closeBBlock_
 perBlock b@(BlStatement _ _ _ (StGotoUnconditional {})) =
@@ -366,7 +367,7 @@ processFunctionCall :: Expression a -> BBlocker a (Expression a)
 processFunctionCall (ExpFunctionCall a s (ExpValue a' s' (ValVariable _ fn)) aargs) = do
   (prevN, formalN) <- closeBBlock
 
-  let exps = map extractExp . aStrip $ aargs
+  let exps = map extractExp (fromMaybe [] (aStrip <$> aargs))
 
   -- create bblock that assigns formal parameters (fn[1], fn[2], ...)
   let name i   = fn ++ "[" ++ show i ++ "]"
@@ -539,11 +540,13 @@ showBlock (BlStatement _ _ mlab st)
         StDimension _ _ adecls       -> "dimension " ++ aIntercalate ", " showDecl adecls
         _                            -> ""
 showBlock (BlIf _ _ mlab (Just e1:_) _) = showLab mlab ++ "if " ++ showExpr e1 ++ "\\l"
-showBlock (BlDo _ _ mlab spec _) = showLab mlab ++ "do " ++ showExpr e1 ++ " <- " ++
-                                                            showExpr e2 ++ ", " ++
-                                                            showExpr e3 ++ ", " ++
-                                                            maybe "1" showExpr me4 ++ "\\l"
+showBlock (BlDo _ _ mlab (Just spec) _) =
+    showLab mlab ++ "do " ++ showExpr e1 ++ " <- " ++
+      showExpr e2 ++ ", " ++
+      showExpr e3 ++ ", " ++
+      maybe "1" showExpr me4 ++ "\\l"
   where DoSpecification _ _ (StExpressionAssign _ _ e1 e2) e3 me4 = spec
+showBlock (BlDo _ _ _ Nothing _) = "do"
 showBlock _ = ""
 
 showAttr (AttrParameter _ _) = "parameter"

@@ -111,4 +111,4 @@ expectedEx2pu1bs =
           (intGen 1)
           (ExpFunctionCall () u
             (ExpValue () u $ ValVariable () "f")
-            (AList () u [ Argument () u Nothing (intGen 1) ])))) ]
+            (Just $ AList () u [ Argument () u Nothing (intGen 1) ])))) ]

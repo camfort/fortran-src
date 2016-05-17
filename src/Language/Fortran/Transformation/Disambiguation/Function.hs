@@ -64,12 +64,12 @@ disambiguateFunctionCalls = do
       , Just (IDType _ (Just CTFunction)) <- n `lookup` innerMapping
       = ExpFunctionCall a1 s
                         (ExpValue a2 s' (ValVariable a3 n))
-                        (aMap fromIndex l)
+                        (Just $ aMap fromIndex l)
       | Just globalMapping <- mGlobalMapping
       , Just (IDType _ (Just CTFunction)) <- n `lookup` globalMapping
       = ExpFunctionCall a1 s
                         (ExpValue a2 s' (ValVariable a3 n))
-                        (aMap fromIndex l)
+                        (Just $ aMap fromIndex l)
       | otherwise = exp
     transform'' mGlobalMapping mLocalMapping x =
       descend (transform'' mGlobalMapping mLocalMapping) x

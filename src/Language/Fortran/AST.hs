@@ -111,7 +111,7 @@ data ProgramUnit a =
 data Block a =
     BlStatement a SrcSpan (Maybe (Expression a)) (Statement a)
   | BlIf a SrcSpan (Maybe (Expression a)) [ Maybe (Expression a) ] [ [ Block a ] ]
-  | BlDo a SrcSpan (Maybe (Expression a)) (DoSpecification a) [ Block a ]
+  | BlDo a SrcSpan (Maybe (Expression a)) (Maybe (DoSpecification a)) [ Block a ]
   | BlDoWhile a SrcSpan (Maybe (Expression a)) (Expression a) [ Block a ]
   | BlInterface a SrcSpan (Expression a) [ ProgramUnit a ] [ Block a ]
   | BlComment a SrcSpan String
@@ -138,7 +138,7 @@ data Statement a  =
   | StFormat              a SrcSpan (AList FormatItem a)
   | StImplicit            a SrcSpan (Maybe (AList ImpList a))
   | StEntry               a SrcSpan (Expression a) (Maybe (AList Expression a)) (Maybe (Expression a))
-  | StDo                  a SrcSpan (Maybe (Expression a)) (Maybe (Expression a)) (DoSpecification a)
+  | StDo                  a SrcSpan (Maybe (Expression a)) (Maybe (Expression a)) (Maybe (DoSpecification a))
   | StDoWhile             a SrcSpan (Maybe (Expression a)) (Maybe (Expression a)) (Expression a)
   | StEnddo               a SrcSpan (Maybe (Expression a))
   | StCycle               a SrcSpan (Maybe (Expression a))
@@ -261,7 +261,7 @@ data Expression a =
   | ExpUnary         a SrcSpan UnaryOp (Expression a)
   | ExpSubscript     a SrcSpan (Expression a) (AList Index a)
   | ExpDataRef       a SrcSpan (Expression a) (Expression a)
-  | ExpFunctionCall  a SrcSpan (Expression a) (AList Argument a)
+  | ExpFunctionCall  a SrcSpan (Expression a) (Maybe (AList Argument a))
   | ExpImpliedDo     a SrcSpan (AList Expression a) (DoSpecification a)
   | ExpInitialisation  a SrcSpan (AList Expression a)
   | ExpReturnSpec    a SrcSpan (Expression a)

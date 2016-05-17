@@ -436,11 +436,12 @@ EXECUTABLE_STATEMENT :: { Statement A0 }
 | else VARIABLE { StElse () (getSpan $1) (Just $2) }
 | endif { StEndif () (getSpan $1) Nothing }
 | endif VARIABLE { StEndif () (getSpan $1) (Just $2) }
+| do { StDo () (getSpan $1) Nothing Nothing Nothing }
 | do INTEGER_LITERAL MAYBE_COMMA DO_SPECIFICATION
-  { StDo () (getTransSpan $1 $4) Nothing (Just $2) $4 }
-| do DO_SPECIFICATION { StDo () (getTransSpan $1 $2) Nothing Nothing $2 }
+  { StDo () (getTransSpan $1 $4) Nothing (Just $2) (Just $4) }
+| do DO_SPECIFICATION { StDo () (getTransSpan $1 $2) Nothing Nothing (Just $2) }
 | VARIABLE ':' do DO_SPECIFICATION
-  { StDo () (getTransSpan $1 $4) (Just $1) Nothing $4 }
+  { StDo () (getTransSpan $1 $4) (Just $1) Nothing (Just $4) }
 | do INTEGER_LITERAL MAYBE_COMMA while '(' EXPRESSION ')'
   { StDoWhile () (getTransSpan $1 $7) Nothing (Just $2) $6 }
 | do while '(' EXPRESSION ')'
@@ -922,6 +923,8 @@ PART_REFS :: { [ Expression A0 ] }
 
 PART_REF :: { Expression A0 }
 : VARIABLE { $1 }
+| VARIABLE '(' ')'
+  { ExpFunctionCall () (getTransSpan $1 $3) $1 Nothing }
 | VARIABLE '(' INDICIES ')'
   { ExpSubscript () (getTransSpan $1 $4) $1 (fromReverseList $3) }
 | VARIABLE '(' INDICIES ')' '(' INDICIES ')'

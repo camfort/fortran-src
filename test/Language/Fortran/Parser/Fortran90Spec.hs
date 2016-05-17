@@ -354,14 +354,18 @@ spec =
       it "parses do statement with label" $ do
         let assign = StExpressionAssign () u (varGen "i") (intGen 0)
         let doSpec = DoSpecification () u assign (intGen 42) Nothing
-        let st = StDo () u Nothing (Just $ intGen 24) doSpec
+        let st = StDo () u Nothing (Just $ intGen 24) (Just doSpec)
         sParser "do 24, i = 0, 42" `shouldBe'` st
 
       it "parses do statement without label" $ do
         let assign = StExpressionAssign () u (varGen "i") (intGen 0)
         let doSpec = DoSpecification () u assign (intGen 42) Nothing
-        let st = StDo () u Nothing Nothing doSpec
+        let st = StDo () u Nothing Nothing (Just doSpec)
         sParser "do i = 0, 42" `shouldBe'` st
+
+      it "parses infinite do" $ do
+        let st = StDo () u Nothing Nothing Nothing
+        sParser "do" `shouldBe'` st
 
       it "parses end do statement" $ do
         let st = StEnddo () u (Just $ varGen "constructor")
