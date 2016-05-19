@@ -63,8 +63,12 @@ toBBlocksPerPU pu
   | null bs   = pu
   | otherwise = pu'
   where
-    bs  = case pu of PUMain _ _ _ bs _ -> bs; PUSubroutine _ _ _ _ _ bs -> bs; PUFunction _ _ _ _ _ _ _ bs -> bs
-                     _ -> []
+    bs  =
+      case pu of
+        PUMain _ _ _ bs _ -> bs;
+        PUSubroutine _ _ _ _ _ bs _ -> bs;
+        PUFunction _ _ _ _ _ _ _ bs _ -> bs
+        _ -> []
     bbs = execBBlocker (processBlocks bs)
     fix = delEmptyBBlocks . delUnreachable . insExitEdges pu lm . delInvalidExits . insEntryEdges pu
     gr  = fix (insEdges (newEdges bbs) (bbGraph bbs))
@@ -81,14 +85,15 @@ insEntryEdges pu = insEdge (0, 1, ()) . insNode (0, bs)
 -- entry/exit bblocks.
 genInOutAssignments pu exit
   -- for now, designate return-value slot as a "ValVariable" without type-checking.
-  | exit, PUFunction _ _ _ _ n _ _ _ <- pu = zipWith genAssign (ExpValue a undefined (ValVariable a n):vs) [0..]
+  | exit, PUFunction _ _ _ _ n _ _ _ _ <- pu =
+      zipWith genAssign (ExpValue a undefined (ValVariable a n):vs) [0..]
   | otherwise                          = zipWith genAssign vs [1..]
   where
     puName = getName pu
     name i = case puName of Named n -> n ++ "[" ++ show i ++ "]"
     (a, s, vs) = case pu of
-      PUFunction _ _ _ _ _ (Just (AList a s vs)) _ _ -> (a, s, vs)
-      PUSubroutine _ _ _ _ (Just (AList a s vs)) _ -> (a, s, vs)
+      PUFunction _ _ _ _ _ (Just (AList a s vs)) _ _ _ -> (a, s, vs)
+      PUSubroutine _ _ _ _ (Just (AList a s vs)) _ _ -> (a, s, vs)
       _                                   -> (undefined, undefined, [])
     genAssign v i = BlStatement a s Nothing (StExpressionAssign a s vl vr)
       where

@@ -61,7 +61,7 @@ spec = do
 --------------------------------------------------
 
 ex1 = ProgramFile [ ([ ], ex1pu1) ] [ ]
-ex1pu1 = PUFunction () u (Just $ TypeSpec () u TypeInteger Nothing) False "f1" Nothing Nothing []
+ex1pu1 = PUFunction () u (Just $ TypeSpec () u TypeInteger Nothing) False "f1" Nothing Nothing [] Nothing
 
 ex2 = ProgramFile [ ([ ], ex2pu1)] [ ]
 ex2pu1 = PUMain () u (Just "main") ex2pu1bs Nothing
@@ -101,7 +101,7 @@ ex3pu1bs =
       (ExpSubscript () u (varGen "c") (AList () u [ ixSinGen 1 ])) (intGen 1))
   , BlStatement () u Nothing (StExpressionAssign () u
       (varGen "d") (ExpBinary () u Addition (varGen "d") (intGen 1))) ]
-ex3pu2 = PUFunction () u (Just $ TypeSpec () u TypeInteger Nothing) False "f1" (Just $ AList () u [ varGen "d", varGen "b"]) Nothing (ex3pu1bs ++ [ BlStatement () u Nothing (StExpressionAssign () u (varGen "f1") (varGen "d")) ])
+ex3pu2 = PUFunction () u (Just $ TypeSpec () u TypeInteger Nothing) False "f1" (Just $ AList () u [ varGen "d", varGen "b"]) Nothing (ex3pu1bs ++ [ BlStatement () u Nothing (StExpressionAssign () u (varGen "f1") (varGen "d")) ]) Nothing
 
 ex4 = ProgramFile [ ([ ], ex4pu1), ([ ], ex4pu2)] [ ]
 ex4pu1 = PUMain () u (Just "main") ex4pu1bs Nothing
@@ -113,7 +113,7 @@ ex4pu1bs =
       (ExpValue () u (ValVariable () "r"))
       (ExpFunctionCall () u (ExpValue () u (ValVariable () "f1"))
                             (Just $ AList () u [ Argument () u Nothing $ intGen 1 ]))) ]
-ex4pu2 = PUFunction () u (Just $ TypeSpec () u TypeInteger Nothing) False "f1" (Just $ AList () u [ varGen "x"]) Nothing [ BlStatement () u Nothing (StExpressionAssign () u (varGen "f1") (varGen "x")) ]
+ex4pu2 = PUFunction () u (Just $ TypeSpec () u TypeInteger Nothing) False "f1" (Just $ AList () u [ varGen "x"]) Nothing [ BlStatement () u Nothing (StExpressionAssign () u (varGen "f1") (varGen "x")) ] Nothing
 
 -- Local variables:
 -- mode: haskell

@@ -77,7 +77,8 @@ rename pf = (extractNameMap pf, trPU fPU (trV fV pf))
     trPU :: Data a => (ProgramUnit a -> ProgramUnit a) -> ProgramFile a -> ProgramFile a
     trPU = transformBi
     fPU :: Data a => ProgramUnit (Analysis a) -> ProgramUnit (Analysis a)
-    fPU (PUFunction a s ty r n args res b) = PUFunction a s ty r (fromMaybe n (uniqueName a)) args res b
+    fPU (PUFunction a s ty r n args res b subs) =
+      PUFunction a s ty r (fromMaybe n (uniqueName a)) args res b subs
     fPU x                            = x
 
 -- | Create a map of unique name => original name for each variable
@@ -86,7 +87,7 @@ extractNameMap :: Data a => ProgramFile (Analysis a) -> NameMap
 extractNameMap pf = vMap `union` puMap
   where
     vMap  = fromList [ (un, n) | ValVariable (Analysis { uniqueName = Just un }) n <- uniV pf ]
-    puMap = fromList [ (un, n) | PUFunction (Analysis { uniqueName = Just un }) _ _ _ n _ _ _ <- uniPU pf ]
+    puMap = fromList [ (un, n) | PUFunction (Analysis { uniqueName = Just un }) _ _ _ n _ _ _ _ <- uniPU pf ]
 
     uniV :: Data a => ProgramFile a -> [Value a]
     uniV = universeBi
@@ -110,7 +111,7 @@ unrename (nm, pf) = trPU fPU . trV fV $ pf
     trPU :: Data a => (ProgramUnit a -> ProgramUnit a) -> ProgramFile a -> ProgramFile a
     trPU = transformBi
     fPU :: Data a => ProgramUnit a -> ProgramUnit a
-    fPU (PUFunction a s ty r n args res b) = PUFunction a s ty r (fromMaybe n (n `lookup` nm)) args res b
+    fPU (PUFunction a s ty r n args res b subs) = PUFunction a s ty r (fromMaybe n (n `lookup` nm)) args res b subs
     fPU x               = x
 
 -- | Run a function with the program file placed under renaming
@@ -150,7 +151,7 @@ programUnit pu = do
   --    END
 
   (pu', m_params) <- case pu of
-    PUFunction _ _ _ _ n params _ _ -> do
+    PUFunction _ _ _ _ n params _ _ _ -> do
       -- put function name on the renaming environment
       let fenv = [(n, name)]
       -- push the renaming environment on the stack and rename the
@@ -167,7 +168,7 @@ programUnit pu = do
       -- pop env stack and go back to where we were
       modify $ \ s -> s { environ = drop 1 (environ s) }
       return (pu', Just params)
-    PUSubroutine _ _ _ _ params _ -> return (pu, Just params)
+    PUSubroutine _ _ _ _ params _ _ -> return (pu, Just params)
     _ -> return (pu, Nothing)
 
   -- search for block statement declarations within the program unit and process them
@@ -195,8 +196,10 @@ programUnit pu = do
                       ExpValue an s (ValVariable a n) -> ExpValue an s (ValVariable (a { uniqueName = L.lookup n renames }) n)
       -- and put it back into its place
       return $ case pu'' of
-        PUFunction a s t r n params res b -> PUFunction a s t r n params' res b
-        PUSubroutine a s r n params b -> PUSubroutine a s r n params' b
+        PUFunction a s t r n params res b subs ->
+          PUFunction a s t r n params' res b subs
+        PUSubroutine a s r n params b subs ->
+          PUSubroutine a s r n params' b subs
     _ -> return pu''
 
   -- pop the scope
@@ -242,8 +245,8 @@ value v = return v
 funcsAndSubs :: Data a => ProgramFile (Analysis a) -> NameMap
 funcsAndSubs pf =
   fromList $
-    [ (n, un) | PUFunction (Analysis { uniqueName = Just un }) _ _ _ n _ _ _ <- uniPU_PF pf ] ++
-    [ (n, un) | PUSubroutine (Analysis { uniqueName = Just un }) _ _ n _ _ <- uniPU_PF pf ]
+    [ (n, un) | PUFunction (Analysis { uniqueName = Just un }) _ _ _ n _ _ _ _ <- uniPU_PF pf ] ++
+    [ (n, un) | PUSubroutine (Analysis { uniqueName = Just un }) _ _ n _ _ _ <- uniPU_PF pf ]
   where
     uniPU_PF :: Data a => ProgramFile a -> [ProgramUnit a]
     uniPU_PF = universeBi

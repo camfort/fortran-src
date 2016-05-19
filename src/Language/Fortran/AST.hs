@@ -94,6 +94,7 @@ data ProgramUnit a =
       Name
       (Maybe (AList Expression a)) -- Arguments
       [Block a] -- Body
+      (Maybe [ProgramUnit a]) -- Subprograms
   | PUFunction
       a SrcSpan
       (Maybe (TypeSpec a)) -- Return type
@@ -102,6 +103,7 @@ data ProgramUnit a =
       (Maybe (AList Expression a)) -- Arguments
       (Maybe (Expression a)) -- Result
       [Block a] -- Body
+      (Maybe [ProgramUnit a]) -- Subprograms
   | PUBlockData
       a SrcSpan
       (Maybe Name)
@@ -530,20 +532,22 @@ class Named a where
   setName :: ProgramUnitName -> a -> a
 
 instance Named (ProgramUnit a) where
-  getName (PUMain _ _ Nothing _ _)     = NamelessMain
-  getName (PUMain _ _ (Just n) _ _)    = Named n
-  getName (PUModule _ _ n _ _)         = Named n
-  getName (PUSubroutine _ _ _ n _ _)   = Named n
-  getName (PUFunction _ _ _ _ n _ _ _) = Named n
+  getName (PUMain _ _ Nothing _ _) = NamelessMain
+  getName (PUMain _ _ (Just n) _ _) = Named n
+  getName (PUModule _ _ n _ _) = Named n
+  getName (PUSubroutine _ _ _ n _ _ _) = Named n
+  getName (PUFunction _ _ _ _ n _ _ _ _) = Named n
   getName (PUBlockData _ _ Nothing _)  = NamelessBlockData
   getName (PUBlockData _ _ (Just n) _) = Named n
-  setName (Named n) (PUMain       a s _ b pus) = PUMain a s (Just n) b pus
-  setName _         (PUMain       a s _ b pus) = PUMain a s Nothing b pus
-  setName (Named n) (PUModule     a s _ b pus) = PUModule a s n b pus
-  setName (Named n) (PUSubroutine a s r _ p b) = PUSubroutine a s r n p b
-  setName (Named n) (PUFunction   a s r rec _ p res b) = PUFunction a s r rec n p res b
-  setName (Named n) (PUBlockData  a s _ b)     = PUBlockData  a s (Just n) b
-  setName _         (PUBlockData  a s _ b)     = PUBlockData  a s Nothing b
+  setName (Named n) (PUMain a s _ b pus) = PUMain a s (Just n) b pus
+  setName _         (PUMain a s _ b pus) = PUMain a s Nothing b pus
+  setName (Named n) (PUModule a s _ b pus) = PUModule a s n b pus
+  setName (Named n) (PUSubroutine a s r _ p b subs) =
+    PUSubroutine a s r n p b subs
+  setName (Named n) (PUFunction   a s r rec _ p res b subs) =
+    PUFunction a s r rec n p res b subs
+  setName (Named n) (PUBlockData  a s _ b) = PUBlockData  a s (Just n) b
+  setName _         (PUBlockData  a s _ b) = PUBlockData  a s Nothing b
 
 instance Out a => Out (ProgramFile a)
 instance Out a => Out (ProgramUnit a)

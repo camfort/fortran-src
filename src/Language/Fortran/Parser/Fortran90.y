@@ -203,32 +203,22 @@ PROGRAM_UNITS :: { [ ([ Block A0 ], ProgramUnit A0) ] }
 | COMMENT_BLOCKS PROGRAM_UNIT NEWLINE { [ (reverse $1, $2) ] }
 
 PROGRAM_UNIT :: { ProgramUnit A0 }
-: program NAME NEWLINE BLOCKS PROGRAM_END
-  {% do { unitNameCheck $5 $2;
-          return $ PUMain () (getTransSpan $1 $5) (Just $2)
-                                                  (reverse $4)
-                                                  Nothing } }
-| program NAME NEWLINE BLOCKS contains NEWLINE SUBPROGRAM_UNITS PROGRAM_END
-  {% do { unitNameCheck $8 $2;
-          return $ PUMain () (getTransSpan $1 $8) (Just $2)
-                                                  (reverse $4)
-                                                  (Just $ reverse $7) } }
-| module NAME NEWLINE BLOCKS MODULE_END
-  {% do { unitNameCheck $5 $2;
-          return $ PUModule () (getTransSpan $1 $5) $2
-                                                    (reverse $4)
-                                                    Nothing } }
-| module NAME NEWLINE BLOCKS contains NEWLINE SUBPROGRAM_UNITS MODULE_END
-  {% do { unitNameCheck $8 $2;
-          return $ PUModule () (getTransSpan $1 $8) $2
-                                                    (reverse $4)
-                                                    (Just $ reverse $7) } }
+: program NAME NEWLINE BLOCKS MAYBE_SUBPROGRAM_UNITS PROGRAM_END
+  {% do { unitNameCheck $6 $2;
+          return $ PUMain () (getTransSpan $1 $6) (Just $2) (reverse $4) $5 } }
+| module NAME NEWLINE BLOCKS MAYBE_SUBPROGRAM_UNITS MODULE_END
+  {% do { unitNameCheck $6 $2;
+          return $ PUModule () (getTransSpan $1 $6) $2 (reverse $4) $5 } }
 | blockData NEWLINE BLOCKS BLOCK_DATA_END
   { PUBlockData () (getTransSpan $1 $4) Nothing (reverse $3) }
 | blockData NAME NEWLINE BLOCKS BLOCK_DATA_END
   {% do { unitNameCheck $5 $2;
           return $ PUBlockData () (getTransSpan $1 $5) (Just $2) (reverse $4) } }
 | SUBPROGRAM_UNIT { $1 }
+
+MAYBE_SUBPROGRAM_UNITS :: { Maybe [ ProgramUnit A0 ] }
+: contains NEWLINE SUBPROGRAM_UNITS { Just $ reverse $3 }
+| {- Empty -} { Nothing }
 
 SUBPROGRAM_UNITS :: { [ ProgramUnit A0 ] }
 : SUBPROGRAM_UNITS SUBPROGRAM_UNIT NEWLINE { $2 : $1 }
@@ -237,24 +227,24 @@ SUBPROGRAM_UNITS :: { [ ProgramUnit A0 ] }
 | {- EMPTY -} { [ ] }
 
 SUBPROGRAM_UNIT :: { ProgramUnit A0 }
-: TYPE_SPEC function NAME MAYBE_ARGUMENTS RESULT NEWLINE BLOCKS FUNCTION_END
-  {% do { unitNameCheck $8 $3;
-          return $ PUFunction () (getTransSpan $1 $8) (Just $1) False $3 $4 $5 (reverse $7) } }
-| TYPE_SPEC recursive function NAME MAYBE_ARGUMENTS RESULT NEWLINE BLOCKS FUNCTION_END
-  {% do { unitNameCheck $9 $4;
-          return $ PUFunction () (getTransSpan $1 $9) (Just $1) True $4 $5 $6 (reverse $8) } }
-| recursive TYPE_SPEC function NAME MAYBE_ARGUMENTS RESULT NEWLINE BLOCKS FUNCTION_END
-  {% do { unitNameCheck $9 $4;
-          return $ PUFunction () (getTransSpan $1 $9) (Just $2) True $4 $5 $6 (reverse $8) } }
-| function NAME MAYBE_ARGUMENTS RESULT NEWLINE BLOCKS FUNCTION_END
+: TYPE_SPEC function NAME MAYBE_ARGUMENTS RESULT NEWLINE BLOCKS MAYBE_SUBPROGRAM_UNITS FUNCTION_END
+  {% do { unitNameCheck $9 $3;
+          return $ PUFunction () (getTransSpan $1 $9) (Just $1) False $3 $4 $5 (reverse $7) $8 } }
+| TYPE_SPEC recursive function NAME MAYBE_ARGUMENTS RESULT NEWLINE BLOCKS MAYBE_SUBPROGRAM_UNITS FUNCTION_END
+  {% do { unitNameCheck $10 $4;
+          return $ PUFunction () (getTransSpan $1 $10) (Just $1) True $4 $5 $6 (reverse $8) $9 } }
+| recursive TYPE_SPEC function NAME MAYBE_ARGUMENTS RESULT NEWLINE BLOCKS MAYBE_SUBPROGRAM_UNITS FUNCTION_END
+  {% do { unitNameCheck $10 $4;
+          return $ PUFunction () (getTransSpan $1 $10) (Just $2) True $4 $5 $6 (reverse $8) $9 } }
+| function NAME MAYBE_ARGUMENTS RESULT NEWLINE BLOCKS MAYBE_SUBPROGRAM_UNITS FUNCTION_END
+  {% do { unitNameCheck $8 $2;
+          return $ PUFunction () (getTransSpan $1 $8) Nothing False $2 $3 $4 (reverse $6) $7 } }
+| subroutine NAME MAYBE_ARGUMENTS NEWLINE BLOCKS MAYBE_SUBPROGRAM_UNITS SUBROUTINE_END
   {% do { unitNameCheck $7 $2;
-          return $ PUFunction () (getTransSpan $1 $7) Nothing False $2 $3 $4 (reverse $6) } }
-| subroutine NAME MAYBE_ARGUMENTS NEWLINE BLOCKS SUBROUTINE_END
-  {% do { unitNameCheck $6 $2;
-          return $ PUSubroutine () (getTransSpan $1 $6) False $2 $3 (reverse $5) } }
-| recursive subroutine NAME MAYBE_ARGUMENTS NEWLINE BLOCKS SUBROUTINE_END
-  {% do { unitNameCheck $7 $3;
-          return $ PUSubroutine () (getTransSpan $1 $7) True $3 $4 (reverse $6) } }
+          return $ PUSubroutine () (getTransSpan $1 $7) False $2 $3 (reverse $5) $6 } }
+| recursive subroutine NAME MAYBE_ARGUMENTS NEWLINE BLOCKS MAYBE_SUBPROGRAM_UNITS SUBROUTINE_END
+  {% do { unitNameCheck $8 $3;
+          return $ PUSubroutine () (getTransSpan $1 $8) True $3 $4 (reverse $6) $7 } }
 
 MAYBE_ARGUMENTS :: { Maybe (AList Expression A0) }
 : '(' MAYBE_VARIABLES ')' { $2 }

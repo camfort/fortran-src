@@ -107,10 +107,10 @@ inferGlobal = do
 inferSubprograms :: Data a => ProgramUnit a -> TypeMapping a ()
 inferSubprograms pu =
   case pu of
-    (PUFunction _ _ mts _ n _ _ _) -> do
+    (PUFunction _ _ mts _ n _ _ _ _) -> do
       addToMappingViaFunc Global n $ updateForFunction mts
       addEntries (updateForFunction mts)
-    (PUSubroutine _ _ _ n _ _) -> do
+    (PUSubroutine _ _ _ n _ _ _) -> do
       addConstructToMapping Global n CTSubroutine
       addEntries (\idt -> idt { idCType = Just CTSubroutine })
     _ -> return ()

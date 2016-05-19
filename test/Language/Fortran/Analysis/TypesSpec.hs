@@ -49,13 +49,13 @@ spec = do
       mapping ! "d" `shouldBe` IDType Nothing (Just CTFunction)
 
 ex1 = ProgramFile [ ([ ], ex1pu1) ] [ ]
-ex1pu1 = PUFunction () u (Just $ TypeSpec () u TypeInteger Nothing) False "f1" Nothing Nothing []
+ex1pu1 = PUFunction () u (Just $ TypeSpec () u TypeInteger Nothing) False "f1" Nothing Nothing [] Nothing
 
 ex2 = ProgramFile [ ([ ], ex2pu1), ([] , ex1pu1) ] [ ]
-ex2pu1 = PUSubroutine () u False "s1" Nothing []
+ex2pu1 = PUSubroutine () u False "s1" Nothing [] Nothing
 
 ex3 = ProgramFile [ ([ ], ex3pu1) ] [ ]
-ex3pu1 = PUSubroutine () u False "s1" Nothing ex3pu1bs
+ex3pu1 = PUSubroutine () u False "s1" Nothing ex3pu1bs Nothing
 ex3pu1bs =
   [ BlStatement () u Nothing (StEntry () u (ExpValue () u (ValVariable () "e1")) Nothing Nothing)
   , BlStatement () u Nothing (StEntry () u (ExpValue () u (ValVariable () "e2")) Nothing Nothing)
