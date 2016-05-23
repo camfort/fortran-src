@@ -427,6 +427,7 @@ EXECUTABLE_STATEMENT :: { Statement A0 }
 | endif { StEndif () (getSpan $1) Nothing }
 | endif VARIABLE { StEndif () (getSpan $1) (Just $2) }
 | do { StDo () (getSpan $1) Nothing Nothing Nothing }
+| VARIABLE ':' do { StDo () (getTransSpan $1 $3) (Just $1) Nothing Nothing }
 | do INTEGER_LITERAL MAYBE_COMMA DO_SPECIFICATION
   { StDo () (getTransSpan $1 $4) Nothing (Just $2) (Just $4) }
 | do DO_SPECIFICATION { StDo () (getTransSpan $1 $2) Nothing Nothing (Just $2) }
