@@ -327,6 +327,7 @@ partOfExpOrPointerAssignmentP (User fv pc) _ _ ai =
         case token of
           TOpAssign{} -> return True
           TArrow{} -> return True
+          TPercent{} -> return True
           _ -> return False
       | parCount > 0 =
         case token of

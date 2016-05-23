@@ -65,6 +65,13 @@ spec =
           eParser "x (10, : 1 : 2, y)" `shouldBe'` exp
 
     describe "Statement" $ do
+      it "data ref assignment" $ do
+        let indicies = AList () u [ IxSingle () u (intGen 1) ]
+        let subs = ExpSubscript () u (varGen "x") indicies
+        let lhs = ExpDataRef () u subs (varGen "y")
+        let st = StExpressionAssign () u lhs (intGen 1)
+        sParser "x(1) % y = 1" `shouldBe'` st
+
       it "parses declaration with attributes" $ do
         let typeSpec = TypeSpec () u TypeReal Nothing
         let attrs = AList () u [ AttrExternal () u
