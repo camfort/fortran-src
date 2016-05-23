@@ -388,8 +388,8 @@ NONEXECUTABLE_STATEMENT :: { Statement A0 }
 | sequence { StSequence () (getSpan $1) }
 | type ATTRIBUTE_LIST '::' id
   { let { TId span id = $4;
-          alist = fromReverseList $2 }
-    in StType () (getTransSpan $1 span) (Just alist) id }
+          alist = if null $2 then Nothing else (Just . fromReverseList) $2 }
+    in StType () (getTransSpan $1 span) alist id }
 | type id
   { let TId span id = $2 in StType () (getTransSpan $1 span) Nothing id }
 | endType { StEndType () (getSpan $1) Nothing }
