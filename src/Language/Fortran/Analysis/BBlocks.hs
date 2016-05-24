@@ -586,7 +586,7 @@ showExpr (ExpSubscript _ _ e1 aexps) = showExpr e1 ++ "[" ++
                                        aIntercalate ", " showIndex aexps ++ "]"
 showExpr _                        = ""
 
-showIndex (IxSingle _ _ i) = showExpr i
+showIndex (IxSingle _ _ _ i) = showExpr i
 showIndex (IxRange _ _ l u s) =
   maybe "" showExpr l ++ -- Lower
   ':' : maybe "" showExpr u ++ -- Upper

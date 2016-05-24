@@ -931,7 +931,11 @@ INDEX :: { Index A0 }
 | RANGE ':' EXPRESSION
   { let IxRange () s lower upper _ = $1
     in IxRange () (getTransSpan s $3) lower upper (Just $3) }
-| EXPRESSION { IxSingle () (getSpan $1) $1 }
+| EXPRESSION { IxSingle () (getSpan $1) Nothing $1 }
+-- Following is only as an intermediate stage before having been turned into
+-- an argument by later transformation.
+| id '=' EXPRESSION
+  { let TId s id = $1 in IxSingle () (getTransSpan $1 s) (Just id) $3 }
 
 RANGE :: { Index A0 }
 : ':' { IxRange () (getSpan $1) Nothing Nothing Nothing }

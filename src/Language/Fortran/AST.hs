@@ -270,7 +270,7 @@ data Expression a =
   deriving (Eq, Show, Data, Typeable, Generic, Functor)
 
 data Index a =
-    IxSingle a SrcSpan (Expression a)
+    IxSingle a SrcSpan (Maybe String) (Expression a)
   | IxRange a SrcSpan
             (Maybe (Expression a)) -- Lower index
             (Maybe (Expression a)) -- Upper index

@@ -46,9 +46,9 @@ ex1pu1bs =
   , BlStatement () u Nothing (StExpressionAssign () u
       (ExpSubscript () u (varGen "b") (AList () u [ ixSinGen 1 ])) (intGen 1))
   , BlStatement () u Nothing (StExpressionAssign () u
-      (ExpSubscript () u (varGen "c") (AList () u [ IxSingle () u $ varGen "x" ])) (intGen 1))
+      (ExpSubscript () u (varGen "c") (AList () u [ IxSingle () u Nothing $ varGen "x" ])) (intGen 1))
   , BlStatement () u Nothing (StExpressionAssign () u
-      (ExpSubscript () u (varGen "d") (AList () u [ IxSingle () u $ varGen "x" ])) (intGen 1)) ]
+      (ExpSubscript () u (varGen "d") (AList () u [ IxSingle () u Nothing $ varGen "x" ])) (intGen 1)) ]
 
 expectedEx1 = ProgramFile [ ([ ], expectedEx1pu1) ] [ ]
 expectedEx1pu1 = PUMain () u (Just "main") expectedEx1pu1bs Nothing

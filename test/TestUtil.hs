@@ -39,7 +39,7 @@ opGen s = ExpValue () u (ValOperator s)
 assVal :: Expression ()
 assVal = ExpValue () u ValAssignment
 
-ixSinGen i = IxSingle () u (intGen i)
+ixSinGen i = IxSingle () u Nothing (intGen i)
 ixRanGen i j = IxRange () u (Just $ intGen i) (Just $ intGen j) Nothing
 
 shouldBe' a b = resetSrcSpan a `shouldBe` resetSrcSpan b

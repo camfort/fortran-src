@@ -43,7 +43,7 @@ spec =
       it "parses 'read *, (x, y(i), i = 1, 10, 2)'" $ do
         let stAssign = StExpressionAssign () u (varGen "i") (intGen 1)
         let doSpec = DoSpecification () u stAssign (intGen 10) (Just $ intGen 2)
-        let impliedDoVars = AList () u [ varGen "x", ExpSubscript () u (varGen "y") (AList () u [ IxSingle () u $ varGen "i" ])]
+        let impliedDoVars = AList () u [ varGen "x", ExpSubscript () u (varGen "y") (AList () u [ IxSingle () u Nothing $ varGen "i" ])]
         let impliedDo = ExpImpliedDo () u impliedDoVars doSpec
         let iolist = AList () u [ impliedDo ]
         let expectedSt = StRead2 () u starVal (Just iolist)
@@ -52,7 +52,7 @@ spec =
     it "parses '(x, y(i), i = 1, 10, 2)'" $ do
       let stAssign = StExpressionAssign () u (varGen "i") (intGen 1)
       let doSpec = DoSpecification () u stAssign (intGen 10) (Just $ intGen 2)
-      let impliedDoVars = AList () u [ varGen "x", ExpSubscript () u (varGen "y") (AList () u [ IxSingle () u $ varGen "i" ])]
+      let impliedDoVars = AList () u [ varGen "x", ExpSubscript () u (varGen "y") (AList () u [ IxSingle () u Nothing $ varGen "i" ])]
       let impliedDo = ExpImpliedDo () u impliedDoVars doSpec
       eParser "(x, y(i), i = 1, 10, 2)" `shouldBe'` impliedDo
 
@@ -95,7 +95,7 @@ spec =
 
     describe "Subscript like" $ do
       it "parses vanilla subscript" $ do
-        let exp = ExpSubscript () u (varGen "a") (AList () u [ IxSingle () u $ varGen "x", IxSingle () u $ intGen 2, IxSingle () u $ intGen 3 ])
+        let exp = ExpSubscript () u (varGen "a") (AList () u [ IxSingle () u Nothing $ varGen "x", IxSingle () u Nothing $ intGen 2, IxSingle () u Nothing $ intGen 3 ])
         eParser "a(x, 2, 3)" `shouldBe'` exp
 
       it "parses array declarator" $ do

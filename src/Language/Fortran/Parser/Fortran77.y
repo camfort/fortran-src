@@ -708,7 +708,7 @@ INDICIES :: { [ Index A0 ] }
 
 INDEX :: { Index A0 }
 : RANGE { $1 }
-| EXPRESSION { IxSingle () (getSpan $1) $1 }
+| EXPRESSION { IxSingle () (getSpan $1) Nothing $1 }
 
 RANGE :: { Index A0 }
 : ':' { IxRange () (getSpan $1) Nothing Nothing Nothing }

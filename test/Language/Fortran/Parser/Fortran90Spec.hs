@@ -51,22 +51,22 @@ spec =
           eParser ".inverse. 42 .xor. 24" `shouldBe'` binExp
 
         it "parses data ref" $ do
-          let range = fromList () [ IxSingle () u $ intGen 10 ]
+          let range = fromList () [ IxSingle () u Nothing $ intGen 10 ]
           let sub = ExpSubscript () u (varGen "y") range
           let innerRefExp = ExpDataRef () u (varGen "x") sub
           let exp = ExpDataRef () u innerRefExp (varGen "z")
           eParser "x % y(10) % z" `shouldBe'` exp
 
         it "parses section subscript" $ do
-          let range = [ IxSingle () u $ intGen 10
+          let range = [ IxSingle () u Nothing $ intGen 10
                       , IxRange () u Nothing (Just $ intGen 1) (Just $ intGen 2)
-                      , IxSingle () u $ varGen "y" ]
+                      , IxSingle () u Nothing $ varGen "y" ]
           let exp = ExpSubscript () u (varGen "x") (fromList () range)
           eParser "x (10, : 1 : 2, y)" `shouldBe'` exp
 
     describe "Statement" $ do
       it "data ref assignment" $ do
-        let indicies = AList () u [ IxSingle () u (intGen 1) ]
+        let indicies = AList () u [ IxSingle () u Nothing (intGen 1) ]
         let subs = ExpSubscript () u (varGen "x") indicies
         let lhs = ExpDataRef () u subs (varGen "y")
         let st = StExpressionAssign () u lhs (intGen 1)
@@ -248,7 +248,7 @@ spec =
       it "parses equivalence statement" $ do
         let eqALists = fromList ()
               [ fromList ()
-                  [ let indicies = fromList () [ IxSingle () u (intGen 1) ]
+                  [ let indicies = fromList () [ IxSingle () u Nothing (intGen 1) ]
                     in ExpSubscript () u (varGen "a") indicies
                   , varGen "x"
                   ]
@@ -276,7 +276,7 @@ spec =
 
         it "parses deallocate statement" $ do
           let allocs = fromList ()
-                [ let indicies = fromList () [ IxSingle () u (intGen 20) ]
+                [ let indicies = fromList () [ IxSingle () u Nothing (intGen 20) ]
                   in ExpSubscript () u (varGen "smt") indicies
                 ]
           let s = StDeallocate () u allocs Nothing

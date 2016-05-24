@@ -27,7 +27,7 @@ spec =
 programAnal1LhsExprs =
   [ ExpSubscript () u (ExpValue () u (ValVariable () "a")) (AList () u [ ixSinGen 1 ])
   , ExpSubscript () u (ExpValue () u (ValVariable () "a"))
-      (AList () u [ IxSingle () u $
+      (AList () u [ IxSingle () u Nothing $
                              ExpSubscript () u (varGen "a")
                                           (AList () u [ ixSinGen 2 ])])
   , ExpValue () u (ValVariable () "f")

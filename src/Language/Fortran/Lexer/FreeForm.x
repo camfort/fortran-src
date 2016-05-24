@@ -277,14 +277,17 @@ followsColonP _ _ _ ai
 
 selectorP :: User -> AlexInput -> Int -> AlexInput -> Bool
 selectorP user _ _ ai =
-    commaOrLeftPar && nextTokenIsOpAssign && precedesDoubleColon ai
+    followsType && nextTokenIsOpAssign && precedesDoubleColon ai
   where
     nextTokenIsOpAssign = nextTokenConstr user ai == (Just . fillConstr $ TOpAssign)
-    commaOrLeftPar =
-        case aiPreviousToken ai of
-          Just TLeftPar{} -> True
-          Just TComma{} -> True
-          _ -> False
+    followsType =
+      case searchBeforePar (aiPreviousTokensInLine ai) of
+        Just x -> isTypeSpec x
+        Nothing -> False
+    searchBeforePar [] = Nothing
+    searchBeforePar (x:xs)
+      | TLeftPar{} <- x = if null xs then Nothing else (Just $ head xs)
+      | otherwise = searchBeforePar xs
 
 ifConditionEndP :: User -> AlexInput -> Int -> AlexInput -> Bool
 ifConditionEndP (User _ pc) _ _ ai

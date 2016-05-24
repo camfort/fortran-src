@@ -80,7 +80,7 @@ spec =
           eParser "3 + -2 + 42" `shouldBe'` expectedExp
 
         it "parses 'f(y, 24)'" $ do
-          let subs = [ IxSingle () u $ varGen "y", ixSinGen 24 ]
+          let subs = [ IxSingle () u Nothing $ varGen "y", ixSinGen 24 ]
           let expectedExp = ExpSubscript () u (varGen "f") (fromList () subs)
           eParser "f(y, 24)" `shouldBe'` expectedExp
 
@@ -101,7 +101,7 @@ spec =
       describe "Other expressions" $
         it "parses 'a(2 * x - 3, 10)'" $ do
           let firstEl = ExpBinary () u Subtraction (ExpBinary () u Multiplication (intGen 2) (varGen "x")) (intGen 3)
-              expectedExp = ExpSubscript () u (varGen "a") (AList () u [ IxSingle () u firstEl, ixSinGen 10])
+              expectedExp = ExpSubscript () u (varGen "a") (AList () u [ IxSingle () u Nothing firstEl, ixSinGen 10])
           eParser "a(2 * x - 3, 10)" `shouldBe'` expectedExp
 
     describe "Statements" $ do

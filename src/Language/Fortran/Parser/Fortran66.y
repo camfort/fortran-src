@@ -413,8 +413,8 @@ SUBSCRIPT
 
 INDICIES :: { [ Index A0 ] }
 INDICIES
-: INDICIES ',' EXPRESSION { IxSingle () (getSpan $3) $3 : $1 }
-| EXPRESSION { [ IxSingle () (getSpan $1) $1 ] }
+: INDICIES ',' EXPRESSION { IxSingle () (getSpan $3) Nothing $3 : $1 }
+| EXPRESSION { [ IxSingle () (getSpan $1) Nothing $1 ] }
 
 ARITHMETIC_SIGN :: { (SrcSpan, UnaryOp) }
 ARITHMETIC_SIGN
