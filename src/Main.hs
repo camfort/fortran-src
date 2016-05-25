@@ -13,9 +13,12 @@ import Data.Maybe (fromMaybe)
 import Language.Fortran.ParserMonad (FortranVersion(..))
 import qualified Language.Fortran.Lexer.FixedForm as FixedForm (collectFixedTokens, Token(..))
 import qualified Language.Fortran.Lexer.FreeForm as FreeForm (collectFreeTokens, Token(..))
+
 import Language.Fortran.Parser.Fortran66 (fortran66Parser)
 import Language.Fortran.Parser.Fortran77 (fortran77Parser, extended77Parser)
 import Language.Fortran.Parser.Fortran90 (fortran90Parser)
+import Language.Fortran.Parser.Any
+
 import Language.Fortran.Analysis.Types (TypeScope(..), inferTypes, IDType(..))
 import Language.Fortran.Analysis.BBlocks
 import Language.Fortran.Analysis.DataFlow
@@ -41,11 +44,7 @@ main = do
     let path = head parsedArgs
     contents <- readFile path
     let version = fromMaybe (deduceVersion path) (fortranVersion opts)
-    let Just parserF = lookup version
-                              [ (Fortran66, fortran66Parser)
-                              , (Fortran77, fortran77Parser)
-                              , (Fortran77Extended, extended77Parser)
-                              , (Fortran90, fortran90Parser) ]
+    let Just parserF = lookup version parserVersions
     let outfmt = outputFormat opts
 
     let runRenamer = snd . renameAndStrip . analyseRenames . initAnalysis
@@ -167,21 +166,6 @@ compileArgs args =
     (_, _, errors) -> ioError $ userError $ concat errors ++ usageInfo header options
   where
     header = "Usage: forpar [OPTION...] <lex|parse> <file>"
-
-deduceVersion :: String -> FortranVersion
-deduceVersion path
-  | isExtensionOf ".f"      = Fortran77
-  | isExtensionOf ".for"    = Fortran77
-  | isExtensionOf ".fpp"    = Fortran77
-  | isExtensionOf ".ftn"    = Fortran77
-  | isExtensionOf ".f90"    = Fortran90
-  | isExtensionOf ".f95"    = Fortran95
-  | isExtensionOf ".f03"    = Fortran2003
-  | isExtensionOf ".f2003"  = Fortran2003
-  | isExtensionOf ".f08"    = Fortran2008
-  | isExtensionOf ".f2008"  = Fortran2008
-  where
-    isExtensionOf = flip isSuffixOf $ map toLower path
 
 instance Read FortranVersion where
   readsPrec _ value =

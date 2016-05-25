@@ -3,11 +3,11 @@
 
 name:                fortran-src
 version:             0.1.0.0
-synopsis:            Fortran parser for standards 66, 77, 90, 2003, and 2008.
-description:         Fortran parser for standards 66, 77, 90, 2003, and 2008.
+synopsis:            Fortran parser for standards 66, 77, 90.
+description:         Fortran parser for standards 66, 77, 90.
 license:             Apache-2.0
 license-file:        LICENSE
-author:              Mistral Contrastin
+author:              Mistral Contrastin, Matthew Danish
 maintainer:          me@madgen.net
 -- copyright:
 category:            Language
@@ -40,6 +40,7 @@ executable fortran-src
     Language.Fortran.Lexer.FixedForm
     Language.Fortran.Lexer.FreeForm
     Language.Fortran.ParserMonad
+    Language.Fortran.Parser.Any
     Language.Fortran.Parser.Fortran66
     Language.Fortran.Parser.Fortran77
     Language.Fortran.Parser.Fortran90
@@ -64,6 +65,7 @@ library
     Language.Fortran.Lexer.FixedForm
     Language.Fortran.Lexer.FreeForm
     Language.Fortran.ParserMonad
+    Language.Fortran.Parser.Any
     Language.Fortran.Parser.Fortran66
     Language.Fortran.Parser.Fortran77
     Language.Fortran.Parser.Fortran90
