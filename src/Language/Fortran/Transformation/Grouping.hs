@@ -48,8 +48,10 @@ groupIf' blocks@(b:bs) = b' : bs'
               breakIntoIfComponents (b:groupedBlocks)
         in ( BlIf a (getTransSpan s blocks) label conditions blocks
            , leftOverBlocks)
-      BlDo a s label doSpec bs' -> (BlDo a s label doSpec (groupIf' bs'), groupedBlocks)
-      BlDoWhile a s label condition bs' -> (BlDoWhile a s label condition (groupIf' bs'), groupedBlocks)
+      BlDo a s label doSpec bs' ->
+        (BlDo a s label doSpec (groupIf' bs'), groupedBlocks)
+      BlDoWhile a s label condition bs' ->
+        (BlDoWhile a s label condition (groupIf' bs'), groupedBlocks)
       _ -> (b, groupedBlocks)
     groupedBlocks = groupIf' bs -- Assume everything to the right is grouped.
 
@@ -74,7 +76,7 @@ groupIf' blocks@(b:bs) = b' : bs'
 -- blocks that those conditions correspond to. Additionally, it returns
 -- whatever is after the if block.
 breakIntoIfComponents :: [ Block a ] -> ([ Maybe (Expression a) ], [ [ Block a ] ], [ Block a ])
-breakIntoIfComponents blocks@(BlStatement _ _ _ StIfThen{}:rest) =
+breakIntoIfComponents blocks@(BlStatement _ _ _ (StIfThen _ _ mTargetName _):rest) =
     breakIntoIfComponents' blocks
   where
     breakIntoIfComponents' (BlStatement _ _ _ st:rest) =
@@ -82,7 +84,10 @@ breakIntoIfComponents blocks@(BlStatement _ _ _ StIfThen{}:rest) =
         StIfThen _ _ _ condition -> go (Just condition) rest
         StElsif _ _ _ condition -> go (Just condition) rest
         StElse{} -> go Nothing rest
-        StEndif{} -> ([], [], rest)
+        StEndif _ _ mName
+          | mName == mTargetName -> ([], [], rest)
+          | otherwise -> error $ "If statement name does not match that of " ++
+                                   "the corresponding end if statement."
         _ -> error "Block with non-if related statement. Should never occur."
     go maybeCondition blocks =
       let (nonConditionBlocks, rest') = collectNonConditionalBlocks blocks
@@ -121,15 +126,15 @@ groupDo' blocks@(b:bs) = b' : bs'
   where
     (b', bs') = case b of
       -- Do While statement
-      BlStatement a s label (StDoWhile _ _ _ _ condition) ->
+      BlStatement a s label (StDoWhile _ _ mNameTarget _ condition) ->
         let ( blocks, leftOverBlocks ) =
-              collectNonDoBlocks groupedBlocks
+              collectNonDoBlocks groupedBlocks mNameTarget
         in ( BlDoWhile a (getTransSpan s blocks) label condition blocks
            , leftOverBlocks)
       -- Vanilla do statement
-      BlStatement a s label (StDo _ _ _ Nothing doSpec) ->
+      BlStatement a s label (StDo _ _ mNameTarget Nothing doSpec) ->
         let ( blocks, leftOverBlocks ) =
-              collectNonDoBlocks groupedBlocks
+              collectNonDoBlocks groupedBlocks mNameTarget
         in ( BlDo a (getTransSpan s blocks) label doSpec blocks
            , leftOverBlocks)
       BlDoWhile a s label cond blocks ->
@@ -141,11 +146,15 @@ groupDo' blocks@(b:bs) = b' : bs'
       _ -> (b, groupedBlocks)
     groupedBlocks = groupDo' bs -- Assume everything to the right is grouped.
 
-collectNonDoBlocks :: [ Block a ] -> ([ Block a], [ Block a ])
-collectNonDoBlocks blocks =
+collectNonDoBlocks :: [ Block a ] -> Maybe String -> ([ Block a], [ Block a ])
+collectNonDoBlocks blocks mNameTarget =
   case blocks of
-    b@(BlStatement _ _ _ StEnddo{}):rest -> ([ b ], rest)
-    b:bs -> let (bs', rest) = collectNonDoBlocks bs in (b : bs', rest)
+    b@(BlStatement _ _ _ (StEnddo _ _ mName)):rest
+      | mName == mNameTarget -> ([ b ], rest)
+      | otherwise ->
+          error "Do block name does not match that of the end statement."
+    b:bs ->
+      let (bs', rest) = collectNonDoBlocks bs mNameTarget in (b : bs', rest)
     _ -> error "Premature file ending while parsing structured do block."
 
 --------------------------------------------------------------------------------

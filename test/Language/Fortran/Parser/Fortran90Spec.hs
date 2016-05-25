@@ -314,7 +314,7 @@ spec =
         sParser "if (.false.) then" `shouldBe'` StIfThen () u Nothing valFalse
 
       it "parses if-then statement with construct name" $ do
-        let st = StIfThen () u (Just $ varGen "my_if") valFalse
+        let st = StIfThen () u (Just "my_if") valFalse
         sParser "my_if: if (.false.) then" `shouldBe'` st
 
       it "parses else statement" $
@@ -343,7 +343,7 @@ spec =
         sParser "select case (n)" `shouldBe'` st
 
       it "parses select case statement with construct name" $ do
-        let st = StSelectCase () u (Just $ varGen "case") (varGen "n")
+        let st = StSelectCase () u (Just "case") (varGen "n")
         sParser "case: select case (n)" `shouldBe'` st
 
       it "parses case statement" $ do
@@ -354,7 +354,7 @@ spec =
         sParser "case default" `shouldBe'` StCase () u Nothing Nothing
 
       it "parses end select statement" $ do
-        let st = StEndcase () u (Just $ varGen "name")
+        let st = StEndcase () u (Just "name")
         sParser "end select name" `shouldBe'` st
 
     describe "Do" $ do
@@ -375,11 +375,11 @@ spec =
         sParser "do" `shouldBe'` st
 
       it "parses end do statement" $ do
-        let st = StEnddo () u (Just $ varGen "constructor")
+        let st = StEnddo () u (Just "constructor")
         sParser "end do constructor" `shouldBe'` st
 
       it "parses end do while statement" $ do
-        let st = StDoWhile () u (Just $ varGen "name") Nothing valTrue
+        let st = StDoWhile () u (Just "name") Nothing valTrue
         sParser "name: do while (.true.)" `shouldBe'` st
 
     describe "Goto" $ do

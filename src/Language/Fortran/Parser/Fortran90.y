@@ -16,6 +16,7 @@ import Language.Fortran.Util.Position
 import Language.Fortran.ParserMonad
 import Language.Fortran.Lexer.FreeForm
 import Language.Fortran.AST
+import Language.Fortran.Transformer (transform, Transformation(..))
 
 import Debug.Trace
 
@@ -417,30 +418,35 @@ EXECUTABLE_STATEMENT :: { Statement A0 }
 | if '(' EXPRESSION ')' INTEGER_LITERAL ',' INTEGER_LITERAL ',' INTEGER_LITERAL
   { StIfArithmetic () (getTransSpan $1 $9) $3 $5 $7 $9 }
 | if '(' EXPRESSION ')' then { StIfThen () (getTransSpan $1 $5) Nothing $3 }
-| VARIABLE ':' if '(' EXPRESSION ')' then
-  { StIfThen () (getTransSpan $1 $7) (Just $1) $5 }
+| id ':' if '(' EXPRESSION ')' then
+  { let TId s id = $1 in StIfThen () (getTransSpan s $7) (Just id) $5 }
 | elsif '(' EXPRESSION ')' then { StElsif () (getTransSpan $1 $5) Nothing $3 }
-| elsif '(' EXPRESSION ')' then VARIABLE
-  { StElsif () (getTransSpan $1 $6) (Just $6) $3 }
+| elsif '(' EXPRESSION ')' then id
+  { let TId s id = $6 in StElsif () (getTransSpan $1 s) (Just id) $3 }
 | else { StElse () (getSpan $1) Nothing }
-| else VARIABLE { StElse () (getSpan $1) (Just $2) }
+| else id { let TId s id = $2 in StElse () (getTransSpan $1 s) (Just id) }
 | endif { StEndif () (getSpan $1) Nothing }
-| endif VARIABLE { StEndif () (getSpan $1) (Just $2) }
+| endif id { let TId s id = $2 in StEndif () (getTransSpan $1 s) (Just id) }
 | do { StDo () (getSpan $1) Nothing Nothing Nothing }
-| VARIABLE ':' do { StDo () (getTransSpan $1 $3) (Just $1) Nothing Nothing }
+| id ':' do
+  { let TId s id = $1
+    in StDo () (getTransSpan s $3) (Just id) Nothing Nothing }
 | do INTEGER_LITERAL MAYBE_COMMA DO_SPECIFICATION
   { StDo () (getTransSpan $1 $4) Nothing (Just $2) (Just $4) }
 | do DO_SPECIFICATION { StDo () (getTransSpan $1 $2) Nothing Nothing (Just $2) }
-| VARIABLE ':' do DO_SPECIFICATION
-  { StDo () (getTransSpan $1 $4) (Just $1) Nothing (Just $4) }
+| id ':' do DO_SPECIFICATION
+  { let TId s id = $1
+    in StDo () (getTransSpan s $4) (Just id) Nothing (Just $4) }
 | do INTEGER_LITERAL MAYBE_COMMA while '(' EXPRESSION ')'
   { StDoWhile () (getTransSpan $1 $7) Nothing (Just $2) $6 }
 | do while '(' EXPRESSION ')'
   { StDoWhile () (getTransSpan $1 $5) Nothing Nothing $4 }
-| VARIABLE ':' do while '(' EXPRESSION ')'
-  { StDoWhile () (getTransSpan $1 $7) (Just $1) Nothing $6 }
+| id ':' do while '(' EXPRESSION ')'
+  { let TId s id = $1
+    in StDoWhile () (getTransSpan s $7) (Just id) Nothing $6 }
 | enddo { StEnddo () (getSpan $1) Nothing }
-| enddo VARIABLE { StEnddo () (getTransSpan $1 $2) (Just $2) }
+| enddo id
+  { let TId s id = $2 in StEnddo () (getTransSpan $1 s) (Just id) }
 | cycle { StCycle () (getSpan $1) Nothing }
 | cycle VARIABLE { StCycle () (getTransSpan $1 $2) (Just $2) }
 | exit { StExit () (getSpan $1) Nothing }
@@ -459,15 +465,19 @@ EXECUTABLE_STATEMENT :: { Statement A0 }
 | pause INTEGER_LITERAL { StPause () (getTransSpan $1 $2) (Just $2) }
 | selectcase '(' EXPRESSION ')'
   { StSelectCase () (getTransSpan $1 $4) Nothing $3 }
-| VARIABLE ':' selectcase '(' EXPRESSION ')'
-  { StSelectCase () (getTransSpan $1 $6) (Just $1) $5 }
+| id ':' selectcase '(' EXPRESSION ')'
+  { let TId s id = $1 in StSelectCase () (getTransSpan s $6) (Just id) $5 }
 | case default { StCase () (getTransSpan $1 $2) Nothing Nothing }
-| case default VARIABLE { StCase () (getTransSpan $1 $3) (Just $3) Nothing }
-| case '(' INDICIES ')' { StCase () (getTransSpan $1 $4) Nothing (Just $ fromReverseList $3) }
-| case '(' INDICIES ')' VARIABLE
-  { StCase () (getTransSpan $1 $5) (Just $5) (Just $ fromReverseList $3) }
+| case default id
+  { let TId s id = $3 in StCase () (getTransSpan $1 s) (Just id) Nothing }
+| case '(' INDICIES ')'
+  { StCase () (getTransSpan $1 $4) Nothing (Just $ fromReverseList $3) }
+| case '(' INDICIES ')' id
+  { let TId s id = $5
+    in StCase () (getTransSpan $1 s) (Just id) (Just $ fromReverseList $3) }
 | endselect { StEndcase () (getSpan $1) Nothing }
-| endselect VARIABLE { StEndcase () (getTransSpan $1 $2) (Just $2) }
+| endselect id
+  { let TId s id = $2 in StEndcase () (getTransSpan $1 s) (Just id) }
 | if '(' EXPRESSION ')' EXECUTABLE_STATEMENT
   { StIfLogical () (getTransSpan $1 $5) $3 $5 }
 | read CILIST IN_IOLIST
@@ -1017,9 +1027,15 @@ unitNameCheck _ _ = return ()
 
 parse = evalParse programParser
 
+transformations90 =
+  [ GroupLabeledDo
+  , GroupDo
+  , GroupIf
+  ]
+
 fortran90Parser :: String -> String -> ProgramFile A0
 fortran90Parser sourceCode filename =
-    parse parseState
+    transform transformations90 $ parse parseState
   where
     parseState = initParseState sourceCode Fortran77Extended filename
 
