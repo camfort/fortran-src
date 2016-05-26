@@ -13,11 +13,14 @@ genericGroup groupingFunction = do
   where
     go pu =
       case pu of
-        PUMain a s n bs pus -> PUMain a s n (groupingFunction bs) pus
-        PUSubroutine a s r n as bs subs ->
-          PUSubroutine a s r n as (groupingFunction bs) subs
-        PUFunction a s r rec n as res bs subs ->
-          PUFunction a s r rec n as res (groupingFunction bs) subs
+        PUMain a s n bs subPUs ->
+          PUMain a s n (groupingFunction bs) (map go <$> subPUs)
+        PUModule a s n bs subPUs ->
+          PUModule a s n (groupingFunction bs) (map go <$> subPUs)
+        PUSubroutine a s r n as bs subPUs ->
+          PUSubroutine a s r n as (groupingFunction bs) (map go <$> subPUs)
+        PUFunction a s r rec n as res bs subPUs ->
+          PUFunction a s r rec n as res (groupingFunction bs) (map go <$> subPUs)
         bd@PUBlockData{} -> bd -- Block data cannot have any if statements.
 
 --------------------------------------------------------------------------------
