@@ -43,16 +43,15 @@ groupIf' [] = []
 groupIf' blocks@(b:bs) = b' : bs'
   where
     (b', bs') = case b of
-      BlStatement a s label StIfThen{} -> -- If statement
-        let ( conditions, blocks, leftOverBlocks ) =
-              breakIntoIfComponents (b:groupedBlocks)
-        in ( BlIf a (getTransSpan s blocks) label conditions blocks
-           , leftOverBlocks)
-      BlDo a s label doSpec bs' ->
-        (BlDo a s label doSpec (groupIf' bs'), groupedBlocks)
-      BlDoWhile a s label condition bs' ->
-        (BlDoWhile a s label condition (groupIf' bs'), groupedBlocks)
-      _ -> (b, groupedBlocks)
+      BlStatement a s label st
+        | StIfThen{} <- st -> -- If statement
+          let ( conditions, blocks, leftOverBlocks ) =
+                breakIntoIfComponents (b:groupedBlocks)
+          in ( BlIf a (getTransSpan s blocks) label conditions blocks
+             , leftOverBlocks)
+      b | containsGroups b -> -- Map to subblocks for groupable blocks
+        ( applyGroupingToSubblocks groupIf' b, groupedBlocks )
+      _ -> ( b, groupedBlocks )
     groupedBlocks = groupIf' bs -- Assume everything to the right is grouped.
 
 -- A program has the following structure:
@@ -125,25 +124,22 @@ groupDo' [ ] = [ ]
 groupDo' blocks@(b:bs) = b' : bs'
   where
     (b', bs') = case b of
-      -- Do While statement
-      BlStatement a s label (StDoWhile _ _ mNameTarget _ condition) ->
-        let ( blocks, leftOverBlocks ) =
-              collectNonDoBlocks groupedBlocks mNameTarget
-        in ( BlDoWhile a (getTransSpan s blocks) label condition blocks
-           , leftOverBlocks)
-      -- Vanilla do statement
-      BlStatement a s label (StDo _ _ mNameTarget Nothing doSpec) ->
-        let ( blocks, leftOverBlocks ) =
-              collectNonDoBlocks groupedBlocks mNameTarget
-        in ( BlDo a (getTransSpan s blocks) label doSpec blocks
-           , leftOverBlocks)
-      BlDoWhile a s label cond blocks ->
-        (BlDoWhile a s label cond (groupDo' blocks), groupedBlocks)
-      BlDo a s label doSpec blocks ->
-        (BlDo a s label doSpec (groupDo' blocks), groupedBlocks)
-      BlIf a s label conds blocks ->
-        (BlIf a s label conds (map groupDo' blocks), groupedBlocks)
-      _ -> (b, groupedBlocks)
+      BlStatement a s label st
+        -- Do While statement
+        | StDoWhile _ _ mNameTarget _ condition <- st ->
+          let ( blocks, leftOverBlocks ) =
+                collectNonDoBlocks groupedBlocks mNameTarget
+          in ( BlDoWhile a (getTransSpan s blocks) label condition blocks
+             , leftOverBlocks)
+        -- Vanilla do statement
+        | StDo _ _ mNameTarget Nothing doSpec <- st ->
+          let ( blocks, leftOverBlocks ) =
+                collectNonDoBlocks groupedBlocks mNameTarget
+          in ( BlDo a (getTransSpan s blocks) label doSpec blocks
+             , leftOverBlocks)
+      b | containsGroups b ->
+        ( applyGroupingToSubblocks groupDo' b, groupedBlocks )
+      _ -> ( b, groupedBlocks )
     groupedBlocks = groupDo' bs -- Assume everything to the right is grouped.
 
 collectNonDoBlocks :: [ Block a ] -> Maybe String -> ([ Block a], [ Block a ])
@@ -174,12 +170,8 @@ groupLabeledDo' blos@(b:bs) = b' : bs'
               collectNonLabeledDoBlocks targetLabel groupedBlocks
         in ( BlDo a (getTransSpan s blocks) label doSpec blocks
            , leftOverBlocks)
-      BlDo a s label doSpec blocks ->
-        (BlDo a s label doSpec (groupLabeledDo' blocks), groupedBlocks)
-      BlDoWhile a s label cond blocks ->
-        (BlDoWhile a s label cond (groupLabeledDo' blocks), groupedBlocks)
-      BlIf a s label conds blocks ->
-        (BlIf a s label conds (map groupLabeledDo' blocks), groupedBlocks)
+      b | containsGroups b ->
+        ( applyGroupingToSubblocks groupLabeledDo' b, groupedBlocks )
       _ -> (b, groupedBlocks)
     groupedBlocks = groupLabeledDo' bs -- Assume everything to the right is grouped.
 
@@ -189,3 +181,29 @@ collectNonLabeledDoBlocks targetLabel blocks =
     b@(BlStatement _ _ (Just (ExpValue _ _ (ValLabel label))) _):rest
       | label == targetLabel -> ([ b ], rest)
     b:bs -> let (bs', rest) = collectNonLabeledDoBlocks targetLabel bs in (b : bs', rest)
+
+--------------------------------------------------------------------------------
+-- Helpers for grouping of structured blocks with more blocks inside.
+--------------------------------------------------------------------------------
+
+containsGroups :: Block a -> Bool
+containsGroups b =
+  case b of
+    BlStatement{} -> False
+    BlIf{} -> True
+    BlDo{} -> True
+    BlDoWhile{} -> True
+    BlInterface{} -> False
+    BlComment{} -> False
+
+applyGroupingToSubblocks :: ([ Block a ] -> [ Block a ]) -> Block a -> Block a
+applyGroupingToSubblocks f b
+  | BlStatement{} <- b =
+    error "Individual statements do not have subblocks. Must not occur."
+  | BlIf a s l conds blocks <- b = BlIf a s l conds $ map f blocks
+  | BlDo a s l doSpec blocks <- b = BlDo a s l doSpec $ f blocks
+  | BlDoWhile a s l doSpec blocks <- b = BlDoWhile a s l doSpec $ f blocks
+  | BlInterface{} <- b =
+      error "Interface blocks do not have groupable subblocks. Must not occur."
+  | BlComment{} <- b =
+    error "Comment statements do not have subblocks. Must not occur."

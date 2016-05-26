@@ -1,8 +1,8 @@
 -- -*- Mode: Haskell -*-
 {
 module Language.Fortran.Parser.Fortran90 ( statementParser
-                               , fortran90Parser
-                               ) where
+                                         , fortran90Parser
+                                         ) where
 
 import Prelude hiding (EQ,LT,GT) -- Same constructors exist in the AST
 import Control.Monad.State (get)
@@ -1037,7 +1037,7 @@ fortran90Parser :: String -> String -> ProgramFile A0
 fortran90Parser sourceCode filename =
     transform transformations90 $ parse parseState
   where
-    parseState = initParseState sourceCode Fortran77Extended filename
+    parseState = initParseState sourceCode Fortran90 filename
 
 parseError :: Token -> LexAction a
 parseError _ = do
