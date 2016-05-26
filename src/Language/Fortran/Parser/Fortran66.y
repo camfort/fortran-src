@@ -101,8 +101,14 @@ import Language.Fortran.AST
 
 %%
 
+-- This rule is to ignore leading whitespace
 PROGRAM :: { ProgramFile A0 }
 PROGRAM
+: NEWLINE PROGRAM_INNER { $2 }
+| PROGRAM_INNER { $1 }
+
+PROGRAM_INNER :: { ProgramFile A0 }
+PROGRAM_INNER
 : PROGRAM_UNITS { ProgramFile (reverse $1) [ ] }
 | PROGRAM_UNITS BLOCKS { ProgramFile (reverse $1) (reverse $2) }
 

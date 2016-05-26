@@ -193,7 +193,12 @@ import Debug.Trace
 
 %%
 
+-- This rule is to ignore leading whitespace
 PROGRAM :: { ProgramFile A0 }
+: NEWLINE PROGRAM_INNER { $2 }
+| PROGRAM_INNER { $1 }
+
+PROGRAM_INNER :: { ProgramFile A0 }
 : PROGRAM_UNITS { ProgramFile (reverse $1) [ ] }
 | PROGRAM_UNITS COMMENT_BLOCKS { ProgramFile (reverse $1) (reverse $2) }
 
