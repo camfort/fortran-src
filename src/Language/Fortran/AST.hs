@@ -113,6 +113,7 @@ data ProgramUnit a =
 data Block a =
     BlStatement a SrcSpan (Maybe (Expression a)) (Statement a)
   | BlIf a SrcSpan (Maybe (Expression a)) [ Maybe (Expression a) ] [ [ Block a ] ]
+  | BlCase a SrcSpan (Maybe (Expression a)) (Expression a) [ Maybe (AList Index a) ] [ [ Block a ] ]
   | BlDo a SrcSpan (Maybe (Expression a)) (Maybe (DoSpecification a)) [ Block a ]
   | BlDoWhile a SrcSpan (Maybe (Expression a)) (Expression a) [ Block a ]
   | BlInterface a SrcSpan (Expression a) [ ProgramUnit a ] [ Block a ]

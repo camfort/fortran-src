@@ -1031,6 +1031,7 @@ transformations90 =
   [ GroupLabeledDo
   , GroupDo
   , GroupIf
+  , GroupCase
   ]
 
 fortran90Parser :: String -> String -> ProgramFile A0

@@ -1,5 +1,5 @@
 module Language.Fortran.Transformer ( transform
-                          , Transformation(..) ) where
+                                    , Transformation(..) ) where
 
 import Control.Monad
 import Data.Maybe (fromJust)
@@ -14,6 +14,7 @@ import Language.Fortran.AST (ProgramFile, ProgramUnitName)
 
 data Transformation =
     GroupIf
+  | GroupCase
   | GroupDo
   | GroupLabeledDo
   | DisambiguateFunction
@@ -22,6 +23,7 @@ data Transformation =
 transformationMapping :: Data a => [ (Transformation, Transform a ()) ]
 transformationMapping =
   [ (GroupIf, groupIf)
+  , (GroupCase, groupCase)
   , (GroupDo, groupDo)
   , (GroupLabeledDo, groupLabeledDo)
   , (DisambiguateFunction, disambiguateFunction)
