@@ -136,7 +136,7 @@ isFinalBlockCtrlXfer bs@(_:_)
   | BlStatement _ _ _ (StReturn {})            <- last bs = True
 isFinalBlockCtrlXfer _                                    = False
 
-lookupBBlock lm (ExpValue _ _ (ValLabel l)) = (-1) `fromMaybe` M.lookup l lm
+lookupBBlock lm (ExpValue _ _ (ValInteger l)) = (-1) `fromMaybe` M.lookup l lm
 
 -- Seek out empty bblocks with a single entrance and a single exit
 -- edge, and remove them, re-establishing the edges without them.
@@ -251,7 +251,7 @@ perBlock b@(BlStatement a s l (StCall a' s' cn@(ExpValue _ _ (ValVariable _ n)) 
 
   -- create bblock that assigns formal parameters (n[1], n[2], ...)
   case l of
-    Just (ExpValue _ _ (ValLabel l)) -> insertLabel l formalN -- label goes here, if present
+    Just (ExpValue _ _ (ValInteger l)) -> insertLabel l formalN -- label goes here, if present
     _                                -> return ()
   let name i   = n ++ "[" ++ show i ++ "]"
   let formal (ExpValue a s (ValVariable a' _)) i = ExpValue a s (ValVariable a' (name i))
@@ -292,7 +292,7 @@ perDoBlock :: Data a => Maybe (Expression a) -> Block a -> [Block a] -> BBlocker
 perDoBlock repeatExpr b bs = do
   (n, doN) <- closeBBlock
   case getLabel b of
-    Just (ExpValue _ _ (ValLabel l)) -> insertLabel l doN
+    Just (ExpValue _ _ (ValInteger l)) -> insertLabel l doN
     _                                -> return ()
   case repeatExpr of Just e -> processFunctionCalls e >> return (); Nothing -> return ()
   addToBBlock $ stripNestedBlocks b
@@ -306,7 +306,7 @@ perDoBlock repeatExpr b bs = do
 -- Maintains perBlock invariants while potentially starting a new
 -- bblock in case of a label.
 processLabel :: Block a -> BBlocker a ()
-processLabel b | Just (ExpValue _ _ (ValLabel l)) <- getLabel b = do
+processLabel b | Just (ExpValue _ _ (ValInteger l)) <- getLabel b = do
   (n, n') <- closeBBlock
   insertLabel l n'
   createEdges [(n, n', ())]
@@ -571,7 +571,7 @@ showAttr (AttrSave _ _) = "save"
 showAttr (AttrTarget _ _) = "target"
 
 showLab Nothing = replicate 6 ' '
-showLab (Just (ExpValue _ _ (ValLabel l))) = ' ':l ++ replicate (5 - length l) ' '
+showLab (Just (ExpValue _ _ (ValInteger l))) = ' ':l ++ replicate (5 - length l) ' '
 
 showValue (ValVariable _ v)     = v
 showValue (ValInteger v)        = v

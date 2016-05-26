@@ -785,10 +785,10 @@ LABELS_IN_STATEMENT_LEVEL1
 | '(' LABEL_IN_STATEMENT { AList () (getTransSpan $1 $2) [ $2 ] }
 
 -- Labels that occur in the first 6 columns
-LABEL_IN_6COLUMN :: { Expression A0 } : label { ExpValue () (getSpan $1) (let (TLabel _ l) = $1 in ValLabel l) }
+LABEL_IN_6COLUMN :: { Expression A0 } : label { ExpValue () (getSpan $1) (let (TLabel _ l) = $1 in ValInteger l) }
 
 -- Labels that occur in statements
-LABEL_IN_STATEMENT :: { Expression A0 } : int { ExpValue () (getSpan $1) (let (TInt _ l) = $1 in ValLabel l) }
+LABEL_IN_STATEMENT :: { Expression A0 } : int { ExpValue () (getSpan $1) (let (TInt _ l) = $1 in ValInteger l) }
 
 TYPE_SPEC :: { TypeSpec A0 }
 TYPE_SPEC

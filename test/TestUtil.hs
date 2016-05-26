@@ -28,7 +28,7 @@ strGen :: String -> Expression ()
 strGen str = ExpValue () u $ ValString str
 
 labelGen :: Integer -> Expression ()
-labelGen i = ExpValue () u $ ValLabel $ show i
+labelGen i = ExpValue () u $ ValInteger $ show i
 
 starVal :: Expression ()
 starVal = ExpValue () u ValStar

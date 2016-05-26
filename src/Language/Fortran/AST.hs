@@ -285,7 +285,6 @@ data Value a =
   | ValComplex           (Expression a) (Expression a)
   | ValString            String
   | ValHollerith         String
-  | ValLabel             String
   | ValVariable          a Name
   | ValLogical           String
   | ValOperator          String

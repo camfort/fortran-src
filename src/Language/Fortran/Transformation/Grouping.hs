@@ -169,7 +169,7 @@ groupLabeledDo' [ ] = [ ]
 groupLabeledDo' blos@(b:bs) = b' : bs'
   where
     (b', bs') = case b of
-      BlStatement a s label (StDo _ _ _ (Just (ExpValue _ _ (ValLabel targetLabel))) doSpec) ->
+      BlStatement a s label (StDo _ _ _ (Just (ExpValue _ _ (ValInteger targetLabel))) doSpec) ->
         let ( blocks, leftOverBlocks ) =
               collectNonLabeledDoBlocks targetLabel groupedBlocks
         in ( BlDo a (getTransSpan s blocks) label doSpec blocks
@@ -182,7 +182,7 @@ groupLabeledDo' blos@(b:bs) = b' : bs'
 collectNonLabeledDoBlocks :: String -> [ Block a ] -> ([ Block a ], [ Block a ])
 collectNonLabeledDoBlocks targetLabel blocks =
   case blocks of
-    b@(BlStatement _ _ (Just (ExpValue _ _ (ValLabel label))) _):rest
+    b@(BlStatement _ _ (Just (ExpValue _ _ (ValInteger label))) _):rest
       | label == targetLabel -> ([ b ], rest)
     b:bs -> let (bs', rest) = collectNonLabeledDoBlocks targetLabel bs in (b : bs', rest)
 
