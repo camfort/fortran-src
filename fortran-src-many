@@ -1,0 +1,6 @@
+for f in *.f*
+do
+ echo "Processing $f"
+ echo "Processing $f">>$1
+ fortran-src $f 2>>$1
+done
