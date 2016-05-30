@@ -87,7 +87,7 @@ tokens :-
 <scN> "(/"                                        { addSpan TLeftInitPar }
 <scN> "/)"                                        { addSpan TRightInitPar }
 <scN> ","                                         { comma }
-<scN> ";"                                         { addSpan TSemiColon }
+<scN> ";"                                         { resetPar >> toSC 0 >> addSpan TSemiColon }
 <scN> ":"                                         { addSpan TColon }
 <scN> "::"                                        { addSpan TDoubleColon }
 <scN> "="                                         { addSpan TOpAssign}
@@ -319,6 +319,7 @@ partOfExpOrPointerAssignmentP (User fv pc) _ _ ai =
       | not leftParSeen =
         case token of
           TNewline{} -> return False
+          TSemiColon{} -> return False
           TEOF{} -> return False
           TPercent{} -> return True
           TArrow{} -> return True
@@ -335,6 +336,7 @@ partOfExpOrPointerAssignmentP (User fv pc) _ _ ai =
       | parCount > 0 =
         case token of
           TNewline{} -> return False
+          TSemiColon{} -> return False
           TEOF{} -> return False
           TLeftPar{} -> lexer $ f True (parCount + 1)
           TLeftPar2{} -> lexer $ f True (parCount + 1)
@@ -459,6 +461,7 @@ leftPar = do
           case curToken of
             TComma{} -> return TLeftPar2
             TNewline{} -> return TLeftPar2
+            TSemiColon{} -> return TLeftPar2
             TEOF{} -> return TLeftPar2
             _ -> return TLeftPar
         _ -> lexer' >> f
@@ -545,6 +548,7 @@ addToPreviousTokensInLine token = do
   putAlex $
     case token of
       TNewline _ -> updatePrevTokens ai [ ]
+      TSemiColon _ -> updatePrevTokens ai [ ]
       t -> updatePrevTokens ai $ t : aiPreviousTokensInLine ai
   where
     updatePrevTokens ai tokens = ai { aiPreviousTokensInLine = tokens }
