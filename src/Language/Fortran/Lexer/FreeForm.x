@@ -38,9 +38,9 @@ $alphanumeric = [$letter $digit \_]
 @label = $digit{1,5}
 @name = $letter $alphanumeric*
 
-@binary = b\'$bit+
-@octal = o\'$octalDigit+
-@hex = z\'$hexDigit+
+@binary = b\'$bit+\'
+@octal = o\'$octalDigit+\'
+@hex = z\'$hexDigit+\'
 
 @digitString = $digit+
 @kindParam = (@digitString|@name)
@@ -229,7 +229,7 @@ tokens :-
 -- Literals
 <0> @label                                        { toSC 0 >> addSpanAndMatch TIntegerLiteral }
 <scN,scI> @intLiteralConst                        { addSpanAndMatch TIntegerLiteral  }
-<scN> @bozLiteralConst                            { addSpanAndMatch TBozLiteral  }
+<scN> @bozLiteralConst / { bozP }                 { addSpanAndMatch TBozLiteral }
 
 <scN> @realLiteral                                { addSpanAndMatch TRealLiteral }
 <scN> @altRealLiteral / { notPrecedingDotP }      { addSpanAndMatch TRealLiteral }
@@ -265,6 +265,16 @@ tokens :-
 --------------------------------------------------------------------------------
 -- Predicated lexer helpers
 --------------------------------------------------------------------------------
+
+bozP :: User -> AlexInput -> Int -> AlexInput -> Bool
+bozP _ _ _ ai = not (null previousTokens) &&
+    case (last previousTokens, head previousTokens) of
+      (TData{}, TColon{}) -> True
+      (TData{}, TSlash{}) -> True
+      _ -> False
+  where
+    previousTokens = aiPreviousTokensInLine ai
+
 
 followsDoP :: User -> AlexInput -> Int -> AlexInput -> Bool
 followsDoP _ _ _ ai
