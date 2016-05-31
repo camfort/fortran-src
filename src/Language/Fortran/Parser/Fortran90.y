@@ -91,6 +91,7 @@ import Debug.Trace
   call                        { TCall _ }
   return                      { TReturn _ }
   entry                       { TEntry _ }
+  include                     { TInclude _ }
   public                      { TPublic _ }
   private                     { TPrivate _ }
   parameter                   { TParameter _ }
@@ -401,6 +402,7 @@ NONEXECUTABLE_STATEMENT :: { Statement A0 }
 | endType { StEndType () (getSpan $1) Nothing }
 | endType id
   { let TId span id = $2 in StEndType () (getTransSpan $1 span) (Just id) }
+| include STRING { StInclude () (getTransSpan $1 $2) $2 }
 
 EXECUTABLE_STATEMENT :: { Statement A0 }
 : allocate '(' DATA_REFS ')'

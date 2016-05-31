@@ -123,6 +123,7 @@ tokens :-
 <0,scI> "call"                                    { addSpan TCall }
 <0,scI> "return"                                  { addSpan TReturn }
 <0> "entry"                                       { addSpan TEntry }
+<0> "include"                                     { addSpan TInclude }
 
 -- Type def related
 <0,scT> "type"                                    { addSpan TType }
@@ -975,6 +976,7 @@ data Token =
   | TCall               SrcSpan
   | TReturn             SrcSpan
   | TEntry              SrcSpan
+  | TInclude            SrcSpan
   -- Attributes
   | TPublic             SrcSpan
   | TPrivate            SrcSpan
