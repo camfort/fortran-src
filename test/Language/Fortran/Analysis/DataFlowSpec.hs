@@ -8,6 +8,7 @@ import Language.Fortran.Lexer.FixedForm (initParseState)
 import Language.Fortran.ParserMonad (FortranVersion(..), evalParse)
 import Language.Fortran.AST
 import Language.Fortran.Analysis
+import Language.Fortran.Analysis.Renaming
 import Language.Fortran.Analysis.BBlocks
 import Language.Fortran.Analysis.DataFlow
 import qualified Data.Map as M
@@ -19,7 +20,7 @@ import Data.Graph.Inductive.PatriciaTree (Gr)
 import Data.Maybe
 
 pParser :: String -> ProgramFile (Analysis ())
-pParser source = analyseBBlocks . initAnalysis $ extended77Parser source "<unknown>"
+pParser source = analyseBBlocks . snd . rename . initAnalysis $ extended77Parser source "<unknown>"
 
 spec :: Spec
 spec =

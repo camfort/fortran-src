@@ -9,6 +9,7 @@ import Language.Fortran.ParserMonad (FortranVersion(..), evalParse)
 import Language.Fortran.AST
 import Language.Fortran.Analysis
 import Language.Fortran.Analysis.BBlocks
+import Language.Fortran.Analysis.Renaming
 import qualified Data.Map as M
 import qualified Data.IntSet as IS
 import Data.Graph.Inductive
@@ -16,7 +17,7 @@ import Data.Graph.Inductive.PatriciaTree (Gr)
 import Data.Maybe
 
 pParser :: String -> ProgramFile (Analysis ())
-pParser source = analyseBBlocks . initAnalysis $ extended77Parser source "<unknown>"
+pParser source = analyseBBlocks . snd . rename . analyseRenames . initAnalysis $ extended77Parser source "<unknown>"
 
 spec :: Spec
 spec =
