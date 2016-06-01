@@ -123,19 +123,19 @@ PROGRAM_UNITS
 
 MAIN_PROGRAM_UNIT :: { ProgramUnit A0 }
 MAIN_PROGRAM_UNIT
-: BLOCKS end NEWLINE
+: BLOCKS end MAYBE_NEWLINE
   { let blocks = reverse $1
     in PUMain () (getTransSpan $1 $2) Nothing blocks Nothing }
 
 OTHER_PROGRAM_UNIT :: { ProgramUnit A0 }
 OTHER_PROGRAM_UNIT
-: TYPE_SPEC function NAME MAYBE_ARGUMENTS NEWLINE BLOCKS end NEWLINE
+: TYPE_SPEC function NAME MAYBE_ARGUMENTS NEWLINE BLOCKS end MAYBE_NEWLINE
   { PUFunction () (getTransSpan $1 $7) (Just $1) False $3 $4 Nothing (reverse $6) Nothing }
-| function NAME MAYBE_ARGUMENTS NEWLINE BLOCKS end NEWLINE
+| function NAME MAYBE_ARGUMENTS NEWLINE BLOCKS end MAYBE_NEWLINE
   { PUFunction () (getTransSpan $1 $6) Nothing False $2 $3 Nothing (reverse $5) Nothing  }
-| subroutine NAME MAYBE_ARGUMENTS NEWLINE BLOCKS end NEWLINE
+| subroutine NAME MAYBE_ARGUMENTS NEWLINE BLOCKS end MAYBE_NEWLINE
   { PUSubroutine () (getTransSpan $1 $6) False $2 $3 (reverse $5) Nothing }
-| blockData NEWLINE BLOCKS end NEWLINE { PUBlockData () (getTransSpan $1 $4) Nothing (reverse $3) }
+| blockData NEWLINE BLOCKS end MAYBE_NEWLINE { PUBlockData () (getTransSpan $1 $4) Nothing (reverse $3) }
 
 MAYBE_ARGUMENTS :: { Maybe (AList Expression A0) }
 : '(' MAYBE_VARIABLES ')' { $2 }
@@ -153,6 +153,8 @@ BLOCK
 : LABEL_IN_6COLUMN STATEMENT NEWLINE { BlStatement () (getTransSpan $1 $2) (Just $1) $2 }
 | STATEMENT NEWLINE { BlStatement () (getSpan $1) Nothing $1 }
 | comment NEWLINE { let (TComment s c) = $1 in BlComment () s c }
+
+MAYBE_NEWLINE :: { Maybe Token } : NEWLINE { Just $1 } | {- EMPTY -} { Nothing }
 
 NEWLINE :: { Token }
 NEWLINE
