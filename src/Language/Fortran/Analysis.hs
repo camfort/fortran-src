@@ -13,6 +13,7 @@ import Data.Generics.Uniplate.Operations
 import Data.Data
 import Language.Fortran.AST
 import Data.Graph.Inductive.PatriciaTree (Gr)
+import qualified Data.Map as M
 
 --------------------------------------------------
 
@@ -32,18 +33,22 @@ instance (Typeable a, Typeable b) => Data (Gr a b) where
 
 --------------------------------------------------
 
+type NameMap = M.Map String String
+
 data Analysis a = Analysis
   { prevAnnotation :: a -- ^ original annotation
   , uniqueName     :: Maybe String -- ^ unique name for function/variable, after variable renaming phase
   , bBlocks        :: Maybe (BBGr (Analysis a)) -- ^ basic block graph
   , insLabel       :: Maybe Int -- ^ unique number for each block during dataflow analysis
+  , moduleNameMap  :: Maybe NameMap
   }
   deriving (Data, Show, Eq)
 
 analysis0 a = Analysis { prevAnnotation = a
                        , uniqueName     = Nothing
                        , bBlocks        = Nothing
-                       , insLabel       = Nothing }
+                       , insLabel       = Nothing
+                       , moduleNameMap  = Nothing }
 
 -- | Create analysis annotations for the program, saving the original
 -- annotations.
