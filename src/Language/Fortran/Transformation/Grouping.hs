@@ -234,9 +234,9 @@ decomposeCase blocks@(BlStatement _ _ _ st:rest) mTargetName =
 collectNonCaseBlocks :: [ Block a ] -> ([ Block a ], [ Block a ])
 collectNonCaseBlocks blocks =
   case blocks of
-    BlStatement _ _ _ st:_
+    b@(BlStatement _ _ _ st):_
       | StCase{} <- st -> ( [], blocks )
-      | StEndcase{} <- st -> ( [], blocks )
+      | StEndcase{} <- st -> ( [ b ], blocks )
     -- In this case case block is malformed and the file ends prematurely.
     b:bs -> let (bs', rest) = collectNonCaseBlocks bs in (b : bs', rest)
     _ -> error "Premature file ending while parsing select case block."
