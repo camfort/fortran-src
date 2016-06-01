@@ -226,6 +226,10 @@ tokens :-
 <0,scI> "inquire"                                 { addSpan TInquire }
 <0,scI> "end"\ *"file"                            { addSpan TEndfile }
 
+-- Format
+<0> "format"                                      { addSpan TFormat }
+<scN> "(".*")" / { formatP }                      { addSpanAndMatch TBlob }
+
 -- Literals
 <0> @label                                        { toSC 0 >> addSpanAndMatch TIntegerLiteral }
 <scN,scI> @intLiteralConst                        { addSpanAndMatch TIntegerLiteral  }
@@ -265,6 +269,11 @@ tokens :-
 --------------------------------------------------------------------------------
 -- Predicated lexer helpers
 --------------------------------------------------------------------------------
+
+formatP :: User -> AlexInput -> Int -> AlexInput -> Bool
+formatP _ _ _ ai
+  | Just TFormat{} <- aiPreviousToken ai = True
+  | otherwise = False
 
 bozP :: User -> AlexInput -> Int -> AlexInput -> Bool
 bozP _ _ _ ai = not (null previousTokens) &&
@@ -1010,6 +1019,8 @@ data Token =
   | TImplicit           SrcSpan
   | TEquivalence        SrcSpan
   | TCommon             SrcSpan
+  | TFormat             SrcSpan
+  | TBlob               SrcSpan String
   | TAllocate           SrcSpan
   | TDeallocate         SrcSpan
   | TNullify            SrcSpan

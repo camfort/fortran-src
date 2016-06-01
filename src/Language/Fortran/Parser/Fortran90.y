@@ -159,6 +159,8 @@ import Debug.Trace
   rewind                      { TRewind _ }
   inquire                     { TInquire _ }
   endfile                     { TEndfile _ }
+  format                      { TFormat _ }
+  blob                        { TBlob _ _ }
   end                         { TEnd _ }
   newline                     { TNewline _ }
 
@@ -405,6 +407,10 @@ NONEXECUTABLE_STATEMENT :: { Statement A0 }
 | endType id
   { let TId span id = $2 in StEndType () (getTransSpan $1 span) (Just id) }
 | include STRING { StInclude () (getTransSpan $1 $2) $2 }
+-- Following is a fake node to make arbitrary FORMAT statements parsable.
+-- Must be fixed in the future. TODO
+| format blob
+  { let TBlob s blob = $2 in StFormatBogus () (getTransSpan $1 s) blob }
 
 EXECUTABLE_STATEMENT :: { Statement A0 }
 : allocate '(' DATA_REFS ')'

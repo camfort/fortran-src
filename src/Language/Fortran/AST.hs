@@ -193,6 +193,9 @@ data Statement a  =
   | StType                a SrcSpan (Maybe (AList Attribute a)) String
   | StEndType             a SrcSpan (Maybe String)
   | StSequence            a SrcSpan
+  -- Following is a temporary solution to a complicated FORMAT statement
+  -- parsing problem.
+  | StFormatBogus         a SrcSpan String
   deriving (Eq, Show, Data, Typeable, Generic, Functor)
 
 data Use a =
