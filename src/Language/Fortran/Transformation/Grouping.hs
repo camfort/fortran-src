@@ -7,6 +7,8 @@ module Language.Fortran.Transformation.Grouping ( groupIf
 import Language.Fortran.AST
 import Language.Fortran.Transformation.TransformMonad
 
+import Debug.Trace
+
 genericGroup :: ([ Block a ] -> [ Block a ]) -> Transform a ()
 genericGroup groupingFunction = do
     ProgramFile pus e <- getProgramFile
@@ -214,13 +216,14 @@ decomposeCase :: [ Block a ] -> Maybe String -> ([ Maybe (AList Index a) ], [ [ 
 decomposeCase blocks@(BlStatement _ _ _ st:rest) mTargetName =
     case st of
       StCase _ _ mName mCondition
+        | Nothing <- mName -> go mCondition rest
         | mName == mTargetName -> go mCondition rest
         | otherwise -> error $ "Case name does not match that of " ++
-                                 "the corresponding end case statement."
+                                 "the corresponding select case statement."
       StEndcase _ _ mName
         | mName == mTargetName -> ([], [], rest)
-        | otherwise -> error $ "Select case name does not match that of " ++
-                                 "the corresponding end case statement."
+        | otherwise -> error $ "End case name does not match that of " ++
+                                 "the corresponding select case statement."
       _ -> error "Block with non-case related statement. Must not occur."
   where
     go mCondition blocks =
