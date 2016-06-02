@@ -48,6 +48,7 @@ main = do
     let Just parserF = lookup version parserVersions
     let outfmt = outputFormat opts
 
+    let runInfer = infer . analyseRenames . initAnalysis
     let runRenamer = snd . renameAndStrip . analyseRenames . initAnalysis
     let runBBlocks pf = showBBlocks pf' ++ "\n\n" ++ showDataFlow pf'
           where pf' = analyseBBlocks (initAnalysis pf)
@@ -64,7 +65,7 @@ main = do
         print $ FreeForm.collectFreeTokens version contents
       Lex        -> ioError $ userError $ usageInfo programName options
       Parse      -> pp $ parserF contents path
-      Typecheck  -> printTypes . inferTypes $ parserF contents path
+      Typecheck  -> printTypes . snd . runInfer $ parserF contents path
       Rename     -> pp . runRenamer $ parserF contents path
       BBlocks    -> putStrLn . runBBlocks $ parserF contents path
       SuperGraph -> putStrLn . runSuperGraph $ parserF contents path
@@ -102,11 +103,10 @@ superGraphDataFlow pf sgr = dfStr gr
    rd = reachingDefinitions dm
    cm = genCallMap pf
 
-
-printTypes tenv = forM_ (M.toList tenv) $ \ (scope, tmap) -> do
-  putStrLn $ "Scope: " ++ (case scope of Global -> "Global"; Local n -> show n)
-  forM_ (M.toList tmap) $ \ (name, IDType { idVType = vt, idCType = ct }) ->
-    printf "%s\t\t%s %s\n" name (drop 2 $ maybe "  -" show vt) (drop 2 $ maybe "   " show ct)
+printTypes :: TypeEnv -> IO ()
+printTypes tenv = do
+  forM_ (M.toList tenv) $ \ (name, IDType { idVType = vt, idCType = ct }) ->
+    printf "%s\t\t%s %s\n" name (drop 4 $ maybe "  -" show vt) (drop 2 $ maybe "   " show ct)
 
 data Action = Lex | Parse | Typecheck | Rename | BBlocks | SuperGraph
 

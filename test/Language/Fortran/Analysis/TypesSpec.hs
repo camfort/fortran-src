@@ -6,44 +6,50 @@ import TestUtil
 import Data.Map ((!))
 
 import Language.Fortran.Analysis
+import Data.Data
 import Language.Fortran.AST
 import Language.Fortran.Analysis.Types
+import Language.Fortran.Analysis.Renaming
+import Language.Fortran.Analysis
 
 import Debug.Trace
+
+inferTable :: Data a => ProgramFile a -> TypeEnv
+inferTable = underRenaming (snd . infer)
 
 spec :: Spec
 spec = do
   describe "Global type inference" $ do
     it "types integer returning function" $ do
-      let entry = inferTypes ex1 ! Global ! "f1"
+      let entry = inferTable ex1 ! "f1"
       entry `shouldBe` IDType (Just TypeInteger) (Just CTFunction)
 
     it "types multiples program units" $ do
-      let mapping = inferTypes ex2 ! Global
+      let mapping = inferTable ex2
       mapping ! "f1" `shouldBe` IDType (Just TypeInteger) (Just CTFunction)
       mapping ! "s1" `shouldBe` IDType Nothing (Just CTSubroutine)
 
     it "types ENTRY points within subprograms" $ do
-      let mapping = inferTypes ex3 ! Global
+      let mapping = inferTable ex3
       mapping ! "e1" `shouldBe` IDType Nothing (Just CTSubroutine)
       mapping ! "e2" `shouldBe` IDType Nothing (Just CTSubroutine)
       mapping ! "e3" `shouldBe` IDType Nothing (Just CTSubroutine)
 
   describe "Local type inference" $ do
     it "infers from type declarations" $ do
-      let mapping = inferTypes ex4 ! Local NamelessMain
+      let mapping = inferTable ex4
       mapping ! "x" `shouldBe` IDType (Just TypeInteger) Nothing
       mapping ! "y" `shouldBe` IDType (Just TypeInteger) (Just CTArray)
       mapping ! "c" `shouldBe` IDType (Just TypeCharacter) Nothing
       mapping ! "log" `shouldBe` IDType (Just TypeLogical) Nothing
 
     it "infers from dimension declarations" $ do
-      let mapping = inferTypes ex5 ! (Local $ Named "bd")
+      let mapping = inferTable ex5
       mapping ! "x" `shouldBe` IDType Nothing (Just CTArray)
       mapping ! "y" `shouldBe` IDType Nothing (Just CTArray)
 
     it "infers from function statements" $ do
-      let mapping = inferTypes ex6 ! (Local $ Named "main")
+      let mapping = inferTable ex6
       mapping ! "a" `shouldBe` IDType (Just TypeInteger) (Just CTArray)
       mapping ! "b" `shouldBe` IDType (Just TypeInteger) (Just CTArray)
       mapping ! "c" `shouldBe` IDType (Just TypeInteger) (Just CTFunction)
@@ -109,3 +115,15 @@ ex6pu1bs =
       (ExpSubscript () u (varGen "c") (fromList () [ ixSinGen 1 ])) (intGen 1))
   , BlStatement () u Nothing (StExpressionAssign () u
       (ExpSubscript () u (varGen "d") (fromList () [ ixSinGen 1 ])) (intGen 1)) ]
+
+ex11 = ProgramFile [ ([ ], ex11pu1) ] [ ]
+ex11pu1 = PUFunction () u (Just (TypeSpec () u TypeInteger Nothing)) False "f1" Nothing (Just (varGen "r1")) ex11pu1bs Nothing
+ex11pu1bs =
+  [ BlStatement () u Nothing (StEntry () u (ExpValue () u (ValVariable "e1")) Nothing Nothing)
+  , BlStatement () u Nothing (StEntry () u (ExpValue () u (ValVariable "e2")) Nothing Nothing)
+  , BlStatement () u Nothing (StEntry () u (ExpValue () u (ValVariable "e3")) Nothing (Just (varGen "r2"))) ]
+
+-- Local variables:
+-- mode: haskell
+-- haskell-program-name: "cabal repl test-suite:spec"
+-- End:
