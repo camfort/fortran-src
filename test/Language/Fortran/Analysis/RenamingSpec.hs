@@ -52,7 +52,10 @@ spec = do
       countUnrenamed (analyseRenames . initAnalysis $ ex6) `shouldBe` 0
     it "complete ex7" $ do
       countUnrenamed (analyseRenames . initAnalysis $ ex7) `shouldBe` 0
-
+    it "complete ex8" $ do
+      countUnrenamed (analyseRenames . initAnalysis $ ex8) `shouldBe` 0
+    it "complete ex9" $ do
+      countUnrenamed (analyseRenames . initAnalysis $ ex9) `shouldBe` 0
     it "complete ex10" $ do
       countUnrenamed (analyseRenames . initAnalysis $ ex10) `shouldBe` 0
     it "complete ex11" $ do

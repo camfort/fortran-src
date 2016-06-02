@@ -117,6 +117,7 @@ underRenaming f pf = tryUnrename `descendBi` f pf'
 
 programUnit :: Data a => RenamerFunc (ProgramUnit (Analysis a))
 programUnit (PUModule a s name blocks m_contains) = do
+  addToEnv name name
   env0        <- initialEnv blocks
   pushScope name env0
   blocks'     <- mapM renameDeclDecls blocks -- handle declarations
