@@ -53,6 +53,11 @@ spec = do
     it "complete ex7" $ do
       countUnrenamed (analyseRenames . initAnalysis $ ex7) `shouldBe` 0
 
+    it "complete ex10" $ do
+      countUnrenamed (analyseRenames . initAnalysis $ ex10) `shouldBe` 0
+    it "complete ex11" $ do
+      countUnrenamed (analyseRenames . initAnalysis $ ex11) `shouldBe` 0
+
     it "functions 1" $ do
       let entry = extractNameMap' ex3
       length (filter (=="f1") (elems entry)) `shouldBe'` 1
@@ -250,6 +255,20 @@ ex9 = resetSrcSpan . flip fortran90Parser "" $ unlines [
   , "  end subroutine s"
   , "end module m1"
   ]
+
+ex10 = ProgramFile [ ([ ], ex10pu1) ] [ ]
+ex10pu1 = PUSubroutine () u False "s1" Nothing ex10pu1bs Nothing
+ex10pu1bs =
+  [ BlStatement () u Nothing (StEntry () u (ExpValue () u (ValVariable "e1")) Nothing Nothing)
+  , BlStatement () u Nothing (StEntry () u (ExpValue () u (ValVariable "e2")) Nothing Nothing)
+  , BlStatement () u Nothing (StEntry () u (ExpValue () u (ValVariable "e3")) Nothing Nothing) ]
+
+ex11 = ProgramFile [ ([ ], ex11pu1) ] [ ]
+ex11pu1 = PUFunction () u (Just (TypeSpec () u TypeInteger Nothing)) False "f1" Nothing (Just (varGen "r1")) ex11pu1bs Nothing
+ex11pu1bs =
+  [ BlStatement () u Nothing (StEntry () u (ExpValue () u (ValVariable "e1")) Nothing Nothing)
+  , BlStatement () u Nothing (StEntry () u (ExpValue () u (ValVariable "e2")) Nothing Nothing)
+  , BlStatement () u Nothing (StEntry () u (ExpValue () u (ValVariable "e3")) Nothing (Just (varGen "r2"))) ]
 
 -- Local variables:
 -- mode: haskell

@@ -28,8 +28,6 @@ import Data.Generics.Uniplate.Operations
 import Data.Data
 import Data.Tuple
 
-import Text.PrettyPrint.GenericPretty
-
 --------------------------------------------------
 
 type ModuleMap     = Map ProgramUnitName ModEnv
@@ -78,9 +76,8 @@ rename pf = (extractNameMap pf, trPU fPU (trE fE pf))
 extractNameMap :: Data a => ProgramFile (Analysis a) -> NameMap
 extractNameMap pf = eMap `union` puMap
   where
-    eMap  = fromList [ (un, n) | ExpValue (Analysis { uniqueName = Just un }) _ (ValVariable n)   <- uniE pf ]
-    puMap = fromList [ (un, n) | PUFunction (Analysis { uniqueName = Just un }) _ _ _ n _ _ _ _   <- uniPU pf ]
-
+    eMap  = fromList [ (un, n) | ExpValue (Analysis { uniqueName = Just un }) _ (ValVariable n) <- uniE pf ]
+    puMap = fromList [ (un, n) | pu <- uniPU pf, Named un <- [puName pu], Named n <- [getName pu], n /= un ]
     uniE :: Data a => ProgramFile a -> [Expression a]
     uniE = universeBi
     uniPU :: Data a => ProgramFile a -> [ProgramUnit a]
@@ -131,27 +128,30 @@ programUnit (PUModule a s name blocks m_contains) = do
   return (PUModule a' s name blocks' m_contains')
 
 programUnit (PUFunction a s ty rec name args res blocks m_contains) = do
-  res'        <- mapM renameGenericDecls res  -- rename the result variable if needed
-  name'       <- addUnique name               -- add unique function name to outer environment
-  env0        <- initialEnv blocks
+  name'       <- addUnique name                   -- add unique function name to outer environment
+  blocks1     <- mapM renameEntryPointDecl blocks -- rename any entry points
+  env0        <- initialEnv blocks1
   pushScope name env0
+  blocks2     <- mapM renameEntryPointResultDecl blocks1 -- rename the result
+  res'        <- mapM renameGenericDecls res             -- variable(s) if needed
   args'       <- mapM renameGenericDecls args -- rename arguments
-  blocks'     <- mapM renameDeclDecls blocks  -- handle declarations
+  blocks3     <- mapM renameDeclDecls blocks2 -- handle declarations
   m_contains' <- renameSubPUs m_contains      -- handle contained program units
-  blocks''    <- mapM renameBlock blocks'     -- process all uses of variables
+  blocks4     <- mapM renameBlock blocks3     -- process all uses of variables
   popScope
-  return . setUniqueName name' $ PUFunction a s ty rec name args' res' blocks'' m_contains'
+  return . setUniqueName name' $ PUFunction a s ty rec name args' res' blocks4 m_contains'
 
 programUnit (PUSubroutine a s rec name args blocks m_contains) = do
-  name'       <- addUnique name               -- add unique subroutine name to outer environment
-  env0        <- initialEnv blocks
+  name'       <- addUnique name                   -- add unique subroutine name to outer environment
+  blocks1     <- mapM renameEntryPointDecl blocks -- rename any entry points
+  env0        <- initialEnv blocks1
   pushScope name env0
   args'       <- mapM renameGenericDecls args -- rename arguments
-  blocks'     <- mapM renameDeclDecls blocks  -- handle declarations
+  blocks2     <- mapM renameDeclDecls blocks1 -- handle declarations
   m_contains' <- renameSubPUs m_contains      -- handle contained program units
-  blocks''    <- mapM renameBlock blocks'     -- process all uses of variables
+  blocks3     <- mapM renameBlock blocks2     -- process all uses of variables
   popScope
-  return . setUniqueName name' $ PUSubroutine a s rec name args' blocks'' m_contains'
+  return . setUniqueName name' $ PUSubroutine a s rec name args' blocks3 m_contains'
 
 programUnit (PUMain a s n blocks m_contains) = do
   env0        <- initialEnv blocks
@@ -310,6 +310,23 @@ renameDeclDecls = trans declarator
   where
     trans :: (Data a, Data (f (Analysis a))) => RenamerFunc (Declarator (Analysis a)) -> RenamerFunc (f (Analysis a))
     trans = transformBiM
+
+-- Find all entry points within a block and then rename them, assuming
+-- they might possibly need the creation of new unique mappings.
+renameEntryPointDecl :: Data a => RenamerFunc (Block (Analysis a))
+renameEntryPointDecl (BlStatement a s l (StEntry a' s' v mArgs mRes)) = do
+  v' <- renameExpDecl v
+  return (BlStatement a s l (StEntry a' s' v' mArgs mRes))
+renameEntryPointDecl b = return b
+
+-- Find all entry points within a block and then rename their result
+-- variables, if applicable, assuming they might possibly need the
+-- creation of new unique mappings.
+renameEntryPointResultDecl :: Data a => RenamerFunc (Block (Analysis a))
+renameEntryPointResultDecl (BlStatement a s l (StEntry a' s' v mArgs (Just res))) = do
+  res' <- renameExpDecl res
+  return (BlStatement a s l (StEntry a' s' v mArgs (Just res')))
+renameEntryPointResultDecl b = return b
 
 ----------
 -- Do not generate new unique mappings, instead look in outer scopes:
