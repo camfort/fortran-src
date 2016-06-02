@@ -32,13 +32,13 @@ import Text.PrettyPrint.GenericPretty
 
 --------------------------------------------------
 
-type ModuleMap     = Map ProgramUnitName Env
+type ModuleMap     = Map ProgramUnitName ModEnv
 type NameMap       = Map String String
 
 type Renamer a     = State RenameState a -- the monad.
 data RenameState   = RenameState { scopeStack :: [String]
                                  , uniqNums   :: [Int]
-                                 , environ    :: [Env]
+                                 , environ    :: [ModEnv]
                                  , nameMap    :: NameMap
                                  , moduleMap  :: ModuleMap }
   deriving (Show, Eq)
@@ -205,7 +205,7 @@ isUseStatement _                                                                
 
 -- Generate an initial environment for a scope based upon any Use
 -- statements in the blocks.
-initialEnv :: Data a => [Block a] -> Renamer Env
+initialEnv :: Data a => [Block a] -> Renamer ModEnv
 initialEnv blocks = do
   -- FIXME: add "use only / renaming" declarations (requires change in
   -- NameMap because it would be possible for the same program object
@@ -226,7 +226,7 @@ getScopes :: Renamer String
 getScopes = gets (L.intercalate "_" . reverse . scopeStack)
 
 -- Push a scope onto the lexical stack.
-pushScope :: String -> Env -> Renamer ()
+pushScope :: String -> ModEnv -> Renamer ()
 pushScope name env0 = modify $ \ s -> s { scopeStack = name : scopeStack s
                                         , environ    = env0 : environ s }
 
@@ -238,15 +238,15 @@ popScope = modify $ \ s -> s { scopeStack = drop 1 $ scopeStack s
 
 -- Add an environment for a module to the table that keeps track of
 -- modules.
-addModEnv :: String -> Env -> Renamer ()
+addModEnv :: String -> ModEnv -> Renamer ()
 addModEnv name env = modify $ \ s -> s { moduleMap = insert (Named name) env (moduleMap s) }
 
 -- Get the current environment.
-getEnv :: Renamer Env
+getEnv :: Renamer ModEnv
 getEnv = gets (head . environ)
 
 -- Gets an environment composed of all nested environments.
-getEnvs :: Renamer Env
+getEnvs :: Renamer ModEnv
 getEnvs = M.unionsWith (curry fst) `fmap` gets environ
 
 -- Get a mapping from the current environment if it exists.

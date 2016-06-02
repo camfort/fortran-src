@@ -3,7 +3,8 @@
 -- |
 -- Common data structures and functions supporting analysis of the AST.
 module Language.Fortran.Analysis
-  ( initAnalysis, stripAnalysis, Analysis(..), Env, varName, genVar
+  ( initAnalysis, stripAnalysis, Analysis(..), varName, genVar
+  , ModEnv, IDType(..), ConstructType(..)
   , lhsExprs, isLExpr, allVars, allLhsVars, blockVarUses, blockVarDefs
   , BB, BBGr )
 where
@@ -33,14 +34,28 @@ instance (Typeable a, Typeable b) => Data (Gr a b) where
 
 --------------------------------------------------
 
-type Env           = M.Map String String
+type ModEnv = M.Map String String
+
+data ConstructType =
+    CTFunction
+  | CTSubroutine
+  | CTVariable
+  | CTArray
+  | CTParameter
+  deriving (Data, Show, Eq)
+
+data IDType = IDType
+  { idVType :: Maybe BaseType
+  , idCType :: Maybe ConstructType }
+  deriving (Data, Show, Eq)
 
 data Analysis a = Analysis
   { prevAnnotation :: a -- ^ original annotation
   , uniqueName     :: Maybe String -- ^ unique name for function/variable, after variable renaming phase
   , bBlocks        :: Maybe (BBGr (Analysis a)) -- ^ basic block graph
   , insLabel       :: Maybe Int -- ^ unique number for each block during dataflow analysis
-  , moduleEnv      :: Maybe Env
+  , moduleEnv      :: Maybe ModEnv
+  , idType         :: Maybe IDType
   }
   deriving (Data, Show, Eq)
 
@@ -48,7 +63,8 @@ analysis0 a = Analysis { prevAnnotation = a
                        , uniqueName     = Nothing
                        , bBlocks        = Nothing
                        , insLabel       = Nothing
-                       , moduleEnv      = Nothing }
+                       , moduleEnv      = Nothing
+                       , idType         = Nothing }
 
 -- | Obtain either uniqueName or source name from an ExpValue variable.
 varName (ExpValue (Analysis { uniqueName = Just n }) _ (ValVariable {})) = n

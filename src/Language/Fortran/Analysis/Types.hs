@@ -13,6 +13,7 @@ import Control.Monad.State.Lazy
 import Data.Generics.Uniplate.Data
 import Data.Generics.Uniplate.Operations
 import Data.Data
+import Language.Fortran.Analysis
 
 import Debug.Trace
 
