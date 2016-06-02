@@ -3,12 +3,13 @@
 -- |
 -- Common data structures and functions supporting analysis of the AST.
 module Language.Fortran.Analysis
-  ( initAnalysis, stripAnalysis, Analysis(..), varName, genVar
+  ( initAnalysis, stripAnalysis, Analysis(..), varName, genVar, puName
   , ModEnv, IDType(..), ConstructType(..)
   , lhsExprs, isLExpr, allVars, allLhsVars, blockVarUses, blockVarDefs
   , BB, BBGr )
 where
 
+import Language.Fortran.Util.Position (SrcSpan)
 import Data.Generics.Uniplate.Data
 import Data.Generics.Uniplate.Operations
 import Data.Data
@@ -67,12 +68,20 @@ analysis0 a = Analysis { prevAnnotation = a
                        , idType         = Nothing }
 
 -- | Obtain either uniqueName or source name from an ExpValue variable.
+varName :: Expression (Analysis a) -> String
 varName (ExpValue (Analysis { uniqueName = Just n }) _ (ValVariable {})) = n
 varName (ExpValue (Analysis { uniqueName = Nothing }) _ (ValVariable n)) = n
 varName _ = error "Use of varName on non-variable."
 
 -- | Generate an ExpValue variable with its source name == to its uniqueName.
+genVar :: Analysis a -> SrcSpan -> String -> Expression (Analysis a)
 genVar a s n = ExpValue (a { uniqueName = Just n }) s (ValVariable n)
+
+-- | Obtain either uniqueName or source program unit name.
+puName :: ProgramUnit (Analysis a) -> ProgramUnitName
+puName pu
+  | Just n <- uniqueName (getAnnotation pu) = Named n
+  | otherwise                               = getName pu
 
 -- | Create analysis annotations for the program, saving the original
 -- annotations.
