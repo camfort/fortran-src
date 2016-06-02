@@ -124,9 +124,11 @@ programUnit (PUModule a s name blocks m_contains) = do
   pushScope name env0
   blocks'     <- mapM renameDeclDecls blocks -- handle declarations
   m_contains' <- renameSubPUs m_contains     -- handle contained program units
-  getEnv >>= addModEnv name                  -- create the module environment
+  env         <- getEnv
+  addModEnv name env                         -- save the module environment
+  let a'      = a { moduleEnv = Just env }   -- also annotate it on the module
   popScope
-  return (PUModule a s name blocks' m_contains')
+  return (PUModule a' s name blocks' m_contains')
 
 programUnit (PUFunction a s ty rec name args res blocks m_contains) = do
   res'        <- mapM renameGenericDecls res  -- rename the result variable if needed
