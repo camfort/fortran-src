@@ -282,11 +282,15 @@ BLOCK :: { Block A0 }
 : INTEGER_LITERAL STATEMENT MAYBE_COMMENT NEWLINE
   { BlStatement () (getTransSpan $1 $2) (Just $1) $2 }
 | STATEMENT MAYBE_COMMENT NEWLINE { BlStatement () (getSpan $1) Nothing $1 }
-| interface EXPRESSION NEWLINE SUBPROGRAM_UNITS2 MODULE_PROCEDURES endInterface NEWLINE
+| interface MAYBE_EXPRESSION NEWLINE SUBPROGRAM_UNITS2 MODULE_PROCEDURES endInterface NEWLINE
   { BlInterface () (getTransSpan $1 $7) $2 $4 $5 }
-| interface EXPRESSION NEWLINE MODULE_PROCEDURES endInterface NEWLINE
+| interface MAYBE_EXPRESSION NEWLINE MODULE_PROCEDURES endInterface NEWLINE
   { BlInterface () (getTransSpan $1 $6) $2 [ ] $4 }
 | COMMENT_BLOCK { $1 }
+
+MAYBE_EXPRESSION :: { Maybe (Expression A0) }
+: EXPRESSION { Just $1 }
+| {- EMPTY -} { Nothing }
 
 MAYBE_COMMENT :: { Maybe Token }
 : comment { Just $1 }
@@ -563,20 +567,20 @@ UNIT :: { Expression A0 }
 | '*' { ExpValue () (getSpan $1) ValStar }
 
 CILIST :: { AList ControlPair A0 }
-: '(' UNIT ',' FORMAT_ID ',' CILIST_PAIRS ')'
+: '(' CI_EXPRESSION ',' FORMAT_ID ',' CILIST_PAIRS ')'
   { let { cp1 = ControlPair () (getSpan $2) Nothing $2;
           cp2 = ControlPair () (getSpan $4) Nothing $4;
           tail = fromReverseList $6 }
     in setSpan (getTransSpan $1 $7) $ cp1 `aCons` cp2 `aCons` tail }
-| '(' UNIT ',' FORMAT_ID ')'
+| '(' CI_EXPRESSION ',' FORMAT_ID ')'
   { let { cp1 = ControlPair () (getSpan $2) Nothing $2;
           cp2 = ControlPair () (getSpan $4) Nothing $4 }
     in AList () (getTransSpan $1 $5) [ cp1,  cp2 ] }
-| '(' UNIT ',' CILIST_PAIRS ')'
+| '(' CI_EXPRESSION ',' CILIST_PAIRS ')'
   { let { cp1 = ControlPair () (getSpan $2) Nothing $2;
           tail = fromReverseList $4 }
     in setSpan (getTransSpan $1 $5) $ cp1 `aCons` tail }
-| '(' UNIT ')'
+| '(' CI_EXPRESSION ')'
   { let cp1 = ControlPair () (getSpan $2) Nothing $2
     in AList () (getTransSpan $1 $3) [ cp1 ] }
 | '(' CILIST_PAIRS ')' { fromReverseList $2 }
