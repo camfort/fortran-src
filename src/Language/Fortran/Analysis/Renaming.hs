@@ -32,9 +32,8 @@ import Text.PrettyPrint.GenericPretty
 
 --------------------------------------------------
 
-type NameMap       = Map String String
-type Env           = Map String String
 type ModuleMap     = Map ProgramUnitName Env
+type NameMap       = Map String String
 
 type Renamer a     = State RenameState a -- the monad.
 data RenameState   = RenameState { scopeStack :: [String]

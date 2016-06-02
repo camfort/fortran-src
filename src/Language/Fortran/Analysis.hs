@@ -3,7 +3,7 @@
 -- |
 -- Common data structures and functions supporting analysis of the AST.
 module Language.Fortran.Analysis
-  ( initAnalysis, stripAnalysis, Analysis(..)
+  ( initAnalysis, stripAnalysis, Analysis(..), Env
   , lhsExprs, isLExpr, allVars, allLhsVars, blockVarUses, blockVarDefs
   , BB, BBGr )
 where
@@ -33,14 +33,14 @@ instance (Typeable a, Typeable b) => Data (Gr a b) where
 
 --------------------------------------------------
 
-type NameMap = M.Map String String
+type Env           = M.Map String String
 
 data Analysis a = Analysis
   { prevAnnotation :: a -- ^ original annotation
   , uniqueName     :: Maybe String -- ^ unique name for function/variable, after variable renaming phase
   , bBlocks        :: Maybe (BBGr (Analysis a)) -- ^ basic block graph
   , insLabel       :: Maybe Int -- ^ unique number for each block during dataflow analysis
-  , moduleNameMap  :: Maybe NameMap
+  , moduleNameMap  :: Maybe Env
   }
   deriving (Data, Show, Eq)
 
