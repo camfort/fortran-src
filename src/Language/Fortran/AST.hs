@@ -116,7 +116,7 @@ data Block a =
   | BlCase a SrcSpan (Maybe (Expression a)) (Expression a) [ Maybe (AList Index a) ] [ [ Block a ] ]
   | BlDo a SrcSpan (Maybe (Expression a)) (Maybe (DoSpecification a)) [ Block a ]
   | BlDoWhile a SrcSpan (Maybe (Expression a)) (Expression a) [ Block a ]
-  | BlInterface a SrcSpan (Expression a) [ ProgramUnit a ] [ Block a ]
+  | BlInterface a SrcSpan (Maybe (Expression a)) [ ProgramUnit a ] [ Block a ]
   | BlComment a SrcSpan String
   deriving (Eq, Show, Data, Typeable, Generic, Functor)
 

@@ -282,11 +282,15 @@ BLOCK :: { Block A0 }
 : INTEGER_LITERAL STATEMENT MAYBE_COMMENT NEWLINE
   { BlStatement () (getTransSpan $1 $2) (Just $1) $2 }
 | STATEMENT MAYBE_COMMENT NEWLINE { BlStatement () (getSpan $1) Nothing $1 }
-| interface EXPRESSION NEWLINE SUBPROGRAM_UNITS2 MODULE_PROCEDURES endInterface NEWLINE
+| interface MAYBE_EXPRESSION NEWLINE SUBPROGRAM_UNITS2 MODULE_PROCEDURES endInterface NEWLINE
   { BlInterface () (getTransSpan $1 $7) $2 $4 $5 }
-| interface EXPRESSION NEWLINE MODULE_PROCEDURES endInterface NEWLINE
+| interface MAYBE_EXPRESSION NEWLINE MODULE_PROCEDURES endInterface NEWLINE
   { BlInterface () (getTransSpan $1 $6) $2 [ ] $4 }
 | COMMENT_BLOCK { $1 }
+
+MAYBE_EXPRESSION :: { Maybe (Expression A0) }
+: EXPRESSION { Just $1 }
+| {- EMPTY -} { Nothing }
 
 MAYBE_COMMENT :: { Maybe Token }
 : comment { Just $1 }
