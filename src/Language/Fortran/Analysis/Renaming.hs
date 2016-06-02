@@ -137,7 +137,7 @@ programUnit (PUFunction a s ty rec name args res blocks m_contains) = do
   args'       <- mapM renameGenericDecls args -- rename arguments
   blocks'     <- mapM renameDeclDecls blocks  -- handle declarations
   m_contains' <- renameSubPUs m_contains      -- handle contained program units
-  blocks''    <- renameBlocks blocks'         -- process all uses of variables
+  blocks''    <- mapM renameBlock blocks'     -- process all uses of variables
   popScope
   return . setUniqueName name' $ PUFunction a s ty rec name args' res' blocks'' m_contains'
 
@@ -148,7 +148,7 @@ programUnit (PUSubroutine a s rec name args blocks m_contains) = do
   args'       <- mapM renameGenericDecls args -- rename arguments
   blocks'     <- mapM renameDeclDecls blocks  -- handle declarations
   m_contains' <- renameSubPUs m_contains      -- handle contained program units
-  blocks''    <- renameBlocks blocks'         -- process all uses of variables
+  blocks''    <- mapM renameBlock blocks'     -- process all uses of variables
   popScope
   return . setUniqueName name' $ PUSubroutine a s rec name args' blocks'' m_contains'
 
@@ -157,7 +157,7 @@ programUnit (PUMain a s n blocks m_contains) = do
   pushScope (fromMaybe "_main" n) env0        -- assume default program name is "_main"
   blocks'     <- mapM renameDeclDecls blocks  -- handle declarations
   m_contains' <- renameSubPUs m_contains      -- handle contained program units
-  blocks''    <- renameBlocks blocks'         -- process all uses of variables
+  blocks''    <- mapM renameBlock blocks'     -- process all uses of variables
   popScope
   return (PUMain a s n blocks'' m_contains')
 
@@ -235,7 +235,8 @@ popScope = modify $ \ s -> s { scopeStack = drop 1 $ scopeStack s
                              , environ    = drop 1 $ environ s }
 
 
--- Add an environment for a module to the table that keeps track of modules.
+-- Add an environment for a module to the table that keeps track of
+-- modules.
 addModEnv :: String -> Env -> Renamer ()
 addModEnv name env = modify $ \ s -> s { moduleMap = insert (Named name) env (moduleMap s) }
 
@@ -271,6 +272,19 @@ addUnique v = do
 maybeAddUnique :: RenamerFunc String
 maybeAddUnique v = maybe (addUnique v) return =<< getFromEnv v
 
+-- If uniqueName property is not set, then set it.
+setUniqueName :: (Annotated f, Data a) => String -> f (Analysis a) -> f (Analysis a)
+setUniqueName un x
+  | a@(Analysis { uniqueName = Nothing }) <- getAnnotation x = setAnnotation (a { uniqueName = Just un }) x
+  | otherwise                                              = x
+
+-- Work recursively into sub-program units.
+renameSubPUs :: Data a => RenamerFunc (Maybe [ProgramUnit (Analysis a)])
+renameSubPUs = maybe (return Nothing) ((Just `fmap`) . mapM programUnit)
+
+----------
+-- rename*Decl[s] functions: possibly generate new unique mappings:
+
 -- Rename any ExpValue variables within a given value by assuming that
 -- they are declarations and that they possibly require the creation
 -- of new unique mappings.
@@ -287,23 +301,6 @@ renameExpDecl :: Data a => RenamerFunc (Expression (Analysis a))
 renameExpDecl e@(ExpValue _ _ (ValVariable _ v)) = flip setUniqueName e `fmap` maybeAddUnique v
 renameExpDecl e                                  = return e
 
--- Rename an ExpValue variable assuming that it is to be treated as a
--- references to a previous declaration, possibly in an outer scope.
-renameExp :: Data a => RenamerFunc (Expression (Analysis a))
-renameExp e@(ExpValue _ _ (ValVariable _ v)) = maybe e (flip setUniqueName e) `fmap` getFromEnvs v
-renameExp e                                  = return e
-
--- Rename all the declarations found inside of the block list, then
--- using those mappings, rename the non-declaration variables found in
--- expressions.
-renameBlocks :: Data a => RenamerFunc [Block (Analysis a)]
-renameBlocks = mapM ((transExpr expression =<<) . transDecl declarator)
-  where
-    transDecl :: Data a => RenamerFunc (Declarator a) -> RenamerFunc (Block a)
-    transDecl = transformBiM
-    transExpr :: Data a => RenamerFunc (Expression a) -> RenamerFunc (Block a)
-    transExpr = transformBiM
-
 -- Find all declarators within a value and then dive within those
 -- declarators to rename any ExpValue variables, assuming they might
 -- possibly need the creation of new unique mappings.
@@ -313,15 +310,23 @@ renameDeclDecls = trans declarator
     trans :: (Data a, Data (f (Analysis a))) => RenamerFunc (Declarator (Analysis a)) -> RenamerFunc (f (Analysis a))
     trans = transformBiM
 
--- Work recursively into sub-program units.
-renameSubPUs :: Data a => RenamerFunc (Maybe [ProgramUnit (Analysis a)])
-renameSubPUs = maybe (return Nothing) ((Just `fmap`) . mapM programUnit)
+----------
+-- Do not generate new unique mappings, instead look in outer scopes:
 
--- If uniqueName property is not set, then set it.
-setUniqueName :: (Annotated f, Data a) => String -> f (Analysis a) -> f (Analysis a)
-setUniqueName un x
-  | a@(Analysis { uniqueName = Nothing }) <- getAnnotation x = setAnnotation (a { uniqueName = Just un }) x
-  | otherwise                                              = x
+-- Rename an ExpValue variable, assuming that it is to be treated as a
+-- reference to a previous declaration, possibly in an outer scope.
+renameExp :: Data a => RenamerFunc (Expression (Analysis a))
+renameExp e@(ExpValue _ _ (ValVariable _ v)) = maybe e (flip setUniqueName e) `fmap` getFromEnvs v
+renameExp e                                  = return e
+
+-- Rename all ExpValue variables found within the block, assuming that
+-- they are to be treated as references to previous declarations,
+-- possibly in an outer scope.
+renameBlock :: Data a => RenamerFunc (Block (Analysis a))
+renameBlock = trans expression
+  where
+    trans :: Data a => RenamerFunc (Expression a) -> RenamerFunc (Block a)
+    trans = transformBiM -- search all expressions, bottom-up
 
 --------------------------------------------------
 
