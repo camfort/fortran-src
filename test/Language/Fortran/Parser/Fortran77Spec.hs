@@ -71,13 +71,13 @@ spec =
       pParser exampleProgram2 `shouldBe'` pu
 
     it "parses 'intrinsic cosh, sin'" $ do
-      let fun1 = ExpValue () u (ValVariable () "cosh")
-      let fun2 = ExpValue () u (ValVariable () "sin")
+      let fun1 = ExpValue () u (ValVariable "cosh")
+      let fun2 = ExpValue () u (ValVariable "sin")
       let st = StIntrinsic () u (AList () u [ fun1, fun2 ])
       sParser "      intrinsic cosh, sin" `shouldBe'` st
 
     it "parses 'intrinsic real" $ do
-      let fun = ExpValue () u (ValVariable () "real")
+      let fun = ExpValue () u (ValVariable "real")
       let st = StIntrinsic () u (AList () u [ fun ])
       sParser "      intrinsic real" `shouldBe'` st
 
@@ -177,7 +177,7 @@ spec =
       eParser ".true. .eqv. f(42) .neqv. x" `shouldBe'` exp
 
     it "parses 'entry me (a,b,*)'" $ do
-      let func = ExpValue () u (ValVariable () "me")
+      let func = ExpValue () u (ValVariable "me")
       let args = [ varGen "a", varGen "b", starVal ]
       let st = StEntry () u func (Just $ AList () u args) Nothing
       sParser "      entry me (a,b,*)" `shouldBe'` st

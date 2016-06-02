@@ -63,7 +63,7 @@ rename pf = (extractNameMap pf, trPU fPU (trE fE pf))
     trE :: Data a => (Expression a -> Expression a) -> ProgramFile a -> ProgramFile a
     trE = transformBi
     fE :: Data a => Expression (Analysis a) -> Expression (Analysis a)
-    fE (ExpValue a s (ValVariable a' v)) = ExpValue a s . ValVariable a' $ fromMaybe v (uniqueName a)
+    fE (ExpValue a s (ValVariable v)) = ExpValue a s . ValVariable $ fromMaybe v (uniqueName a)
     fE x                 = x
 
     trPU :: Data a => (ProgramUnit a -> ProgramUnit a) -> ProgramFile a -> ProgramFile a
@@ -78,7 +78,7 @@ rename pf = (extractNameMap pf, trPU fPU (trE fE pf))
 extractNameMap :: Data a => ProgramFile (Analysis a) -> NameMap
 extractNameMap pf = eMap `union` puMap
   where
-    eMap  = fromList [ (un, n) | ExpValue (Analysis { uniqueName = Just un }) _ (ValVariable _ n) <- uniE pf ]
+    eMap  = fromList [ (un, n) | ExpValue (Analysis { uniqueName = Just un }) _ (ValVariable n)   <- uniE pf ]
     puMap = fromList [ (un, n) | PUFunction (Analysis { uniqueName = Just un }) _ _ _ n _ _ _ _   <- uniPU pf ]
 
     uniE :: Data a => ProgramFile a -> [Expression a]
@@ -97,7 +97,7 @@ unrename (nm, pf) = trPU fPU . trV fV $ pf
     trV :: Data a => (Value a -> Value a) -> ProgramFile a -> ProgramFile a
     trV = transformBi
     fV :: Data a => Value a -> Value a
-    fV (ValVariable a v) = ValVariable a $ fromMaybe v (v `lookup` nm)
+    fV (ValVariable v) = ValVariable $ fromMaybe v (v `lookup` nm)
     fV x                 = x
 
     trPU :: Data a => (ProgramUnit a -> ProgramUnit a) -> ProgramFile a -> ProgramFile a
@@ -200,8 +200,8 @@ uniquify scope var = do
 isModule (PUModule {}) = True
 isModule _             = False
 
-isUseStatement (BlStatement _ _ _ (StUse _ _ (ExpValue _ _ (ValVariable _ _)) _)) = True
-isUseStatement _                                                                  = False
+isUseStatement (BlStatement _ _ _ (StUse _ _ (ExpValue _ _ (ValVariable _)) _)) = True
+isUseStatement _                                                                = False
 
 -- Generate an initial environment for a scope based upon any Use
 -- statements in the blocks.
@@ -213,7 +213,7 @@ initialEnv blocks = do
   -- program).
   let uses = takeWhile isUseStatement blocks
   fmap M.unions . forM uses $ \ use -> case use of
-    (BlStatement _ _ _ (StUse _ _ (ExpValue _ _ (ValVariable _ m)) Nothing)) -> do
+    (BlStatement _ _ _ (StUse _ _ (ExpValue _ _ (ValVariable m)) Nothing)) -> do
       mMap <- gets moduleMap
       return $ fromMaybe empty (Named m `lookup` mMap)
 
@@ -299,8 +299,8 @@ renameGenericDecls = trans renameExpDecl
 -- declaration that possibly requires the creation of a new unique
 -- mapping.
 renameExpDecl :: Data a => RenamerFunc (Expression (Analysis a))
-renameExpDecl e@(ExpValue _ _ (ValVariable _ v)) = flip setUniqueName e `fmap` maybeAddUnique v
-renameExpDecl e                                  = return e
+renameExpDecl e@(ExpValue _ _ (ValVariable v)) = flip setUniqueName e `fmap` maybeAddUnique v
+renameExpDecl e                                = return e
 
 -- Find all declarators within a value and then dive within those
 -- declarators to rename any ExpValue variables, assuming they might
@@ -317,8 +317,8 @@ renameDeclDecls = trans declarator
 -- Rename an ExpValue variable, assuming that it is to be treated as a
 -- reference to a previous declaration, possibly in an outer scope.
 renameExp :: Data a => RenamerFunc (Expression (Analysis a))
-renameExp e@(ExpValue _ _ (ValVariable _ v)) = maybe e (flip setUniqueName e) `fmap` getFromEnvs v
-renameExp e                                  = return e
+renameExp e@(ExpValue _ _ (ValVariable v)) = maybe e (flip setUniqueName e) `fmap` getFromEnvs v
+renameExp e                                = return e
 
 -- Rename all ExpValue variables found within the block, assuming that
 -- they are to be treated as references to previous declarations,

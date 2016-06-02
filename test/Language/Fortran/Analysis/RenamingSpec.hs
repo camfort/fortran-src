@@ -138,8 +138,8 @@ ex4pu1bs =
       [ DeclVariable () u (varGen "f1") Nothing Nothing
       , DeclVariable () u (varGen "r") Nothing Nothing ]))
   , BlStatement () u Nothing (StExpressionAssign () u
-      (ExpValue () u (ValVariable () "r"))
-      (ExpFunctionCall () u (ExpValue () u (ValVariable () "f1"))
+      (ExpValue () u (ValVariable "r"))
+      (ExpFunctionCall () u (ExpValue () u (ValVariable "f1"))
                             (Just $ AList () u [ Argument () u Nothing $ intGen 1 ]))) ]
 ex4pu2 = PUFunction () u (Just $ TypeSpec () u TypeInteger Nothing) False "f1" (Just $ AList () u [ varGen "x"]) Nothing [ BlStatement () u Nothing (StExpressionAssign () u (varGen "f1") (varGen "x")) ] Nothing
 
@@ -156,7 +156,7 @@ ex6pu1 = PUMain () u (Just "main") ex6pu1bs Nothing
 ex6pu1bs = []
 ex6pu2 = PUModule () u "ex6mod" ex6pu2bs (Just [ex6pu2pu1])
 ex6pu2bs = []
-ex6pu2pu1 = PUFunction () u (Just $ TypeSpec () u TypeInteger Nothing) False "f1" (Just $ AList () u [ varGen "x"]) Nothing [ BlStatement () u Nothing (StExpressionAssign () u (varGen "f1") (ExpFunctionCall () u (ExpValue () u (ValVariable () "f1")) (Just $ AList () u [Argument () u Nothing (varGen "x")]))) ] (Just [ex5pu2pu1])
+ex6pu2pu1 = PUFunction () u (Just $ TypeSpec () u TypeInteger Nothing) False "f1" (Just $ AList () u [ varGen "x"]) Nothing [ BlStatement () u Nothing (StExpressionAssign () u (varGen "f1") (ExpFunctionCall () u (ExpValue () u (ValVariable "f1")) (Just $ AList () u [Argument () u Nothing (varGen "x")]))) ] (Just [ex5pu2pu1])
 
 parseF90 = resetSrcSpan . flip fortran90Parser "" . unlines
 

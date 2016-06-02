@@ -25,15 +25,15 @@ spec =
         lhsExprs pf `shouldBe'` programAnal1LhsExprs
 
 programAnal1LhsExprs =
-  [ ExpSubscript () u (ExpValue () u (ValVariable () "a")) (AList () u [ ixSinGen 1 ])
-  , ExpSubscript () u (ExpValue () u (ValVariable () "a"))
+  [ ExpSubscript () u (ExpValue () u (ValVariable "a")) (AList () u [ ixSinGen 1 ])
+  , ExpSubscript () u (ExpValue () u (ValVariable "a"))
       (AList () u [ IxSingle () u Nothing $
                              ExpSubscript () u (varGen "a")
                                           (AList () u [ ixSinGen 2 ])])
-  , ExpValue () u (ValVariable () "f")
-  , ExpSubscript () u (ExpValue () u (ValVariable () "a")) (AList () u [ ixSinGen 4 ])
-  , ExpSubscript () u (ExpValue () u (ValVariable () "a")) (AList () u [ ixSinGen 6 ])
-  , ExpSubscript () u (ExpValue () u (ValVariable () "a")) (AList () u [ ixSinGen 5 ]) ]
+  , ExpValue () u (ValVariable "f")
+  , ExpSubscript () u (ExpValue () u (ValVariable "a")) (AList () u [ ixSinGen 4 ])
+  , ExpSubscript () u (ExpValue () u (ValVariable "a")) (AList () u [ ixSinGen 6 ])
+  , ExpSubscript () u (ExpValue () u (ValVariable "a")) (AList () u [ ixSinGen 5 ]) ]
 
 programAnal1 = unlines $ map (replicate 6 ' '++) [
       "program anal1"

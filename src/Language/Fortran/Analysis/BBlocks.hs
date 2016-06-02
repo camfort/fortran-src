@@ -86,7 +86,7 @@ insEntryEdges pu = insEdge (0, 1, ()) . insNode (0, bs)
 genInOutAssignments pu exit
   -- for now, designate return-value slot as a "ValVariable" without type-checking.
   | exit, PUFunction _ _ _ _ n _ _ _ _ <- pu =
-      zipWith genAssign (ExpValue a undefined (ValVariable a n):vs) [0..]
+      zipWith genAssign (genVar a noSrcSpan n:vs) [0..]
   | otherwise                          = zipWith genAssign vs [1..]
   where
     puName = getName pu
@@ -99,7 +99,7 @@ genInOutAssignments pu exit
       where
         (vl, vr) = if exit then (v', v) else (v, v')
         v'       = case v of
-          ExpValue a' s (ValVariable a _) -> ExpValue a' s (ValVariable a (name i))
+          ExpValue a' s (ValVariable _) -> genVar a' s (name i)
           _               -> error $ "unhandled genAssign case: " ++ show (fmap (const ()) v)
 
 -- Remove exit edges for bblocks where standard construction doesn't apply.
@@ -180,7 +180,7 @@ execBBlocker = flip execState bbs0
 --------------------------------------------------
 
 -- Handle a list of blocks (typically from ProgramUnit or nested inside a BlDo, BlIf, etc).
-processBlocks :: Data a => [Block a] -> BBlocker a (Node, Node)
+processBlocks :: Data a => [Block (Analysis a)] -> BBlocker (Analysis a) (Node, Node)
 -- precondition: curNode is not yet in the graph && will label the first block
 -- postcondition: final bblock is in the graph labeled as endN && curNode == endN
 -- returns start and end nodes for basic block graph corresponding to parameter bs
@@ -195,7 +195,7 @@ processBlocks bs = do
 --------------------------------------------------
 
 -- Handle an AST-block element
-perBlock :: Data a => Block a -> BBlocker a ()
+perBlock :: Data a => Block (Analysis a) -> BBlocker (Analysis a) ()
 -- invariant: curNode corresponds to curBB, and is not yet in the graph
 -- invariant: curBB is in reverse order
 perBlock b@(BlIf _ _ _ exps bss) = do
@@ -245,7 +245,7 @@ perBlock b@(BlStatement _ _ _ (StReturn {})) =
   processLabel b >> addToBBlock b >> closeBBlock_
 perBlock b@(BlStatement _ _ _ (StGotoUnconditional {})) =
   processLabel b >> addToBBlock b >> closeBBlock_
-perBlock b@(BlStatement a s l (StCall a' s' cn@(ExpValue _ _ (ValVariable _ n)) (Just aargs))) = do
+perBlock b@(BlStatement a s l (StCall a' s' cn@(ExpValue _ _ (ValVariable {})) (Just aargs))) = do
   let exps = map extractExp . aStrip $ aargs
   (prevN, formalN) <- closeBBlock
 
@@ -253,9 +253,9 @@ perBlock b@(BlStatement a s l (StCall a' s' cn@(ExpValue _ _ (ValVariable _ n)) 
   case l of
     Just (ExpValue _ _ (ValInteger l)) -> insertLabel l formalN -- label goes here, if present
     _                                -> return ()
-  let name i   = n ++ "[" ++ show i ++ "]"
-  let formal (ExpValue a s (ValVariable a' _)) i = ExpValue a s (ValVariable a' (name i))
-      formal e i                                 = ExpValue a s (ValVariable a (name i))
+  let name i   = varName cn ++ "[" ++ show i ++ "]"
+  let formal (ExpValue a s (ValVariable _)) i = ExpValue a s (ValVariable (name i))
+      formal e i                              = ExpValue a s (ValVariable (name i))
         where a = getAnnotation e; s = getSpan e
   forM_ (zip exps [1..]) $ \ (e, i) -> do
     e' <- processFunctionCalls e
@@ -288,7 +288,7 @@ perBlock b = do
 -- helper monadic combinators
 
 -- Do-block helper
-perDoBlock :: Data a => Maybe (Expression a) -> Block a -> [Block a] -> BBlocker a ()
+perDoBlock :: Data a => Maybe (Expression (Analysis a)) -> Block (Analysis a) -> [Block (Analysis a)] -> BBlocker (Analysis a) ()
 perDoBlock repeatExpr b bs = do
   (n, doN) <- closeBBlock
   case getLabel b of
@@ -363,28 +363,28 @@ stripNestedBlocks b                         = b
 -- Flatten out function calls within the expression, returning an
 -- expression that replaces the original expression (probably becoming
 -- a temporary variable).
-processFunctionCalls :: Data a => Expression a -> BBlocker a (Expression a)
+processFunctionCalls :: Data a => Expression (Analysis a) -> BBlocker (Analysis a) (Expression (Analysis a))
 processFunctionCalls = transformBiM processFunctionCall -- work bottom-up
 
 -- Flatten out a single function call.
-processFunctionCall :: Expression a -> BBlocker a (Expression a)
+processFunctionCall :: Expression (Analysis a) -> BBlocker (Analysis a) (Expression (Analysis a))
 -- precondition: there are no more nested function calls within the actual arguments
-processFunctionCall (ExpFunctionCall a s (ExpValue a' s' (ValVariable _ fn)) aargs) = do
+processFunctionCall (ExpFunctionCall a s fn@(ExpValue a' s' (ValVariable _)) aargs) = do
   (prevN, formalN) <- closeBBlock
 
   let exps = map extractExp (fromMaybe [] (aStrip <$> aargs))
 
   -- create bblock that assigns formal parameters (fn[1], fn[2], ...)
-  let name i   = fn ++ "[" ++ show i ++ "]"
-  let formal (ExpValue a s (ValVariable a' _)) i = ExpValue a s (ValVariable a' (name i))
-      formal e i                                 = ExpValue a s (ValVariable a (name i))
+  let name i   = varName fn ++ "[" ++ show i ++ "]"
+  let formal (ExpValue a s (ValVariable _)) i = ExpValue a s (ValVariable (name i))
+      formal e i                              = ExpValue a s (ValVariable (name i))
         where a = getAnnotation e; s = getSpan e
   forM_ (zip exps [1..]) $ \ (e, i) -> do
     addToBBlock $ BlStatement a s Nothing (StExpressionAssign a' s' (formal e i) e)
   (_, dummyCallN) <- closeBBlock
 
   -- create "dummy call" bblock with no parameters in the StCall AST-node.
-  addToBBlock $ BlStatement a s Nothing (StCall a' s' (ExpValue a' s' (ValVariable a' fn)) Nothing)
+  addToBBlock $ BlStatement a s Nothing (StCall a' s' (genVar a' s' (varName fn)) Nothing)
   (_, returnedN) <- closeBBlock
 
   -- re-assign the variables using the values of the formal parameters, if possible
@@ -394,9 +394,9 @@ processFunctionCall (ExpFunctionCall a s (ExpValue a' s' (ValVariable _ fn)) aar
     if isLExpr e then
       addToBBlock $ BlStatement a s Nothing (StExpressionAssign a' s' e (formal e i))
     else return ()
-  temp <- (ExpValue a s . ValVariable a) `fmap` genTemp fn
+  temp <- (ExpValue a s . ValVariable) `fmap` genTemp (varName fn)
   addToBBlock $ BlStatement a s Nothing
-                  (StExpressionAssign a' s' temp (ExpValue a s (ValVariable a (name 0))))
+                  (StExpressionAssign a' s' temp (ExpValue a s (ValVariable (name 0))))
   (_, nextN) <- closeBBlock
 
   -- connect the bblocks
@@ -420,7 +420,7 @@ superBBGrGraph = graph
 superBBGrClusters :: SuperBBGr a -> IM.IntMap ProgramUnitName
 superBBGrClusters = clusters
 
-genSuperBBGr :: BBlockMap a -> SuperBBGr a
+genSuperBBGr :: BBlockMap (Analysis a) -> SuperBBGr (Analysis a)
 genSuperBBGr bbm = SuperBBGr { graph = superGraph'', clusters = cmap }
   where
     -- [((PUName, Node), [Block a])]
@@ -441,7 +441,8 @@ genSuperBBGr bbm = SuperBBGr { graph = superGraph'', clusters = cmap }
     exitMap  = M.fromList [ (name, n') | ((name, n), n') <- M.toList superNodeMap, n == -1 ]
     -- [(SuperNode, String)]
     stCalls  = [ (getSuperNode n, sub) | (n, [BlStatement _ _ _ (StCall _ _ e Nothing)]) <- namedNodes
-                                       , ExpValue _ _ (ValVariable _ sub)            <- [e] ]
+                                       , v@(ExpValue _ _ (ValVariable _))                <- [e]
+                                       , let sub = varName v ]
     -- [([SuperEdge], SuperNode, String, [SuperEdge])]
     stCallCtxts = [ (inn superGraph n, n, sub, out superGraph n) | (n, sub) <- stCalls ]
     -- [SuperEdge]
@@ -573,7 +574,7 @@ showAttr (AttrTarget _ _) = "target"
 showLab Nothing = replicate 6 ' '
 showLab (Just (ExpValue _ _ (ValInteger l))) = ' ':l ++ replicate (5 - length l) ' '
 
-showValue (ValVariable _ v)     = v
+showValue (ValVariable v)       = v
 showValue (ValInteger v)        = v
 showValue (ValReal v)           = v
 showValue (ValComplex e1 e2)    = "( " ++ showExpr e1 ++ " , " ++ showExpr e2 ++ " )"
@@ -623,6 +624,8 @@ showDecl (DeclVariable _ _ e length initial) =
 showDim (DimensionDeclarator _ _ me1 me2) = maybe "" ((++":") . showExpr) me1 ++ maybe "" showExpr me2
 
 aIntercalate sep f = intercalate sep . map f . aStrip
+
+noSrcSpan = error "noSrcSpan"
 
 --------------------------------------------------
 -- Some helper functions that really should be in fgl.

@@ -3,7 +3,7 @@
 -- |
 -- Common data structures and functions supporting analysis of the AST.
 module Language.Fortran.Analysis
-  ( initAnalysis, stripAnalysis, Analysis(..), Env
+  ( initAnalysis, stripAnalysis, Analysis(..), Env, varName, genVar
   , lhsExprs, isLExpr, allVars, allLhsVars, blockVarUses, blockVarDefs
   , BB, BBGr )
 where
@@ -50,6 +50,14 @@ analysis0 a = Analysis { prevAnnotation = a
                        , insLabel       = Nothing
                        , moduleEnv      = Nothing }
 
+-- | Obtain either uniqueName or source name from an ExpValue variable.
+varName (ExpValue (Analysis { uniqueName = Just n }) _ (ValVariable {})) = n
+varName (ExpValue (Analysis { uniqueName = Nothing }) _ (ValVariable n)) = n
+varName _ = error "Use of varName on non-variable."
+
+-- | Generate an ExpValue variable with its source name == to its uniqueName.
+genVar a s n = ExpValue (a { uniqueName = Just n }) s (ValVariable n)
+
 -- | Create analysis annotations for the program, saving the original
 -- annotations.
 initAnalysis :: ProgramFile a -> ProgramFile (Analysis a)
@@ -74,22 +82,22 @@ lhsExprs x = [ e | StExpressionAssign _ _ e _  <- universeBi x                  
 
 -- | Is this an expression capable of assignment?
 isLExpr :: Expression a -> Bool
-isLExpr (ExpValue _ _ (ValVariable _ _)) = True
+isLExpr (ExpValue _ _ (ValVariable {}))  = True
 isLExpr (ExpSubscript _ _ _ _)           = True
 isLExpr _                                = False
 
 -- | Set of names found in an AST node.
 allVars :: (Data a, Data (b a)) => b a -> [Name]
-allVars b = [ v | ExpValue _ _ (ValVariable _ v) <- uniBi b ]
+allVars b = [ v | ExpValue _ _ (ValVariable v) <- uniBi b ]
   where
     uniBi :: (Data a, Data (b a)) => b a -> [Expression a]
     uniBi = universeBi
 
 -- | Set of names found in the parts of an AST that are the target of
 -- an assignment statement.
-allLhsVars :: (Data a, Data (b a)) => b a -> [Name]
-allLhsVars b = [ v | ExpValue _ _ (ValVariable _ v)                   <- lhsExprs b ] ++
-               [ v | ExpSubscript _ _ (ExpValue _ _ (ValVariable _ v)) _ <- lhsExprs b ]
+allLhsVars :: (Data a, Data (b (Analysis a))) => b (Analysis a) -> [Name]
+allLhsVars b = [ varName v | v@(ExpValue _ _ (ValVariable {})) <- lhsExprs b ] ++
+               [ varName v | ExpSubscript _ _ v@(ExpValue _ _ (ValVariable {})) _ <- lhsExprs b ]
 
 -- | Set of names used -- not defined -- by an AST-block.
 blockVarUses :: Data a => Block a -> [Name]
@@ -105,7 +113,7 @@ blockVarUses (BlIf _ _ e1 e2 _)        = allVars (e1, e2)
 blockVarUses b                         = allVars b
 
 -- | Set of names defined by an AST-block.
-blockVarDefs :: Data a => Block a -> [Name]
+blockVarDefs :: Data a => Block (Analysis a) -> [Name]
 blockVarDefs (BlStatement _ _ _ st) = allLhsVars st
 blockVarDefs (BlDo _ _ _ (Just doSpec) _)  = allLhsVars doSpec
 blockVarDefs _                      = []

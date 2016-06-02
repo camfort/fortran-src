@@ -215,8 +215,8 @@ spec =
             sParser "data x/1/ y/2/" `shouldBe'` expected
 
       describe "Namelist" $ do
-        let groupNames = [ ExpValue () u (ValVariable () "something")
-                         , ExpValue () u (ValVariable () "other") ]
+        let groupNames = [ ExpValue () u (ValVariable "something")
+                         , ExpValue () u (ValVariable "other") ]
         let itemss = [ fromList () [ varGen "a", varGen "b", varGen "c" ]
                      , fromList () [ varGen "y" ] ]
         let st = StNamelist () u $
@@ -230,8 +230,8 @@ spec =
           sParser "namelist /something/a,b,c/other/y" `shouldBe'` st
 
       describe "Common" $ do
-        let commonNames = [ ExpValue () u (ValVariable () "something")
-                          , ExpValue () u (ValVariable () "other") ]
+        let commonNames = [ ExpValue () u (ValVariable "something")
+                          , ExpValue () u (ValVariable "other") ]
         let itemss = [ fromList () [ varGen "a", varGen "b", varGen "c" ]
                      , fromList () [ varGen "y" ] ]
         let st = StCommon () u $ fromList ()

@@ -16,7 +16,7 @@ valTrue = ExpValue () u $ ValLogical ".true."
 valFalse = ExpValue () u $ ValLogical ".false."
 
 varGen :: String -> Expression ()
-varGen str = ExpValue () u $ ValVariable () str
+varGen str = ExpValue () u $ ValVariable str
 
 intGen :: (Show a, Integral a) => a -> Expression ()
 intGen i = ExpValue () u $ ValInteger $ show i

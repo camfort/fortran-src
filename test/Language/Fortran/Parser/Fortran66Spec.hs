@@ -106,7 +106,7 @@ spec =
 
     describe "Statements" $ do
       it "parses 'EXTERNAL f, g, h'" $ do
-        let procGen s = ExpValue () u (ValVariable () s)
+        let procGen s = ExpValue () u (ValVariable s)
         let expectedSt = StExternal () u (AList () u [procGen "f", procGen "g", procGen "h"])
         sParser "      EXTERNAL f, g, h" `shouldBe'` expectedSt
 
@@ -155,12 +155,12 @@ spec =
 
       describe "CALL" $ do
         it "parses 'CALL me" $ do
-          let expectedSt = StCall () u (ExpValue () u (ValVariable () "me")) Nothing
+          let expectedSt = StCall () u (ExpValue () u (ValVariable "me")) Nothing
           sParser "      CALL me" `shouldBe'` expectedSt
 
         it "parses 'CALL me(baby)" $ do
           let args = AList () u [ Argument () u Nothing $ varGen "baby" ]
-          let expectedSt = StCall () u (ExpValue () u (ValVariable () "me")) $ Just args
+          let expectedSt = StCall () u (ExpValue () u (ValVariable "me")) $ Just args
           sParser "      CALL me(baby)" `shouldBe'` expectedSt
 
       it "parses 'stop'" $ do

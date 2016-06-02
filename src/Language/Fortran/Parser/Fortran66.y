@@ -441,7 +441,7 @@ VARIABLES : VARIABLES ',' VARIABLE { $3 : $1 } | VARIABLE { [ $1 ] }
 -- This at least reduces reduce/reduce conflicts.
 VARIABLE :: { Expression A0 }
 VARIABLE
-: id { ExpValue () (getSpan $1) $ let (TId _ s) = $1 in ValVariable () s }
+: id { ExpValue () (getSpan $1) $ let (TId _ s) = $1 in ValVariable s }
 
 SIGNED_INTEGER_LITERAL :: { Expression A0 }
 SIGNED_INTEGER_LITERAL

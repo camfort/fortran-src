@@ -141,7 +141,7 @@ genDefMap bm = M.fromListWith IS.union [
 -- Muchnick, p. 445: A variable is "live" at a particular program
 -- point if there is a path to the exit along which its value may be
 -- used before it is redefined. It is "dead" if there is no such path.
-liveVariableAnalysis :: Data a => BBGr a -> InOutMap (S.Set Name)
+liveVariableAnalysis :: Data a => BBGr (Analysis a) -> InOutMap (S.Set Name)
 liveVariableAnalysis gr = dataFlowSolver gr (const (S.empty, S.empty)) revPreOrder inn out
   where
     inn outF b = (outF b S.\\ kill b) `S.union` gen b
@@ -150,17 +150,17 @@ liveVariableAnalysis gr = dataFlowSolver gr (const (S.empty, S.empty)) revPreOrd
     gen b      = bblockGen (fromJust $ lab gr b)
 
 -- | Iterate "KILL" set through a single basic block.
-bblockKill :: Data a => [Block a] -> S.Set Name
+bblockKill :: Data a => [Block (Analysis a)] -> S.Set Name
 bblockKill = S.fromList . concatMap blockKill
 
 -- | Iterate "GEN" set through a single basic block.
-bblockGen :: Data a => [Block a] -> S.Set Name
+bblockGen :: Data a => [Block (Analysis a)] -> S.Set Name
 bblockGen bs = S.fromList . fst . foldl' f ([], []) $ zip (map blockGen bs) (map blockKill bs)
   where
     f (bbgen, bbkill) (gen, kill) = ((gen \\ bbkill) `union` bbgen, kill `union` bbkill)
 
 -- | "KILL" set for a single AST-block.
-blockKill :: Data a => Block a -> [Name]
+blockKill :: Data a => Block (Analysis a) -> [Name]
 blockKill = blockVarDefs
 
 -- | "GEN" set for a single AST-block.
@@ -209,7 +209,7 @@ rdBblockGenKill dm bs = foldl' f (IS.empty, IS.empty) $ zip (map gen bs) (map ki
       ((bbgen IS.\\ kill) `IS.union` gen, (bbkill IS.\\ gen) `IS.union` kill)
 
 -- Set of all AST-block labels that also define variables defined by AST-block b
-rdDefs :: Data a => DefMap -> Block a -> IS.IntSet
+rdDefs :: Data a => DefMap -> Block (Analysis a) -> IS.IntSet
 rdDefs dm b = IS.unions [ IS.empty `fromMaybe` M.lookup y dm | y <- allLhsVars b ]
 
 --------------------------------------------------
@@ -345,7 +345,7 @@ type InductionVarMap = IM.IntMap (S.Set Name)
 -- | Basic induction variables are induction variables that are the
 -- most easily derived from the syntactic structure of the program:
 -- for example, directly appearing in a Do-statement.
-basicInductionVars :: Data a => BackEdgeMap -> BBGr a -> InductionVarMap
+basicInductionVars :: Data a => BackEdgeMap -> BBGr (Analysis a) -> InductionVarMap
 basicInductionVars bedges gr = IM.fromListWith S.union [
     (n, S.singleton v) | (_, n)      <- IM.toList bedges
                        , let Just bs = lab gr n
@@ -356,7 +356,7 @@ basicInductionVars bedges gr = IM.fromListWith S.union [
 -- | For each loop in the program, figure out the names of the
 -- induction variables: the variables that are used to represent the
 -- current iteration of the loop.
-genInductionVarMap :: Data a => BackEdgeMap -> BBGr a -> InductionVarMap
+genInductionVarMap :: Data a => BackEdgeMap -> BBGr (Analysis a) -> InductionVarMap
 genInductionVarMap = basicInductionVars
 
 --------------------------------------------------
@@ -403,7 +403,7 @@ showDataFlow pf@(ProgramFile cm_pus _) = (perPU . snd) =<< cm_pus
 type CallMap = M.Map ProgramUnitName (S.Set Name)
 
 -- | Create a call map showing the structure of the program.
-genCallMap :: Data a => ProgramFile a -> CallMap
+genCallMap :: Data a => ProgramFile (Analysis a) -> CallMap
 genCallMap pf = flip execState M.empty $ do
   let (ProgramFile cm_pus _) = pf
   forM_ cm_pus $ \ (_, pu) -> do
@@ -413,8 +413,8 @@ genCallMap pf = flip execState M.empty $ do
     let uE :: Data a => ProgramUnit a -> [Expression a]
         uE = universeBi
     m <- get
-    let ns = [ n' | StCall _ _ (ExpValue _ _ (ValVariable _ n')) _ <- uS pu ] ++
-             [ n' | ExpFunctionCall _ _ (ExpValue _ _ (ValVariable _ n')) _ <- uE pu ]
+    let ns = [ varName v | StCall _ _ v@(ExpValue _ _ (ValVariable _ )) _         <- uS pu ] ++
+             [ varName v | ExpFunctionCall _ _ v@(ExpValue _ _ (ValVariable _)) _ <- uE pu ]
     put $ M.insert n (S.fromList ns) m
 
 --------------------------------------------------
