@@ -19,7 +19,8 @@ import Language.Fortran.Parser.Fortran77 (fortran77Parser, extended77Parser)
 import Language.Fortran.Parser.Fortran90 (fortran90Parser)
 import Language.Fortran.Parser.Any
 
-import Language.Fortran.Analysis.Types (TypeScope(..), inferTypes, IDType(..))
+import Language.Fortran.Analysis
+import Language.Fortran.Analysis.Types
 import Language.Fortran.Analysis.BBlocks
 import Language.Fortran.Analysis.DataFlow
 import Language.Fortran.Analysis.Renaming (renameAndStrip, analyseRenames)
