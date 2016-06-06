@@ -1,6 +1,5 @@
 {-# LANGUAGE ScopedTypeVariables #-}
-
-module Language.Fortran.Analysis.Types ( inferTypes, TypeScope(..) ) where
+module Language.Fortran.Analysis.Types ( inferTypes, analyseTypes, TypeScope(..), TypeEnv ) where
 where
 
 import Language.Fortran.AST
@@ -26,8 +25,8 @@ type InferFunc t = t -> Infer ()
 
 --------------------------------------------------
 
-infer :: Data a => ProgramFile (Analysis a) -> (ProgramFile (Analysis a), TypeEnv)
-infer pf = fmap environ . runInfer $ do
+analyseTypes :: Data a => ProgramFile (Analysis a) -> (ProgramFile (Analysis a), TypeEnv)
+analyseTypes pf = fmap environ . runInfer $ do
   -- Gather information.
   mapM_ programUnit (allProgramUnits pf)
   mapM_ declarator (allDeclarators pf)

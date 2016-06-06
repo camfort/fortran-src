@@ -15,7 +15,7 @@ import Language.Fortran.Analysis
 import Debug.Trace
 
 inferTable :: Data a => ProgramFile a -> TypeEnv
-inferTable = underRenaming (snd . infer)
+inferTable = underRenaming (snd . analyseTypes)
 
 spec :: Spec
 spec = do
