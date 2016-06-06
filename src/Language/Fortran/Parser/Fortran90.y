@@ -635,6 +635,7 @@ CI_EXPRESSION :: { Expression A0 }
 | LOGICAL_LITERAL { $1 }
 | STRING { $1 }
 | DATA_REF { $1 }
+| '*' { ExpValue () (getSpan $1) ValStar }
 
 IN_IOLIST :: { [ Expression A0 ] }
 : IN_IOLIST ',' IN_IO_ELEMENT { $3 : $1}
