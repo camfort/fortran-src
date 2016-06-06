@@ -1,5 +1,6 @@
 module Language.Fortran.Transformation.TransformMonad ( getTypes
                                             , queryIDType
+                                            , modifyAPF, getAPF
                                             , getProgramFile
                                             , putProgramFile
                                             , modifyProgramFile
@@ -18,20 +19,29 @@ import Language.Fortran.Analysis
 import Language.Fortran.Analysis.Renaming
 import Language.Fortran.AST (ProgramFile)
 
-data TransformationState a = TransformationState 
-  { transProgramFile :: ProgramFile a
+data TransformationState a = TransformationState
+  { transAPF :: ProgramFile (Analysis a)
+  , transProgramFile :: ProgramFile a
   , transTypes :: Maybe (Map TypeScope (Map String IDType))
   , transUnrenameMap :: Maybe NameMap }
 
 type Transform a = State (TransformationState a)
 
-runTransform :: Transform a () -> ProgramFile a -> ProgramFile a 
+runTransform :: Data a => Transform a () -> ProgramFile a -> ProgramFile a
 runTransform trans pf = transProgramFile . execState trans $ initState
   where
-    initState = TransformationState 
-      { transProgramFile = pf 
-      , transTypes = Nothing
+    (pf', _) = analyseTypes . analyseRenames . initAnalysis $ pf
+    initState = TransformationState
+      { transAPF         = pf'
+      , transProgramFile = pf
+      , transTypes       = Nothing
       , transUnrenameMap = Nothing }
+
+getAPF :: Data a => Transform a (ProgramFile (Analysis a))
+getAPF = gets transAPF
+
+modifyAPF :: Data a => (ProgramFile (Analysis a) -> ProgramFile (Analysis a)) -> Transform a ()
+modifyAPF f = modify (\ s -> s { transAPF = f (transAPF s) })
 
 getProgramFile :: Transform a (ProgramFile a)
 getProgramFile = gets transProgramFile
