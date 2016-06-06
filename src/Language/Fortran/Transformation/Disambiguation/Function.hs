@@ -10,7 +10,8 @@ import Data.Maybe (isJust, fromJust)
 import Data.Data
 
 import Language.Fortran.Util.Position (getSpan)
-import Language.Fortran.Analysis.Types (IDType(..), ConstructType(..), TypeScope(..))
+import Language.Fortran.Analysis
+import Language.Fortran.Analysis.Types
 import Language.Fortran.AST
 import Language.Fortran.Transformation.TransformMonad
 

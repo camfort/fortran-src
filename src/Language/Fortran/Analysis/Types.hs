@@ -1,9 +1,5 @@
 {-# LANGUAGE ScopedTypeVariables #-}
-module Language.Fortran.Analysis.Types ( inferTypes
-                             , ConstructType(..)
-                             , BaseType(..)
-                             , TypeScope(..)
-                             , IDType(..)) where
+module Language.Fortran.Analysis.Types ( inferTypes, TypeScope(..) ) where
 
 import Language.Fortran.AST
 
@@ -20,19 +16,6 @@ import Debug.Trace
 --------------------------------------------------------------------------------
 -- Type mapping definitions
 --------------------------------------------------------------------------------
-
-data ConstructType =
-    CTFunction
-  | CTSubroutine
-  | CTVariable
-  | CTArray
-  | CTParameter
-  deriving (Show, Eq)
-
-data IDType = IDType
-  { idVType :: Maybe BaseType
-  , idCType :: Maybe ConstructType }
-  deriving (Show, Eq)
 
 data TypeScope = Global | Local ProgramUnitName deriving (Ord,Eq,Show)
 

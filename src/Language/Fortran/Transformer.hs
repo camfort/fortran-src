@@ -6,7 +6,8 @@ import Data.Maybe (fromJust)
 import Data.Map (Map)
 import Data.Data
 
-import Language.Fortran.Analysis.Types (IDType, TypeScope, inferTypes)
+import Language.Fortran.Analysis
+import Language.Fortran.Analysis.Types
 import Language.Fortran.Transformation.TransformMonad (Transform, runTransform)
 import Language.Fortran.Transformation.Disambiguation.Function
 import Language.Fortran.Transformation.Grouping
