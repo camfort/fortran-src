@@ -21,11 +21,9 @@ disambiguateFunction :: Data a => Transform a ()
 disambiguateFunction = do
   disambiguateFunctionStatements
   disambiguateFunctionCalls
-  pf <- getAPF
-  putProgramFile (fmap prevAnnotation pf)
 
 disambiguateFunctionStatements :: Data a => Transform a ()
-disambiguateFunctionStatements = modifyAPF (trans statement)
+disambiguateFunctionStatements = modifyProgramFile (trans statement)
   where
     trans = (transformBi :: Data a => TransFunc Statement ProgramFile a)
     statement st@(StExpressionAssign a1 s (ExpSubscript _ _ v@(ExpValue a _ (ValVariable _)) indicies) e2)
@@ -33,7 +31,7 @@ disambiguateFunctionStatements = modifyAPF (trans statement)
     statement st                                      = st
 
 disambiguateFunctionCalls :: Data a => Transform a ()
-disambiguateFunctionCalls = modifyAPF (trans expression)
+disambiguateFunctionCalls = modifyProgramFile (trans expression)
   where
     trans = (transformBi :: Data a => TransFunc Expression ProgramFile a)
     expression e@(ExpSubscript a1 s v@(ExpValue a _ (ValVariable _)) indicies)

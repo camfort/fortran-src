@@ -1,6 +1,5 @@
 module Language.Fortran.Transformation.TransformMonad ( getTypes
                                             , queryIDType
-                                            , modifyAPF, getAPF
                                             , getProgramFile
                                             , putProgramFile
                                             , modifyProgramFile
@@ -20,41 +19,31 @@ import Language.Fortran.Analysis.Renaming
 import Language.Fortran.AST (ProgramFile)
 
 data TransformationState a = TransformationState
-  { transAPF :: ProgramFile (Analysis a)
-  , transProgramFile :: ProgramFile a
+  { transProgramFile :: ProgramFile (Analysis a)
   , transTypes :: Maybe (Map TypeScope (Map String IDType))
   , transUnrenameMap :: Maybe NameMap }
 
 type Transform a = State (TransformationState a)
 
 runTransform :: Data a => Transform a () -> ProgramFile a -> ProgramFile a
-runTransform trans pf = transProgramFile . execState trans $ initState
+runTransform trans pf = stripAnalysis . transProgramFile . execState trans $ initState
   where
     (pf', _) = analyseTypes . analyseRenames . initAnalysis $ pf
     initState = TransformationState
-      { transAPF         = pf'
-      , transProgramFile = pf
+      { transProgramFile = pf'
       , transTypes       = Nothing
       , transUnrenameMap = Nothing }
 
-getAPF :: Data a => Transform a (ProgramFile (Analysis a))
-getAPF = gets transAPF
-
-modifyAPF :: Data a => (ProgramFile (Analysis a) -> ProgramFile (Analysis a)) -> Transform a ()
-modifyAPF f = modify (\ s -> s { transAPF = f (transAPF s) })
-
-getProgramFile :: Transform a (ProgramFile a)
+getProgramFile :: Transform a (ProgramFile (Analysis a))
 getProgramFile = gets transProgramFile
 
-putProgramFile :: ProgramFile a -> Transform a ()
+putProgramFile :: ProgramFile (Analysis a) -> Transform a ()
 putProgramFile pf = do
   state <- get
   put $ state { transProgramFile = pf }
 
-modifyProgramFile :: (ProgramFile a -> ProgramFile a) -> Transform a ()
-modifyProgramFile f = do
-  state <- get
-  put $ state { transProgramFile = f (transProgramFile state) }
+modifyProgramFile :: (ProgramFile (Analysis a) -> ProgramFile (Analysis a)) -> Transform a ()
+modifyProgramFile f = modify $ \ s -> s { transProgramFile = f (transProgramFile s) }
 
 renameProgramFile :: Data a => Transform a ()
 renameProgramFile = do

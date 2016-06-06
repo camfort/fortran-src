@@ -5,14 +5,14 @@ module Language.Fortran.Transformation.Grouping ( groupIf
                                       ) where
 
 import Language.Fortran.AST
+import Language.Fortran.Analysis
 import Language.Fortran.Transformation.TransformMonad
 
 import Debug.Trace
 
-genericGroup :: ([ Block a ] -> [ Block a ]) -> Transform a ()
+genericGroup :: ([ Block (Analysis a) ] -> [ Block (Analysis a) ]) -> Transform a ()
 genericGroup groupingFunction = do
-    ProgramFile pus e <- getProgramFile
-    putProgramFile $ ProgramFile (zip (map fst pus) . map (go . snd) $ pus) e
+    modifyProgramFile $ \ (ProgramFile pus e) -> ProgramFile (zip (map fst pus) . map (go . snd) $ pus) e
   where
     go pu =
       case pu of
@@ -44,7 +44,7 @@ groupIf = genericGroup groupIf'
 --        grouped in 1.1
 -- 2. Case: head is a statement block contianing any other statement:
 -- 2.1  Group everything to the right and prepend the head.
-groupIf' :: [ Block a ] -> [ Block a ]
+groupIf' :: [ Block (Analysis a) ] -> [ Block (Analysis a) ]
 groupIf' [] = []
 groupIf' (b:bs) = b' : bs'
   where
@@ -80,7 +80,7 @@ groupIf' (b:bs) = b' : bs'
 -- In that case it decomposes the block into list of (maybe) conditions and
 -- blocks that those conditions correspond to. Additionally, it returns
 -- whatever is after the if block.
-decomposeIf :: [ Block a ] -> ([ Maybe (Expression a) ], [ [ Block a ] ], [ Block a ])
+decomposeIf :: [ Block (Analysis a) ] -> ([ Maybe (Expression (Analysis a)) ], [ [ Block (Analysis a) ] ], [ Block (Analysis a) ])
 decomposeIf blocks@(BlStatement _ _ _ (StIfThen _ _ mTargetName _):rest) =
     decomposeIf' blocks
   where
@@ -102,7 +102,7 @@ decomposeIf blocks@(BlStatement _ _ _ (StIfThen _ _ mTargetName _):rest) =
          , rest'' )
 
 -- This compiles the executable blocks under various if conditions.
-collectNonConditionalBlocks :: [ Block a ] -> ([ Block a ], [ Block a ])
+collectNonConditionalBlocks :: [ Block (Analysis a) ] -> ([ Block (Analysis a) ], [ Block (Analysis a) ])
 collectNonConditionalBlocks blocks =
   case blocks of
     BlStatement _ _ _ StElsif{}:_ -> ([], blocks)
@@ -125,7 +125,7 @@ collectNonConditionalBlocks blocks =
 groupDo :: Transform a ()
 groupDo = genericGroup groupDo'
 
-groupDo' :: [ Block a ] -> [ Block a ]
+groupDo' :: [ Block (Analysis a) ] -> [ Block (Analysis a) ]
 groupDo' [ ] = [ ]
 groupDo' blocks@(b:bs) = b' : bs'
   where
@@ -148,7 +148,7 @@ groupDo' blocks@(b:bs) = b' : bs'
       _ -> ( b, groupedBlocks )
     groupedBlocks = groupDo' bs -- Assume everything to the right is grouped.
 
-collectNonDoBlocks :: [ Block a ] -> Maybe String -> ([ Block a], [ Block a ])
+collectNonDoBlocks :: [ Block (Analysis a) ] -> Maybe String -> ([ Block (Analysis a)], [ Block (Analysis a) ])
 collectNonDoBlocks blocks mNameTarget =
   case blocks of
     b@(BlStatement _ _ _ (StEnddo _ _ mName)):rest
@@ -166,7 +166,7 @@ collectNonDoBlocks blocks mNameTarget =
 groupLabeledDo :: Transform a ()
 groupLabeledDo = genericGroup groupLabeledDo'
 
-groupLabeledDo' :: [ Block a ] -> [ Block a ]
+groupLabeledDo' :: [ Block (Analysis a) ] -> [ Block (Analysis a) ]
 groupLabeledDo' [ ] = [ ]
 groupLabeledDo' blos@(b:bs) = b' : bs'
   where
@@ -181,7 +181,7 @@ groupLabeledDo' blos@(b:bs) = b' : bs'
       _ -> (b, groupedBlocks)
     groupedBlocks = groupLabeledDo' bs -- Assume everything to the right is grouped.
 
-collectNonLabeledDoBlocks :: String -> [ Block a ] -> ([ Block a ], [ Block a ])
+collectNonLabeledDoBlocks :: String -> [ Block (Analysis a) ] -> ([ Block (Analysis a) ], [ Block (Analysis a) ])
 collectNonLabeledDoBlocks targetLabel blocks =
   case blocks of
     b@(BlStatement _ _ (Just (ExpValue _ _ (ValInteger label))) _):rest
@@ -195,7 +195,7 @@ collectNonLabeledDoBlocks targetLabel blocks =
 groupCase :: Transform a ()
 groupCase = genericGroup groupCase'
 
-groupCase' :: [ Block a ] -> [ Block a ]
+groupCase' :: [ Block (Analysis a) ] -> [ Block (Analysis a) ]
 groupCase' [] = []
 groupCase' (b:bs) = b' : bs'
   where
@@ -212,7 +212,7 @@ groupCase' (b:bs) = b' : bs'
     groupedBlocks = groupCase' bs -- Assume everything to the right is grouped.
     isComment b = case b of { BlComment{} -> True; _ -> False }
 
-decomposeCase :: [ Block a ] -> Maybe String -> ([ Maybe (AList Index a) ], [ [ Block a ] ], [ Block a ])
+decomposeCase :: [ Block (Analysis a) ] -> Maybe String -> ([ Maybe (AList Index (Analysis a)) ], [ [ Block (Analysis a) ] ], [ Block (Analysis a) ])
 decomposeCase blocks@(BlStatement _ _ _ st:rest) mTargetName =
     case st of
       StCase _ _ mName mCondition
@@ -234,7 +234,7 @@ decomposeCase blocks@(BlStatement _ _ _ st:rest) mTargetName =
          , rest' )
 
 -- This compiles the executable blocks under various if conditions.
-collectNonCaseBlocks :: [ Block a ] -> ([ Block a ], [ Block a ])
+collectNonCaseBlocks :: [ Block (Analysis a) ] -> ([ Block (Analysis a) ], [ Block (Analysis a) ])
 collectNonCaseBlocks blocks =
   case blocks of
     b@(BlStatement _ _ _ st):_
@@ -248,7 +248,7 @@ collectNonCaseBlocks blocks =
 -- Helpers for grouping of structured blocks with more blocks inside.
 --------------------------------------------------------------------------------
 
-containsGroups :: Block a -> Bool
+containsGroups :: Block (Analysis a) -> Bool
 containsGroups b =
   case b of
     BlStatement{} -> False
@@ -259,7 +259,7 @@ containsGroups b =
     BlInterface{} -> False
     BlComment{} -> False
 
-applyGroupingToSubblocks :: ([ Block a ] -> [ Block a ]) -> Block a -> Block a
+applyGroupingToSubblocks :: ([ Block (Analysis a) ] -> [ Block (Analysis a) ]) -> Block (Analysis a) -> Block (Analysis a)
 applyGroupingToSubblocks f b
   | BlStatement{} <- b =
       error "Individual statements do not have subblocks. Must not occur."
@@ -272,3 +272,10 @@ applyGroupingToSubblocks f b
       error "Interface blocks do not have groupable subblocks. Must not occur."
   | BlComment{} <- b =
     error "Comment statements do not have subblocks. Must not occur."
+
+--------------------------------------------------
+
+-- Local variables:
+-- mode: haskell
+-- haskell-program-name: "cabal repl"
+-- End:
