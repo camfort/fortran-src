@@ -1,6 +1,5 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 module Language.Fortran.Analysis.Types ( inferTypes, analyseTypes, TypeScope(..), TypeEnv ) where
-where
 
 import Language.Fortran.AST
 
@@ -92,7 +91,12 @@ statement (StExpressionAssign _ _ (ExpSubscript _ _ v ixAList) _)
     case mIDType of
       Just (IDType mBT (Just CTArray)) -> return ()                -- do nothing, it's already known to be an array
       _                                -> recordCType CTFunction n -- assume it's a function statement
-      
+
+-- FIXME: if StFunctions can only be identified after types analysis
+-- is complete and disambiguation is performed, then how do we get
+-- them in the first place? (iterate until fixed point?)
+statement (StFunction _ _ v _ _) = recordCType CTFunction (varName v)
+
 statement _ = return ()
 
 annotateExpression :: Data a => Expression (Analysis a) -> Infer (Expression (Analysis a))

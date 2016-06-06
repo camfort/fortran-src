@@ -21,42 +21,24 @@ disambiguateFunction :: Data a => Transform a ()
 disambiguateFunction = do
   disambiguateFunctionStatements
   disambiguateFunctionCalls
+  pf <- getAPF
+  putProgramFile (fmap prevAnnotation pf)
 
-disambiguateFunctionStatements :: forall a . Data a => Transform a ()
-disambiguateFunctionStatements = do
-  pf <- getProgramFile
-  mapping <- getTypes
-  putProgramFile $ descendBi (transform' mapping) pf
+disambiguateFunctionStatements :: Data a => Transform a ()
+disambiguateFunctionStatements = modifyAPF (trans statement)
   where
-    transform' :: Data a => Map TypeScope (Map String IDType) -> ProgramUnit a -> ProgramUnit a
-    transform' mapping pu =
-      descendBi (transform'' (Local (getName pu) `lookup` mapping)) pu
-    transform'' :: Data a => Maybe (Map String IDType) -> Statement a -> Statement a
-    -- FIXME: should this be rewritten using Analysis module?
-    transform'' mInnerMapping st@(StExpressionAssign a1 s (ExpSubscript _ _ v@(ExpValue _ _ (ValVariable n)) indicies) e2)
-      | Just innerMapping                 <- mInnerMapping
-      , Just (IDType _ (Just CTFunction)) <- n `lookup` innerMapping = StFunction a1 s v (aMap fromIndex indicies) e2
-      | otherwise                                                    = st
-    transform'' _ (x :: Statement a)                                 = x
+    trans = (transformBi :: Data a => TransFunc Statement ProgramFile a)
+    statement st@(StExpressionAssign a1 s (ExpSubscript _ _ v@(ExpValue a _ (ValVariable _)) indicies) e2)
+      | Just (IDType _ (Just CTFunction)) <- idType a = StFunction a1 s v (aMap fromIndex indicies) e2
+    statement st                                      = st
 
-disambiguateFunctionCalls :: forall a . Data a => Transform a ()
-disambiguateFunctionCalls = do
-  pf <- getProgramFile
-  mapping <- getTypes
-  putProgramFile $ descendBi (transform' mapping) pf
+disambiguateFunctionCalls :: Data a => Transform a ()
+disambiguateFunctionCalls = modifyAPF (trans expression)
   where
-    transform' :: Data a => Map TypeScope (Map String IDType) -> ProgramUnit a -> ProgramUnit a
-    transform' mapping pu =
-      descendBi (transform'' (Global `lookup` mapping) (Local (getName pu) `lookup` mapping)) pu
-    transform'' :: Data a => Maybe (Map String IDType) -> Maybe (Map String IDType) -> Expression a -> Expression a
-    -- FIXME: should this be rewritten using Analysis module?
-    transform'' mGlobalMapping mInnerMapping exp@(ExpSubscript a1 s v@(ExpValue _ _ (ValVariable n)) l)
-      | Just innerMapping                 <- mInnerMapping
-      , Just (IDType _ (Just CTFunction)) <- n `lookup` innerMapping  = ExpFunctionCall a1 s v (Just $ aMap fromIndex l)
-      | Just globalMapping                <- mGlobalMapping
-      , Just (IDType _ (Just CTFunction)) <- n `lookup` globalMapping = ExpFunctionCall a1 s v (Just $ aMap fromIndex l)
-      | otherwise                                                     = exp
-    transform'' mGlobalMapping mLocalMapping x                        = descend (transform'' mGlobalMapping mLocalMapping) x
+    trans = (transformBi :: Data a => TransFunc Expression ProgramFile a)
+    expression e@(ExpSubscript a1 s v@(ExpValue a _ (ValVariable _)) indicies)
+      | Just (IDType _ (Just CTFunction)) <- idType a = ExpFunctionCall a1 s v (Just $ aMap fromIndex indicies)
+    expression e                                      = e
 
 class Indexed a where
   fromIndex :: Index b -> a b
@@ -70,3 +52,10 @@ instance Indexed Expression where
   fromIndex (IxSingle _ _ _ e) = e
   fromIndex IxRange{} =
     error "Deduced a function but argument is not an expression."
+
+--------------------------------------------------
+
+-- Local variables:
+-- mode: haskell
+-- haskell-program-name: "cabal repl"
+-- End:

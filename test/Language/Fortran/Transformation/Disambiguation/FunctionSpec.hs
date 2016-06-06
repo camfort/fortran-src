@@ -3,6 +3,9 @@ module Language.Fortran.Transformation.Disambiguation.FunctionSpec (spec) where
 import Test.Hspec
 import TestUtil
 
+import Language.Fortran.Analysis
+import Language.Fortran.Analysis.Renaming
+import Language.Fortran.Analysis.Types
 import Language.Fortran.AST
 import Language.Fortran.Transformer
 import Language.Fortran.Transformation.TransformMonad
@@ -112,3 +115,8 @@ expectedEx2pu1bs =
           (ExpFunctionCall () u
             (ExpValue () u $ ValVariable "f")
             (Just $ AList () u [ Argument () u Nothing (intGen 1) ])))) ]
+
+-- Local variables:
+-- mode: haskell
+-- haskell-program-name: "cabal repl test-suite:spec"
+-- End:
