@@ -6,7 +6,8 @@ module Language.Fortran.Analysis
   ( initAnalysis, stripAnalysis, Analysis(..), varName, genVar, puName
   , ModEnv, IDType(..), ConstructType(..), BaseType(..)
   , lhsExprs, isLExpr, allVars, allLhsVars, blockVarUses, blockVarDefs
-  , BB, BBGr )
+  , BB, BBGr
+  , TransFunc, TransFuncM )
 where
 
 import Language.Fortran.Util.Position (SrcSpan)
@@ -35,6 +36,11 @@ instance (Typeable a, Typeable b) => Data (Gr a b) where
 
 --------------------------------------------------
 
+-- | The type of "transformBi"-family functions
+type TransFunc f g a = (f (Analysis a) -> f (Analysis a)) -> g (Analysis a) -> g (Analysis a)
+-- | The type of "transformBiM"-family functions
+type TransFuncM m f g a = (f (Analysis a) -> m (f (Analysis a))) -> g (Analysis a) -> m (g (Analysis a))
+
 type ModEnv = M.Map String String
 
 data ConstructType =
@@ -59,7 +65,6 @@ data Analysis a = Analysis
   , idType         :: Maybe IDType
   }
   deriving (Data, Show, Eq)
-
 analysis0 a = Analysis { prevAnnotation = a
                        , uniqueName     = Nothing
                        , bBlocks        = Nothing
