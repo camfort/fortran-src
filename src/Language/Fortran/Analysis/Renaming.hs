@@ -198,17 +198,18 @@ uniquify scope var = do
   n <- getUniqNum
   return $ scope ++ "_" ++ var ++ show n
 
-isModule (PUModule {}) = True
-isModule _             = False
+isModule (PUModule {}) = True; isModule _             = False
 
 isUseStatement (BlStatement _ _ _ (StUse _ _ (ExpValue _ _ (ValVariable _)) _)) = True
 isUseStatement _                                                                = False
 
+isUseID (UseID {}) = True; isUseID _ = False
+
 -- Generate an initial environment for a scope based upon any Use
 -- statements in the blocks.
-initialEnv :: Data a => [Block a] -> Renamer ModEnv
+initialEnv :: Data a => [Block (Analysis a)] -> Renamer ModEnv
 initialEnv blocks = do
-  -- FIXME: add "use only / renaming" declarations (requires change in
+  -- FIXME: add "use renaming" declarations (requires change in
   -- NameMap because it would be possible for the same program object
   -- to have two different names used by different parts of the
   -- program).
@@ -217,6 +218,14 @@ initialEnv blocks = do
     (BlStatement _ _ _ (StUse _ _ (ExpValue _ _ (ValVariable m)) Nothing)) -> do
       mMap <- gets moduleMap
       return $ fromMaybe empty (Named m `lookup` mMap)
+    (BlStatement _ _ _ (StUse _ _ (ExpValue _ _ (ValVariable m)) (Just onlyAList)))
+      | only <- aStrip onlyAList, all isUseID only -> do
+      mMap <- gets moduleMap
+      let env = fromMaybe empty (Named m `lookup` mMap)
+      let onlyNames = map (\ (UseID _ _ v) -> varName v) only
+      -- filter for the the mod remappings mentioned in the list, only
+      return $ M.filterWithKey (\ k _ -> k `elem` onlyNames) env
+    _ -> error "USE renaming not supported (yet)"
 
 -- Get the current scope name.
 getScope :: Renamer String

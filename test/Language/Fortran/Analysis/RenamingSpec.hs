@@ -38,6 +38,7 @@ spec = do
                , length (filter (=="d") (elems entry)) )
                ( 1, 2, 2, 2 )
 
+    -- Test that every symbol that is supposed to be renamed is renamed.
     it "complete ex1" $ do
       countUnrenamed (analyseRenames . initAnalysis $ ex1) `shouldBe` 0
     it "complete ex2" $ do
@@ -60,6 +61,8 @@ spec = do
       countUnrenamed (analyseRenames . initAnalysis $ ex10) `shouldBe` 0
     it "complete ex11" $ do
       countUnrenamed (analyseRenames . initAnalysis $ ex11) `shouldBe` 0
+    it "complete ex12" $ do
+      countUnrenamed (analyseRenames . initAnalysis $ ex12) `shouldBe` 0
 
     it "functions 1" $ do
       let entry = extractNameMap' ex3
@@ -272,6 +275,43 @@ ex11pu1bs =
   [ BlStatement () u Nothing (StEntry () u (ExpValue () u (ValVariable "e1")) Nothing Nothing)
   , BlStatement () u Nothing (StEntry () u (ExpValue () u (ValVariable "e2")) Nothing Nothing)
   , BlStatement () u Nothing (StEntry () u (ExpValue () u (ValVariable "e3")) Nothing (Just (varGen "r2"))) ]
+
+ex12 = resetSrcSpan . flip fortran90Parser "" $ unlines [
+    "module m1"
+  , "  implicit none"
+  , "  integer :: z"
+  , "contains"
+  , "  integer function foo ()"
+  , "    foo = 0"
+  , "  end function foo"
+  , "end module m1"
+  , ""
+  , "module m2"
+  , "  implicit none"
+  , "contains"
+  , "  integer function foo2 (x)"
+  , "    use m1"
+  , "    integer :: x"
+  , "    foo2 = foo () + x"
+  , "  end function foo2"
+  , "end module m2"
+  , ""
+  , "module m3"
+  , "  implicit none"
+  , "contains"
+  , "  integer function foo () result (r)"
+  , "    r = 1"
+  , "  end function foo"
+  , "end module m3"
+  , ""
+  , "program main"
+  , "  use m1, only: z"
+  , "  use m3, only: foo"
+  , "  integer :: x"
+  , "  x = foo ()"
+  , "end program main"
+  ]
+
 
 -- Local variables:
 -- mode: haskell
