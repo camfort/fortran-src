@@ -48,7 +48,7 @@ main = do
     let Just parserF = lookup version parserVersions
     let outfmt = outputFormat opts
 
-    let runInfer = infer . analyseRenames . initAnalysis
+    let runInfer pf = analyseTypes . analyseRenames . initAnalysis $ pf
     let runRenamer = snd . renameAndStrip . analyseRenames . initAnalysis
     let runBBlocks pf = showBBlocks pf' ++ "\n\n" ++ showDataFlow pf'
           where pf' = analyseBBlocks (initAnalysis pf)
