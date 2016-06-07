@@ -98,6 +98,14 @@ spec = do
       let entry = extractNameMap' exScope2
       length (filter (=="x") (elems entry)) `shouldBe` 2
 
+  describe "Ordering" $ do
+    it "exScope3 testing out-of-order definitions" $ do
+      let entry = extractNameMap' exScope3
+      length (filter (=="f1") (elems entry)) `shouldBe` 1
+      length (filter (=="f2") (elems entry)) `shouldBe` 1
+      length (filter (=="s1") (elems entry)) `shouldBe` 1
+      length (filter (=="s2") (elems entry)) `shouldBe` 1
+
 --------------------------------------------------
 
 ex1 = ProgramFile [ ([ ], ex1pu1) ] [ ]
@@ -274,18 +282,18 @@ ex12 = resetSrcSpan . flip fortran90Parser "" $ unlines [
 
 
 exScope1 = resetSrcSpan . flip fortran90Parser "" $ unlines [
-    "integer function x ()"
+    "program scope1"
+  -- local variables cannot take on the name of subprogram, therefore
+  -- this declaration must be simply redeclaring the function x.
+  , "  integer :: x"
+  , ""
+  , "  print *, x()" -- function use prior to definition is OK
+  , ""
+  , "end program scope1"
+  , "integer function x ()"
   , "  x = 1"
   , "end function x"
   , ""
-  , "program scope1"
--- local variables cannot take on the name of subprogram, therefore
--- this declaration must be simply redeclaring the function x.
-  , "  integer :: x"
-  , ""
-  , "  print *, x()"
-  , ""
-  , "end program scope1"
   ]
 
 exScope2 = resetSrcSpan . flip fortran90Parser "" $ unlines [
@@ -315,6 +323,42 @@ exScope2 = resetSrcSpan . flip fortran90Parser "" $ unlines [
   , "  print *, x"
   , "  ! should print 0 at end"
   , "end program main"
+  ]
+
+exScope3 = resetSrcSpan . flip fortran90Parser "" $ unlines [
+    "module m1"
+  , "  implicit none"
+  , "  integer :: x"
+  , "contains"
+  , ""
+  , "  subroutine s1 ()"
+  , "    call s2 (f1(x))"
+  , "  end subroutine s1"
+  , ""
+  , "  integer function f1(x)"
+  , "    integer :: x, f2"
+  , "    f1 = f2(x)"
+  , "  end function f1"
+  , ""
+  , ""
+  , "end module m1"
+  , ""
+  , "program main"
+  , "  use m1"
+  , "  implicit none"
+  , "  call s1()"
+  , "  print *, f1(x)"
+  , "end program main"
+  , ""
+  , "subroutine s2 (x)"
+  , "  integer :: x, f2"
+  , "  x = f2 (x)"
+  , "end subroutine s2"
+  , ""
+  , "function f2(x)"
+  , "  integer :: x, f2"
+  , "  f2 = x + 1"
+  , "end function f2"
   ]
 
 -- Local variables:

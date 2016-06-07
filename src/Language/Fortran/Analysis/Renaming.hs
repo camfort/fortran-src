@@ -47,12 +47,11 @@ type RenamerFunc t = t -> Renamer t
 
 -- | Annotate unique names for variable and function declarations and uses.
 analyseRenames :: Data a => ProgramFile (Analysis a) -> ProgramFile (Analysis a)
-analyseRenames pf = pf'
+analyseRenames (ProgramFile cm_pus bs) = ProgramFile cm_pus' bs
   where
-    (pf', _) = runRenamer (descPU programUnit pf) renameState0
-
-    descPU :: Data a => RenamerFunc (ProgramUnit a) -> RenamerFunc (ProgramFile a)
-    descPU = descendBiM -- work from the top down
+    cm_pus'        = zip (map fst cm_pus) pus'
+    (Just pus', _) = runRenamer (skimProgramUnits pus >> renameSubPUs (Just pus)) renameState0
+    pus            = map snd cm_pus
 
 -- | Take the unique name annotations and substitute them into the actual AST.
 rename :: Data a => ProgramFile (Analysis a) -> (NameMap, ProgramFile (Analysis a))
@@ -69,6 +68,8 @@ rename pf = (extractNameMap pf, trPU fPU (trE fE pf))
     fPU :: Data a => ProgramUnit (Analysis a) -> ProgramUnit (Analysis a)
     fPU (PUFunction a s ty r n args res b subs) =
       PUFunction a s ty r (fromMaybe n (uniqueName a)) args res b subs
+    fPU (PUSubroutine a s r n args b subs) =
+      PUSubroutine a s r (fromMaybe n (uniqueName a)) args b subs
     fPU x                            = x
 
 -- | Create a map of unique name => original name for each variable
@@ -117,7 +118,6 @@ underRenaming f pf = tryUnrename `descendBi` f pf'
 
 programUnit :: Data a => RenamerFunc (ProgramUnit (Analysis a))
 programUnit (PUModule a s name blocks m_contains) = do
-  addToEnv name name NTSubprogram
   env0        <- initialEnv blocks
   pushScope name env0
   blocks'     <- mapM renameDeclDecls blocks -- handle declarations
@@ -129,7 +129,7 @@ programUnit (PUModule a s name blocks m_contains) = do
   return (PUModule a' s name blocks' m_contains')
 
 programUnit (PUFunction a s ty rec name args res blocks m_contains) = do
-  name'       <- addUnique name NTSubprogram      -- add unique function name to outer environment
+  Just name'  <- getFromEnv name                  -- get renamed function name
   blocks1     <- mapM renameEntryPointDecl blocks -- rename any entry points
   env0        <- initialEnv blocks1
   pushScope name env0
@@ -143,7 +143,7 @@ programUnit (PUFunction a s ty rec name args res blocks m_contains) = do
   return . setUniqueName name' $ PUFunction a s ty rec name args' res' blocks4 m_contains'
 
 programUnit (PUSubroutine a s rec name args blocks m_contains) = do
-  name'       <- addUnique name NTSubprogram      -- add unique subroutine name to outer environment
+  Just name'  <- getFromEnv name                  -- get renamed subroutine name
   blocks1     <- mapM renameEntryPointDecl blocks -- rename any entry points
   env0        <- initialEnv blocks1
   pushScope name env0
@@ -294,6 +294,9 @@ addUnique v nt = do
   addToEnv v v' nt
   return v'
 
+addUnique_ :: String -> NameType -> Renamer ()
+addUnique_ v nt = addUnique v nt >> return ()
+
 -- This function will be invoked by occurrences of
 -- declarations. First, search to see if v is a subprogram name that
 -- exists in any containing scope; if so, use it. Then, search to see
@@ -312,7 +315,18 @@ setUniqueName un x
 
 -- Work recursively into sub-program units.
 renameSubPUs :: Data a => RenamerFunc (Maybe [ProgramUnit (Analysis a)])
-renameSubPUs = maybe (return Nothing) ((Just `fmap`) . mapM programUnit)
+renameSubPUs Nothing = return Nothing
+renameSubPUs (Just pus) = skimProgramUnits pus >> Just `fmap` (mapM programUnit pus)
+
+-- Go through all program units at the same level and add their names
+-- to the environment.
+skimProgramUnits :: Data a => [ProgramUnit (Analysis a)] -> Renamer ()
+skimProgramUnits pus = forM_ pus $ \ pu -> case pu of
+  PUModule _ _ name _ _           -> addToEnv name name NTSubprogram
+  PUFunction _ _ _ _ name _ _ _ _ -> addUnique_ name NTSubprogram
+  PUSubroutine _ _ _ name _ _ _   -> addUnique_ name NTSubprogram
+  PUMain _ _ (Just name) _ _      -> addToEnv name name NTSubprogram
+  _                               -> return ()
 
 ----------
 -- rename*Decl[s] functions: possibly generate new unique mappings:
