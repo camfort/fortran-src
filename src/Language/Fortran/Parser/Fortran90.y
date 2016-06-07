@@ -1052,6 +1052,7 @@ transformations90 =
   , GroupDo
   , GroupIf
   , GroupCase
+  , DisambiguateFunction
   ]
 
 fortran90Parser :: String -> String -> ProgramFile A0
