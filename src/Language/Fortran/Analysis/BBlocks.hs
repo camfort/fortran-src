@@ -23,6 +23,7 @@ import Data.Graph.Inductive
 import Data.Graph.Inductive.PatriciaTree (Gr)
 import Data.List (foldl', intercalate)
 import Data.Maybe
+import Language.Fortran.Util.Position (SrcSpan(..), initPosition)
 
 --------------------------------------------------
 
@@ -36,7 +37,7 @@ analyseBBlocks' (ProgramFile cm_pus cs) = ProgramFile (map (fmap toBBlocksPerPU)
 type BBlockMap a = M.Map ProgramUnitName (BBGr a)
 genBBlockMap :: Data a => ProgramFile (Analysis a) -> BBlockMap (Analysis a)
 genBBlockMap (ProgramFile cm_pus _) = M.fromList [
-    (getName pu, gr) | (_, pu) <- cm_pus, let Just gr = bBlocks (getAnnotation pu)
+    (puName pu, gr) | (_, pu) <- cm_pus, let Just gr = bBlocks (getAnnotation pu)
   ]
 
 --------------------------------------------------
@@ -89,8 +90,8 @@ genInOutAssignments pu exit
       zipWith genAssign (genVar a noSrcSpan n:vs) [0..]
   | otherwise                          = zipWith genAssign vs [1..]
   where
-    puName = getName pu
-    name i = case puName of Named n -> n ++ "[" ++ show i ++ "]"
+    pun = puName pu
+    name i = case pun of Named n -> n ++ "[" ++ show i ++ "]"
     (a, s, vs) = case pu of
       PUFunction _ _ _ _ _ (Just (AList a s vs)) _ _ _ -> (a, s, vs)
       PUSubroutine _ _ _ _ (Just (AList a s vs)) _ _ -> (a, s, vs)
@@ -487,7 +488,7 @@ showBBlocks (ProgramFile cm_pus _) = (perPU . snd) =<< cm_pus
   where
     perPU pu | Analysis { bBlocks = Just gr } <- getAnnotation pu =
       dashes ++ "\n" ++ p ++ "\n" ++ dashes ++ "\n" ++ showBBGr (nmap strip gr) ++ "\n\n"
-      where p = "| Program Unit " ++ show (getName pu) ++ " |"
+      where p = "| Program Unit " ++ show (puName pu) ++ " |"
             dashes = replicate (length p) '-'
     perPU _ = ""
     strip = map (fmap insLabel)
@@ -625,7 +626,7 @@ showDim (DimensionDeclarator _ _ me1 me2) = maybe "" ((++":") . showExpr) me1 ++
 
 aIntercalate sep f = intercalate sep . map f . aStrip
 
-noSrcSpan = error "noSrcSpan"
+noSrcSpan = SrcSpan initPosition initPosition
 
 --------------------------------------------------
 -- Some helper functions that really should be in fgl.

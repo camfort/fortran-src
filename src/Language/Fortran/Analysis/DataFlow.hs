@@ -367,7 +367,7 @@ showDataFlow pf@(ProgramFile cm_pus _) = (perPU . snd) =<< cm_pus
   where
     perPU pu | Analysis { bBlocks = Just gr } <- getAnnotation pu =
       dashes ++ "\n" ++ p ++ "\n" ++ dashes ++ "\n" ++ dfStr gr ++ "\n\n"
-      where p = "| Program Unit " ++ show (getName pu) ++ " |"
+      where p = "| Program Unit " ++ show (puName pu) ++ " |"
             dashes = replicate (length p) '-'
             dfStr gr = (\ (l, x) -> '\n':l ++ ": " ++ x) =<< [
                          ("callMap",      show cm)
@@ -407,7 +407,7 @@ genCallMap :: Data a => ProgramFile (Analysis a) -> CallMap
 genCallMap pf = flip execState M.empty $ do
   let (ProgramFile cm_pus _) = pf
   forM_ cm_pus $ \ (_, pu) -> do
-    let n = getName pu
+    let n = puName pu
     let uS :: Data a => ProgramUnit a -> [Statement a]
         uS = universeBi
     let uE :: Data a => ProgramUnit a -> [Expression a]
