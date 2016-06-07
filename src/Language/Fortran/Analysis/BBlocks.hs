@@ -29,20 +29,27 @@ import Language.Fortran.Util.Position (SrcSpan(..), initPosition)
 
 -- | Insert basic block graphs into each program unit's analysis
 analyseBBlocks :: Data a => ProgramFile (Analysis a) -> ProgramFile (Analysis a)
-analyseBBlocks = labelBlocksInBBGr . analyseBBlocks'
-analyseBBlocks' (ProgramFile cm_pus cs) = ProgramFile (map (fmap toBBlocksPerPU) cm_pus) cs
+analyseBBlocks = labelBlocksInBBGr . trans toBBlocksPerPU
+  where
+    trans :: Data a => TransFunc ProgramUnit ProgramFile a
+    trans = transformBi
 
---------------------------------------------------
-
+-- | A mapping of program unit names to bblock graphs.
 type BBlockMap a = M.Map ProgramUnitName (BBGr a)
+
+-- | Create a mapping of (non-module) program unit names to their
+-- associated bblock graph.
 genBBlockMap :: Data a => ProgramFile (Analysis a) -> BBlockMap (Analysis a)
-genBBlockMap (ProgramFile cm_pus _) = M.fromList [
-    (puName pu, gr) | (_, pu) <- cm_pus, let Just gr = bBlocks (getAnnotation pu)
+genBBlockMap pf = M.fromList [
+    (puName pu, gr) | pu <- getPUs pf, Just gr <- [bBlocks (getAnnotation pu)]
   ]
+  where
+    getPUs :: Data a => ProgramFile (Analysis a) -> [ProgramUnit (Analysis a)]
+    getPUs = universeBi
 
 --------------------------------------------------
 
--- | Insert unique labels on each AST-block, inside each bblock, for
+-- Insert unique labels on each AST-block, inside each bblock, for
 -- easier look-up later
 labelBlocksInBBGr :: Data a => ProgramFile (Analysis a) -> ProgramFile (Analysis a)
 labelBlocksInBBGr gr = evalState (transform (nmapM' (mapM eachBlock)) gr) [1..]
@@ -483,8 +490,8 @@ showSuperBBGr :: (Out a, Show a) => SuperBBGr (Analysis a) -> String
 showSuperBBGr = showAnalysedBBGr . graph
 
 -- | Pick out and show the basic block graphs in the program file analysis.
-showBBlocks :: (Out a, Show a) => ProgramFile (Analysis a) -> String
-showBBlocks (ProgramFile cm_pus _) = (perPU . snd) =<< cm_pus
+showBBlocks :: (Data a, Out a, Show a) => ProgramFile (Analysis a) -> String
+showBBlocks pf = perPU =<< getPUs pf
   where
     perPU pu | Analysis { bBlocks = Just gr } <- getAnnotation pu =
       dashes ++ "\n" ++ p ++ "\n" ++ dashes ++ "\n" ++ showBBGr (nmap strip gr) ++ "\n\n"
@@ -492,6 +499,8 @@ showBBlocks (ProgramFile cm_pus _) = (perPU . snd) =<< cm_pus
             dashes = replicate (length p) '-'
     perPU _ = ""
     strip = map (fmap insLabel)
+    getPUs :: Data a => ProgramFile (Analysis a) -> [ProgramUnit (Analysis a)]
+    getPUs = universeBi
 
 -- | Output a graph in the GraphViz DOT format
 bbgrToDOT :: BBGr a -> String
