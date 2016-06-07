@@ -18,20 +18,34 @@ import qualified Data.IntSet as IS
 import Data.Graph.Inductive
 import Data.Graph.Inductive.PatriciaTree (Gr)
 import Data.Maybe
+import Data.Data
 
 pParser :: String -> ProgramFile (Analysis ())
-pParser source = analyseBBlocks . snd . rename . initAnalysis $ extended77Parser source "<unknown>"
+pParser source = analyseBBlocks . snd . rename . analyseRenames . initAnalysis . resetSrcSpan $ extended77Parser source "<unknown>"
+
+withParse :: Data a => String -> (ProgramFile (Analysis A0) -> a) -> a
+withParse source f = underRenaming (f . analyseBBlocks) (extended77Parser source "<unknown>")
+
+testGraph f p = fromJust . M.lookup (Named f) . withParse p $ genBBlockMap
+testPfAndGraph f p = fmap (fromJust . M.lookup (Named f)) . withParse p $ \ pf -> (pf, genBBlockMap pf)
+
+testGenDefMap p = genDefMap bm
+  where
+    pf = analyseBBlocks . initAnalysis . extended77Parser p $ "<unknown>"
+    bm = genBlockMap pf
+
+testBackEdges f p = bedges
+  where
+    gr     = testGraph f p
+    domMap = dominators gr
+    bedges = genBackEdgeMap domMap gr
 
 spec :: Spec
 spec =
   describe "Dataflow" $ do
     describe "loop4" $ do
       it "genBackEdgeMap" $ do
-        let pf = pParser programLoop4
-        let gr = fromJust . M.lookup (Named "loop4") $ genBBlockMap pf
-        let domMap = dominators gr
-        let bedges = genBackEdgeMap domMap gr
-        (bedges) `shouldBe` (IM.fromList [(9, 6), (11, 2)])
+        testBackEdges "loop4" programLoop4 `shouldBe` (IM.fromList [(9, 6), (11, 2)])
 
       it "loopNodes" $ do
         let pf = pParser programLoop4
@@ -41,11 +55,8 @@ spec =
         S.fromList (loopNodes bedges gr) `shouldBe`
           S.fromList [IS.fromList [6, 9], IS.fromList [2, 5, 6, 7, 9, 11]]
 
-      it "genDefMap" $ do
-        let pf = pParser programLoop4
-        let gr = fromJust . M.lookup (Named "loop4") $ genBBlockMap pf
-        let bm = genBlockMap pf
-        genDefMap bm `shouldBe`
+      it "genDefMap" $
+        testGenDefMap programLoop4 `shouldBe`
           M.fromList [("i",IS.fromList [2,16]),("j",IS.fromList [5,10]),("r",IS.fromList [4,14])]
 
       it "reachingDefinitions" $ do
@@ -67,42 +78,32 @@ spec =
 
     describe "rd3" $ do
       it "genBackEdgeMap" $ do
-        let pf = pParser programRd3
-        let gr = fromJust . M.lookup (Named "f") $ genBBlockMap pf
-        let domMap = dominators gr
-        let bedges = genBackEdgeMap domMap gr
-        (bedges) `shouldBe` (IM.fromList [(3, 2)])
+        testBackEdges "f" programRd3 `shouldBe` (IM.fromList [(3, 2)])
 
-      it "loopNodes" $ do
-        let pf = pParser programRd3
-        let gr = fromJust . M.lookup (Named "f") $ genBBlockMap pf
-        let domMap = dominators gr
-        let bedges = genBackEdgeMap domMap gr
-        S.fromList (loopNodes bedges gr) `shouldBe`
-          S.fromList [IS.fromList [2, 3]]
+      -- it "loopNodes" $ do
+      --   let (pf, gr) = testPfAndGraph "f" programRd3
+      --   let domMap = dominators gr
+      --   let bedges = genBackEdgeMap domMap gr
+      --   S.fromList (loopNodes bedges gr) `shouldBe`
+      --     S.fromList [IS.fromList [2, 3]]
 
       it "genDefMap" $ do
-        let pf = pParser programRd3
-        let gr = fromJust . M.lookup (Named "f") $ genBBlockMap pf
-        let bm = genBlockMap pf
-        genDefMap bm `shouldBe`
-          M.fromList [ ("_f_t#0",IS.fromList [2]),("a",IS.fromList [9]),("b",IS.fromList [8]),("f",IS.fromList [7]),("f[0]",IS.fromList [14]),("f[1]",IS.fromList [4,15]),("i",IS.fromList [10]),("x",IS.fromList [13]) ]
+        testGenDefMap programRd3 `shouldBe`
+          M.fromList [ ("_f_t#0",IS.fromList [11]),("a",IS.fromList [3]),("b",IS.fromList [2]),("f",IS.fromList [1]),("f[0]",IS.fromList [8]),("f[1]",IS.fromList [9,13]),("i",IS.fromList [4]),("x",IS.fromList [7]) ]
 
       it "reachingDefinitions" $ do
-        let pf = pParser programRd3
-        let gr = fromJust . M.lookup (Named "f") $ genBBlockMap pf
+        let (pf, gr) = testPfAndGraph "f" programRd3
         let bm = genBlockMap pf
         let dm = genDefMap bm
         IM.lookup 3 (reachingDefinitions dm gr) `shouldBe`
-          Just (IS.fromList [8,9,10,13], IS.fromList [8,9,10,13])
+          Just (IS.fromList [2,3,4,7], IS.fromList [2,3,4,7])
 
       it "flowsTo" $ do
-        let pf = pParser programRd3
-        let gr = fromJust . M.lookup (Named "f") $ genBBlockMap pf
+        let (pf, gr) = testPfAndGraph "f" programRd3
         let bm = genBlockMap pf
         let dm = genDefMap bm
         (S.fromList . edges . genFlowsToGraph bm dm gr $ reachingDefinitions dm gr) `shouldBe`
-          S.fromList [ (7,14),(8,9),(9,7),(9,8),(10,8),(10,9),(13,8),(13,15) ]
+          S.fromList [(1,8),(2,3),(3,1),(3,2),(4,2),(4,3),(7,2),(7,9)]
 
 programLoop4 = unlines [
       "      program loop4"
@@ -131,14 +132,7 @@ programLoop4 = unlines [
   ]
 
 programRd3 = unlines [
-      "      program rd3"
-    , "      implicit none"
-    , "      integer f"
-    , ""
-    , "      write (*,*) f(1)"
-    , "      end"
-    , ""
-    , "      function f(x)"
+      "      function f(x)"
     , "      integer i, a, b, x, f"
     , "      dimension a(10), b(10)"
     , ""
@@ -147,7 +141,15 @@ programRd3 = unlines [
     , "         a(i) = b(i)"
     , " 10   continue"
     , "      f = a(10)"
-    , "      end" ]
+    , "      end"
+    , "      program rd3"
+    , "      implicit none"
+    , "      integer f"
+    , ""
+    , "      write (*,*) f(1)"
+    , "      end"
+    , ""
+    ]
 
 -- Local variables:
 -- mode: haskell
