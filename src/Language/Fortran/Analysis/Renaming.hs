@@ -117,7 +117,7 @@ underRenaming f pf = tryUnrename `descendBi` f pf'
 
 programUnit :: Data a => RenamerFunc (ProgramUnit (Analysis a))
 programUnit (PUModule a s name blocks m_contains) = do
-  addToEnv name name
+  addToEnv name name NTSubprogram
   env0        <- initialEnv blocks
   pushScope name env0
   blocks'     <- mapM renameDeclDecls blocks -- handle declarations
@@ -129,7 +129,7 @@ programUnit (PUModule a s name blocks m_contains) = do
   return (PUModule a' s name blocks' m_contains')
 
 programUnit (PUFunction a s ty rec name args res blocks m_contains) = do
-  name'       <- addUnique name                   -- add unique function name to outer environment
+  name'       <- addUnique name NTSubprogram      -- add unique function name to outer environment
   blocks1     <- mapM renameEntryPointDecl blocks -- rename any entry points
   env0        <- initialEnv blocks1
   pushScope name env0
@@ -143,7 +143,7 @@ programUnit (PUFunction a s ty rec name args res blocks m_contains) = do
   return . setUniqueName name' $ PUFunction a s ty rec name args' res' blocks4 m_contains'
 
 programUnit (PUSubroutine a s rec name args blocks m_contains) = do
-  name'       <- addUnique name                   -- add unique subroutine name to outer environment
+  name'       <- addUnique name NTSubprogram      -- add unique subroutine name to outer environment
   blocks1     <- mapM renameEntryPointDecl blocks -- rename any entry points
   env0        <- initialEnv blocks1
   pushScope name env0
@@ -261,27 +261,48 @@ getEnvs = M.unionsWith (curry fst) `fmap` gets environ
 
 -- Get a mapping from the current environment if it exists.
 getFromEnv :: String -> Renamer (Maybe String)
-getFromEnv v = lookup v `fmap` getEnv
+getFromEnv v = ((fst `fmap`) . lookup v) `fmap` getEnv
 
 -- Get a mapping from the combined nested environment, if it exists.
 getFromEnvs :: String -> Renamer (Maybe String)
-getFromEnvs v = lookup v `fmap` getEnvs
+getFromEnvs v = ((fst `fmap`) . lookup v) `fmap` getEnvs
+
+-- Get a mapping, plus name type, from the combined nested
+-- environment, if it exists.
+getFromEnvsWithType :: String -> Renamer (Maybe (String, NameType))
+getFromEnvsWithType v = lookup v `fmap` getEnvs
+
+-- To conform with Fortran specification about subprogram names:
+-- search for subprogram names in all containing scopes first, then
+-- search for variables in the current scope.
+getFromEnvsIfSubprogram :: String -> Renamer (Maybe String)
+getFromEnvsIfSubprogram v = do
+  mEntry <- getFromEnvsWithType v
+  case mEntry of
+    Just (v', NTSubprogram) -> return $ Just v'
+    Just (_, NTVariable)    -> getFromEnv v
+    _                       -> return $ Nothing
 
 -- Add a renaming mapping to the environment.
-addToEnv :: String -> String -> Renamer ()
-addToEnv v v' = modify $ \ s -> s { environ = insert v v' (head (environ s)) : drop 1 (environ s) }
+addToEnv :: String -> String -> NameType -> Renamer ()
+addToEnv v v' nt = modify $ \ s -> s { environ = insert v (v', nt) (head (environ s)) : drop 1 (environ s) }
 
 -- Add a unique renaming to the environment.
-addUnique :: RenamerFunc String
-addUnique v = do
+addUnique :: String -> NameType -> Renamer String
+addUnique v nt = do
   v' <- flip uniquify v =<< getScopes
-  addToEnv v v'
+  addToEnv v v' nt
   return v'
 
--- If an existing renaming in the current environment exists, use it;
--- otherwise generate a new unique one and add it to the environment.
-maybeAddUnique :: RenamerFunc String
-maybeAddUnique v = maybe (addUnique v) return =<< getFromEnv v
+-- This function will be invoked by occurrences of
+-- declarations. First, search to see if v is a subprogram name that
+-- exists in any containing scope; if so, use it. Then, search to see
+-- if v is a variable in the current scope; if so, use it. Otherwise,
+-- assume that it is either a new name or that it is shadowing a
+-- variable, so generate a new unique name and add it to the current
+-- environment.
+maybeAddUnique :: String -> NameType -> Renamer String
+maybeAddUnique v nt = maybe (addUnique v nt) return =<< getFromEnvsIfSubprogram v
 
 -- If uniqueName property is not set, then set it.
 setUniqueName :: (Annotated f, Data a) => String -> f (Analysis a) -> f (Analysis a)
@@ -309,7 +330,7 @@ renameGenericDecls = trans renameExpDecl
 -- declaration that possibly requires the creation of a new unique
 -- mapping.
 renameExpDecl :: Data a => RenamerFunc (Expression (Analysis a))
-renameExpDecl e@(ExpValue _ _ (ValVariable v)) = flip setUniqueName e `fmap` maybeAddUnique v
+renameExpDecl e@(ExpValue _ _ (ValVariable v)) = flip setUniqueName e `fmap` maybeAddUnique v NTVariable
 renameExpDecl e                                = return e
 
 -- Find all declarators within a value and then dive within those

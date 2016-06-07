@@ -4,7 +4,7 @@
 -- Common data structures and functions supporting analysis of the AST.
 module Language.Fortran.Analysis
   ( initAnalysis, stripAnalysis, Analysis(..), varName, genVar, puName
-  , ModEnv, IDType(..), ConstructType(..), BaseType(..)
+  , ModEnv, NameType(..), IDType(..), ConstructType(..), BaseType(..)
   , lhsExprs, isLExpr, allVars, allLhsVars, blockVarUses, blockVarDefs
   , BB, BBGr
   , TransFunc, TransFuncM )
@@ -41,7 +41,8 @@ type TransFunc f g a = (f (Analysis a) -> f (Analysis a)) -> g (Analysis a) -> g
 -- | The type of "transformBiM"-family functions
 type TransFuncM m f g a = (f (Analysis a) -> m (f (Analysis a))) -> g (Analysis a) -> m (g (Analysis a))
 
-type ModEnv = M.Map String String
+data NameType = NTSubprogram | NTVariable deriving (Show, Eq, Ord, Data, Typeable)
+type ModEnv = M.Map String (String, NameType)
 
 data ConstructType =
     CTFunction

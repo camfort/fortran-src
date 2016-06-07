@@ -51,8 +51,6 @@ spec = do
       countUnrenamed (analyseRenames . initAnalysis $ ex5) `shouldBe` 0
     it "complete ex6" $ do
       countUnrenamed (analyseRenames . initAnalysis $ ex6) `shouldBe` 0
-    it "complete ex7" $ do
-      countUnrenamed (analyseRenames . initAnalysis $ ex7) `shouldBe` 0
     it "complete ex8" $ do
       countUnrenamed (analyseRenames . initAnalysis $ ex8) `shouldBe` 0
     it "complete ex9" $ do
@@ -63,6 +61,11 @@ spec = do
       countUnrenamed (analyseRenames . initAnalysis $ ex11) `shouldBe` 0
     it "complete ex12" $ do
       countUnrenamed (analyseRenames . initAnalysis $ ex12) `shouldBe` 0
+
+    it "complete exScope1" $ do
+      countUnrenamed (analyseRenames . initAnalysis $ exScope1) `shouldBe` 0
+    it "complete exScope2" $ do
+      countUnrenamed (analyseRenames . initAnalysis $ exScope2) `shouldBe` 0
 
     it "functions 1" $ do
       let entry = extractNameMap' ex3
@@ -86,14 +89,13 @@ spec = do
       entry `shouldBe'` ex4
 
   describe "Shadowing" $ do
-    it "shadowing ex7" $ do
-      let entry = extractNameMap' ex7
+    it "exScope1 testing non-shadowing of subprogram names" $ do
+      let entry = extractNameMap' exScope1
       let keys = M.keys entry
-      keys `shouldSatisfy` any (isPrefixOf "m1_foo_bar_s_x")
-      keys `shouldSatisfy` all (not . isPrefixOf "m1_foo_bar_s_t_x")
+      length keys `shouldBe` 1
 
-    it "shadowing ex9" $ do
-      let entry = extractNameMap' ex9
+    it "exScope2 testing shadowing of variables" $ do
+      let entry = extractNameMap' exScope2
       length (filter (=="x") (elems entry)) `shouldBe` 2
 
 --------------------------------------------------
@@ -170,48 +172,6 @@ ex6pu2bs = []
 ex6pu2pu1 = PUFunction () u (Just $ TypeSpec () u TypeInteger Nothing) False "f1" (Just $ AList () u [ varGen "x"]) Nothing [ BlStatement () u Nothing (StExpressionAssign () u (varGen "f1") (ExpFunctionCall () u (ExpValue () u (ValVariable "f1")) (Just $ AList () u [Argument () u Nothing (varGen "x")]))) ] (Just [ex5pu2pu1])
 
 parseF90 = resetSrcSpan . flip fortran90Parser "" . unlines
-
-ex7 = parseF90 [
-    "program main"
-  , "  implicit none"
-  , "  integer :: x, y, z"
-  , "  x = 1"
-  , "  z = foo (3)"
-  , "  print *, x, y, z"
-  , "contains"
-  , "  integer function foo (x)"
-  , "    integer :: x"
-  , "    foo = x"
-  , "    y = 2"
-  , "  end function foo"
-  , "end program main"
-  , "module m1"
-  , "  implicit none"
-  , "  integer :: x, y, z"
-  , "contains"
-  , "  integer function foo (x)"
-  , "    integer :: x"
-  , "    foo = x"
-  , "    y = bar (3)"
-  , "  contains"
-  , "    integer function bar (x)"
-  , "      integer :: x"
-  , "      call s (x)"
-  , "      bar = x"
-  , "    contains"
-  , "      subroutine s (x)"
-  , "        integer :: x"
-  , "        call t ()"
-  , "      contains"
-  , "        subroutine t ()"
-  , "          x = x + 1"
-  , "        end subroutine t"
-  , "      end subroutine s"
-  , "    end function bar"
-  , "  end function foo"
-  , "end module m1"
-
-  ]
 
 ex8 = resetSrcSpan . flip fortran90Parser "" $ unlines [
     "module m1"
@@ -312,6 +272,50 @@ ex12 = resetSrcSpan . flip fortran90Parser "" $ unlines [
   , "end program main"
   ]
 
+
+exScope1 = resetSrcSpan . flip fortran90Parser "" $ unlines [
+    "integer function x ()"
+  , "  x = 1"
+  , "end function x"
+  , ""
+  , "program scope1"
+-- local variables cannot take on the name of subprogram, therefore
+-- this declaration must be simply redeclaring the function x.
+  , "  integer :: x"
+  , ""
+  , "  print *, x()"
+  , ""
+  , "end program scope1"
+  ]
+
+exScope2 = resetSrcSpan . flip fortran90Parser "" $ unlines [
+    "module scope2"
+  , "  integer :: x"
+  , "contains"
+  , "  subroutine s1 ()"
+  , "    ! this is variable shadowing"
+  , "    integer :: x"
+  , "    x = 1"
+  , "    print *, x"
+  , "    call s2 ()"
+  , "    print *, x"
+  , "  contains"
+  , "    subroutine s2"
+  , "      ! reference to outside variable"
+  , "      x = 2"
+  , "    end subroutine s2"
+  , "  end subroutine s1"
+  , "end module scope2"
+  , ""
+  , "program main"
+  , "  use scope2"
+  , "  x = 0"
+  , "  print *, x"
+  , "  call s1 ()"
+  , "  print *, x"
+  , "  ! should print 0 at end"
+  , "end program main"
+  ]
 
 -- Local variables:
 -- mode: haskell
