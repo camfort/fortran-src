@@ -363,8 +363,9 @@ genInductionVarMap = basicInductionVars
 
 -- | Show some information about dataflow analyses.
 showDataFlow :: (Data a, Out a, Show a) => ProgramFile (Analysis a) -> String
-showDataFlow pf@(ProgramFile cm_pus _) = (perPU . snd) =<< cm_pus
+showDataFlow pf = perPU =<< uni pf
   where
+    uni = (universeBi :: Data a => ProgramFile (Analysis a) -> [ProgramUnit (Analysis a)])
     perPU pu | Analysis { bBlocks = Just gr } <- getAnnotation pu =
       dashes ++ "\n" ++ p ++ "\n" ++ dashes ++ "\n" ++ dfStr gr ++ "\n\n"
       where p = "| Program Unit " ++ show (puName pu) ++ " |"
@@ -406,7 +407,8 @@ type CallMap = M.Map ProgramUnitName (S.Set Name)
 genCallMap :: Data a => ProgramFile (Analysis a) -> CallMap
 genCallMap pf = flip execState M.empty $ do
   let (ProgramFile cm_pus _) = pf
-  forM_ cm_pus $ \ (_, pu) -> do
+  let uP = (universeBi :: Data a => ProgramFile a -> [ProgramUnit a])
+  forM_ (uP pf) $ \ pu -> do
     let n = puName pu
     let uS :: Data a => ProgramUnit a -> [Statement a]
         uS = universeBi
