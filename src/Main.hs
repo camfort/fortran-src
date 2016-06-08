@@ -9,6 +9,7 @@ import Text.PrettyPrint.GenericPretty (pp)
 import Data.List (isInfixOf, isSuffixOf, intercalate)
 import Data.Char (toLower)
 import Data.Maybe (fromMaybe)
+import Data.Data
 
 import Language.Fortran.ParserMonad (FortranVersion(..))
 import qualified Language.Fortran.Lexer.FixedForm as FixedForm (collectFixedTokens, Token(..))
@@ -20,6 +21,7 @@ import Language.Fortran.Parser.Fortran90 (fortran90Parser)
 import Language.Fortran.Parser.Any
 
 import Language.Fortran.Analysis
+import Language.Fortran.AST
 import Language.Fortran.Analysis.Types
 import Language.Fortran.Analysis.BBlocks
 import Language.Fortran.Analysis.DataFlow
@@ -70,38 +72,38 @@ main = do
       BBlocks    -> putStrLn . runBBlocks $ parserF contents path
       SuperGraph -> putStrLn . runSuperGraph $ parserF contents path
 
--- superGraphDataFlow :: ProgramFile (Analysis a) -> SuperBBGr a -> String
-superGraphDataFlow pf sgr = dfStr gr
- where
-   gr = superBBGrGraph sgr
-   dfStr gr = (\ (l, x) -> '\n':l ++ ": " ++ x) =<< [
-                ("callMap",      show cm)
-              , ("postOrder",    show (postOrder gr))
-              , ("revPostOrder", show (revPostOrder gr))
-              , ("revPreOrder",  show (revPreOrder gr))
-              , ("dominators",   show (dominators gr))
-              , ("iDominators",  show (iDominators gr))
-              , ("defMap",       show dm)
-              , ("lva",          show (IM.toList $ lva gr))
-              , ("rd",           show (IM.toList rDefs))
-              , ("backEdges",    show bedges)
-              , ("topsort",      show (topsort gr))
-              , ("scc ",         show (scc gr))
-              , ("loopNodes",    show (loopNodes bedges gr))
-              , ("duMap",        show (genDUMap bm dm gr rDefs))
-              , ("udMap",        show (genUDMap bm dm gr rDefs))
-              , ("flowsTo",      show (edges flTo))
-              , ("varFlowsTo",   show (genVarFlowsToMap dm flTo))
-              , ("ivMap",        show (genInductionVarMap bedges gr))
-              ] where
-                  bedges = genBackEdgeMap (dominators gr) gr
-                  flTo   = genFlowsToGraph bm dm gr rDefs
-                  rDefs  = rd gr
-   lva = liveVariableAnalysis
-   bm = genBlockMap pf
-   dm = genDefMap bm
-   rd = reachingDefinitions dm
-   cm = genCallMap pf
+superGraphDataFlow :: Data a => ProgramFile (Analysis a) -> SuperBBGr (Analysis a) -> String
+superGraphDataFlow pf sgr = showBBGr (nmap (map (fmap insLabel)) gr) ++ "\n\n" ++ replicate 50 '-' ++ "\n\n" ++ dfStr gr
+  where
+    gr = superBBGrGraph sgr
+    dfStr gr = (\ (l, x) -> '\n':l ++ ": " ++ x) =<< [
+                 ("callMap",      show cm)
+               , ("postOrder",    show (postOrder gr))
+               , ("revPostOrder", show (revPostOrder gr))
+               , ("revPreOrder",  show (revPreOrder gr))
+               , ("dominators",   show (dominators gr))
+               , ("iDominators",  show (iDominators gr))
+               , ("defMap",       show dm)
+               , ("lva",          show (IM.toList $ lva gr))
+               , ("rd",           show (IM.toList rDefs))
+               , ("backEdges",    show bedges)
+               , ("topsort",      show (topsort gr))
+               , ("scc ",         show (scc gr))
+               , ("loopNodes",    show (loopNodes bedges gr))
+               , ("duMap",        show (genDUMap bm dm gr rDefs))
+               , ("udMap",        show (genUDMap bm dm gr rDefs))
+               , ("flowsTo",      show (edges flTo))
+               , ("varFlowsTo",   show (genVarFlowsToMap dm flTo))
+               , ("ivMap",        show (genInductionVarMap bedges gr))
+               ] where
+                   bedges = genBackEdgeMap (dominators gr) gr
+                   flTo   = genFlowsToGraph bm dm gr rDefs
+                   rDefs  = rd gr
+    lva = liveVariableAnalysis
+    bm = genBlockMap pf
+    dm = genDefMap bm
+    rd = reachingDefinitions dm
+    cm = genCallMap pf
 
 printTypes :: TypeEnv -> IO ()
 printTypes tenv = do
