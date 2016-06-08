@@ -92,17 +92,15 @@ insEntryEdges pu = insEdge (0, 1, ()) . insNode (0, bs)
 -- create assignments of the form "x = f[1]" or "f[1] = x" at the
 -- entry/exit bblocks.
 genInOutAssignments pu exit
-  -- for now, designate return-value slot as a "ValVariable" without type-checking.
-  | exit, PUFunction _ _ _ _ n _ _ _ _ <- pu =
-      zipWith genAssign (genVar a noSrcSpan n:vs) [0..]
-  | otherwise                          = zipWith genAssign vs [1..]
+  | exit, PUFunction _ _ _ _ n _ _ _ _ <- pu = zipWith genAssign (genVar a noSrcSpan n:vs) [0..]
+  | otherwise                                = zipWith genAssign vs [1..]
   where
-    pun = puName pu
-    name i = case pun of Named n -> n ++ "[" ++ show i ++ "]"
-    (a, s, vs) = case pu of
+    pun           = puName pu
+    name i        = case pun of Named n -> n ++ "[" ++ show i ++ "]"
+    (a, s, vs)    = case pu of
       PUFunction _ _ _ _ _ (Just (AList a s vs)) _ _ _ -> (a, s, vs)
-      PUSubroutine _ _ _ _ (Just (AList a s vs)) _ _ -> (a, s, vs)
-      _                                   -> (undefined, undefined, [])
+      PUSubroutine _ _ _ _ (Just (AList a s vs)) _ _   -> (a, s, vs)
+      _                                                -> (error "genInOutAssignments", error "genInOutAssignments", [])
     genAssign v i = BlStatement a s Nothing (StExpressionAssign a s vl vr)
       where
         (vl, vr) = if exit then (v', v) else (v, v')
@@ -253,6 +251,12 @@ perBlock b@(BlStatement _ _ _ (StReturn {})) =
   processLabel b >> addToBBlock b >> closeBBlock_
 perBlock b@(BlStatement _ _ _ (StGotoUnconditional {})) =
   processLabel b >> addToBBlock b >> closeBBlock_
+perBlock b@(BlStatement a s l (StCall a' s' cn@(ExpValue _ _ (ValVariable {})) Nothing)) = do
+  (prevN, callN) <- closeBBlock
+  -- put StCall in a bblock by itself
+  addToBBlock b
+  (_, nextN) <- closeBBlock
+  createEdges [ (prevN, callN, ()), (callN, nextN, ()) ]
 perBlock b@(BlStatement a s l (StCall a' s' cn@(ExpValue _ _ (ValVariable {})) (Just aargs))) = do
   let exps = map extractExp . aStrip $ aargs
   (prevN, formalN) <- closeBBlock
