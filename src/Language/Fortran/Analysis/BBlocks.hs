@@ -1,6 +1,6 @@
 -- | Analyse a program file and create basic blocks.
 
-{-# LANGUAGE FlexibleContexts, PatternGuards #-}
+{-# LANGUAGE FlexibleContexts, PatternGuards, ScopedTypeVariables #-}
 module Language.Fortran.Analysis.BBlocks
   ( analyseBBlocks, genBBlockMap, showBBGr, showAnalysedBBGr, showBBlocks, bbgrToDOT, BBlockMap
   , genSuperBBGr, SuperBBGr, showSuperBBGr, superBBGrToDOT, superBBGrGraph, superBBGrClusters )
@@ -428,43 +428,55 @@ superBBGrGraph = graph
 superBBGrClusters :: SuperBBGr a -> IM.IntMap ProgramUnitName
 superBBGrClusters = clusters
 
-genSuperBBGr :: BBlockMap (Analysis a) -> SuperBBGr (Analysis a)
+type SuperNode = Node
+type SuperEdge = (SuperNode, SuperNode, ELabel)
+type PUName = ProgramUnitName
+type NLabel a = BB (Analysis a)
+type ELabel = ()
+
+genSuperBBGr :: forall a. Data a => BBlockMap (Analysis a) -> SuperBBGr (Analysis a)
 genSuperBBGr bbm = SuperBBGr { graph = superGraph'', clusters = cmap }
   where
-    -- [((PUName, Node), [Block a])]
-    namedNodes = [ ((name, n), bs) | (name, gr) <- M.toList bbm, (n, bs) <- labNodes gr ]
-    -- [((PUName, Node), (PUName, Node), Label)]
-    namedEdges = [ ((name, n), (name, m), l) | (name, gr) <- M.toList bbm, (n, m, l) <- labEdges gr ]
-    -- ((PUName, Node) -> SuperNode)
+    namedNodes   :: [((PUName, Node), NLabel a)]
+    namedNodes   = [ ((name, n), bs) | (name, gr) <- M.toList bbm, (n, bs) <- labNodes gr ]
+    namedEdges   :: [((PUName, Node), (PUName, Node), ELabel)]
+    namedEdges   = [ ((name, n), (name, m), l) | (name, gr) <- M.toList bbm, (n, m, l) <- labEdges gr ]
+    superNodeMap :: M.Map (PUName, Node) SuperNode
     superNodeMap = M.fromList $ zip (map fst namedNodes) [1..]
-    -- ((PUName, Node) -> SuperNode)
+    getSuperNode :: (PUName, Node) -> SuperNode
     getSuperNode = fromJust . flip M.lookup superNodeMap
-    -- [(SuperNode, [Block a])]
+    superNodes   :: [(SuperNode, NLabel a)]
     superNodes   = [ (getSuperNode n, bs) | (n, bs) <- namedNodes ]
-    -- (((PUName, Node), (PUName, Node), Label), (SuperNode, SuperNode, Label))
+    superEdges   :: [(SuperNode, SuperNode, ELabel)]
     superEdges   = [ (getSuperNode n, getSuperNode m, l) | (n, m, l) <- namedEdges ]
+    superGraph   :: Gr (NLabel a) ELabel
     superGraph   = mkGraph superNodes superEdges
-    -- PUName -> SuperNode
-    entryMap = M.fromList [ (name, n') | ((name, n), n') <- M.toList superNodeMap, n == 0  ]
-    exitMap  = M.fromList [ (name, n') | ((name, n), n') <- M.toList superNodeMap, n == -1 ]
-    -- [(SuperNode, String)]
-    stCalls  = [ (getSuperNode n, sub) | (n, [BlStatement _ _ _ (StCall _ _ e Nothing)]) <- namedNodes
-                                       , v@(ExpValue _ _ (ValVariable _))                <- [e]
-                                       , let sub = varName v ]
-    -- [([SuperEdge], SuperNode, String, [SuperEdge])]
-    stCallCtxts = [ (inn superGraph n, n, sub, out superGraph n) | (n, sub) <- stCalls ]
-    -- [SuperEdge]
-    stCallEdges = concat [   [ (m, nEn, l) | (m, _, l) <- inEdges  ] ++
-                             [ (nEx, m, l) | (_, m, l) <- outEdges ]
-                         | (inEdges, _, sub, outEdges) <- stCallCtxts
-                         , let nEn = fromJust (M.lookup (Named sub) entryMap)
-                         , let nEx = fromJust (M.lookup (Named sub) exitMap) ]
-    superGraph' = insEdges stCallEdges . delNodes (map fst stCalls) $ superGraph
-    -- SuperNode -> PUName
-    cmap = IM.fromList [ (n, name) | ((name, _), n) <- M.toList superNodeMap ]
-    -- SuperNode (possibly more than one, arbitrarily take first)
-    mainEntry:_ = [ n | (n, []) <- labNodes superGraph', null (pre superGraph' n) ]
+    entryMap     :: M.Map PUName SuperNode
+    entryMap     = M.fromList [ (name, n') | ((name, n), n') <- M.toList superNodeMap, n == 0  ]
+    exitMap      :: M.Map PUName SuperNode
+    exitMap      = M.fromList [ (name, n') | ((name, n), n') <- M.toList superNodeMap, n == -1 ]
+    -- List of Calls and their corresponding SuperNode where they appear.
+    -- Assumption: all StCalls appear by themselves in a bblock.
+    stCalls      :: [(SuperNode, String)]
+    stCalls      = [ (getSuperNode n, sub) | (n, [BlStatement _ _ _ (StCall _ _ e Nothing)]) <- namedNodes
+                                           , v@(ExpValue _ _ (ValVariable _))                <- [e]
+                                           , let sub = varName v ]
+    stCallCtxts  :: [([SuperEdge], SuperNode, String, [SuperEdge])]
+    stCallCtxts  = [ (inn superGraph n, n, sub, out superGraph n) | (n, sub) <- stCalls ]
+    stCallEdges  :: [SuperEdge]
+    stCallEdges  = concat [   [ (m, nEn, l) | (m, _, l) <- inEdges  ] ++
+                              [ (nEx, m, l) | (_, m, l) <- outEdges ]
+                          | (inEdges, _, sub, outEdges) <- stCallCtxts
+                          , let nEn = fromJust (M.lookup (Named sub) entryMap)
+                          , let nEx = fromJust (M.lookup (Named sub) exitMap) ]
+    superGraph'  :: Gr (NLabel a) ELabel
+    superGraph'  = insEdges stCallEdges . delNodes (map fst stCalls) $ superGraph
+    cmap         :: IM.IntMap PUName -- SuperNode ==> PUName
+    cmap         = IM.fromList [ (n, name) | ((name, _), n) <- M.toList superNodeMap ]
+    mainEntry    :: SuperNode -- (possibly more than one, arbitrarily take first)
+    mainEntry:_  = [ n | (n, []) <- labNodes superGraph', null (pre superGraph' n) ]
     -- Rename the main entry point to 0
+    superGraph'' :: Gr (NLabel a) ELabel
     superGraph'' = delNode mainEntry .
                    insEdges [ (0, m, l) | (_, m, l) <- out superGraph' mainEntry ] .
                    insNode (0, []) $ superGraph'
