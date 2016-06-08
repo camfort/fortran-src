@@ -558,6 +558,7 @@ showBlock (BlStatement _ _ mlab st)
         StExpressionAssign _ _ e1 e2 -> showExpr e1 ++ " <- " ++ showExpr e2
         StIfLogical _ _ e1 _         -> "if " ++ showExpr e1
         StWrite _ _ _ (Just aexps)   -> "write " ++ aIntercalate ", " showExpr aexps
+        StPrint _ _ _ (Just aexps)   -> "print " ++ aIntercalate ", " showExpr aexps
         StCall _ _ cn _              -> "call " ++ showExpr cn
         StDeclaration _ _ ty Nothing adecls ->
           showType ty ++ " " ++ aIntercalate ", " showDecl adecls
