@@ -25,7 +25,7 @@ import Language.Fortran.AST
 import Language.Fortran.Analysis.Types
 import Language.Fortran.Analysis.BBlocks
 import Language.Fortran.Analysis.DataFlow
-import Language.Fortran.Analysis.Renaming (renameAndStrip, analyseRenames)
+import Language.Fortran.Analysis.Renaming
 import Language.Fortran.Analysis (initAnalysis)
 import Data.Graph.Inductive hiding (trc)
 import Data.Graph.Inductive.PatriciaTree (Gr)
@@ -53,10 +53,10 @@ main = do
     let runInfer pf = analyseTypes . analyseRenames . initAnalysis $ pf
     let runRenamer = snd . renameAndStrip . analyseRenames . initAnalysis
     let runBBlocks pf = showBBlocks pf' ++ "\n\n" ++ showDataFlow pf'
-          where pf' = analyseBBlocks (initAnalysis pf)
+          where pf' = analyseBBlocks . snd . rename . analyseRenames . initAnalysis $ pf
     let runSuperGraph pf | outfmt == DOT = superBBGrToDOT sgr
                          | otherwise     = superGraphDataFlow pf' sgr
-          where pf' = analyseBBlocks (initAnalysis pf)
+          where pf' = analyseBBlocks . snd . rename . analyseRenames . initAnalysis $ pf
                 bbm = genBBlockMap pf'
                 sgr = genSuperBBGr bbm
 
