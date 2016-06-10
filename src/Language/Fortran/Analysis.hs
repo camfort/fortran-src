@@ -3,7 +3,7 @@
 -- |
 -- Common data structures and functions supporting analysis of the AST.
 module Language.Fortran.Analysis
-  ( initAnalysis, stripAnalysis, Analysis(..), varName, genVar, puName
+  ( initAnalysis, stripAnalysis, Analysis(..), varName, genVar, puName, blockRhsExprs
   , ModEnv, NameType(..), IDType(..), ConstructType(..), BaseType(..)
   , lhsExprs, isLExpr, allVars, allLhsVars, blockVarUses, blockVarDefs
   , BB, BBGr
@@ -129,6 +129,19 @@ allVars b = [ v | ExpValue _ _ (ValVariable v) <- uniBi b ]
 allLhsVars :: (Data a, Data (b (Analysis a))) => b (Analysis a) -> [Name]
 allLhsVars b = [ varName v | v@(ExpValue _ _ (ValVariable {})) <- lhsExprs b ] ++
                [ varName v | ExpSubscript _ _ v@(ExpValue _ _ (ValVariable {})) _ <- lhsExprs b ]
+
+-- | Set of expressions used -- not defined -- by an AST-block.
+blockRhsExprs :: Data a => Block a -> [Expression a]
+blockRhsExprs (BlStatement _ _ _ (StExpressionAssign _ _ lhs rhs))
+  | ExpSubscript _ _ _ subs <- lhs = universeBi rhs ++ universeBi subs
+  | otherwise                      = universeBi rhs
+blockRhsExprs (BlDo _ _ _ (Just (DoSpecification _ _ (StExpressionAssign _ _ lhs rhs) e1 e2)) _)
+  | ExpSubscript _ _ _ subs <- lhs = universeBi (rhs, e1, e2) ++ universeBi subs
+  | otherwise                      = universeBi (rhs, e1, e2)
+blockRhsExprs (BlStatement _ _ _ (StDeclaration {})) = []
+blockRhsExprs (BlDoWhile _ _ e1 e2 _)   = universeBi (e1, e2)
+blockRhsExprs (BlIf _ _ e1 e2 _)        = universeBi (e1, e2)
+blockRhsExprs b                         = universeBi b
 
 -- | Set of names used -- not defined -- by an AST-block.
 blockVarUses :: Data a => Block a -> [Name]
