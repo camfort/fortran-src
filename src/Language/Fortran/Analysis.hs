@@ -3,7 +3,7 @@
 -- |
 -- Common data structures and functions supporting analysis of the AST.
 module Language.Fortran.Analysis
-  ( initAnalysis, stripAnalysis, Analysis(..), varName, genVar, puName, blockRhsExprs
+  ( initAnalysis, stripAnalysis, Analysis(..), varName, genVar, puName, blockRhsExprs, rhsExprs
   , ModEnv, NameType(..), IDType(..), ConstructType(..), BaseType(..)
   , lhsExprs, isLExpr, allVars, allLhsVars, blockVarUses, blockVarDefs
   , BB, BBGr
@@ -110,6 +110,11 @@ lhsExprs x = [ e | StExpressionAssign _ _ e _  <- universeBi x                  
   where
     fstLvl = filter isLExpr . map extractExp . aStrip
     extractExp (Argument _ _ _ exp) = exp
+
+-- | Return list of expressions that are not "left-hand-side" of
+-- assignment statements.
+rhsExprs :: (Data a, Data (b a)) => b a -> [Expression a]
+rhsExprs x = concat [ blockRhsExprs b | b <- universeBi x ]
 
 -- | Is this an expression capable of assignment?
 isLExpr :: Expression a -> Bool
