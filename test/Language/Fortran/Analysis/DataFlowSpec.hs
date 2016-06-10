@@ -57,7 +57,7 @@ spec =
 
       it "genDefMap" $
         testGenDefMap programLoop4 `shouldBe`
-          M.fromList [("i",IS.fromList [2,16]),("j",IS.fromList [5,10]),("r",IS.fromList [4,14])]
+          M.fromList [("i",IS.fromList [4,13]),("j",IS.fromList [7,10]),("r",IS.fromList [2,9])]
 
       it "reachingDefinitions" $ do
         let pf = pParser programLoop4
@@ -65,7 +65,7 @@ spec =
         let bm = genBlockMap pf
         let dm = genDefMap bm
         IM.lookup 9 (reachingDefinitions dm gr) `shouldBe`
-          Just (IS.fromList [2,4,5,10,14,16], IS.fromList [2,4,5,16])
+          Just (IS.fromList [2,4,7,9,10,13], IS.fromList [4,9,10,13])
 
       it "flowsTo" $ do
         let pf = pParser programLoop4
@@ -73,8 +73,7 @@ spec =
         let bm = genBlockMap pf
         let dm = genDefMap bm
         (S.fromList . edges . genFlowsToGraph bm dm gr $ reachingDefinitions dm gr) `shouldBe`
-          S.fromList [ (2,2),(2,4),(2,12),(4,1),(4,4),(5,4),(5,5),(5,8)
-                     , (10,4),(10,5),(10,8),(14,1),(14,4),(16,2),(16,4),(16,12) ]
+          S.fromList [(2,9),(2,16),(4,5),(4,9),(4,13),(7,8),(7,9),(7,10),(9,9),(9,16),(10,8),(10,9),(10,10),(13,5),(13,9),(13,13)]
 
     describe "rd3" $ do
       it "genBackEdgeMap" $ do
@@ -89,21 +88,21 @@ spec =
 
       it "genDefMap" $ do
         testGenDefMap programRd3 `shouldBe`
-          M.fromList [ ("_f_t#0",IS.fromList [11]),("a",IS.fromList [3]),("b",IS.fromList [2]),("f",IS.fromList [1]),("f[0]",IS.fromList [8]),("f[1]",IS.fromList [9,13]),("i",IS.fromList [4]),("x",IS.fromList [7]) ]
+          M.fromList [ ("_f_t#0",IS.fromList [14]),("a",IS.fromList [4]),("b",IS.fromList [3]),("f",IS.fromList [7]),("f[0]",IS.fromList [12]),("f[1]",IS.fromList [13,16]),("i",IS.fromList [6]),("x",IS.fromList [11]) ]
 
       it "reachingDefinitions" $ do
         let (pf, gr) = testPfAndGraph "f" programRd3
         let bm = genBlockMap pf
         let dm = genDefMap bm
         IM.lookup 3 (reachingDefinitions dm gr) `shouldBe`
-          Just (IS.fromList [2,3,4,7], IS.fromList [2,3,4,7])
+          Just (IS.fromList [3,4,6,11], IS.fromList [3,4,6,11])
 
       it "flowsTo" $ do
         let (pf, gr) = testPfAndGraph "f" programRd3
         let bm = genBlockMap pf
         let dm = genDefMap bm
         (S.fromList . edges . genFlowsToGraph bm dm gr $ reachingDefinitions dm gr) `shouldBe`
-          S.fromList [(1,8),(2,3),(3,1),(3,2),(4,2),(4,3),(7,2),(7,9)]
+          S.fromList [ (3,4),(4,3),(4,7),(6,3),(6,4),(7,12),(11,3),(11,13) ]
 
 programLoop4 = unlines [
       "      program loop4"

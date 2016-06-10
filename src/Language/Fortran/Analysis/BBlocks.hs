@@ -29,7 +29,7 @@ import Language.Fortran.Util.Position (SrcSpan(..), initPosition)
 
 -- | Insert basic block graphs into each program unit's analysis
 analyseBBlocks :: Data a => ProgramFile (Analysis a) -> ProgramFile (Analysis a)
-analyseBBlocks = labelBlocksInBBGr . trans toBBlocksPerPU
+analyseBBlocks = labelBlocksInBBGr . trans toBBlocksPerPU . labelBlocks
   where
     trans :: Data a => TransFunc ProgramUnit ProgramFile a
     trans = transformBi
@@ -49,19 +49,37 @@ genBBlockMap pf = M.fromList [
 
 --------------------------------------------------
 
--- Insert unique labels on each AST-block, inside each bblock, for
--- easier look-up later
+-- Insert unique labels on each generated AST-block, inside each
+-- bblock, for easier look-up later
 labelBlocksInBBGr :: Data a => ProgramFile (Analysis a) -> ProgramFile (Analysis a)
-labelBlocksInBBGr gr = evalState (transform (nmapM' (mapM eachBlock)) gr) [1..]
+labelBlocksInBBGr pf = evalState (transform (nmapM' (mapM eachBlock)) pf) [getMaxBlockLabel pf + 1..]
+  where
+    eachBlock :: Data a => Block (Analysis a) -> State [Int] (Block (Analysis a))
+    eachBlock b
+      | a@Analysis { insLabel = Nothing } <- getAnnotation b = do
+          n:ns <- get
+          put ns
+          return $ setAnnotation (a { insLabel = Just n }) b
+      | otherwise                                            = return b
+    transform :: Data a => (BBGr a -> State [Int] (BBGr a)) ->
+                           ProgramFile a -> State [Int] (ProgramFile a)
+    transform = transformBiM
+
+-- Insert unique labels on each AST-block
+labelBlocks :: Data a => ProgramFile (Analysis a) -> ProgramFile (Analysis a)
+labelBlocks gr = evalState (transform eachBlock gr) [1..]
   where
     eachBlock :: Data a => Block (Analysis a) -> State [Int] (Block (Analysis a))
     eachBlock b = do
       n:ns <- get
       put ns
       return $ setAnnotation ((getAnnotation b) { insLabel = Just n }) b
-    transform :: Data a => (BBGr a -> State [Int] (BBGr a)) ->
-                           ProgramFile a -> State [Int] (ProgramFile a)
+    transform :: Data a => TransFuncM (State [Int]) Block ProgramFile a
     transform = transformBiM
+
+getMaxBlockLabel :: forall a. Data a => ProgramFile (Analysis a) -> Int
+getMaxBlockLabel pf = maximum (0:[ 0 `fromMaybe` insLabel (getAnnotation b) | b <- uni pf])
+  where uni = universeBi :: ProgramFile (Analysis a) -> [Block (Analysis a)]
 
 --------------------------------------------------
 
