@@ -478,7 +478,7 @@ genSuperBBGr bbm = SuperBBGr { graph = superGraph'', clusters = cmap }
     cmap         :: IM.IntMap PUName -- SuperNode ==> PUName
     cmap         = IM.fromList [ (n, name) | ((name, _), n) <- M.toList superNodeMap ]
     mainEntry    :: SuperNode -- (possibly more than one, arbitrarily take first)
-    mainEntry:_  = [ n | (n, []) <- labNodes superGraph', null (pre superGraph' n) ]
+    mainEntry:_  = [ n | (n, _) <- labNodes superGraph', null (pre superGraph' n) ]
     -- Rename the main entry point to 0
     superGraph'' :: Gr (NLabel a) ELabel
     superGraph'' = delNode mainEntry .
