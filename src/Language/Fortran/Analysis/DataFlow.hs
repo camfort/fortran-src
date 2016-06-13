@@ -13,6 +13,7 @@ module Language.Fortran.Analysis.DataFlow
   , genCallMap, CallMap
   , loopNodes, genBackEdgeMap, sccWith, BackEdgeMap
   , genInductionVarMap, InductionVarMap
+  , noPredNodes
 ) where
 
 import Data.Generics.Uniplate.Data
@@ -56,14 +57,14 @@ type IDomMap = IM.IntMap Int
 -- dominated by node B if there does not exist any node C such that:
 -- node A dominates node C and node C dominates node B.
 iDominators :: BBGr a -> IDomMap
-iDominators = IM.fromList . flip iDom 0
+iDominators gr = IM.unions [ IM.fromList . flip iDom n $ gr | n <- noPredNodes gr ]
 
 -- | An OrderF is a function from graph to a specific ordering of nodes.
 type OrderF a = BBGr a -> [Node]
 
 -- | The postordering of a graph outputs the label after traversal of children.
 postOrder :: OrderF a
-postOrder = postorder . head . dff [0]
+postOrder gr = concatMap postorder . dff (noPredNodes gr) $ gr
 
 -- | Reversed postordering.
 revPostOrder :: OrderF a
@@ -71,11 +72,16 @@ revPostOrder = reverse . postOrder
 
 -- | The preordering of a graph outputs the label before traversal of children.
 preOrder :: OrderF a
-preOrder = preorder . head . dff [0]
+preOrder gr = concatMap preorder . dff (noPredNodes gr) $ gr
 
 -- | Reversed preordering.
 revPreOrder :: OrderF a
 revPreOrder = reverse . preOrder
+
+-- | Compute the set of nodes with no predecessors.
+noPredNodes :: Graph g => g a b -> [Node]
+-- noPredNodes = flip ufold [] $ \ ctx ns -> if null (pre' ctx) then node' ctx : ns else ns -- doesn't work, though it should
+noPredNodes gr = filter (null . pre gr) (nodes gr)
 
 --------------------------------------------------
 
@@ -389,6 +395,7 @@ showDataFlow pf = perPU =<< uni pf
                        , ("flowsTo",      show (edges $ genFlowsToGraph bm dm gr (rd gr)))
                        , ("varFlowsTo",   show (genVarFlowsToMap dm (genFlowsToGraph bm dm gr (rd gr))))
                        , ("ivMap",        show (genInductionVarMap bedges gr))
+                       , ("noPredNodes",  show (noPredNodes gr))
                        ] where
                            bedges = genBackEdgeMap (dominators gr) gr
     perPU _ = ""

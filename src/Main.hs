@@ -95,6 +95,7 @@ superGraphDataFlow pf sgr = showBBGr (nmap (map (fmap insLabel)) gr) ++ "\n\n" +
                , ("flowsTo",      show (edges flTo))
                , ("varFlowsTo",   show (genVarFlowsToMap dm flTo))
                , ("ivMap",        show (genInductionVarMap bedges gr))
+               , ("noPredNodes",  show (noPredNodes gr))
                ] where
                    bedges = genBackEdgeMap (dominators gr) gr
                    flTo   = genFlowsToGraph bm dm gr rDefs
