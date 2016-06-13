@@ -116,6 +116,8 @@ genInOutAssignments pu exit
     (a, s, vs)    = case pu of
       PUFunction _ _ _ _ _ (Just (AList a s vs)) _ _ _ -> (a, s, vs)
       PUSubroutine _ _ _ _ (Just (AList a s vs)) _ _   -> (a, s, vs)
+      PUFunction a s _ _ _ Nothing _ _ _               -> (a, s, [])
+      PUSubroutine a s _ _ Nothing _ _                 -> (a, s, [])
       _                                                -> (error "genInOutAssignments", error "genInOutAssignments", [])
     genAssign v i = BlStatement a s Nothing (StExpressionAssign a s vl vr)
       where
