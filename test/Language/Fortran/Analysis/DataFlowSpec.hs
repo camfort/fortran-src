@@ -52,13 +52,16 @@ testBackEdges version f p = bedges
     domMap = dominators gr
     bedges = genBackEdgeMap domMap gr
 
-specLoop4 version name file =
-    describe name $ do
+spec :: Spec
+spec =
+  describe "Dataflow" $ do
+  ----------------------------------------------
+    describe "loop4" $ do
       it "genBackEdgeMap" $ do
-        testBackEdges version "loop4" file `shouldBe` (IM.fromList [(9, 6), (11, 2)])
+        testBackEdges F77 "loop4" programLoop4 `shouldBe` (IM.fromList [(9, 6), (11, 2)])
 
       it "loopNodes" $ do
-        let pf = pParser version file
+        let pf = pParser F77 programLoop4
         let gr = fromJust . M.lookup (Named "loop4") $ genBBlockMap pf
         let domMap = dominators gr
         let bedges = genBackEdgeMap domMap gr
@@ -66,11 +69,11 @@ specLoop4 version name file =
           S.fromList [IS.fromList [6, 9], IS.fromList [2, 5, 6, 7, 9, 11]]
 
       it "genDefMap" $
-        testGenDefMap version file `shouldBe`
+        testGenDefMap F77 programLoop4 `shouldBe`
           M.fromList [("i",IS.fromList [4,13]),("j",IS.fromList [7,10]),("r",IS.fromList [2,9])]
 
       it "reachingDefinitions" $ do
-        let pf = pParser version file
+        let pf = pParser F77 programLoop4
         let gr = fromJust . M.lookup (Named "loop4") $ genBBlockMap pf
         let bm = genBlockMap pf
         let dm = genDefMap bm
@@ -78,22 +81,47 @@ specLoop4 version name file =
           Just (IS.fromList [2,4,7,9,10,13], IS.fromList [4,9,10,13])
 
       it "flowsTo" $ do
-        let pf = pParser version file
+        let pf = pParser F77 programLoop4
         let gr = fromJust . M.lookup (Named "loop4") $ genBBlockMap pf
         let bm = genBlockMap pf
         let dm = genDefMap bm
         (S.fromList . edges . genFlowsToGraph bm dm gr $ reachingDefinitions dm gr) `shouldBe`
           S.fromList [(2,9),(2,16),(4,5),(4,9),(4,13),(7,8),(7,9),(7,10),(9,9),(9,16),(10,8),(10,9),(10,10),(13,5),(13,9),(13,13)]
 
-spec :: Spec
-spec =
-  describe "Dataflow" $ do
-    specLoop4 F77 "loop4" programLoop4
-    specLoop4 F90 "loop4 F90 version in a module" programLoop4Mod
+  ----------------------------------------------
+    let pf = pParser F90 programLoop4Alt
+    let sgr = genSuperBBGr (genBBlockMap pf)
+    let gr = superBBGrGraph sgr
+    let domMap = dominators gr
+    let bedges = genBackEdgeMap domMap gr
+    let bm = genBlockMap pf
+    let dm = genDefMap bm
+
+    describe "loop4 alt (module)" $ do
+      it "genBackEdgeMap" $ do
+        testBackEdges F90 "loop4" programLoop4Alt `shouldBe` (IM.fromList [(5, 4), (6, 2)])
+
+      it "loopNodes" $ do
+        S.fromList (loopNodes bedges gr) `shouldBe`
+          S.fromList [IS.fromList [6, 7], IS.fromList [4, 5, 6, 7, 8]]
+
+      it "genDefMap" $
+        testGenDefMap F90 programLoop4Alt `shouldBe`
+          M.fromList [("i",IS.fromList [5,13]),("j",IS.fromList [7,9]),("r",IS.fromList [3,8])]
+
+      it "reachingDefinitions" $ do
+        IM.lookup 9 (reachingDefinitions dm gr) `shouldBe`
+          Just (IS.fromList [3,5,7,8,9,13], IS.fromList [3,5,7,8,9,13])
+
+      it "flowsTo" $ do
+        (S.fromList . edges . genFlowsToGraph bm dm gr $ reachingDefinitions dm gr) `shouldBe`
+          S.fromList [(3,8),(3,17),(5,8),(5,13),(7,8),(7,9),(8,8),(8,17),(9,8),(9,9),(13,8),(13,13)]
+
+    -----------------------------------------------
 
     describe "rd3" $ do
       it "genBackEdgeMap" $ do
-        testBackEdges F77 "f" programRd3 `shouldBe` (IM.fromList [(3, 2)])
+        testBackEdges F77 "f" programRd3 `shouldBe` (IM.fromList [(4, 2)])
 
       -- it "loopNodes" $ do
       --   let (pf, gr) = testPfAndGraph "f" programRd3
@@ -146,11 +174,11 @@ programLoop4 = unlines [
     , "      end"
   ]
 
-programLoop4Mod = unlines [
-      "      module loop4"
+programLoop4Alt = unlines [
+      "      module loopMod"
     , "      implicit none"
     , "      contains"
-    , "      subroutine body()"
+    , "      subroutine loop4()"
     , "      integer r, i, j"
     , ""
     , "      r = 0"
