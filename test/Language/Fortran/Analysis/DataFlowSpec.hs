@@ -4,6 +4,7 @@ import Test.Hspec
 import TestUtil
 
 import Language.Fortran.Parser.Fortran77
+import qualified Language.Fortran.Parser.Fortran90 as F90
 import Language.Fortran.Lexer.FixedForm (initParseState)
 import Language.Fortran.ParserMonad (FortranVersion(..), evalParse)
 import Language.Fortran.AST
@@ -20,35 +21,44 @@ import Data.Graph.Inductive.PatriciaTree (Gr)
 import Data.Maybe
 import Data.Data
 
-pParser :: String -> ProgramFile (Analysis ())
-pParser source = analyseBBlocks . snd . rename . analyseRenames . initAnalysis . resetSrcSpan $ extended77Parser source "<unknown>"
+data F77 = F77
+data F90 = F90
 
-withParse :: Data a => String -> (ProgramFile (Analysis A0) -> a) -> a
-withParse source f = underRenaming (f . analyseBBlocks) (extended77Parser source "<unknown>")
+class Parser t where
+    parser :: t -> String -> String -> ProgramFile A0
+instance Parser F77 where
+    parser F77 = extended77Parser
+instance Parser F90 where
+    parser F90 = F90.fortran90Parser
 
-testGraph f p = fromJust . M.lookup (Named f) . withParse p $ genBBlockMap
-testPfAndGraph f p = fmap (fromJust . M.lookup (Named f)) . withParse p $ \ pf -> (pf, genBBlockMap pf)
+pParser :: Parser t => t -> String -> ProgramFile (Analysis ())
+pParser version source = analyseBBlocks . snd . rename . analyseRenames . initAnalysis
+                 . resetSrcSpan $ parser version source "<unknown>"
 
-testGenDefMap p = genDefMap bm
+withParse :: Data a => Parser t => t -> String -> (ProgramFile (Analysis A0) -> a) -> a
+withParse version source f = underRenaming (f . analyseBBlocks) (parser version source "<unknown>")
+
+testGraph version f p = fromJust . M.lookup (Named f) . withParse version p $ genBBlockMap
+testPfAndGraph version f p = fmap (fromJust . M.lookup (Named f)) . withParse version p $ \ pf -> (pf, genBBlockMap pf)
+
+testGenDefMap version p = genDefMap bm
   where
-    pf = analyseBBlocks . initAnalysis . extended77Parser p $ "<unknown>"
+    pf = analyseBBlocks . initAnalysis $ parser version p $ "<unknown>"
     bm = genBlockMap pf
 
-testBackEdges f p = bedges
+testBackEdges version f p = bedges
   where
-    gr     = testGraph f p
+    gr     = testGraph version f p
     domMap = dominators gr
     bedges = genBackEdgeMap domMap gr
 
-spec :: Spec
-spec =
-  describe "Dataflow" $ do
-    describe "loop4" $ do
+specLoop4 version name file =
+    describe name $ do
       it "genBackEdgeMap" $ do
-        testBackEdges "loop4" programLoop4 `shouldBe` (IM.fromList [(9, 6), (11, 2)])
+        testBackEdges version "loop4" file `shouldBe` (IM.fromList [(9, 6), (11, 2)])
 
       it "loopNodes" $ do
-        let pf = pParser programLoop4
+        let pf = pParser version file
         let gr = fromJust . M.lookup (Named "loop4") $ genBBlockMap pf
         let domMap = dominators gr
         let bedges = genBackEdgeMap domMap gr
@@ -56,11 +66,11 @@ spec =
           S.fromList [IS.fromList [6, 9], IS.fromList [2, 5, 6, 7, 9, 11]]
 
       it "genDefMap" $
-        testGenDefMap programLoop4 `shouldBe`
+        testGenDefMap version file `shouldBe`
           M.fromList [("i",IS.fromList [4,13]),("j",IS.fromList [7,10]),("r",IS.fromList [2,9])]
 
       it "reachingDefinitions" $ do
-        let pf = pParser programLoop4
+        let pf = pParser version file
         let gr = fromJust . M.lookup (Named "loop4") $ genBBlockMap pf
         let bm = genBlockMap pf
         let dm = genDefMap bm
@@ -68,16 +78,22 @@ spec =
           Just (IS.fromList [2,4,7,9,10,13], IS.fromList [4,9,10,13])
 
       it "flowsTo" $ do
-        let pf = pParser programLoop4
+        let pf = pParser version file
         let gr = fromJust . M.lookup (Named "loop4") $ genBBlockMap pf
         let bm = genBlockMap pf
         let dm = genDefMap bm
         (S.fromList . edges . genFlowsToGraph bm dm gr $ reachingDefinitions dm gr) `shouldBe`
           S.fromList [(2,9),(2,16),(4,5),(4,9),(4,13),(7,8),(7,9),(7,10),(9,9),(9,16),(10,8),(10,9),(10,10),(13,5),(13,9),(13,13)]
 
+spec :: Spec
+spec =
+  describe "Dataflow" $ do
+    specLoop4 F77 "loop4" programLoop4
+    specLoop4 F90 "loop4 F90 version in a module" programLoop4Mod
+
     describe "rd3" $ do
       it "genBackEdgeMap" $ do
-        testBackEdges "f" programRd3 `shouldBe` (IM.fromList [(3, 2)])
+        testBackEdges F77 "f" programRd3 `shouldBe` (IM.fromList [(3, 2)])
 
       -- it "loopNodes" $ do
       --   let (pf, gr) = testPfAndGraph "f" programRd3
@@ -87,18 +103,18 @@ spec =
       --     S.fromList [IS.fromList [2, 3]]
 
       it "genDefMap" $ do
-        testGenDefMap programRd3 `shouldBe`
+        testGenDefMap F77 programRd3 `shouldBe`
           M.fromList [ ("_f_t#0",IS.fromList [14]),("a",IS.fromList [4]),("b",IS.fromList [3]),("f",IS.fromList [7]),("f[0]",IS.fromList [12]),("f[1]",IS.fromList [13,16]),("i",IS.fromList [6]),("x",IS.fromList [11]) ]
 
       it "reachingDefinitions" $ do
-        let (pf, gr) = testPfAndGraph "f" programRd3
+        let (pf, gr) = testPfAndGraph F77 "f" programRd3
         let bm = genBlockMap pf
         let dm = genDefMap bm
         IM.lookup 3 (reachingDefinitions dm gr) `shouldBe`
           Just (IS.fromList [3,4,6,11], IS.fromList [3,4,6,11])
 
       it "flowsTo" $ do
-        let (pf, gr) = testPfAndGraph "f" programRd3
+        let (pf, gr) = testPfAndGraph F77 "f" programRd3
         let bm = genBlockMap pf
         let dm = genDefMap bm
         (S.fromList . edges . genFlowsToGraph bm dm gr $ reachingDefinitions dm gr) `shouldBe`
@@ -128,6 +144,36 @@ programLoop4 = unlines [
     , ""
     , " 40   write (*,*) r"
     , "      end"
+  ]
+
+programLoop4Mod = unlines [
+      "      module loop4"
+    , "      implicit none"
+    , "      contains"
+    , "      subroutine body()"
+    , "      integer r, i, j"
+    , ""
+    , "      r = 0"
+    , ""
+    , "!     outer loop"
+    , "      i = 1"
+    , "      do while (i .gt. 10)"
+    , ""
+    , "!     inner loop"
+    , "      j = 1"
+    , "      do while (j .gt. 5)"
+    , "      r = r + i * j"
+    , "      j = j + 1"
+    , "      end do"
+    , "!     inner loop end"
+    , ""
+    , "      i = i + 1"
+    , "      end do"
+    , "!     outer loop end"
+    , ""
+    , "      write (*,*) r"
+    , "      end subroutine"
+    , "      end module"
   ]
 
 programRd3 = unlines [
