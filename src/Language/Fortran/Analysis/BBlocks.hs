@@ -323,13 +323,13 @@ perDoBlock repeatExpr b bs = do
   (n, doN) <- closeBBlock
   case getLabel b of
     Just (ExpValue _ _ (ValInteger l)) -> insertLabel l doN
-    _                                -> return ()
+    _                                  -> return ()
   case repeatExpr of Just e -> processFunctionCalls e >> return (); Nothing -> return ()
   addToBBlock $ stripNestedBlocks b
   closeBBlock
   -- process nested bblocks inside of do-statement
   (startN, endN) <- processBlocks bs
-  (_, n') <- closeBBlock
+  n' <- genBBlock
   -- connect all the new bblocks with edges, link to subsequent bblock labeled n'
   createEdges [(n, doN, ()), (doN, n', ()), (doN, startN, ()), (endN, doN, ())]
 
