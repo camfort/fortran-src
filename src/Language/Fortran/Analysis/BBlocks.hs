@@ -466,7 +466,7 @@ genSuperBBGr bbm = SuperBBGr { graph = superGraph'', clusters = cmap }
     superNodeMap :: M.Map (PUName, Node) SuperNode
     superNodeMap = M.fromList $ zip (map fst namedNodes) [1..]
     getSuperNode :: (PUName, Node) -> SuperNode
-    getSuperNode = fromJust . flip M.lookup superNodeMap
+    getSuperNode = fromJustMsg "UNDEFINED SUPERNODE" . flip M.lookup superNodeMap
     superNodes   :: [(SuperNode, NLabel a)]
     superNodes   = [ (getSuperNode n, bs) | (n, bs) <- namedNodes ]
     superEdges   :: [(SuperNode, SuperNode, ELabel)]
@@ -482,15 +482,16 @@ genSuperBBGr bbm = SuperBBGr { graph = superGraph'', clusters = cmap }
     stCalls      :: [(SuperNode, String)]
     stCalls      = [ (getSuperNode n, sub) | (n, [BlStatement _ _ _ (StCall _ _ e Nothing)]) <- namedNodes
                                            , v@(ExpValue _ _ (ValVariable _))                <- [e]
-                                           , let sub = varName v ]
+                                           , let sub = varName v
+                                           , Named sub `M.member` entryMap && Named sub `M.member` exitMap ]
     stCallCtxts  :: [([SuperEdge], SuperNode, String, [SuperEdge])]
     stCallCtxts  = [ (inn superGraph n, n, sub, out superGraph n) | (n, sub) <- stCalls ]
     stCallEdges  :: [SuperEdge]
     stCallEdges  = concat [   [ (m, nEn, l) | (m, _, l) <- inEdges  ] ++
                               [ (nEx, m, l) | (_, m, l) <- outEdges ]
                           | (inEdges, _, sub, outEdges) <- stCallCtxts
-                          , let nEn = fromJust (M.lookup (Named sub) entryMap)
-                          , let nEx = fromJust (M.lookup (Named sub) exitMap) ]
+                          , let nEn = fromJustMsg ("UNDEFINED: " ++ sub) (M.lookup (Named sub) entryMap)
+                          , let nEx = fromJustMsg ("UNDEFINED: " ++ sub) (M.lookup (Named sub) exitMap) ]
     superGraph'  :: Gr (NLabel a) ELabel
     superGraph'  = insEdges stCallEdges . delNodes (map fst stCalls) $ superGraph
     cmap         :: IM.IntMap PUName -- SuperNode ==> PUName
@@ -502,6 +503,9 @@ genSuperBBGr bbm = SuperBBGr { graph = superGraph'', clusters = cmap }
     superGraph'' = delNode mainEntry .
                    insEdges [ (0, m, l) | (_, m, l) <- out superGraph' mainEntry ] .
                    insNode (0, []) $ superGraph'
+
+fromJustMsg _ (Just x) = x
+fromJustMsg msg _      = error msg
 
 --------------------------------------------------
 
