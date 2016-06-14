@@ -109,7 +109,7 @@ dataFlowSolver gr initF order inF outF = converge (==) $ iterate step initM
     ordNodes = order gr
     initM    = IM.fromList [ (n, initF n) | n <- ordNodes ]
     step m   = IM.fromList [ (n, (inF (snd . get m) n, outF (fst . get m) n)) | n <- ordNodes ]
-    get m n  = fromJust $ IM.lookup n m
+    get m n  = fromJustMsg "dataFlowSolver" $ IM.lookup n m
 
 --------------------------------------------------
 
@@ -152,8 +152,8 @@ liveVariableAnalysis gr = dataFlowSolver gr (const (S.empty, S.empty)) revPreOrd
   where
     inn outF b = (outF b S.\\ kill b) `S.union` gen b
     out innF b = S.unions [ innF s | s <- suc gr b ]
-    kill b     = bblockKill (fromJust $ lab gr b)
-    gen b      = bblockGen (fromJust $ lab gr b)
+    kill b     = bblockKill (fromJustMsg "liveVariableAnalysis kill" $ lab gr b)
+    gen b      = bblockGen (fromJustMsg "liveVariableAnalysis gen" $ lab gr b)
 
 -- | Iterate "KILL" set through a single basic block.
 bblockKill :: Data a => [Block (Analysis a)] -> S.Set Name
@@ -202,14 +202,14 @@ reachingDefinitions dm gr = dataFlowSolver gr (const (IS.empty, IS.empty)) revPo
   where
     inn outF b = IS.unions [ outF s | s <- pre gr b ]
     out innF b = gen `IS.union` (innF b IS.\\ kill)
-      where (gen, kill) = rdBblockGenKill dm (fromJust $ lab gr b)
+      where (gen, kill) = rdBblockGenKill dm (fromJustMsg "reachingDefinitions" $ lab gr b)
 
 -- Compute the "GEN" and "KILL" sets for a given basic block.
 rdBblockGenKill :: Data a => DefMap -> [Block (Analysis a)] -> (IS.IntSet, IS.IntSet)
 rdBblockGenKill dm bs = foldl' f (IS.empty, IS.empty) $ zip (map gen bs) (map kill bs)
   where
     gen b | null (allLhsVars b) = IS.empty
-          | otherwise           = IS.singleton . fromJust . insLabel . getAnnotation $ b
+          | otherwise           = IS.singleton . fromJustMsg "rdBblockGenKill" . insLabel . getAnnotation $ b
     kill = rdDefs dm
     f (bbgen, bbkill) (gen, kill) =
       ((bbgen IS.\\ kill) `IS.union` gen, (bbkill IS.\\ gen) `IS.union` kill)
@@ -243,7 +243,7 @@ genDUMap bm dm gr rdefs = IM.unionsWith IS.union duMaps
         uses   = blockVarUses b
         duMap' = IM.unionWith IS.union duMap bduMap
         gen b | null (allLhsVars b) = IS.empty
-              | otherwise           = IS.singleton . fromJust . insLabel . getAnnotation $ b
+              | otherwise           = IS.singleton . fromJustMsg "genDUMap" . insLabel . getAnnotation $ b
         kill   = rdDefs dm
         inSet' = (inSet IS.\\ (kill b)) `IS.union` (gen b)
 
@@ -325,7 +325,7 @@ type BackEdgeMap = IM.IntMap Node
 genBackEdgeMap :: Graph gr => DomMap -> gr a b -> BackEdgeMap
 genBackEdgeMap domMap = IM.filterWithKey isBackEdge . IM.fromList . edges
   where
-    isBackEdge s t = t `IS.member` (fromJust $ s `IM.lookup` domMap)
+    isBackEdge s t = t `IS.member` (fromJustMsg "genBackEdgeMap" $ s `IM.lookup` domMap)
 
 -- | For each loop in the program, find out which bblock nodes are
 -- part of the loop by looking through the backedges (m, n) where n is
@@ -433,6 +433,9 @@ converge :: (a -> a -> Bool) -> [a] -> a
 converge p (x:ys@(y:_))
   | p x y     = y
   | otherwise = converge p ys
+
+fromJustMsg _ (Just x) = x
+fromJustMsg msg _      = error msg
 
 -- Local variables:
 -- mode: haskell
