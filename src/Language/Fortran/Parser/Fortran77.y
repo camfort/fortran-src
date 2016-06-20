@@ -36,6 +36,7 @@ import Debug.Trace
   ','                   { TComma _ }
   '.'                   { TDot _ }
   ':'                   { TColon _ }
+  include               { TInclude _ }
   program               { TProgram _ }
   function              { TFunction _ }
   subroutine            { TSubroutine _ }
@@ -404,6 +405,7 @@ NONEXECUTABLE_STATEMENT
   { StParameter () (getTransSpan $1 $4) $ fromReverseList $3 }
 | entry VARIABLE { StEntry () (getTransSpan $1 $2) $2 Nothing Nothing }
 | entry VARIABLE ENTRY_ARGS { StEntry () (getTransSpan $1 $3) $2 (Just $3) Nothing }
+| include STRING { StInclude () (getTransSpan $1 $2) $2 }
 
 ENTRY_ARGS :: { AList Expression A0 }
 ENTRY_ARGS
