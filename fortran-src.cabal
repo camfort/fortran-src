@@ -29,6 +29,8 @@ executable fortran-src
     GenericPretty >= 1.2,
     pretty >= 1.1,
     containers >= 0.5,
+    text >= 1.2,
+    bytestring >= 0.10,
     fgl
   other-modules:
     Language.Fortran.Analysis
@@ -87,6 +89,8 @@ library
     GenericPretty >= 1.2,
     pretty >= 1.1,
     containers >= 0.5,
+    text >= 1.2,
+    bytestring >= 0.10,
     fgl
   hs-source-dirs:      src
   ghc-options: -fno-warn-tabs
@@ -101,6 +105,8 @@ test-suite spec
     array >= 0.5,
     uniplate >= 1.6,
     containers >= 0.5,
+    text >= 1.2,
+    bytestring >= 0.10,
     fgl,
     fortran-src
   hs-source-dirs: test

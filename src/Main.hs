@@ -2,6 +2,12 @@
 
 module Main where
 
+import Prelude hiding (readFile)
+import Data.ByteString (readFile)
+import Data.Text (unpack)
+import Data.Text.Encoding (decodeUtf8With)
+import Data.Text.Encoding.Error (replace)
+
 import System.Console.GetOpt
 
 import System.Environment
@@ -45,7 +51,7 @@ main = do
   then fail $ usageInfo programName options
   else do
     let path = head parsedArgs
-    contents <- readFile path
+    contents <- flexReadFile path
     let version = fromMaybe (deduceVersion path) (fortranVersion opts)
     let Just parserF = lookup version parserVersions
     let outfmt = outputFormat opts
@@ -209,3 +215,9 @@ instance {-# OVERLAPPING #-} Show [ FreeForm.Token ] where
              xs'' -> [ show xs'' ]
       isNewline (FreeForm.TNewline _) = True
       isNewline _ = False
+
+flexReadFile :: String -> IO String
+flexReadFile path = do
+  bs <- readFile path
+  let text = decodeUtf8With (replace ' ') bs
+  return $ unpack text
