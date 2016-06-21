@@ -567,20 +567,20 @@ UNIT :: { Expression A0 }
 | '*' { ExpValue () (getSpan $1) ValStar }
 
 CILIST :: { AList ControlPair A0 }
-: '(' CI_EXPRESSION ',' FORMAT_ID ',' CILIST_PAIRS ')'
+: '(' CILIST_ELEMENT ',' FORMAT_ID ',' CILIST_PAIRS ')'
   { let { cp1 = ControlPair () (getSpan $2) Nothing $2;
           cp2 = ControlPair () (getSpan $4) Nothing $4;
           tail = fromReverseList $6 }
     in setSpan (getTransSpan $1 $7) $ cp1 `aCons` cp2 `aCons` tail }
-| '(' CI_EXPRESSION ',' FORMAT_ID ')'
+| '(' CILIST_ELEMENT ',' FORMAT_ID ')'
   { let { cp1 = ControlPair () (getSpan $2) Nothing $2;
           cp2 = ControlPair () (getSpan $4) Nothing $4 }
     in AList () (getTransSpan $1 $5) [ cp1,  cp2 ] }
-| '(' CI_EXPRESSION ',' CILIST_PAIRS ')'
+| '(' CILIST_ELEMENT ',' CILIST_PAIRS ')'
   { let { cp1 = ControlPair () (getSpan $2) Nothing $2;
           tail = fromReverseList $4 }
     in setSpan (getTransSpan $1 $5) $ cp1 `aCons` tail }
-| '(' CI_EXPRESSION ')'
+| '(' CILIST_ELEMENT ')'
   { let cp1 = ControlPair () (getSpan $2) Nothing $2
     in AList () (getTransSpan $1 $3) [ cp1 ] }
 | '(' CILIST_PAIRS ')' { fromReverseList $2 }
@@ -635,7 +635,6 @@ CI_EXPRESSION :: { Expression A0 }
 | LOGICAL_LITERAL { $1 }
 | STRING { $1 }
 | DATA_REF { $1 }
-| '*' { ExpValue () (getSpan $1) ValStar }
 
 IN_IOLIST :: { [ Expression A0 ] }
 : IN_IOLIST ',' IN_IO_ELEMENT { $3 : $1}

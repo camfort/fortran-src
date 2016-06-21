@@ -80,6 +80,8 @@ tokens :-
   <keyword> @id / { idP }                     { toSC st >> addSpanAndMatch TId }
   <keyword> @idExtended / { extendedIdP }     { toSC st >> addSpanAndMatch TId }
 
+  <keyword> "include" / { extended77P }       { toSC st >> addSpan TInclude }
+
   -- Tokens related to procedures and subprograms
   <keyword> "program"                         { toSC st >> addSpan TProgram }
   <keyword> "function"                        { toSC st >> addSpan TFunction  }
@@ -564,6 +566,7 @@ data Token = TLeftPar             SrcSpan
            | TComma               SrcSpan
            | TDot                 SrcSpan
            | TColon               SrcSpan
+           | TInclude             SrcSpan
            | TProgram             SrcSpan
            | TFunction            SrcSpan
            | TSubroutine          SrcSpan

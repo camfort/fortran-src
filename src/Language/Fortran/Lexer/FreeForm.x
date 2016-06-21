@@ -233,7 +233,7 @@ tokens :-
 -- Literals
 <0> @label                                        { toSC 0 >> addSpanAndMatch TIntegerLiteral }
 <scN,scI> @intLiteralConst                        { addSpanAndMatch TIntegerLiteral  }
-<scN> @bozLiteralConst / { bozP }                 { addSpanAndMatch TBozLiteral }
+<scN> @bozLiteralConst                            { addSpanAndMatch TBozLiteral }
 
 <scN> @realLiteral                                { addSpanAndMatch TRealLiteral }
 <scN> @altRealLiteral / { notPrecedingDotP }      { addSpanAndMatch TRealLiteral }
@@ -274,16 +274,6 @@ formatP :: User -> AlexInput -> Int -> AlexInput -> Bool
 formatP _ _ _ ai
   | Just TFormat{} <- aiPreviousToken ai = True
   | otherwise = False
-
-bozP :: User -> AlexInput -> Int -> AlexInput -> Bool
-bozP _ _ _ ai = not (null previousTokens) &&
-    case (last previousTokens, head previousTokens) of
-      (TData{}, TColon{}) -> True
-      (TData{}, TSlash{}) -> True
-      _ -> False
-  where
-    previousTokens = aiPreviousTokensInLine ai
-
 
 followsDoP :: User -> AlexInput -> Int -> AlexInput -> Bool
 followsDoP _ _ _ ai
