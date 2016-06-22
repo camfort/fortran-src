@@ -766,7 +766,7 @@ currentChar ai = head (takeNChars 1 ai)
 
 isContinuation :: AlexInput -> Bool
 isContinuation ai =
-  take 6 _next7 == "\n     " && not (last _next7 `elem` [' ', '0'])
+  take 6 _next7 == "\n     " && not (last _next7 `elem` [' ', '0', '\n', '\r'])
   where
     _next7 = takeNChars 7 ai
 

@@ -796,13 +796,22 @@ LABEL_IN_STATEMENT :: { Expression A0 } : int { ExpValue () (getSpan $1) (let (T
 
 TYPE_SPEC :: { TypeSpec A0 }
 TYPE_SPEC
-: integer          { TypeSpec () (getSpan $1) TypeInteger Nothing }
-| real             { TypeSpec () (getSpan $1) TypeReal Nothing }
-| doublePrecision  { TypeSpec () (getSpan $1) TypeDoublePrecision Nothing }
-| logical          { TypeSpec () (getSpan $1) TypeLogical Nothing }
-| complex          { TypeSpec () (getSpan $1) TypeComplex Nothing }
-| doubleComplex    { TypeSpec () (getSpan $1) TypeDoubleComplex Nothing }
+: integer KIND_SELECTOR { TypeSpec () (getSpan $1) TypeInteger Nothing }
+| real KIND_SELECTOR { TypeSpec () (getSpan $1) TypeReal Nothing }
+| doublePrecision KIND_SELECTOR
+  { TypeSpec () (getSpan $1) TypeDoublePrecision Nothing }
+| logical KIND_SELECTOR { TypeSpec () (getSpan $1) TypeLogical Nothing }
+| complex KIND_SELECTOR { TypeSpec () (getSpan $1) TypeComplex Nothing }
+| doubleComplex KIND_SELECTOR
+  { TypeSpec () (getSpan $1) TypeDoubleComplex Nothing }
 | character CHAR_SELECTOR { TypeSpec () (getSpan ($1, $2)) TypeCharacter $2 }
+
+KIND_SELECTOR :: { Maybe (Selector A0) }
+KIND_SELECTOR
+: '*' ARITHMETIC_CONSTANT_EXPRESSION
+  { Just $ Selector () (getTransSpan $1 $2) Nothing (Just $2) }
+| '*' '(' STAR ')' { Just $ Selector () (getTransSpan $1 $4) Nothing (Just $3) }
+| {- EMPTY -} { Nothing }
 
 CHAR_SELECTOR :: { Maybe (Selector A0) }
 CHAR_SELECTOR
