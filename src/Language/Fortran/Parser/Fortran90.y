@@ -471,6 +471,7 @@ EXECUTABLE_STATEMENT :: { Statement A0 }
 | exit { StExit () (getSpan $1) Nothing }
 | exit VARIABLE { StExit () (getTransSpan $1 $2) (Just $2) }
 | goto INTEGER_LITERAL { StGotoUnconditional () (getTransSpan $1 $2) $2 }
+| goto VARIABLE { StGotoUnconditional () (getTransSpan $1 $2) $2 }
 | goto VARIABLE MAYBE_COMMA '(' INTEGERS ')'
   { StGotoAssigned () (getTransSpan $1 $6) $2 (fromReverseList $5) }
 | goto '(' INTEGERS ')' MAYBE_COMMA EXPRESSION
