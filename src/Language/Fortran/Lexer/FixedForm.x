@@ -729,7 +729,7 @@ alexGetByte ai
   -- Skip the continuation line altogether
   | isContinuation ai && _isWhiteInsensitive = skip Continuation ai
   -- If we are not parsing a Hollerith skip whitespace
-  | _curChar == ' ' && _isWhiteInsensitive = skip Char ai
+  | _curChar `elem` [ ' ', '\t' ] && _isWhiteInsensitive = skip Char ai
   -- Read genuine character and advance. Also covers white sensitivity.
   | otherwise =
       let (_b:_bs) = (utf8Encode . toLower) _curChar in
