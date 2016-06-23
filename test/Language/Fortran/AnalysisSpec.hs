@@ -30,8 +30,8 @@ programAnal1LhsExprs =
       (AList () u [ IxSingle () u Nothing $
                              ExpSubscript () u (varGen "a")
                                           (AList () u [ ixSinGen 2 ])])
-  , ExpValue () u (ValVariable "f")
   , ExpSubscript () u (ExpValue () u (ValVariable "a")) (AList () u [ ixSinGen 4 ])
+  , ExpValue () u (ValVariable "f")
   , ExpSubscript () u (ExpValue () u (ValVariable "a")) (AList () u [ ixSinGen 6 ])
   , ExpSubscript () u (ExpValue () u (ValVariable "a")) (AList () u [ ixSinGen 5 ]) ]
 
