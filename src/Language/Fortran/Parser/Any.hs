@@ -11,7 +11,7 @@ import Data.List (isSuffixOf)
 
 deduceVersion :: String -> FortranVersion
 deduceVersion path
-  | isExtensionOf ".f"      = Fortran77
+  | isExtensionOf ".f"      = Fortran77Extended
   | isExtensionOf ".for"    = Fortran77
   | isExtensionOf ".fpp"    = Fortran77
   | isExtensionOf ".ftn"    = Fortran77

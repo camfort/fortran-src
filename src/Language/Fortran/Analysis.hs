@@ -91,7 +91,7 @@ puName pu
 
 -- | Create analysis annotations for the program, saving the original
 -- annotations.
-initAnalysis :: ProgramFile a -> ProgramFile (Analysis a)
+initAnalysis :: Functor b => b a -> b (Analysis a)
 initAnalysis = fmap analysis0
 
 -- | Remove analysis annotations from the program, restoring the
