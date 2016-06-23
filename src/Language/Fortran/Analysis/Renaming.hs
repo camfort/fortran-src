@@ -11,6 +11,8 @@ module Language.Fortran.Analysis.Renaming
   ( analyseRenames, rename, extractNameMap, renameAndStrip, unrename, underRenaming, NameMap )
 where
 
+import Debug.Trace
+
 import Language.Fortran.AST hiding (fromList)
 import Language.Fortran.Util.Position
 import Language.Fortran.Analysis
@@ -225,7 +227,7 @@ initialEnv blocks = do
       let onlyNames = map (\ (UseID _ _ v) -> varName v) only
       -- filter for the the mod remappings mentioned in the list, only
       return $ M.filterWithKey (\ k _ -> k `elem` onlyNames) env
-    _ -> error "USE renaming not supported (yet)"
+    _ -> trace "WARNING: USE renaming not supported (yet)" $ return empty
 
 -- Get the current scope name.
 getScope :: Renamer String
