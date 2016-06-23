@@ -104,10 +104,15 @@ stripAnalysis = fmap prevAnnotation
 -- | Return list of expressions used as the left-hand-side of
 -- assignment statements (including for-loops and function-calls by reference).
 lhsExprs :: (Data a, Data (b a)) => b a -> [Expression a]
-lhsExprs x = [ e | StExpressionAssign _ _ e _  <- universeBi x                    ] ++
-             [ e | StCall _ _ _ (Just aexps)   <- universeBi x, e <- fstLvl aexps ] ++
-             [ e | ExpFunctionCall _ _ _ (Just aexps) <- universeBi x, e <- fstLvl aexps ]
+lhsExprs x = concatMap lhsOfStmt (universeBi x) ++ concatMap lhsOfExp (universeBi x)
   where
+    lhsOfStmt (StExpressionAssign _ _ e _) = [e]
+    lhsOfStmt (StCall _ _ _ (Just aexps)) = fstLvl aexps
+    lhsOfStmt _ = []
+
+    lhsOfExp (ExpFunctionCall _ _ _ (Just aexps)) = fstLvl aexps
+    lhsOfExp _ = []
+
     fstLvl = filter isLExpr . map extractExp . aStrip
     extractExp (Argument _ _ _ exp) = exp
 
