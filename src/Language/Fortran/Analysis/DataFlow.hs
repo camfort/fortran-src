@@ -170,7 +170,7 @@ blockKill :: Data a => Block (Analysis a) -> [Name]
 blockKill = blockVarDefs
 
 -- | "GEN" set for a single AST-block.
-blockGen :: Data a => Block a -> [Name]
+blockGen :: Data a => Block (Analysis a) -> [Name]
 blockGen = blockVarUses
 
 --------------------------------------------------

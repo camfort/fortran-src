@@ -123,11 +123,10 @@ isLExpr (ExpSubscript _ _ _ _)           = True
 isLExpr _                                = False
 
 -- | Set of names found in an AST node.
-allVars :: (Data a, Data (b a)) => b a -> [Name]
-allVars b = [ v | ExpValue _ _ (ValVariable v) <- uniBi b ]
+allVars :: forall a b. (Data a, Data (b (Analysis a))) => b (Analysis a) -> [Name]
+allVars b = [ varName v | v@(ExpValue _ _ (ValVariable _)) <- uniBi b ]
   where
-    uniBi :: (Data a, Data (b a)) => b a -> [Expression a]
-    uniBi = universeBi
+    uniBi x = universeBi x :: [Expression (Analysis a)]
 
 -- | Set of names found in the parts of an AST that are the target of
 -- an assignment statement.
@@ -149,16 +148,16 @@ blockRhsExprs (BlIf _ _ e1 e2 _)        = universeBi (e1, e2)
 blockRhsExprs b                         = universeBi b
 
 -- | Set of names used -- not defined -- by an AST-block.
-blockVarUses :: Data a => Block a -> [Name]
+blockVarUses :: Data a => Block (Analysis a) -> [Name]
 blockVarUses (BlStatement _ _ _ (StExpressionAssign _ _ lhs rhs))
-  | ExpSubscript _ _ _ subs <- lhs = allVars rhs ++ allVars subs
+  | ExpSubscript _ _ _ subs <- lhs = allVars rhs ++ concatMap allVars (aStrip subs)
   | otherwise                      = allVars rhs
 blockVarUses (BlDo _ _ _ (Just (DoSpecification _ _ (StExpressionAssign _ _ lhs rhs) e1 e2)) _)
-  | ExpSubscript _ _ _ subs <- lhs = allVars (rhs, e1, e2) ++ allVars subs
-  | otherwise                      = allVars (rhs, e1, e2)
+  | ExpSubscript _ _ _ subs <- lhs = allVars rhs ++ allVars e1 ++ maybe [] allVars e2 ++ concatMap allVars (aStrip subs)
+  | otherwise                      = allVars rhs ++ allVars e1 ++ maybe [] allVars e2
 blockVarUses (BlStatement _ _ _ (StDeclaration {})) = []
-blockVarUses (BlDoWhile _ _ e1 e2 _)   = allVars (e1, e2)
-blockVarUses (BlIf _ _ e1 e2 _)        = allVars (e1, e2)
+blockVarUses (BlDoWhile _ _ e1 e2 _)   = maybe [] allVars e1 ++ allVars e2
+blockVarUses (BlIf _ _ e1 e2 _)        = maybe [] allVars e1 ++ concatMap (maybe [] allVars) e2
 blockVarUses b                         = allVars b
 
 -- | Set of names defined by an AST-block.
