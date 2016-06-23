@@ -3,7 +3,8 @@
 -- |
 -- Common data structures and functions supporting analysis of the AST.
 module Language.Fortran.Analysis
-  ( initAnalysis, stripAnalysis, Analysis(..), varName, genVar, puName, blockRhsExprs, rhsExprs
+  ( initAnalysis, stripAnalysis, Analysis(..), analysis0
+  , varName, genVar, puName, blockRhsExprs, rhsExprs
   , ModEnv, NameType(..), IDType(..), ConstructType(..), BaseType(..)
   , lhsExprs, isLExpr, allVars, allLhsVars, blockVarUses, blockVarDefs
   , BB, BBGr
