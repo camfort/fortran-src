@@ -27,7 +27,8 @@ disambiguateFunctionStatements = modifyProgramFile (trans statement)
   where
     trans = (transformBi :: Data a => TransFunc Statement ProgramFile a)
     statement st@(StExpressionAssign a1 s (ExpSubscript _ _ v@(ExpValue a _ (ValVariable _)) indicies) e2)
-      | Just (IDType _ (Just CTFunction)) <- idType a = StFunction a1 s v (aMap fromIndex indicies) e2
+      | Just (IDType _ (Just CTFunction)) <- idType a
+      , indiciesRangeFree indicies = StFunction a1 s v (aMap fromIndex indicies) e2
     statement st                                      = st
 
 disambiguateFunctionCalls :: Data a => Transform a ()
@@ -35,8 +36,17 @@ disambiguateFunctionCalls = modifyProgramFile (trans expression)
   where
     trans = (transformBi :: Data a => TransFunc Expression ProgramFile a)
     expression e@(ExpSubscript a1 s v@(ExpValue a _ (ValVariable _)) indicies)
-      | Just (IDType _ (Just CTFunction)) <- idType a = ExpFunctionCall a1 s v (Just $ aMap fromIndex indicies)
+      | Just (IDType _ (Just CTFunction)) <- idType a
+      , indiciesRangeFree indicies = ExpFunctionCall a1 s v (Just $ aMap fromIndex indicies)
     expression e                                      = e
+
+-- BEGIN: TODO STRICTLY TO BE REMOVED LATER TODO
+indiciesRangeFree aIndicies = cRange $ aStrip aIndicies
+  where
+    cRange [] = True
+    cRange (IxSingle{}:xs) = cRange xs
+    cRange (IxRange{}:_) = False
+-- END: TODO STRICTLY TO BE REMOVED LATER TODO
 
 class Indexed a where
   fromIndex :: Index b -> a b
