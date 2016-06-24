@@ -3,9 +3,9 @@
 module Main where
 
 import Prelude hiding (readFile)
-import Data.ByteString (readFile)
-import Data.Text (unpack)
-import Data.Text.Encoding (decodeUtf8With)
+import Data.ByteString.Lazy (readFile)
+import Data.Text.Lazy (unpack)
+import Data.Text.Lazy.Encoding (decodeUtf8With)
 import Data.Text.Encoding.Error (replace)
 
 import System.Console.GetOpt
