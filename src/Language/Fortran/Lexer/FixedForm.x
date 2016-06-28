@@ -279,7 +279,7 @@ withinLabelColsP _ aiOld _ aiNew = getCol aiOld >= 1 && getCol aiNew <= 6
   where
     getCol = posColumn . aiPosition
 
-atColP :: Integer -> AlexInput -> Bool
+atColP :: Int -> AlexInput -> Bool
 atColP n ai = (posColumn . aiPosition) ai == n
 
 -- This predicate allows to distinguish identifiers and real exponent tokens
@@ -672,7 +672,7 @@ initLexeme = Lexeme
 
 data AlexInput = AlexInput
   { aiSourceBytes               :: B.ByteString
-  , aiEndOffset                 :: Integer
+  , aiEndOffset                 :: Int
   , aiPosition                  :: Position
   , aiBytes                     :: [Word8]
   , aiPreviousChar              :: Char

@@ -676,7 +676,7 @@ data StartCode = StartCode
 data AlexInput = AlexInput
   { aiSourceBytes               :: B.ByteString
   , aiPosition                  :: Position
-  , aiEndOffset                 :: Integer
+  , aiEndOffset                 :: Int
   , aiPreviousChar              :: Char
   , aiLexeme                    :: Lexeme
   , aiStartCode                 :: StartCode
