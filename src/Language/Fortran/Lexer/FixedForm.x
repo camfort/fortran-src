@@ -15,6 +15,7 @@ import Data.Maybe (fromJust, isNothing)
 import Data.Data
 import Data.Typeable
 import qualified Data.Bits
+import qualified Data.ByteString.Char8 as B
 
 import Control.Exception
 import Control.Monad.State
@@ -670,7 +671,8 @@ initLexeme = Lexeme
   , lexemeEnd   = Nothing }
 
 data AlexInput = AlexInput
-  { aiSourceInput               :: String
+  { aiSourceBytes               :: B.ByteString
+  , aiEndOffset                 :: Integer
   , aiPosition                  :: Position
   , aiBytes                     :: [Word8]
   , aiPreviousChar              :: Char
@@ -691,7 +693,8 @@ type LexAction a = Parse AlexInput Token a
 
 vanillaAlexInput :: AlexInput
 vanillaAlexInput = AlexInput
-  { aiSourceInput = ""
+  { aiSourceBytes = B.empty
+  , aiEndOffset = 0
   , aiPosition = initPosition
   , aiBytes = []
   , aiPreviousChar = '\n'
@@ -725,7 +728,7 @@ alexGetByte ai
   -- The process of reading individual bytes of the character
   | _bytes /= [] = Just (head _bytes, ai { aiBytes = tail _bytes })
   -- When all characters are already read
-  | posAbsoluteOffset _position == (toInteger . length . aiSourceInput) ai = Nothing
+  | posAbsoluteOffset _position == aiEndOffset ai = Nothing
   -- Skip the continuation line altogether
   | isContinuation ai && _isWhiteInsensitive = skip Continuation ai
   -- If we are not parsing a Hollerith skip whitespace
@@ -757,12 +760,12 @@ alexInputPrevChar ai = aiPreviousChar ai
 
 takeNChars :: Integer -> AlexInput -> String
 takeNChars n ai =
-  take (fromIntegral n) . drop (fromIntegral _dropN) $ aiSourceInput ai
+  B.unpack . B.take (fromIntegral n) . B.drop (fromIntegral _dropN) $ aiSourceBytes ai
   where
     _dropN = posAbsoluteOffset . aiPosition $ ai
 
 currentChar :: AlexInput -> Char
-currentChar ai = head (takeNChars 1 ai)
+currentChar ai = B.index (aiSourceBytes ai) (fromIntegral . posAbsoluteOffset . aiPosition $ ai)
 
 isContinuation :: AlexInput -> Bool
 isContinuation ai =
@@ -840,9 +843,9 @@ alexScanUser :: FortranVersion -> AlexInput -> Int -> AlexReturn (LexAction (May
 -- Functions to help testing & output
 --------------------------------------------------------------------------------
 
-initParseState :: String -> FortranVersion -> String -> ParseState AlexInput
-initParseState srcInput fortranVersion filename =
-  _vanillaParseState { psAlexInput = vanillaAlexInput { aiSourceInput = srcInput } }
+initParseState :: B.ByteString -> FortranVersion -> String -> ParseState AlexInput
+initParseState srcBytes fortranVersion filename =
+  _vanillaParseState { psAlexInput = _vanillaAlexInput }
   where
     _vanillaParseState = ParseState
       { psAlexInput = undefined
@@ -850,12 +853,15 @@ initParseState srcInput fortranVersion filename =
       , psFilename = filename
       , psParanthesesCount = ParanthesesCount 0 False
       , psContext = [ ConStart ] }
+    _vanillaAlexInput = vanillaAlexInput
+      { aiSourceBytes = srcBytes
+      , aiEndOffset   = fromIntegral $ B.length srcBytes  }
 
-collectFixedTokens :: FortranVersion -> String -> [Token]
+collectFixedTokens :: FortranVersion -> B.ByteString -> [Token]
 collectFixedTokens version srcInput =
     collectTokens lexer' $ initParseState srcInput version "<unknown>"
 
-collectFixedTokensSafe :: FortranVersion -> String -> Maybe [Token]
+collectFixedTokensSafe :: FortranVersion -> B.ByteString -> Maybe [Token]
 collectFixedTokensSafe version srcInput =
     collectTokensSafe lexer' $ initParseState srcInput version "<unknown>"
 

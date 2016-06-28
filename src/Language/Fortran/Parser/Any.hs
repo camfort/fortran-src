@@ -6,6 +6,7 @@ import Language.Fortran.Parser.Fortran66 (fortran66Parser)
 import Language.Fortran.Parser.Fortran77 (fortran77Parser, extended77Parser)
 import Language.Fortran.Parser.Fortran90 (fortran90Parser)
 
+import qualified Data.ByteString.Char8 as B
 import Data.Char (toLower)
 import Data.List (isSuffixOf)
 
@@ -24,7 +25,7 @@ deduceVersion path
   where
     isExtensionOf = flip isSuffixOf $ map toLower path
 
-type Parser = String -> String -> ProgramFile A0
+type Parser = B.ByteString -> String -> ProgramFile A0
 parserVersions :: [(FortranVersion, Parser)]
 parserVersions =
   [ (Fortran66, fortran66Parser)
@@ -32,7 +33,7 @@ parserVersions =
   , (Fortran77Extended, extended77Parser)
   , (Fortran90, fortran90Parser) ]
 
-fortranParser :: String -> String -> ProgramFile ()
+fortranParser :: B.ByteString -> String -> ProgramFile ()
 fortranParser contents filename = do
    let Just parserF = lookup (deduceVersion filename) parserVersions
    parserF contents filename

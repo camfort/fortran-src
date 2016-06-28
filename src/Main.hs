@@ -3,9 +3,9 @@
 module Main where
 
 import Prelude hiding (readFile)
-import Data.ByteString.Lazy (readFile)
-import Data.Text.Lazy (unpack)
-import Data.Text.Lazy.Encoding (decodeUtf8With)
+import qualified Data.ByteString.Char8 as B
+import Data.Text (unpack)
+import Data.Text.Encoding (encodeUtf8, decodeUtf8With)
 import Data.Text.Encoding.Error (replace)
 
 import System.Console.GetOpt
@@ -216,8 +216,5 @@ instance {-# OVERLAPPING #-} Show [ FreeForm.Token ] where
       isNewline (FreeForm.TNewline _) = True
       isNewline _ = False
 
-flexReadFile :: String -> IO String
-flexReadFile path = do
-  bs <- readFile path
-  let text = decodeUtf8With (replace ' ') bs
-  return $ unpack text
+flexReadFile :: String -> IO B.ByteString
+flexReadFile = fmap (encodeUtf8 . decodeUtf8With (replace ' ')) . B.readFile

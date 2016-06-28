@@ -13,6 +13,7 @@ import Data.Typeable
 import Data.Maybe (isJust, isNothing, fromJust, fromMaybe)
 import Data.Char (toLower)
 import Data.Word (Word8)
+import qualified Data.ByteString.Char8 as B
 
 import Control.Monad (join)
 import Control.Monad.State (get)
@@ -673,8 +674,9 @@ data StartCode = StartCode
   deriving (Show)
 
 data AlexInput = AlexInput
-  { aiSourceInput               :: String
+  { aiSourceBytes               :: B.ByteString
   , aiPosition                  :: Position
+  , aiEndOffset                 :: Integer
   , aiPreviousChar              :: Char
   , aiLexeme                    :: Lexeme
   , aiStartCode                 :: StartCode
@@ -692,8 +694,9 @@ type LexAction a = Parse AlexInput Token a
 
 vanillaAlexInput :: AlexInput
 vanillaAlexInput = AlexInput
-  { aiSourceInput = ""
+  { aiSourceBytes = B.empty
   , aiPosition = initPosition
+  , aiEndOffset = 0
   , aiPreviousChar = '\n'
   , aiLexeme = initLexeme
   , aiStartCode = StartCode 0 Return
@@ -722,7 +725,7 @@ data Move = Continuation | Char | Newline
 alexGetByte :: AlexInput -> Maybe (Word8, AlexInput)
 alexGetByte ai
   -- When all characters are already read
-  | posAbsoluteOffset _position == (toInteger . length . aiSourceInput) ai = Nothing
+  | posAbsoluteOffset _position == aiEndOffset ai = Nothing
   -- Skip the continuation line altogether
   | isContinuation ai = alexGetByte . skipContinuation $ ai
   -- Read genuine character and advance. Also covers white sensitivity.
@@ -742,24 +745,18 @@ alexGetByte ai
 alexInputPrevChar :: AlexInput -> Char
 alexInputPrevChar ai = aiPreviousChar ai
 
-takeNChars :: Integer -> AlexInput -> String
-takeNChars n ai =
-  take (fromIntegral n) . drop (fromIntegral _dropN) $ aiSourceInput ai
-  where
-    _dropN = posAbsoluteOffset . aiPosition $ ai
-
 currentChar :: AlexInput -> Char
 currentChar ai
   -- case sensitivity matters only in character literals
   | (scActual . aiStartCode) ai == scC = _currentChar
-  | otherwise = toLower _currentChar
+  | otherwise                          = toLower _currentChar
   where
-  _currentChar = head . takeNChars 1 $ ai
+    _currentChar = B.index (aiSourceBytes ai) (fromIntegral . posAbsoluteOffset . aiPosition $ ai)
 
 advanceWithoutContinuation :: AlexInput -> Maybe AlexInput
 advanceWithoutContinuation ai
   -- When all characters are already read
-  | posAbsoluteOffset _position == (toInteger . length . aiSourceInput) ai =
+  | posAbsoluteOffset _position == aiEndOffset ai =
     Nothing
   -- Read genuine character and advance. Also covers white sensitivity.
   | otherwise =
@@ -1112,9 +1109,9 @@ instance SpecifiesType [ Token ] where
 -- Functions to help testing & output
 --------------------------------------------------------------------------------
 
-initParseState :: String -> FortranVersion -> String -> ParseState AlexInput
-initParseState srcInput fortranVersion filename =
-  _vanillaParseState { psAlexInput = vanillaAlexInput { aiSourceInput = srcInput } }
+initParseState :: B.ByteString -> FortranVersion -> String -> ParseState AlexInput
+initParseState srcBytes fortranVersion filename =
+  _vanillaParseState { psAlexInput = _vanillaAlexInput }
   where
     _vanillaParseState = ParseState
       { psAlexInput = undefined
@@ -1122,8 +1119,11 @@ initParseState srcInput fortranVersion filename =
       , psFilename = filename
       , psParanthesesCount = ParanthesesCount 0 False
       , psContext = [ ConStart ] }
+    _vanillaAlexInput = vanillaAlexInput
+      { aiSourceBytes = srcBytes
+      , aiEndOffset   = fromIntegral $ B.length srcBytes }
 
-collectFreeTokens :: FortranVersion -> String -> [Token]
+collectFreeTokens :: FortranVersion -> B.ByteString -> [Token]
 collectFreeTokens version srcInput =
     collectTokens lexer' $ initParseState srcInput version "<unknown>"
 

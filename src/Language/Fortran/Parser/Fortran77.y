@@ -9,7 +9,7 @@ module Language.Fortran.Parser.Fortran77 ( expressionParser
 import Prelude hiding (EQ,LT,GT) -- Same constructors exist in the AST
 
 import Data.Maybe (isNothing, fromJust)
-
+import qualified Data.ByteString.Char8 as B
 import Language.Fortran.Util.Position
 import Language.Fortran.ParserMonad
 import Language.Fortran.Lexer.FixedForm
@@ -860,7 +860,7 @@ transformations77 =
   , GroupIf
   , DisambiguateFunction
   ]
-fortran77Parser :: String -> String -> ProgramFile A0
+fortran77Parser :: B.ByteString -> String -> ProgramFile A0
 fortran77Parser sourceCode filename =
     transform transformations77 $ parse parseState
   where
@@ -872,7 +872,7 @@ transformations77Extended =
   , GroupIf
   , DisambiguateFunction
   ]
-extended77Parser :: String -> String -> ProgramFile A0
+extended77Parser :: B.ByteString -> String -> ProgramFile A0
 extended77Parser sourceCode filename =
     transform transformations77Extended $ parse parseState
   where

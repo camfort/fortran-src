@@ -7,7 +7,7 @@ module Language.Fortran.Parser.Fortran66(expressionParser,
 import Prelude hiding (EQ,LT,GT) -- Same constructors exist in the AST
 
 import Data.Maybe (isNothing, fromJust)
-
+import qualified Data.ByteString.Char8 as B
 import Language.Fortran.Util.Position
 import Language.Fortran.ParserMonad
 import Language.Fortran.Lexer.FixedForm
@@ -527,7 +527,7 @@ transformations66 =
   , DisambiguateFunction
   ]
 
-fortran66Parser :: String -> String -> ProgramFile A0
+fortran66Parser :: B.ByteString -> String -> ProgramFile A0
 fortran66Parser sourceCode filename =
     transform transformations66 $ parse parseState
   where

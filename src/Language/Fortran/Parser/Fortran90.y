@@ -7,6 +7,7 @@ module Language.Fortran.Parser.Fortran90 ( statementParser
 import Prelude hiding (EQ,LT,GT) -- Same constructors exist in the AST
 import Control.Monad.State (get)
 import Data.Maybe (fromMaybe)
+import qualified Data.ByteString.Char8 as B
 
 #ifdef DEBUG
 import Data.Data (toConstr)
@@ -1055,7 +1056,7 @@ transformations90 =
   , DisambiguateFunction
   ]
 
-fortran90Parser :: String -> String -> ProgramFile A0
+fortran90Parser :: B.ByteString -> String -> ProgramFile A0
 fortran90Parser sourceCode filename =
     transform transformations90 $ parse parseState
   where
