@@ -542,13 +542,7 @@ putMatch newMatch = do
   putLexeme $ lexeme { lexemeMatch = reverse newMatch }
 
 instance Spanned Lexeme where
-  getSpan lexeme =
-    let ms = lexemeStart lexeme
-        me = lexemeEnd lexeme in
-      case ms of
-        Just s -> SrcSpan s (fromJust me)
-        Nothing -> error $ "Span access on nonexistant lexeme."
-                           ++ lexemeMatch lexeme
+  getSpan lexeme = SrcSpan (lexemeStart lexeme) (lexemeEnd lexeme)
   setSpan _ = error "Lexeme span cannot be set."
 
 updatePreviousToken :: Maybe Token -> LexAction ()
@@ -657,34 +651,36 @@ normaliseStartCode = do
 -- AlexInput & related definitions
 --------------------------------------------------------------------------------
 
+invalidPosition = Position 0 0 0
+
 data Lexeme = Lexeme
   { lexemeMatch :: !String
-  , lexemeStart :: !(Maybe Position)
-  , lexemeEnd   :: !(Maybe Position)
+  , lexemeStart :: {-# UNPACK #-} !Position
+  , lexemeEnd   :: {-# UNPACK #-} !Position
   , lexemeIsCmt :: !Bool
   } deriving (Show)
 
 initLexeme :: Lexeme
 initLexeme = Lexeme
   { lexemeMatch = ""
-  , lexemeStart = Nothing
-  , lexemeEnd   = Nothing
+  , lexemeStart = invalidPosition
+  , lexemeEnd   = invalidPosition
   , lexemeIsCmt = False }
 
 data StartCodeStatus = Return | Stable deriving (Show)
 
 data StartCode = StartCode
-  { scActual :: Int
-  , scStatus :: StartCodeStatus }
+  { scActual :: {-# UNPACK #-} !Int
+  , scStatus :: !StartCodeStatus }
   deriving (Show)
 
 data AlexInput = AlexInput
   { aiSourceBytes               :: !B.ByteString
-  , aiPosition                  :: !Position
+  , aiPosition                  :: {-# UNPACK #-} !Position
   , aiEndOffset                 :: {-# UNPACK #-} !Int
   , aiPreviousChar              :: {-# UNPACK #-} !Char
-  , aiLexeme                    :: !Lexeme
-  , aiStartCode                 :: !StartCode
+  , aiLexeme                    :: {-# UNPACK #-} !Lexeme
+  , aiStartCode                 :: {-# UNPACK #-} !StartCode
   , aiPreviousToken             :: !(Maybe Token)
   , aiPreviousTokensInLine      :: !([ Token ])
   } deriving (Show)
@@ -709,10 +705,10 @@ vanillaAlexInput = AlexInput
   , aiPreviousTokensInLine = [ ] }
 
 updateLexeme :: Char -> Position -> AlexInput -> AlexInput
-updateLexeme !char !p !ai = ai { aiLexeme = Lexeme (char:match) start' (Just p) isCmt' }
+updateLexeme !char !p !ai = ai { aiLexeme = Lexeme (char:match) start' p isCmt' }
   where
     Lexeme match start _ isCmt = aiLexeme ai
-    start' = Just (p `fromMaybe` start)
+    start' = if posLine start > 0 then start else p
     isCmt' = null match && char == '!'
 
 -- Fortran version and parantheses count to be used by alexScanUser

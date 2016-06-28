@@ -6,7 +6,7 @@ import Language.Fortran.AST
 import Prelude hiding (lookup)
 import Data.Map (findWithDefault, insert, empty, lookup, Map)
 import qualified Data.Map as M
-import Control.Monad.State.Lazy
+import Control.Monad.State.Strict
 import Data.Generics.Uniplate.Data
 import Data.Generics.Uniplate.Operations
 import Data.Data
