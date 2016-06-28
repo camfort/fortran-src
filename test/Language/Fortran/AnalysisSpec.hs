@@ -12,9 +12,10 @@ import Data.Graph.Inductive
 import Data.Graph.Inductive.PatriciaTree (Gr)
 import Data.List
 import Data.Maybe
+import qualified Data.ByteString.Char8 as B
 
 pParser :: String -> ProgramFile (Analysis ())
-pParser source = initAnalysis $ extended77Parser source "<unknown>"
+pParser source = initAnalysis $ extended77Parser (B.pack source) "<unknown>"
 
 spec :: Spec
 spec =

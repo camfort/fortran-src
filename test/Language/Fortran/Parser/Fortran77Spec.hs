@@ -7,21 +7,22 @@ import Language.Fortran.Parser.Fortran77
 import Language.Fortran.Lexer.FixedForm (initParseState)
 import Language.Fortran.ParserMonad (FortranVersion(..), evalParse)
 import Language.Fortran.AST
+import qualified Data.ByteString.Char8 as B
 
 eParser :: String -> Expression ()
 eParser sourceCode =
   case evalParse statementParser parseState of
     (StExpressionAssign _ _ _ e) -> e
   where
-    paddedSourceCode = "      a = " ++ sourceCode
+    paddedSourceCode = B.pack $ "      a = " ++ sourceCode
     parseState =  initParseState paddedSourceCode Fortran77 "<unknown>"
 
 sParser :: String -> Statement ()
 sParser sourceCode =
-  evalParse statementParser $ initParseState sourceCode Fortran77 "<unknown>"
+  evalParse statementParser $ initParseState (B.pack sourceCode) Fortran77 "<unknown>"
 
 pParser :: String -> ProgramFile ()
-pParser source = fortran77Parser source "<unknown>"
+pParser source = fortran77Parser (B.pack source) "<unknown>"
 
 spec :: Spec
 spec =

@@ -7,11 +7,12 @@ import Data.Maybe (fromJust)
 
 import Language.Fortran.ParserMonad (FortranVersion(..))
 import Language.Fortran.Lexer.FreeForm (collectFreeTokens, Token(..))
+import qualified Data.ByteString.Char8 as B
 
 import Debug.Trace
 
 collectF90 :: String -> [ Token ]
-collectF90 = collectFreeTokens Fortran90
+collectF90 = collectFreeTokens Fortran90 . B.pack
 
 pseudoAssign token = fmap ($u) [ flip TId "i", TOpAssign, token, TEOF ]
 

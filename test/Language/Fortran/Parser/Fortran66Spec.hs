@@ -10,6 +10,7 @@ import Language.Fortran.Parser.Fortran66
 import Language.Fortran.Lexer.FixedForm
 import Language.Fortran.ParserMonad
 import Language.Fortran.AST
+import qualified Data.ByteString.Char8 as B
 
 import Data.Typeable
 
@@ -18,12 +19,12 @@ eParser sourceCode =
   case evalParse statementParser parseState of
     (StExpressionAssign _ _ _ e) -> e
   where
-    paddedSourceCode = "      a = " ++ sourceCode
+    paddedSourceCode = B.pack $ "      a = " ++ sourceCode
     parseState =  initParseState paddedSourceCode Fortran66 "<unknown>"
 
 sParser :: String -> Statement ()
 sParser sourceCode =
-  evalParse statementParser $ initParseState sourceCode Fortran66 "<unknown>"
+  evalParse statementParser $ initParseState (B.pack sourceCode) Fortran66 "<unknown>"
 
 spec :: Spec
 spec =

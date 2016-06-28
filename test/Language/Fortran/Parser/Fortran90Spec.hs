@@ -9,18 +9,19 @@ import Language.Fortran.AST
 import Language.Fortran.ParserMonad
 import Language.Fortran.Lexer.FreeForm
 import Language.Fortran.Parser.Fortran90
+import qualified Data.ByteString.Char8 as B
 
 eParser :: String -> Expression ()
 eParser sourceCode =
   case evalParse statementParser parseState of
     (StExpressionAssign _ _ _ e) -> e
   where
-    paddedSourceCode = "      a = " ++ sourceCode
+    paddedSourceCode = B.pack $ "      a = " ++ sourceCode
     parseState =  initParseState paddedSourceCode Fortran90 "<unknown>"
 
 sParser :: String -> Statement ()
 sParser sourceCode =
-  evalParse statementParser $ initParseState sourceCode Fortran90 "<unknown>"
+  evalParse statementParser $ initParseState (B.pack sourceCode) Fortran90 "<unknown>"
 
 spec :: Spec
 spec =

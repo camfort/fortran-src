@@ -20,6 +20,7 @@ import Data.Graph.Inductive
 import Data.Graph.Inductive.PatriciaTree (Gr)
 import Data.Maybe
 import Data.Data
+import qualified Data.ByteString.Char8 as B
 
 data F77 = F77
 data F90 = F90
@@ -27,9 +28,9 @@ data F90 = F90
 class Parser t where
     parser :: t -> String -> String -> ProgramFile A0
 instance Parser F77 where
-    parser F77 = extended77Parser
+    parser F77 src file = extended77Parser (B.pack src) file
 instance Parser F90 where
-    parser F90 = F90.fortran90Parser
+    parser F90 src file = F90.fortran90Parser (B.pack src) file
 
 pParser :: Parser t => t -> String -> ProgramFile (Analysis ())
 pParser version source = analyseBBlocks . snd . rename . analyseRenames . initAnalysis

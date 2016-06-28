@@ -9,12 +9,13 @@ import Data.List
 
 import Language.Fortran.AST
 import Language.Fortran.Util.Position
-import Language.Fortran.Parser.Fortran90 (fortran90Parser)
+import qualified Language.Fortran.Parser.Fortran90 as F90
 import Language.Fortran.Analysis
 import Language.Fortran.Analysis.Renaming
 import Data.Generics.Uniplate.Data
 import Data.Generics.Uniplate.Operations
 import Data.Data
+import qualified Data.ByteString.Char8 as B
 
 import Debug.Trace
 
@@ -26,6 +27,8 @@ renameAndStrip' x = renameAndStrip . analyseRenames . initAnalysis $ x
 countUnrenamed e = length [ () | ExpValue (Analysis { uniqueName = Nothing }) _ (ValVariable {}) <- uniE_PF e ]
   where uniE_PF :: ProgramFile (Analysis ()) -> [Expression (Analysis ())]
         uniE_PF = universeBi
+
+fortran90Parser src file = F90.fortran90Parser (B.pack src) file
 
 spec :: Spec
 spec = do
