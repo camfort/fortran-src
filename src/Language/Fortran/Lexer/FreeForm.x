@@ -1,5 +1,6 @@
 {
 {-# LANGUAGE DeriveDataTypeable #-}
+{-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
@@ -14,11 +15,13 @@ import Data.Maybe (isJust, isNothing, fromJust, fromMaybe)
 import Data.Char (toLower)
 import Data.Word (Word8)
 import qualified Data.ByteString.Char8 as B
+import qualified Data.ByteString.Unsafe as BU
 
 import Control.Monad (join)
 import Control.Monad.State (get)
 
 import GHC.Generics
+import GHC.Base (unsafeChr)
 
 import Language.Fortran.ParserMonad
 import Language.Fortran.Util.Position
@@ -655,16 +658,18 @@ normaliseStartCode = do
 --------------------------------------------------------------------------------
 
 data Lexeme = Lexeme
-  { lexemeMatch :: String
-  , lexemeStart :: Maybe Position
-  , lexemeEnd   :: Maybe Position
+  { lexemeMatch :: !String
+  , lexemeStart :: !(Maybe Position)
+  , lexemeEnd   :: !(Maybe Position)
+  , lexemeIsCmt :: !Bool
   } deriving (Show)
 
 initLexeme :: Lexeme
 initLexeme = Lexeme
   { lexemeMatch = ""
   , lexemeStart = Nothing
-  , lexemeEnd   = Nothing }
+  , lexemeEnd   = Nothing
+  , lexemeIsCmt = False }
 
 data StartCodeStatus = Return | Stable deriving (Show)
 
@@ -674,14 +679,14 @@ data StartCode = StartCode
   deriving (Show)
 
 data AlexInput = AlexInput
-  { aiSourceBytes               :: B.ByteString
-  , aiPosition                  :: Position
-  , aiEndOffset                 :: Int
-  , aiPreviousChar              :: Char
-  , aiLexeme                    :: Lexeme
-  , aiStartCode                 :: StartCode
-  , aiPreviousToken             :: Maybe Token
-  , aiPreviousTokensInLine      :: [ Token ]
+  { aiSourceBytes               :: !B.ByteString
+  , aiPosition                  :: !Position
+  , aiEndOffset                 :: {-# UNPACK #-} !Int
+  , aiPreviousChar              :: {-# UNPACK #-} !Char
+  , aiLexeme                    :: !Lexeme
+  , aiStartCode                 :: !StartCode
+  , aiPreviousToken             :: !(Maybe Token)
+  , aiPreviousTokensInLine      :: !([ Token ])
   } deriving (Show)
 
 instance Loc AlexInput where
@@ -694,24 +699,21 @@ type LexAction a = Parse AlexInput Token a
 
 vanillaAlexInput :: AlexInput
 vanillaAlexInput = AlexInput
-  { aiSourceBytes = B.empty
-  , aiPosition = initPosition
-  , aiEndOffset = 0
-  , aiPreviousChar = '\n'
-  , aiLexeme = initLexeme
-  , aiStartCode = StartCode 0 Return
-  , aiPreviousToken = Nothing
+  { aiSourceBytes          = B.empty
+  , aiPosition             = initPosition
+  , aiEndOffset            = 0
+  , aiPreviousChar         = '\n'
+  , aiLexeme               = initLexeme
+  , aiStartCode            = StartCode 0 Return
+  , aiPreviousToken        = Nothing
   , aiPreviousTokensInLine = [ ] }
 
 updateLexeme :: Char -> Position -> AlexInput -> AlexInput
-updateLexeme char p ai =
-  let lexeme = aiLexeme ai
-      match = lexemeMatch lexeme
-      newMatch = char : match
-      start = lexemeStart lexeme
-      newStart = if isNothing start then Just p else start
-      newEnd = Just p in
-    ai { aiLexeme = Lexeme newMatch newStart newEnd }
+updateLexeme !char !p !ai = ai { aiLexeme = Lexeme (char:match) start' (Just p) isCmt' }
+  where
+    Lexeme match start _ isCmt = aiLexeme ai
+    start' = Just (p `fromMaybe` start)
+    isCmt' = null match && char == '!'
 
 -- Fortran version and parantheses count to be used by alexScanUser
 data User = User FortranVersion ParanthesesCount
@@ -723,14 +725,14 @@ data User = User FortranVersion ParanthesesCount
 data Move = Continuation | Char | Newline
 
 alexGetByte :: AlexInput -> Maybe (Word8, AlexInput)
-alexGetByte ai
+alexGetByte !ai
   -- When all characters are already read
   | posAbsoluteOffset _position == aiEndOffset ai = Nothing
   -- Skip the continuation line altogether
   | isContinuation ai = alexGetByte . skipContinuation $ ai
   -- Read genuine character and advance. Also covers white sensitivity.
   | otherwise =
-      Just ( fromIntegral . fromEnum $ _curChar
+      Just ( fromIntegral . fromEnum $ _curChar -- FIXME
            , updateLexeme _curChar _position
                ai
                { aiPosition =
@@ -746,43 +748,49 @@ alexInputPrevChar :: AlexInput -> Char
 alexInputPrevChar ai = aiPreviousChar ai
 
 currentChar :: AlexInput -> Char
-currentChar ai
+currentChar !ai
   -- case sensitivity matters only in character literals
-  | (scActual . aiStartCode) ai == scC = _currentChar
-  | otherwise                          = toLower _currentChar
+  | sCode == scC = _currentChar
+  | otherwise    = {-# SCC toLower_currentChar #-} toLower _currentChar
   where
-    _currentChar = B.index (aiSourceBytes ai) (fromIntegral . posAbsoluteOffset . aiPosition $ ai)
+    sCode        = scActual (aiStartCode ai)
+    -- _currentChar = w2c (BU.unsafeIndex srcBytes i)
+    _currentChar = B.index srcBytes absOff
+    srcBytes     = aiSourceBytes ai
+    absOff       = posAbsoluteOffset pos
+    pos          = aiPosition ai
 
 advanceWithoutContinuation :: AlexInput -> Maybe AlexInput
-advanceWithoutContinuation ai
+advanceWithoutContinuation !ai
   -- When all characters are already read
   | posAbsoluteOffset _position == aiEndOffset ai =
     Nothing
   -- Read genuine character and advance. Also covers white sensitivity.
   | otherwise =
-    Just $ ai { aiPosition =
+    Just $! ai { aiPosition =
                   case _curChar of
                     '\n'  -> advance Newline _position
                     _     -> advance Char _position
-              , aiPreviousChar = _curChar }
+               , aiPreviousChar = _curChar }
   where
     _curChar = currentChar ai
     _position = aiPosition ai
 
 isContinuation :: AlexInput -> Bool
-isContinuation ai =
+isContinuation !ai =
     -- No continuation while lexing a character literal.
     (scActual . aiStartCode) ai /= scC
     -- No continuation while lexing a comment.
-    && (let lexeme = lexemeMatch . aiLexeme $ ai
-       in null lexeme || last lexeme /= '!')
+    && (null match || not (lexemeIsCmt lexeme))
     && _isContinuation ai 0
   where
-    _isContinuation ai 0 =
+    match  = lexemeMatch lexeme
+    lexeme = aiLexeme $ ai
+    _isContinuation !ai 0 =
       if currentChar ai == '&'
       then _advance ai
       else False
-    _isContinuation ai 1 =
+    _isContinuation !ai 1 =
       case currentChar ai of
         ' ' -> _advance ai
         '\t' -> _advance ai
@@ -791,7 +799,7 @@ isContinuation ai =
         '\n' -> True
         _ -> False
     _advance :: AlexInput -> Bool
-    _advance ai =
+    _advance !ai =
       case advanceWithoutContinuation ai of
         Just ai' -> _isContinuation ai' 1
         Nothing -> False

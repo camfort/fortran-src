@@ -19,9 +19,9 @@ class Loc a where
   getPos :: a -> Position
 
 data Position = Position
-  { posAbsoluteOffset   :: Int
-  , posColumn           :: Int
-  , posLine             :: Int
+  { posAbsoluteOffset   :: {-# UNPACK #-} !Int
+  , posColumn           :: {-# UNPACK #-} !Int
+  , posLine             :: {-# UNPACK #-} !Int
   } deriving (Eq, Ord, Data, Typeable)
 
 instance Show Position where
