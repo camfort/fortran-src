@@ -713,8 +713,8 @@ updateLexeme :: Char -> Position -> AlexInput -> AlexInput
 updateLexeme !char !p !ai = ai { aiLexeme = Lexeme (char:match) start' p isCmt' }
   where
     Lexeme match start _ isCmt = aiLexeme ai
-    start' = if posLine start > 0 then start else p
-    isCmt' = null match && char == '!'
+    start'                     = if isValidPosition start then start else p
+    isCmt'                     = isCmt || (null match && char == '!')
 
 -- Fortran version and parantheses count to be used by alexScanUser
 data User = User FortranVersion ParanthesesCount
