@@ -651,7 +651,12 @@ normaliseStartCode = do
 -- AlexInput & related definitions
 --------------------------------------------------------------------------------
 
+invalidPosition :: Position
 invalidPosition = Position 0 0 0
+
+{-# INLINE isValidPosition #-}
+isValidPosition :: Position -> Bool
+isValidPosition pos = posLine pos > 0
 
 data Lexeme = Lexeme
   { lexemeMatch :: !String
