@@ -733,7 +733,7 @@ alexGetByte !ai
   | isContinuation ai = alexGetByte . skipContinuation $ ai
   -- Read genuine character and advance. Also covers white sensitivity.
   | otherwise =
-      Just ( fromIntegral . fromEnum $ _curChar -- FIXME
+      Just ( fromIntegral . fromEnum $ _curChar
            , updateLexeme _curChar _position
                ai
                { aiPosition =
@@ -1130,7 +1130,7 @@ initParseState srcBytes fortranVersion filename =
       , psContext = [ ConStart ] }
     _vanillaAlexInput = vanillaAlexInput
       { aiSourceBytes = srcBytes
-      , aiEndOffset   = fromIntegral $ B.length srcBytes }
+      , aiEndOffset   = B.length srcBytes }
 
 collectFreeTokens :: FortranVersion -> B.ByteString -> [Token]
 collectFreeTokens version srcInput =
