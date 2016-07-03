@@ -513,6 +513,7 @@ DATA_ITEM_LEVEL1
 --| COMPLEX_LITERAL         { $1 }
 | '(' SIGNED_NUMERIC_LITERAL ',' SIGNED_NUMERIC_LITERAL ')' { ExpValue () (getTransSpan $1 $5) (ValComplex $2 $4)}
 | LOGICAL_LITERAL         { $1 }
+| STRING                  { $1 }
 
 EQUIVALENCE_GROUPS :: { AList (AList Expression) A0 }
 EQUIVALENCE_GROUPS
