@@ -23,7 +23,7 @@ import Data.Maybe (maybe, fromMaybe)
 import qualified Data.List as L
 import Data.Map (findWithDefault, insert, union, empty, lookup, member, Map, fromList)
 import qualified Data.Map as M
-import Control.Monad.State.Lazy
+import Control.Monad.State.Strict
 import Control.Monad
 import Data.Generics.Uniplate.Data
 import Data.Generics.Uniplate.Operations

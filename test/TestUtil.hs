@@ -10,7 +10,7 @@ import Data.Generics.Uniplate.Data
 import Language.Fortran.AST
 import Language.Fortran.Util.Position
 
-u = undefined
+u = initSrcSpan
 
 valTrue = ExpValue () u $ ValLogical ".true."
 valFalse = ExpValue () u $ ValLogical ".false."
