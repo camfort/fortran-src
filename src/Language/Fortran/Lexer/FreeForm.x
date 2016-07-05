@@ -80,7 +80,7 @@ $expLetter = [ed]
 --------------------------------------------------------------------------------
 tokens :-
 
-<0,scN> "!".*$                                    { addSpanAndMatch TComment }
+<0,scN> "!".*$                                    { adjustComment $ addSpanAndMatch TComment }
 
 <0,scN,scT> (\n\r|\r\n|\n)                        { resetPar >> toSC 0 >> addSpan TNewline }
 <0,scN,scI,scT> [\t\ ]+                           ;
@@ -449,6 +449,13 @@ fillConstr = toConstr . ($ undefined)
 --------------------------------------------------------------------------------
 -- Lexer helpers
 --------------------------------------------------------------------------------
+
+adjustComment :: LexAction (Maybe Token) -> LexAction (Maybe Token)
+adjustComment action = do
+  mTok <- action
+  case mTok of
+    Just (TComment s (_:xs)) -> return $ Just $ TComment s xs
+    _ -> error "Either not a comment token or matched empty."
 
 leftPar :: LexAction (Maybe Token)
 leftPar = do
