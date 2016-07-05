@@ -251,10 +251,13 @@ spec =
       describe "Comment" $ do
         it "Full line comment" $
           shouldBe' (collectF90 "! = & ! hi \n") $
-                    ($u) <$> [ flip TComment "! = & ! hi ", TNewline , TEOF ]
+                    ($u) <$> [ flip TComment " = & ! hi ", TNewline , TEOF ]
 
         it "Inline comment" $
           shouldBe' (collectF90 "i = 10 ! = & ! hi \n") $
                     ($u) <$> [ flip TId "i", TOpAssign
                              , flip TIntegerLiteral "10"
-                             , flip TComment "! = & ! hi ", TNewline , TEOF ]
+                             , flip TComment " = & ! hi ", TNewline , TEOF ]
+        it "Empty comment" $
+          shouldBe' (collectF90 "!\n") $
+                    ($u) <$> [ flip TComment "", TNewline , TEOF ]
