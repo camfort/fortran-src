@@ -19,6 +19,7 @@ import qualified Data.IntSet as IS
 import Data.Graph.Inductive
 import Data.Graph.Inductive.PatriciaTree (Gr)
 import Data.Maybe
+import Data.List
 import Data.Data
 import qualified Data.ByteString.Char8 as B
 
@@ -147,6 +148,15 @@ spec =
         (S.fromList . edges . genFlowsToGraph bm dm gr $ reachingDefinitions dm gr) `shouldBe`
           S.fromList [ (3,4),(4,3),(4,7),(6,3),(6,4),(7,12),(11,3),(11,13) ]
 
+    describe "rd4" $ do
+      it "ivMapByASTBlock" $ do
+        let (pf, gr) = testPfAndGraph F77 "f" programRd4
+        let domMap = dominators gr
+        let bedges = genBackEdgeMap domMap gr
+        let ivMap  = genInductionVarMapByASTBlock bedges gr
+        (sort . map (\ x -> (head x, length x)) . group . sort . map S.size $ IM.elems ivMap) `shouldBe` [(1,3),(2,3)]
+
+
 programLoop4 = unlines [
       "      program loop4"
     , "      integer r, i, j"
@@ -210,6 +220,28 @@ programRd3 = unlines [
     , ""
     , "      do 10 i = 2, 10"
     , "         b(i) = a(i-1) + x"
+    , "         a(i) = b(i)"
+    , " 10   continue"
+    , "      f = a(10)"
+    , "      end"
+    , "      program rd3"
+    , "      implicit none"
+    , "      integer f"
+    , ""
+    , "      write (*,*) f(1)"
+    , "      end"
+    , ""
+    ]
+
+programRd4 = unlines [
+      "      function f(x)"
+    , "      integer i, j, a, b, x, f"
+    , "      dimension a(10), b(10)"
+    , ""
+    , "      do 10 i = 2, 10"
+    , "      do 20 j = 2, 10"
+    , "         b(i) = a(i-1) + x"
+    , " 20   continue"
     , "         a(i) = b(i)"
     , " 10   continue"
     , "      f = a(10)"
