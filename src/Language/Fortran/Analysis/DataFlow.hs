@@ -12,7 +12,9 @@ module Language.Fortran.Analysis.DataFlow
   , genBlockMap, genDefMap, BlockMap, DefMap
   , genCallMap, CallMap
   , loopNodes, genBackEdgeMap, sccWith, BackEdgeMap
+  , genLoopNodeMap, LoopNodeMap
   , genInductionVarMap, InductionVarMap
+  , genInductionVarMapByASTBlock, InductionVarMapByASTBlock
   , noPredNodes
 ) where
 
@@ -339,6 +341,16 @@ loopNodes bedges gr = [
     IS.fromList (n:intersect (sccWith n gr) (rdfs [m] (delNode n gr))) | (m, n) <- IM.toList bedges
   ]
 
+-- | LoopNodeMap : node -> { node }
+type LoopNodeMap = IM.IntMap IS.IntSet
+
+-- | Similar to loopNodes except it creates a map from loop-header to
+-- the set of loop nodes, for each loop-header.
+genLoopNodeMap :: Graph gr => BackEdgeMap -> gr a b -> LoopNodeMap
+genLoopNodeMap bedges gr = IM.fromList [
+    (n, IS.fromList (n:intersect (sccWith n gr) (rdfs [m] (delNode n gr)))) | (m, n) <- IM.toList bedges
+  ]
+
 -- | The strongly connected component containing a given node.
 sccWith :: (Graph gr) => Node -> gr a b -> [Node]
 sccWith n g = case filter (n `elem`) $ scc g of
@@ -364,6 +376,21 @@ basicInductionVars bedges gr = IM.fromListWith S.union [
 -- current iteration of the loop.
 genInductionVarMap :: Data a => BackEdgeMap -> BBGr (Analysis a) -> InductionVarMap
 genInductionVarMap = basicInductionVars
+
+-- | InductionVarMapByASTBlock : AST-block label -> { name }
+type InductionVarMapByASTBlock = IM.IntMap (S.Set Name)
+
+-- | Generate an induction variable map that is indexed by the labels
+-- on AST-blocks within those loops.
+genInductionVarMapByASTBlock :: Data a => BackEdgeMap -> BBGr (Analysis a) -> InductionVarMapByASTBlock
+genInductionVarMapByASTBlock bedges gr = loopsToLabs . genInductionVarMap bedges $ gr
+  where
+    lnMap       = genLoopNodeMap bedges gr
+    get         = fromMaybe (error "missing loop-header node") . flip IM.lookup lnMap
+    astLabels n = [ i | b <- fromJustMsg "weird: asked for non-existent node" (lab gr n)
+                      , let Just i = insLabel (getAnnotation b) ]
+    loopsToLabs         = IM.fromListWith S.union . concatMap loopToLabs . IM.toList
+    loopToLabs (n, ivs) = (map (,ivs) . astLabels) =<< IS.toList (get n)
 
 --------------------------------------------------
 
@@ -395,6 +422,7 @@ showDataFlow pf = perPU =<< uni pf
                        , ("flowsTo",      show (edges $ genFlowsToGraph bm dm gr (rd gr)))
                        , ("varFlowsTo",   show (genVarFlowsToMap dm (genFlowsToGraph bm dm gr (rd gr))))
                        , ("ivMap",        show (genInductionVarMap bedges gr))
+                       , ("ivMapByAST",   show (genInductionVarMapByASTBlock bedges gr))
                        , ("noPredNodes",  show (noPredNodes gr))
                        ] where
                            bedges = genBackEdgeMap (dominators gr) gr
