@@ -61,7 +61,7 @@ labelBlocksInBBGr pf = transform (nmapM' (mapM eachBlock)) pf
       | a@Analysis { insLabel = Nothing } <- getAnnotation b = do
           n <- get
           put $ n + 1
-          return $ setAnnotation (a { insLabel = Just n }) b
+          return . labelWithinBlocks $ setAnnotation (a { insLabel = Just n }) b
       | otherwise                                            = return b
     transform :: Data a => (BBGr a -> State Int (BBGr a)) ->
                            ProgramFile a -> State Int (ProgramFile a)
@@ -75,9 +75,33 @@ labelBlocks gr = transform eachBlock gr
     eachBlock b = do
       n <- get
       put $ (n + 1)
-      return $ setAnnotation ((getAnnotation b) { insLabel = Just n }) b
+      return . labelWithinBlocks $ setAnnotation ((getAnnotation b) { insLabel = Just n }) b
     transform :: Data a => TransFuncM (State Int) Block ProgramFile a
     transform = transformBiM
+
+labelWithinBlocks :: forall a. Data a => Block (Analysis a) -> Block (Analysis a)
+labelWithinBlocks b = perBlock b
+  where
+    perBlock :: Block (Analysis a) -> Block (Analysis a)
+    perBlock (BlStatement a s e st)    = BlStatement a s (mfill i e) (fill i st)               where i = insLabel a
+    perBlock (BlIf a s e1 e2 bss)      = BlIf a s (mfill i e1) (mmfill i e2) bss               where i = insLabel a
+    perBlock (BlCase a s e1 e2 is bss) = BlCase a s (mfill i e1) (fill i e2) (mmfill i is) bss where i = insLabel a
+    perBlock (BlDo a s e1 e2 bs)       = BlDo a s (mfill i e1) (mfill i e2) bs                 where i = insLabel a
+    perBlock (BlDoWhile a s e1 e2 bs)  = BlDoWhile a s (mfill i e1) (fill i e2) bs             where i = insLabel a
+    perBlock b                           = b
+
+    mfill i  = fmap (fill i)
+    mmfill i = fmap (fmap (fill i))
+
+    fill :: forall f. (Data (f (Analysis a))) => Maybe Int -> f (Analysis a) -> f (Analysis a)
+    fill Nothing  = id
+    fill (Just i) = transform perIndex
+      where
+        transform :: (Index (Analysis a) -> Index (Analysis a)) -> f (Analysis a) -> f (Analysis a)
+        transform = transformBi
+
+        perIndex :: (Index (Analysis a) -> Index (Analysis a))
+        perIndex x = setAnnotation ((getAnnotation x) { insLabel = Just i }) x
 
 --------------------------------------------------
 
