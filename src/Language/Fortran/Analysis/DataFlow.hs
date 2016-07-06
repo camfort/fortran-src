@@ -382,12 +382,12 @@ type InductionVarMapByASTBlock = IM.IntMap (S.Set Name)
 
 -- | Generate an induction variable map that is indexed by the labels
 -- on AST-blocks within those loops.
-genInductionVarMapByASTBlock :: Data a => BackEdgeMap -> BBGr (Analysis a) -> InductionVarMapByASTBlock
+genInductionVarMapByASTBlock :: forall a. Data a => BackEdgeMap -> BBGr (Analysis a) -> InductionVarMapByASTBlock
 genInductionVarMapByASTBlock bedges gr = loopsToLabs . genInductionVarMap bedges $ gr
   where
     lnMap       = genLoopNodeMap bedges gr
     get         = fromMaybe (error "missing loop-header node") . flip IM.lookup lnMap
-    astLabels n = [ i | b <- fromJustMsg "weird: asked for non-existent node" (lab gr n)
+    astLabels n = [ i | b <- (universeBi :: Maybe [Block (Analysis a)] -> [Block (Analysis a)]) (lab gr n)
                       , let Just i = insLabel (getAnnotation b) ]
     loopsToLabs         = IM.fromListWith S.union . concatMap loopToLabs . IM.toList
     loopToLabs (n, ivs) = (map (,ivs) . astLabels) =<< IS.toList (get n)
