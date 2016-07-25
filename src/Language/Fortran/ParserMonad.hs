@@ -29,6 +29,11 @@ data FortranVersion = Fortran66
                     | Fortran2008
                     deriving (Ord, Eq, Show)
 
+v77orLess :: FortranVersion -> Bool
+v77orLess Fortran66 = True
+v77orLess Fortran77 = True
+v77orLess _         = False
+
 data ParanthesesCount = ParanthesesCount
   { pcActual :: Integer
   , pcHasReached0 :: Bool }

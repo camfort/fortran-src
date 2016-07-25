@@ -46,6 +46,7 @@ executable fortran-src
     Language.Fortran.Parser.Fortran66
     Language.Fortran.Parser.Fortran77
     Language.Fortran.Parser.Fortran90
+    Language.Fortran.Pretty    
     Language.Fortran.Transformation.Disambiguation.Function
     Language.Fortran.Transformation.Grouping
     Language.Fortran.Transformation.TransformMonad
@@ -71,6 +72,7 @@ library
     Language.Fortran.Parser.Fortran66
     Language.Fortran.Parser.Fortran77
     Language.Fortran.Parser.Fortran90
+    Language.Fortran.Pretty
     Language.Fortran.Transformation.Disambiguation.Function
     Language.Fortran.Transformation.Grouping
     Language.Fortran.Transformation.TransformMonad
@@ -104,11 +106,16 @@ test-suite spec
     mtl >= 2.2,
     array >= 0.5,
     uniplate >= 1.6,
+    directory >= 1.2,
+    filepath,    
+    GenericPretty >= 1.2,
+    pretty >= 1.1,
     containers >= 0.5,
     text >= 1.2,
     bytestring >= 0.10,
     fgl,
-    fortran-src
+    fortran-src,
+    derive >= 2.5
   hs-source-dirs: test
   main-is: Spec.hs
   default-language:    Haskell2010
