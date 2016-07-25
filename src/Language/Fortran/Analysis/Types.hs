@@ -84,7 +84,7 @@ statement (StDeclaration _ _ (TypeSpec _ _ baseType _) mAttrAList declAList)
       DeclArray _ _ v _ _ _         -> recordType baseType CTArray (varName v)
     return ()
 statement (StExpressionAssign _ _ (ExpSubscript _ _ v ixAList) _)
-  -- | any (not . isIxSingle) (aStrip ixAList) = recordCType CTArray (varName v)  -- it's an array (or a string?) FIXME
+  --  | any (not . isIxSingle) (aStrip ixAList) = recordCType CTArray (varName v)  -- it's an array (or a string?) FIXME
   | all isIxSingle (aStrip ixAList) = do
     let n = varName v
     mIDType <- getRecordedType n
