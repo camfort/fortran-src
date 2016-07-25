@@ -58,8 +58,8 @@ valueExpressions _ = Nothing
 prop_valpprintsize :: FortranVersion -> Expression () -> Spec
 prop_valpprintsize v e@(ExpValue _ span val) = do
   let pp = render $ pprint v val
-  it ("line length - " ++ pp) $ (lineDistance span) `shouldBe` 0
-  it ("col length - " ++ pp)  $ (length pp) `shouldBe` (columnDistance span + 1)
+  it ("line length on: " ++ pp) $ (lineDistance span) `shouldBe` 0
+  it ("col length on: " ++ pp)  $ (length pp) `shouldBe` (columnDistance span + 1)
 
 flexReadFile :: String -> IO B.ByteString
 flexReadFile = fmap (encodeUtf8 . decodeUtf8With (replace ' ')) . B.readFile

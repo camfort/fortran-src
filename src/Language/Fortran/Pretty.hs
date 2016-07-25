@@ -26,6 +26,8 @@ instance (FirstParameter (Value a) String, Pretty (Expression a))
     pprint v ValAssignment = text "assignment (=)"
     pprint v (ValComplex e1 e2) =
         parens $ commaSep [pprint v e1, pprint v e2]
+    pprint v (ValString str) =
+        char '"' <> text str <> char '"'
     pprint v valLit =
         text . getFirstParameter $ valLit
 
