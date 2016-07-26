@@ -1,3 +1,5 @@
+{-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE DeriveDataTypeable #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE UndecidableInstances #-}
@@ -13,7 +15,8 @@ import Control.Monad.Except
 import Control.Applicative
 
 import Data.Typeable
-
+import Data.Data
+import GHC.Generics (Generic)
 import Language.Fortran.Util.Position
 
 -------------------------------------------------------------------------------
@@ -27,7 +30,7 @@ data FortranVersion = Fortran66
                     | Fortran95
                     | Fortran2003
                     | Fortran2008
-                    deriving (Ord, Eq, Show)
+                    deriving (Ord, Eq, Show, Data, Typeable, Generic)
 
 data ParanthesesCount = ParanthesesCount
   { pcActual :: Integer

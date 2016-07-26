@@ -49,7 +49,7 @@ type RenamerFunc t = t -> Renamer t
 
 -- | Annotate unique names for variable and function declarations and uses.
 analyseRenames :: Data a => ProgramFile (Analysis a) -> ProgramFile (Analysis a)
-analyseRenames (ProgramFile cm_pus bs) = ProgramFile cm_pus' bs
+analyseRenames (ProgramFile mi cm_pus bs) = ProgramFile mi cm_pus' bs
   where
     cm_pus'        = zip (map fst cm_pus) pus'
     (Just pus', _) = runRenamer (skimProgramUnits pus >> renameSubPUs (Just pus)) renameState0

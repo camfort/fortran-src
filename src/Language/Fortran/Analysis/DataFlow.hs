@@ -441,7 +441,7 @@ type CallMap = M.Map ProgramUnitName (S.Set Name)
 -- | Create a call map showing the structure of the program.
 genCallMap :: Data a => ProgramFile (Analysis a) -> CallMap
 genCallMap pf = flip execState M.empty $ do
-  let (ProgramFile cm_pus _) = pf
+  let (ProgramFile _ cm_pus _) = pf
   let uP = (universeBi :: Data a => ProgramFile a -> [ProgramUnit a])
   forM_ (uP pf) $ \ pu -> do
     let n = puName pu

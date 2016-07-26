@@ -12,7 +12,7 @@ import Debug.Trace
 
 genericGroup :: ([ Block (Analysis a) ] -> [ Block (Analysis a) ]) -> Transform a ()
 genericGroup groupingFunction = do
-    modifyProgramFile $ \ (ProgramFile pus e) -> ProgramFile (zip (map fst pus) . map (go . snd) $ pus) e
+    modifyProgramFile $ \ (ProgramFile mi pus e) -> ProgramFile mi (zip (map fst pus) . map (go . snd) $ pus) e
   where
     go pu =
       case pu of

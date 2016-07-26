@@ -13,6 +13,7 @@ import Data.Typeable
 import Data.Generics.Uniplate.Data
 import GHC.Generics (Generic)
 import Text.PrettyPrint.GenericPretty
+import Language.Fortran.ParserMonad (FortranVersion(..))
 
 import Language.Fortran.Util.Position
 import Language.Fortran.Util.FirstParameter
@@ -73,8 +74,11 @@ data Selector a =
   Selector a SrcSpan (Maybe (Expression a)) (Maybe (Expression a))
   deriving (Eq, Show, Data, Typeable, Generic, Functor)
 
+data MetaInfo = MetaInfo { miVersion :: FortranVersion }
+  deriving (Eq, Show, Data, Typeable, Generic)
+
 -- Program structure definition
-data ProgramFile a = ProgramFile [ ([ Block a ], ProgramUnit a) ] [ Block a ]
+data ProgramFile a = ProgramFile MetaInfo [ ([ Block a ], ProgramUnit a) ] [ Block a ]
   deriving (Eq, Show, Data, Typeable, Generic, Functor)
 
 data ProgramUnit a =
@@ -555,6 +559,8 @@ instance Named (ProgramUnit a) where
   setName (Named n) (PUBlockData  a s _ b) = PUBlockData  a s (Just n) b
   setName _         (PUBlockData  a s _ b) = PUBlockData  a s Nothing b
 
+instance Out FortranVersion
+instance Out MetaInfo
 instance Out a => Out (ProgramFile a)
 instance Out a => Out (ProgramUnit a)
 instance (Out a, Out (t a)) => Out (AList t a)

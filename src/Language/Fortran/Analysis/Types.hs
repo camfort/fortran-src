@@ -247,7 +247,7 @@ inferTypes pf = tsMapping . execState (inferGlobal >> inferLocal) $ state
 
 inferGlobal :: Data a => TypeMapping a ()
 inferGlobal = do
-  (ProgramFile comAndPus _) <- getProgramFile
+  (ProgramFile _ comAndPus _) <- getProgramFile
   let pus = map snd comAndPus
   mapM_ inferSubprograms pus
 
@@ -275,7 +275,7 @@ inferSubprograms pu =
 
 inferLocal :: Data a => TypeMapping a ()
 inferLocal = do
-  (ProgramFile comAndPus _) <- getProgramFile
+  (ProgramFile _ comAndPus _) <- getProgramFile
   let pus = map snd comAndPus
   mapM_ inferInProgramFile pus
 

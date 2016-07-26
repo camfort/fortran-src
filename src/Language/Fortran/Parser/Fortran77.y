@@ -143,8 +143,8 @@ PROGRAM
 
 PROGRAM_INNER :: { ProgramFile A0 }
 PROGRAM_INNER
-: PROGRAM_UNITS { ProgramFile (reverse $1) [ ] }
-| PROGRAM_UNITS COMMENT_BLOCKS { ProgramFile (reverse $1) (reverse $2) }
+: PROGRAM_UNITS { ProgramFile (MetaInfo { miVersion = Fortran77 }) (reverse $1) [ ] }
+| PROGRAM_UNITS COMMENT_BLOCKS { ProgramFile (MetaInfo { miVersion = Fortran77 }) (reverse $1) (reverse $2) }
 
 PROGRAM_UNITS :: { [ ([ Block A0 ], ProgramUnit A0) ] }
 PROGRAM_UNITS
