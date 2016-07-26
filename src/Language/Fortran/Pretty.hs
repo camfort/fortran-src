@@ -56,20 +56,34 @@ instance (Pretty (Expression a)) => Pretty (DoSpecification a) where
 instance (Pretty (Argument a), Pretty (Value a)) => Pretty (Expression a) where
     pprint v (ExpValue _ s val)  =
          pprint v val
+
     pprint v (ExpBinary _ s op e1 e2) =
         floatDoc s $ pprint v e1 <+> pprint v op <+> pprint v e2
+
     pprint v (ExpUnary _ s op e) =
         floatDoc s $ pprint v op <+> pprint v e
+
     pprint v (ExpSubscript _ s e ixs) =
         floatDoc s $ pprint v e
                  <> parens (commaSep (map (pprint v) (aStrip ixs)))
+
     pprint v (ExpDataRef _ s e1 e2) =
         floatDoc s $ pprint v e1 <+> char '%' <+> pprint v e2
+
     pprint v (ExpFunctionCall _ s e mes) =
-        floatDoc s $ pprint v e
-                 <> parens (commaSep (map (pprint v) (maybe [] aStrip mes)))
-    pprint v (ExpImpliedDo _ s es dospec) = undefined
-    pprint v _ = error "Unsupported"
+        floatDoc s $ pprint v e <> parens (maybe empty (pprint v) mes)
+
+    pprint v (ExpImpliedDo _ s es dospec) =
+        floatDoc s $ pprint v es <> comma <+> (pprint v dospec)
+
+    pprint v (ExpInitialisation _ s es) =
+        floatDoc s $ text "(/" <> pprint v es <> text "/)"
+
+    pprint v (ExpReturnSpec _ s e) =
+        floatDoc s $ char '*' <> pprint v e
+
+instance (Pretty (e a)) => Pretty (AList e a) where
+    pprint v es = commaSep (map (pprint v) (aStrip es))
 
 instance Pretty (Argument a) where
     pprint v _ = error "Unsupported"
