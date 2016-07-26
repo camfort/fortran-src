@@ -63,6 +63,12 @@ spec =
      let ppr = prop_pprintsize :: FortranVersion -> Expression () -> Spec
      checkAll id (ppr version) ast
 
+     let ppr = prop_pprintsize :: FortranVersion -> Argument () -> Spec
+     checkAll id (ppr version) ast
+
+     let ppr = prop_pprintsize :: FortranVersion -> Statement () -> Spec
+     checkAll id (ppr version) ast
+
 valueExpressions :: Expression () -> Maybe (Expression ())
 valueExpressions e@(ExpValue {}) = Just e
 valueExpressions _ = Nothing

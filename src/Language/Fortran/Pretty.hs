@@ -86,7 +86,10 @@ instance (Pretty (e a)) => Pretty (AList e a) where
     pprint v es = commaSep (map (pprint v) (aStrip es))
 
 instance Pretty (Argument a) where
-    pprint v _ = error "Unsupported"
+    pprint v (Argument _ s key e) = floatDoc s $
+       case key of
+         Just keyName -> text keyName <+> char '=' <+> pprint v e
+         Nothing      -> pprint v e
 
 instance Pretty (Expression a) => Pretty (Statement a) where
     pprint v (StExpressionAssign _ span e1 e2) = empty

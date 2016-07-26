@@ -23,5 +23,22 @@ program simple
      print *, "Velocity is positive"
   endif 
   
-  print *, s, v
+  print *, s, square( v )
+  call squareS(c, d)
+  print *, c, d
+
+contains
+
+  real function square(x)
+    real :: x
+    square = x * x
+  end function square
+
+  subroutine squareS(x, y)
+    real :: x, y
+    intent(in) :: x
+    intent(out) :: y
+    y = x * x
+  end subroutine squareS
+  
 end program
