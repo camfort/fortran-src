@@ -36,7 +36,22 @@ instance Pretty (Expression a) => Pretty (Index a) where
     -- This is an intermediate expression form which shouldn't make it
     -- to the pretty printer
     pprint v (IxSingle _ s (Just _) e) = pprint v e
-    pprint v (IxRange _ s low up stride) = undefined
+    pprint v (IxRange _ s low up stride) =
+       low' <> char ':' <> up' <> stride'
+      where
+        low' = maybe empty (pprint v) low
+        up'  = maybe empty (pprint v) up
+        stride' =  maybe empty (\e -> char ':' <> pprint v e) stride
+
+instance (Pretty (Expression a)) => Pretty (DoSpecification a) where
+    pprint v (DoSpecification _ s e0assign en stride) =
+      case e0assign of
+        s@(StExpressionAssign {}) ->
+          pprint v s <> comma <+> pprint v en
+                     <> (maybe empty (\e -> comma <> pprint v e) stride)
+
+        _ -> error $ "Malformed syntax tree: do-specification has non-assignment\
+                      \statement at location " ++ show s
 
 instance (Pretty (Argument a), Pretty (Value a)) => Pretty (Expression a) where
     pprint v (ExpValue _ s val)  =
@@ -53,7 +68,7 @@ instance (Pretty (Argument a), Pretty (Value a)) => Pretty (Expression a) where
     pprint v (ExpFunctionCall _ s e mes) =
         floatDoc s $ pprint v e
                  <> parens (commaSep (map (pprint v) (maybe [] aStrip mes)))
-    --pprint v (ExpImpliedDo _ s es dospec) = undefined
+    pprint v (ExpImpliedDo _ s es dospec) = undefined
     pprint v _ = error "Unsupported"
 
 instance Pretty (Argument a) where

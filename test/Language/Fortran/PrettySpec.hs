@@ -1,4 +1,5 @@
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE FlexibleContexts #-}
 
 module Language.Fortran.PrettySpec where
 
@@ -16,6 +17,7 @@ import Language.Fortran.ParserMonad
 import Language.Fortran.Pretty
 import Language.Fortran.Parser.Any
 import Language.Fortran.Util.Position
+import Language.Fortran.Util.SecondParameter
 
 import System.FilePath
 import System.Directory
@@ -49,15 +51,27 @@ spec =
     let ast = fmap (const ()) (parserF contents path)
 
     describe "Size-related invariants" $ do
-     checkAll valueExpressions (prop_valpprintsize version) ast
+     let ppr = prop_pprintsize :: FortranVersion -> Expression () -> Spec
+     checkAll valueExpressions (ppr version) ast
+
+     let ppr = prop_pprintsize :: FortranVersion -> DoSpecification () -> Spec
+     checkAll id (ppr version) ast
+
+     let ppr = prop_pprintsize :: FortranVersion -> Index () -> Spec
+     checkAll id (ppr version) ast
+
+     let ppr = prop_pprintsize :: FortranVersion -> Expression () -> Spec
+     checkAll id (ppr version) ast
 
 valueExpressions :: Expression () -> Maybe (Expression ())
 valueExpressions e@(ExpValue {}) = Just e
 valueExpressions _ = Nothing
 
-prop_valpprintsize :: FortranVersion -> Expression () -> Spec
-prop_valpprintsize v e@(ExpValue _ span val) = do
-  let pp = render $ pprint v val
+prop_pprintsize :: (SecondParameter (e ()) SrcSpan, Pretty (e ()))
+                   => FortranVersion -> e () -> Spec
+prop_pprintsize v e = do
+  let pp = render $ pprint v e
+  let span = getSecondParameter $ e
   it ("line length on: " ++ pp) $ (lineDistance span) `shouldBe` 0
   it ("col length on: " ++ pp)  $ (length pp) `shouldBe` (columnDistance span + 1)
 
