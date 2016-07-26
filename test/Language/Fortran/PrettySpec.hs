@@ -50,24 +50,29 @@ spec =
     let Just parserF = lookup version parserVersions
     let ast = fmap (const ()) (parserF contents path)
 
-    describe "Size-related invariants" $ do
+    describe "Size-related invariants (values in expressions)" $ do
      let ppr = prop_pprintsize :: FortranVersion -> Expression () -> Spec
      checkAll valueExpressions (ppr version) ast
 
+    describe "Size-related invariants (do specifications)" $ do
      let ppr = prop_pprintsize :: FortranVersion -> DoSpecification () -> Spec
-     checkAll id (ppr version) ast
+     checkAll Just (ppr version) ast
 
+    describe "Size-related invariants (indices)" $ do
      let ppr = prop_pprintsize :: FortranVersion -> Index () -> Spec
-     checkAll id (ppr version) ast
+     checkAll Just (ppr version) ast
 
+    describe "Size-related invariants (expressions)" $ do
      let ppr = prop_pprintsize :: FortranVersion -> Expression () -> Spec
-     checkAll id (ppr version) ast
+     checkAll Just (ppr version) ast
 
+    describe "Size-related invariants (arguments)" $ do
      let ppr = prop_pprintsize :: FortranVersion -> Argument () -> Spec
-     checkAll id (ppr version) ast
+     checkAll Just (ppr version) ast
 
+    describe "Size-related invariants (statements)" $ do
      let ppr = prop_pprintsize :: FortranVersion -> Statement () -> Spec
-     checkAll id (ppr version) ast
+     checkAll Just (ppr version) ast
 
 valueExpressions :: Expression () -> Maybe (Expression ())
 valueExpressions e@(ExpValue {}) = Just e

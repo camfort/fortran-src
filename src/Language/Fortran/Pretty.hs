@@ -6,6 +6,7 @@
 
 module Language.Fortran.Pretty where
 
+import Data.Char
 import Prelude hiding (EQ,LT,GT)
 import Language.Fortran.AST
 import Language.Fortran.ParserMonad
@@ -91,8 +92,20 @@ instance Pretty (Argument a) where
          Just keyName -> text keyName <+> char '=' <+> pprint v e
          Nothing      -> pprint v e
 
+instance Pretty BaseType where
+    pprint v TypeInteger = caps v "integer"
+    pprint v TypeReal    = caps v "real"
+    pprint v TypeDoublePrecision = caps v "double precision"
+    pprint v TypeComplex = caps v "complex"
+    pprint Fortran77Extended TypeDoubleComplex = text "DOUBLECOMPLEX"
+    pprint v TypeLogical = caps v "logical"
+    pprint v TypeCharacter = caps v "character"
+    pprint v (TypeCustom str) = text "type(" <> text str <> text ")"
+
 instance Pretty (Expression a) => Pretty (Statement a) where
+    pprint v (StDeclaration _ s typespec attributes declarators) = empty
     pprint v (StExpressionAssign _ span e1 e2) = empty
+    pprint v _ = empty
 
 instance Pretty BinaryOp where
     pprint v Addition       = char '+'
@@ -132,3 +145,6 @@ floatDoc span d | lineDistance span == 0 =
 
 -- Difficult to know what to dif line distance is non-zero
 floatDoc span d | otherwise = d
+
+caps v str | v77orLess v = text $ map toUpper str
+           | otherwise   = text $ str
