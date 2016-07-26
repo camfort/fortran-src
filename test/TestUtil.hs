@@ -8,9 +8,13 @@ import Data.Data
 import Data.Generics.Uniplate.Data
 
 import Language.Fortran.AST
+import Language.Fortran.ParserMonad
 import Language.Fortran.Util.Position
 
 u = initSrcSpan
+
+mi77 = MetaInfo { miVersion = Fortran77 }
+mi90 = MetaInfo { miVersion = Fortran90 }
 
 valTrue = ExpValue () u $ ValLogical ".true."
 valFalse = ExpValue () u $ ValLogical ".false."

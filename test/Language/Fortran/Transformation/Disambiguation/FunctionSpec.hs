@@ -35,7 +35,7 @@ spec = do
 - d(x) = 1
 - end
 -}
-ex1 = ProgramFile [ ([ ], ex1pu1)] [ ]
+ex1 = ProgramFile mi77 [ ([ ], ex1pu1)] [ ]
 ex1pu1 = PUMain () u (Just "main") ex1pu1bs Nothing
 ex1pu1bs =
   [ BlStatement () u Nothing (StDeclaration () u (TypeSpec () u TypeInteger Nothing) Nothing (AList () u
@@ -53,7 +53,7 @@ ex1pu1bs =
   , BlStatement () u Nothing (StExpressionAssign () u
       (ExpSubscript () u (varGen "d") (AList () u [ IxSingle () u Nothing $ varGen "x" ])) (intGen 1)) ]
 
-expectedEx1 = ProgramFile [ ([ ], expectedEx1pu1) ] [ ]
+expectedEx1 = ProgramFile mi77 [ ([ ], expectedEx1pu1) ] [ ]
 expectedEx1pu1 = PUMain () u (Just "main") expectedEx1pu1bs Nothing
 expectedEx1pu1bs =
   [ BlStatement () u Nothing (StDeclaration () u (TypeSpec () u TypeInteger Nothing) Nothing (AList () u
@@ -83,7 +83,7 @@ expectedEx1pu1bs =
 - function y(i,j)
 - end
 -}
-ex2 = ProgramFile [ ([ ], ex2pu1), ([ ], ex2pu2) ] [ ]
+ex2 = ProgramFile mi77 [ ([ ], ex2pu1), ([ ], ex2pu2) ] [ ]
 ex2pu1 = PUMain () u Nothing ex2pu1bs Nothing
 ex2pu2 = PUFunction () u Nothing False "y" (Just $ AList () u [ varGen "i", varGen "j" ]) Nothing [ ] Nothing
 ex2pu1bs =
@@ -100,7 +100,7 @@ ex2pu1bs =
                         (varGen "f")
                         (AList () u [ ixSinGen 1 ])))) ]
 
-expectedEx2 = ProgramFile [ ([ ], expectedEx2pu1), ([ ], ex2pu2) ] [ ]
+expectedEx2 = ProgramFile mi77 [ ([ ], expectedEx2pu1), ([ ], ex2pu2) ] [ ]
 expectedEx2pu1 = PUMain () u Nothing expectedEx2pu1bs Nothing
 expectedEx2pu1bs =
   [ BlStatement () u Nothing

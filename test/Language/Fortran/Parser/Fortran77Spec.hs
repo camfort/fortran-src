@@ -61,14 +61,14 @@ spec =
       let decl = DeclVariable () u (varGen "x") Nothing Nothing
       let st = StDeclaration () u (TypeSpec () u TypeInteger Nothing) Nothing (AList () u [ decl ])
       let bl = BlStatement () u Nothing st
-      let pu = ProgramFile [ ([ ], PUMain () u (Just "hello") [ bl ] Nothing) ] [ ]
+      let pu = ProgramFile mi77 [ ([ ], PUMain () u (Just "hello") [ bl ] Nothing) ] [ ]
       pParser exampleProgram1 `shouldBe'` pu
 
     it "parses block data unit" $ do
       let decl = DeclVariable () u (varGen "x") Nothing Nothing
       let st = StDeclaration () u (TypeSpec () u TypeInteger Nothing) Nothing (AList () u [ decl ])
       let bl = BlStatement () u Nothing st
-      let pu = ProgramFile [ ([ ], PUBlockData () u (Just "hello") [ bl ]) ] [ ]
+      let pu = ProgramFile mi77 [ ([ ], PUBlockData () u (Just "hello") [ bl ]) ] [ ]
       pParser exampleProgram2 `shouldBe'` pu
 
     it "parses 'intrinsic cosh, sin'" $ do
