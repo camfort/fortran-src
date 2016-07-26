@@ -102,6 +102,77 @@ instance Pretty BaseType where
     pprint v TypeCharacter = caps v "character"
     pprint v (TypeCustom str) = text "type(" <> text str <> text ")"
 
+instance Pretty (TypeSpec a) where
+    pprint v (TypeSpec _ a basetype mselector) =
+      pprint v basetype <>
+      case mselector of
+        Nothing -> empty
+        Just (Selector _ s Nothing Nothing) -> empty
+        Just (Selector _ s mlength mkind)   ->
+          case basetype of
+            -- Character type spec
+            TypeCharacter ->
+              parens
+                (maybe empty (\e -> text "len=" <> pprint v e) mlength
+              <> maybe empty (\k -> comma <+> text "kind=" <> pprint v k) mkind)
+            -- Non character type spec
+            _ -> parens (maybe empty (\k -> text "kind=" <> pprint v k) mkind)
+
+instance Pretty (DimensionDeclarator a) where
+    pprint v (DimensionDeclarator _ _ me1 me2) =
+      case (me1, me2) of
+        (Nothing, Nothing) -> char ':'
+        (Nothing, Just (ExpValue _ _ ValStar)) -> char '*'
+        (me1, me2) -> pprint v me1 <> char ':' <> pprint v me2
+
+instance Pretty a => Pretty (Maybe a) where
+    pprint v Nothing  = empty
+    pprint v (Just e) = pprint v e
+
+instance Pretty Intent where
+    pprint v In = caps v "in"
+    pprint v Out = caps v "out"
+    pprint v InOut = caps v "in out"
+
+instance Pretty (Expression a) => Pretty (Declarator a) where
+    pprint v (DeclVariable _ s e Nothing (Just e')) =
+        pprint v e <+> char '=' <+> pprint v e'
+    pprint v (DeclVariable _ s e Nothing Nothing) =
+        pprint v e
+    pprint v (DeclVariable _ s e (Just (ExpValue _ _ ValStar)) Nothing) =
+        pprint v e <+> char '*' <+> parens (char '*')
+    pprint v (DeclVariable _ s e (Just len) Nothing) =
+        pprint v e <+> char '*' <+> pprint v len
+    pprint v (DeclVariable _ s e (Just len) (Just e')) =
+        error $ "Malformed syntax tree: decl-variable has both length and\
+              \and initial value at " ++ show s
+    pprint v (DeclArray _ s ae dims Nothing Nothing) =
+        pprint v ae <> parens (pprint v dims)
+
+    pprint v (DeclArray _ s ae dims (Just (ExpValue _ _ ValStar)) Nothing) =
+        pprint v ae <> parens (pprint v dims) <> char '*' <> (parens (char '*'))
+
+    pprint v (DeclArray _ s ae dims (Just len) Nothing) =
+        pprint v ae <> parens (pprint v dims) <> char '*' <> (pprint v len)
+
+    pprint v (DeclArray _ s ae dims len init) =
+        error $ "Malformed syntax tree: decl-array has init value at " ++ show s
+
+
+instance Pretty (DimensionDeclarator a) => Pretty (Attribute a) where
+    pprint v (AttrParameter _ _)   = caps v "parameter"
+    pprint v (AttrPublic    _ _)   = caps v "public"
+    pprint v (AttrPrivate   _ _)   = caps v "private"
+    pprint v (AttrAllocatable _ _) = caps v "allocatable"
+    pprint v (AttrDimension _ _ dims) = caps v "dimesion" <> parens (pprint v dims)
+    pprint v (AttrExternal _ _)    = caps v "external"
+    pprint v (AttrIntent _ _ i)    = caps v "intent" <> parens (pprint v i)
+    pprint v (AttrIntrinsic _ _)   = caps v "intrinsic"
+    pprint v (AttrOptional _ _)    = caps v "optional"
+    pprint v (AttrPointer _ _)     = caps v "pointer"
+    pprint v (AttrSave _ _)        = caps v "save"
+    pprint v (AttrTarget _ _)      = caps v "target"
+
 instance Pretty (Expression a) => Pretty (Statement a) where
     pprint v (StDeclaration _ s typespec attributes declarators) = empty
     pprint v (StExpressionAssign _ span e1 e2) = empty
