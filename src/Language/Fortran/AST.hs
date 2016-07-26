@@ -350,12 +350,14 @@ data BinaryOp =
 class Annotated f where
   getAnnotation :: f a -> a
   setAnnotation :: a -> f a -> f a
-
+  modifyAnnotation :: (a -> a) -> f a -> f a
   default getAnnotation :: (FirstParameter (f a) a) => f a -> a
   getAnnotation = getFirstParameter
 
   default setAnnotation :: (FirstParameter (f a) a) => a -> f a -> f a
   setAnnotation = setFirstParameter
+
+  modifyAnnotation f x = setAnnotation (f (getAnnotation x)) x
 
 instance FirstParameter (AList t a) a
 instance FirstParameter (ProgramUnit a) a
