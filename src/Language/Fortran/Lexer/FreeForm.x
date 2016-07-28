@@ -1,3 +1,4 @@
+-- -*- Mode: Haskell -*-
 {
 {-# LANGUAGE DeriveDataTypeable #-}
 {-# LANGUAGE BangPatterns #-}

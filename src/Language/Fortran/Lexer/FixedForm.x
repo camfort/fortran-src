@@ -1,3 +1,4 @@
+-- -*- Mode: Haskell -*-
 {
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE DeriveGeneric #-}
