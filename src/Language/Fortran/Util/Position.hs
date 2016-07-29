@@ -35,7 +35,7 @@ initPosition = Position
   }
 
 lineCol :: Position -> (Int, Int)
-lineCol p  = (fromIntegral $ FU.posLine p, fromIntegral $ FU.posColumn p)
+lineCol p  = (fromIntegral $ posLine p, fromIntegral $ posColumn p)
 
 data SrcSpan = SrcSpan Position Position deriving (Eq, Ord, Typeable, Data, Generic)
 
