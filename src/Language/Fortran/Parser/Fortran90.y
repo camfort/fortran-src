@@ -9,6 +9,7 @@ import Control.Monad.State (get)
 import Data.Maybe (fromMaybe)
 import qualified Data.ByteString.Char8 as B
 
+import Control.Monad.State
 #ifdef DEBUG
 import Data.Data (toConstr)
 #endif
@@ -1064,10 +1065,11 @@ fortran90Parser sourceCode filename =
 
 parseError :: Token -> LexAction a
 parseError _ = do
+    parseState <- get
 #ifdef DEBUG
     tokens <- reverse <$> aiPreviousTokensInLine <$> getAlex
 #endif
-    fail $ "Parsing failed."
+    fail $ psFilename parseState ++ ": parsing failed. "
 #ifdef DEBUG
       ++ '\n' : show tokens
 #endif

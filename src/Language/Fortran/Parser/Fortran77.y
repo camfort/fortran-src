@@ -8,6 +8,7 @@ module Language.Fortran.Parser.Fortran77 ( expressionParser
 
 import Prelude hiding (EQ,LT,GT) -- Same constructors exist in the AST
 
+import Control.Monad.State
 import Data.Maybe (isNothing, fromJust)
 import qualified Data.ByteString.Char8 as B
 import Language.Fortran.Util.Position
@@ -880,6 +881,15 @@ extended77Parser sourceCode filename =
     parseState = initParseState sourceCode Fortran77Extended filename
 
 parseError :: Token -> LexAction a
-parseError _ = fail "Parsing failed."
+parseError _ = do
+    parseState <- get
+#ifdef DEBUG
+    tokens <- reverse <$> aiPreviousTokensInLine <$> getAlex
+#endif
+    fail $ psFilename parseState ++ ": parsing failed. "
+#ifdef DEBUG
+      ++ '\n' : show tokens
+#endif
+
 
 }
