@@ -34,10 +34,13 @@ initPosition = Position
   , posLine = 1
   }
 
+lineCol :: Position -> (Int, Int)
+lineCol p  = (fromIntegral $ FU.posLine p, fromIntegral $ FU.posColumn p)
+
 data SrcSpan = SrcSpan Position Position deriving (Eq, Ord, Typeable, Data, Generic)
 
 instance Show SrcSpan where
-  show (SrcSpan s1 s2)= '(' : show s1 ++ ',' : show s2 ++ ")"
+  show (SrcSpan s1 s2)= '(' : show s1 ++ ")-(" ++ show s2 ++ ")"
 
 instance Out SrcSpan where
   doc s = text $ show s
