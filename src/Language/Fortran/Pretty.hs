@@ -30,13 +30,13 @@ instance (Pretty (e a)) => Pretty (AList e a) where
     pprint v es = commaSep (map (pprint v) (aStrip es))
 
 instance Pretty BaseType where
-    pprint v TypeInteger = caps v "integer"
-    pprint v TypeReal    = caps v "real"
-    pprint v TypeDoublePrecision = caps v "double precision"
-    pprint v TypeComplex = caps v "complex"
+    pprint v TypeInteger = "integer"
+    pprint v TypeReal    = "real"
+    pprint v TypeDoublePrecision = "double precision"
+    pprint v TypeComplex = "complex"
     pprint Fortran77Extended TypeDoubleComplex = "DOUBLECOMPLEX"
-    pprint v TypeLogical = caps v "logical"
-    pprint v TypeCharacter = caps v "character"
+    pprint v TypeLogical = "logical"
+    pprint v TypeCharacter = "character"
     pprint v (TypeCustom str) = "type(" <> text str <> ")"
 
 instance Pretty (TypeSpec a) where
@@ -101,23 +101,23 @@ instance Pretty (Argument a) where
          Nothing      -> pprint v e
 
 instance Pretty (DimensionDeclarator a) => Pretty (Attribute a) where
-    pprint v (AttrParameter _ _)   = caps v "parameter"
-    pprint v (AttrPublic    _ _)   = caps v "public"
-    pprint v (AttrPrivate   _ _)   = caps v "private"
-    pprint v (AttrAllocatable _ _) = caps v "allocatable"
-    pprint v (AttrDimension _ _ dims) = caps v "dimesion" <> parens (pprint v dims)
-    pprint v (AttrExternal _ _)    = caps v "external"
-    pprint v (AttrIntent _ _ i)    = caps v "intent" <> parens (pprint v i)
-    pprint v (AttrIntrinsic _ _)   = caps v "intrinsic"
-    pprint v (AttrOptional _ _)    = caps v "optional"
-    pprint v (AttrPointer _ _)     = caps v "pointer"
-    pprint v (AttrSave _ _)        = caps v "save"
-    pprint v (AttrTarget _ _)      = caps v "target"
+    pprint v (AttrParameter _ _)   = "parameter"
+    pprint v (AttrPublic    _ _)   = "public"
+    pprint v (AttrPrivate   _ _)   = "private"
+    pprint v (AttrAllocatable _ _) = "allocatable"
+    pprint v (AttrDimension _ _ dims) = "dimesion" <> parens (pprint v dims)
+    pprint v (AttrExternal _ _)    = "external"
+    pprint v (AttrIntent _ _ i)    = "intent" <> parens (pprint v i)
+    pprint v (AttrIntrinsic _ _)   = "intrinsic"
+    pprint v (AttrOptional _ _)    = "optional"
+    pprint v (AttrPointer _ _)     = "pointer"
+    pprint v (AttrSave _ _)        = "save"
+    pprint v (AttrTarget _ _)      = "target"
 
 instance Pretty Intent where
-    pprint v In = caps v "in"
-    pprint v Out = caps v "out"
-    pprint v InOut = caps v "in out"
+    pprint v In = "in"
+    pprint v Out = "out"
+    pprint v InOut = "in out"
 
 instance (Pretty (Expression a)) => Pretty (DoSpecification a) where
     pprint v (DoSpecification _ s e0assign en stride) =
@@ -249,6 +249,3 @@ floatDoc span d | lineDistance span == 0 =
 
 -- Difficult to know what to dif line distance is non-zero
 floatDoc span d = d
-
-caps v str | v77orLess v = text $ map toUpper str
-           | otherwise   = text str
