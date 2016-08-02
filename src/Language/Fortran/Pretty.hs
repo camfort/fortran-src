@@ -3,6 +3,7 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE OverloadedStrings #-}
 
 module Language.Fortran.Pretty where
 
@@ -24,7 +25,7 @@ instance FirstParameter (Value a) String
 instance (FirstParameter (Value a) String, Pretty (Expression a))
        => Pretty (Value a) where
     pprint v ValStar       = char '*'
-    pprint v ValAssignment = text "assignment (=)"
+    pprint v ValAssignment = "assignment (=)"
     pprint v (ValComplex e1 e2) =
         parens $ commaSep [pprint v e1, pprint v e2]
     pprint v (ValString str) =
@@ -47,9 +48,9 @@ instance Pretty (Expression a) => Pretty (Index a) where
 instance (Pretty (Expression a)) => Pretty (DoSpecification a) where
     pprint v (DoSpecification _ s e0assign en stride) =
       case e0assign of
-        s@(StExpressionAssign {}) ->
+        s@StExpressionAssign{} ->
           pprint v s <> comma <+> pprint v en
-                     <> (maybe empty (\e -> comma <> pprint v e) stride)
+                     <> maybe empty (\e -> comma <> pprint v e) stride
 
         _ -> error $ "Malformed syntax tree: do-specification has non-assignment\
                       \statement at location " ++ show s
@@ -75,10 +76,10 @@ instance (Pretty (Argument a), Pretty (Value a)) => Pretty (Expression a) where
         floatDoc s $ pprint v e <> parens (maybe empty (pprint v) mes)
 
     pprint v (ExpImpliedDo _ s es dospec) =
-        floatDoc s $ pprint v es <> comma <+> (pprint v dospec)
+        floatDoc s $ pprint v es <> comma <+> pprint v dospec
 
     pprint v (ExpInitialisation _ s es) =
-        floatDoc s $ text "(/" <> pprint v es <> text "/)"
+        floatDoc s $ "(/" <> pprint v es <> "/)"
 
     pprint v (ExpReturnSpec _ s e) =
         floatDoc s $ char '*' <> pprint v e
@@ -97,10 +98,10 @@ instance Pretty BaseType where
     pprint v TypeReal    = caps v "real"
     pprint v TypeDoublePrecision = caps v "double precision"
     pprint v TypeComplex = caps v "complex"
-    pprint Fortran77Extended TypeDoubleComplex = text "DOUBLECOMPLEX"
+    pprint Fortran77Extended TypeDoubleComplex = "DOUBLECOMPLEX"
     pprint v TypeLogical = caps v "logical"
     pprint v TypeCharacter = caps v "character"
-    pprint v (TypeCustom str) = text "type(" <> text str <> text ")"
+    pprint v (TypeCustom str) = "type(" <> text str <> ")"
 
 instance Pretty (TypeSpec a) where
     pprint v (TypeSpec _ a basetype mselector) =
@@ -113,10 +114,10 @@ instance Pretty (TypeSpec a) where
             -- Character type spec
             TypeCharacter ->
               parens
-                (maybe empty (\e -> text "len=" <> pprint v e) mlength
-              <> maybe empty (\k -> comma <+> text "kind=" <> pprint v k) mkind)
+                (maybe empty (\e -> "len=" <> pprint v e) mlength
+              <> maybe empty (\k -> comma <+> "kind=" <> pprint v k) mkind)
             -- Non character type spec
-            _ -> parens (maybe empty (\k -> text "kind=" <> pprint v k) mkind)
+            _ -> parens (maybe empty (\k -> "kind=" <> pprint v k) mkind)
 
 instance Pretty (DimensionDeclarator a) where
     pprint v (DimensionDeclarator _ _ me1 me2) =
@@ -150,10 +151,10 @@ instance Pretty (Expression a) => Pretty (Declarator a) where
         pprint v ae <> parens (pprint v dims)
 
     pprint v (DeclArray _ s ae dims (Just (ExpValue _ _ ValStar)) Nothing) =
-        pprint v ae <> parens (pprint v dims) <> char '*' <> (parens (char '*'))
+        pprint v ae <> parens (pprint v dims) <> char '*' <> parens (char '*')
 
     pprint v (DeclArray _ s ae dims (Just len) Nothing) =
-        pprint v ae <> parens (pprint v dims) <> char '*' <> (pprint v len)
+        pprint v ae <> parens (pprint v dims) <> char '*' <> pprint v len
 
     pprint v (DeclArray _ s ae dims len init) =
         error $ "Malformed syntax tree: decl-array has init value at " ++ show s
@@ -183,24 +184,24 @@ instance Pretty BinaryOp where
     pprint v Subtraction    = char '-'
     pprint v Multiplication = char '*'
     pprint v Division       = char '/'
-    pprint v Exponentiation = text "**"
-    pprint v Concatenation  = text "//"
-    pprint v GT  = text $ if v77orLess v then ".gt." else ">"
-    pprint v LT  = text $ if v77orLess v then ".lt." else "<"
-    pprint v LTE = text $ if v77orLess v then ".le." else "<="
-    pprint v GTE = text $ if v77orLess v then ".ge." else ">="
-    pprint v EQ  = text $ if v77orLess v then ".eq." else "=="
-    pprint v NE  = text $ if v77orLess v then ".ne." else "!="
-    pprint v Or  = text $ ".or."
-    pprint v And = text $ ".and."
-    pprint v Equivalent = text $ ".eqv."
-    pprint v NotEquivalent = text $ ".neqv."
+    pprint v Exponentiation = "**"
+    pprint v Concatenation  = "//"
+    pprint v GT  = if v77orLess v then ".gt." else ">"
+    pprint v LT  = if v77orLess v then ".lt." else "<"
+    pprint v LTE = if v77orLess v then ".le." else "<="
+    pprint v GTE = if v77orLess v then ".ge." else ">="
+    pprint v EQ  = if v77orLess v then ".eq." else "=="
+    pprint v NE  = if v77orLess v then ".ne." else "!="
+    pprint v Or  = ".or."
+    pprint v And = ".and."
+    pprint v Equivalent = ".eqv."
+    pprint v NotEquivalent = ".neqv."
     pprint v (BinCustom custom) = text $ "." ++ custom ++ "."
 
 instance Pretty UnaryOp where
     pprint v Plus  = char '+'
     pprint v Minus = char '-'
-    pprint v Not   = text ".not."
+    pprint v Not   = ".not."
     pprint v (UnCustom custom) = text $ "." ++ custom ++ "."
 
 commaSep :: [Doc] -> Doc
@@ -210,12 +211,12 @@ floatDoc :: SrcSpan -> Doc -> Doc
 floatDoc span d | lineDistance span == 0 =
    -- If the rendered pretty print is less than the width of
    -- the span, then pad to the end with spaces
-   if (length (render d)) < (columnDistance span)
-   then vcat (d : (replicate ((columnDistance span) - (length (render d))) space))
+   if length (render d) < columnDistance span
+   then vcat (d : replicate (columnDistance span - length (render d)) space)
    else d
 
 -- Difficult to know what to dif line distance is non-zero
-floatDoc span d | otherwise = d
+floatDoc span d = d
 
 caps v str | v77orLess v = text $ map toUpper str
-           | otherwise   = text $ str
+           | otherwise   = text str
