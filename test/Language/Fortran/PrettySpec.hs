@@ -130,6 +130,17 @@ spec =
         let impList = ImpList () u typ (AList () u impEls)
         pprint Fortran90 impList `shouldBe` "integer (x, a-z, o)"
 
+    describe "Common group" $ do
+      let globs = [ varGen "x", varGen "y", varGen "z" ]
+
+      it "prints anonymous common group" $ do
+        let group = CommonGroup () u Nothing (AList () u globs)
+        pprint Fortran66 group `shouldBe` "//x, y, z"
+
+      it "prints named common group" $ do
+        let group = CommonGroup () u (Just $ varGen "my_g") (AList () u globs)
+        pprint Fortran66 group `shouldBe` "/my_g/x, y, z"
+
 valueExpressions :: Expression () -> Maybe (Expression ())
 valueExpressions e@ExpValue{} = Just e
 valueExpressions _ = Nothing

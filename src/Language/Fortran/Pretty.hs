@@ -143,6 +143,10 @@ instance Pretty (Expression a) => Pretty (ControlPair a) where
 instance Pretty (ImpElement a) => Pretty (ImpList a) where
     pprint v (ImpList _ _ bt els) = pprint v bt <+> parens (pprint v els)
 
+instance Pretty (Expression a) => Pretty (CommonGroup a) where
+    pprint v (CommonGroup _ _ mName elems) =
+      char '/' <> pprint v mName <> char '/' <> pprint v elems
+
 instance Pretty (ImpElement a) where
     pprint v (ImpCharacter _ _ c) = text c
     pprint v (ImpRange _ _ beg end) = text beg <> "-" <> text end
