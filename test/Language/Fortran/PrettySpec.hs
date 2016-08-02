@@ -83,6 +83,11 @@ spec =
             -> Spec
      checkAll Just (ppr version) ast
 
+    describe "Size-related invariants (selector)" $ do
+     let ppr = prop_pprintsize :: FortranVersion -> DimensionDeclarator ()
+            -> Spec
+     checkAll Just (ppr version) ast
+
     describe "Dimension declarator" $ do
       it "Prints left bound dimension declarator" $ do
         let dd = DimensionDeclarator () u (Just $ intGen 42) Nothing
@@ -95,6 +100,15 @@ spec =
       it "Prints bounded dimension declarator" $ do
         let dd = DimensionDeclarator () u (Just $ intGen 24) (Just $ intGen 42)
         pprint Fortran90 dd `shouldBe` text "24:42"
+
+    describe "Selector" $ do
+      it "prints Fortran 77 selector" $ do
+        let sel = Selector () u (Just $ intGen 42) Nothing
+        pprint Fortran77 sel `shouldBe` text "* (42)"
+
+      it "prints Fortran 90 selector" $ do
+        let sel = Selector () u (Just $ intGen 42) (Just $ intGen 24)
+        pprint Fortran90 sel `shouldBe` text "(len=42, kind=24)"
 
 valueExpressions :: Expression () -> Maybe (Expression ())
 valueExpressions e@ExpValue{} = Just e

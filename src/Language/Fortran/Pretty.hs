@@ -55,6 +55,33 @@ instance Pretty (TypeSpec a) where
             -- Non character type spec
             _ -> parens (maybe empty (\k -> "kind=" <> pprint v k) mkind)
 
+instance Pretty (Selector a) where
+  pprint Fortran66 s =
+    error "Not possible to pretty print kind/length selectors for Fortran 66."
+
+  pprint Fortran77 s = pprint Fortran77Extended s
+
+  pprint Fortran77Extended (Selector _ _ mLenSel mKindSel)
+    | (Just lenSel, Nothing) <- (mLenSel, mKindSel) =
+        char '*' <+> parens (pprint Fortran77Extended lenSel)
+    | (Nothing, Just kindSel) <- (mLenSel, mKindSel) =
+        char '*' <+> parens (pprint Fortran77Extended kindSel)
+    | otherwise =
+        error "Kind and length selectors can be active one at a time in\
+              \Fortran 77."
+
+  pprint Fortran90 (Selector _ _ mLenSel mKindSel)
+    | (Just lenSel, Just kindSel) <- (mLenSel, mKindSel) =
+      parens $ len lenSel <> char ',' <+> kind kindSel
+    | (Nothing, Just kindSel) <- (mLenSel, mKindSel) = parens $ kind kindSel
+    | (Just lenDev, Nothing) <- (mLenSel, mKindSel) = parens $ len lenDev
+    | otherwise =
+        error "No way for both kind and length selectors to be empty in \
+              \Fortran 90."
+    where
+      len e  = "len=" <> pprint Fortran90 e
+      kind e = "kind=" <> pprint Fortran90 e
+
 instance Pretty (Expression a) => Pretty (Statement a) where
     pprint v (StDeclaration _ s typespec attributes declarators) = empty
     pprint v (StExpressionAssign _ span e1 e2) = empty
