@@ -116,6 +116,11 @@ spec =
         let renaming = UseRename () u (varGen "x") (varGen "y")
         pprint Fortran90 renaming `shouldBe` "x => y"
 
+    describe "Control pair" $
+      it "prints named control pair" $ do
+        let cp = ControlPair () u (Just "errno") (intGen 42)
+        pprint Fortran77Extended cp `shouldBe` "errno = 42"
+
 valueExpressions :: Expression () -> Maybe (Expression ())
 valueExpressions e@ExpValue{} = Just e
 valueExpressions _ = Nothing

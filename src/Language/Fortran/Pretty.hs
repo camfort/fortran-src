@@ -133,6 +133,13 @@ instance (Pretty (Expression a)) => Pretty (DoSpecification a) where
         _ -> error $ "Malformed syntax tree: do-specification has non-assignment\
                       \statement at location " ++ show s
 
+instance Pretty (Expression a) => Pretty (ControlPair a) where
+    pprint v (ControlPair _ _ mStr exp)
+      | Nothing <- mStr = pprint v exp
+      | Just _ <- mStr
+      , Fortran66 <- v = error "Fortran 66 does not use named control pairs."
+      | Just str <- mStr = text str <+> char '=' <+> pprint v exp
+
 instance (Pretty (Argument a), Pretty (Value a)) => Pretty (Expression a) where
     pprint v (ExpValue _ s val)  =
          pprint v val
