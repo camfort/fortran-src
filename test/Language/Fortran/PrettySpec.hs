@@ -111,6 +111,11 @@ spec =
         let sel = Selector () u (Just $ intGen 42) (Just $ intGen 24)
         pprint Fortran90 sel `shouldBe` "(len=42, kind=24)"
 
+    describe "Use" $
+      it "prints renaming" $ do
+        let renaming = UseRename () u (varGen "x") (varGen "y")
+        pprint Fortran90 renaming `shouldBe` "x => y"
+
 valueExpressions :: Expression () -> Maybe (Expression ())
 valueExpressions e@ExpValue{} = Just e
 valueExpressions _ = Nothing

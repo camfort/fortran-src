@@ -87,6 +87,13 @@ instance Pretty (Expression a) => Pretty (Statement a) where
     pprint v (StExpressionAssign _ span e1 e2) = empty
     pprint v _ = empty
 
+instance Pretty (Expression a) => Pretty (Use a) where
+    pprint Fortran90 (UseRename _ _ uSrc uDst) =
+      pprint Fortran90 uSrc <+> "=>" <+> pprint Fortran90 uDst
+    pprint Fortran90 (UseID _ _ u) = pprint Fortran90 u
+
+    pprint _ _ = error "Module system is introduced in Fortran 90."
+
 instance Pretty (Argument a) where
     pprint v (Argument _ s key e) = floatDoc s $
        case key of
