@@ -101,23 +101,27 @@ instance Pretty (Argument a) where
          Nothing      -> pprint v e
 
 instance Pretty (DimensionDeclarator a) => Pretty (Attribute a) where
-    pprint v (AttrParameter _ _)   = "parameter"
-    pprint v (AttrPublic    _ _)   = "public"
-    pprint v (AttrPrivate   _ _)   = "private"
-    pprint v (AttrAllocatable _ _) = "allocatable"
-    pprint v (AttrDimension _ _ dims) = "dimesion" <> parens (pprint v dims)
-    pprint v (AttrExternal _ _)    = "external"
-    pprint v (AttrIntent _ _ i)    = "intent" <> parens (pprint v i)
-    pprint v (AttrIntrinsic _ _)   = "intrinsic"
-    pprint v (AttrOptional _ _)    = "optional"
-    pprint v (AttrPointer _ _)     = "pointer"
-    pprint v (AttrSave _ _)        = "save"
-    pprint v (AttrTarget _ _)      = "target"
+    pprint Fortran90 (AttrParameter _ _)   = "parameter"
+    pprint Fortran90 (AttrPublic    _ _)   = "public"
+    pprint Fortran90 (AttrPrivate   _ _)   = "private"
+    pprint Fortran90 (AttrAllocatable _ _) = "allocatable"
+    pprint Fortran90 (AttrDimension _ _ dims) =
+      "dimesion" <> parens (pprint Fortran90 dims)
+    pprint Fortran90 (AttrExternal _ _)    = "external"
+    pprint Fortran90 (AttrIntent _ _ i)    =
+      "intent" <> parens (pprint Fortran90 i)
+    pprint Fortran90 (AttrIntrinsic _ _)   = "intrinsic"
+    pprint Fortran90 (AttrOptional _ _)    = "optional"
+    pprint Fortran90 (AttrPointer _ _)     = "pointer"
+    pprint Fortran90 (AttrSave _ _)        = "save"
+    pprint Fortran90 (AttrTarget _ _)      = "target"
+    pprint _ _ = error "Attributes are introduced in Fortran 90."
 
 instance Pretty Intent where
-    pprint v In = "in"
-    pprint v Out = "out"
-    pprint v InOut = "in out"
+    pprint Fortran90 In = "in"
+    pprint Fortran90 Out = "out"
+    pprint Fortran90 InOut = "in out"
+    pprint _ _ = error "Attributes are introduced in Fortran90."
 
 instance (Pretty (Expression a)) => Pretty (DoSpecification a) where
     pprint v (DoSpecification _ s e0assign en stride) =
