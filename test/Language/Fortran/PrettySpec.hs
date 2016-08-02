@@ -1,5 +1,6 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE OverloadedStrings #-}
 
 module Language.Fortran.PrettySpec where
 
@@ -91,24 +92,24 @@ spec =
     describe "Dimension declarator" $ do
       it "Prints left bound dimension declarator" $ do
         let dd = DimensionDeclarator () u (Just $ intGen 42) Nothing
-        pprint Fortran90 dd `shouldBe` text "42:"
+        pprint Fortran90 dd `shouldBe` "42:"
 
       it "Prints right bound dimension declarator" $ do
         let dd = DimensionDeclarator () u Nothing (Just $ intGen 42)
-        pprint Fortran90 dd `shouldBe` text "42"
+        pprint Fortran90 dd `shouldBe` "42"
 
       it "Prints bounded dimension declarator" $ do
         let dd = DimensionDeclarator () u (Just $ intGen 24) (Just $ intGen 42)
-        pprint Fortran90 dd `shouldBe` text "24:42"
+        pprint Fortran90 dd `shouldBe` "24:42"
 
     describe "Selector" $ do
       it "prints Fortran 77 selector" $ do
         let sel = Selector () u (Just $ intGen 42) Nothing
-        pprint Fortran77 sel `shouldBe` text "* (42)"
+        pprint Fortran77 sel `shouldBe` "* (42)"
 
       it "prints Fortran 90 selector" $ do
         let sel = Selector () u (Just $ intGen 42) (Just $ intGen 24)
-        pprint Fortran90 sel `shouldBe` text "(len=42, kind=24)"
+        pprint Fortran90 sel `shouldBe` "(len=42, kind=24)"
 
 valueExpressions :: Expression () -> Maybe (Expression ())
 valueExpressions e@ExpValue{} = Just e
