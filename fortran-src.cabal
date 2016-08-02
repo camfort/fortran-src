@@ -46,7 +46,7 @@ executable fortran-src
     Language.Fortran.Parser.Fortran66
     Language.Fortran.Parser.Fortran77
     Language.Fortran.Parser.Fortran90
-    Language.Fortran.Pretty    
+    Language.Fortran.Pretty
     Language.Fortran.Transformation.Disambiguation.Function
     Language.Fortran.Transformation.Grouping
     Language.Fortran.Transformation.TransformMonad
@@ -107,7 +107,7 @@ test-suite spec
     array >= 0.5,
     uniplate >= 1.6,
     directory >= 1.2,
-    filepath,    
+    filepath,
     GenericPretty >= 1.2,
     pretty >= 1.1,
     containers >= 0.5,
