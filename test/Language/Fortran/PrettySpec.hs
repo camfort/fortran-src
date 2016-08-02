@@ -121,6 +121,15 @@ spec =
         let cp = ControlPair () u (Just "errno") (intGen 42)
         pprint Fortran77Extended cp `shouldBe` "errno = 42"
 
+    describe "Implicit list" $
+      it "prints mixed implicit lists" $ do
+        let typ = TypeSpec () u TypeInteger Nothing
+        let impEls = [ ImpCharacter () u "x"
+                     , ImpRange () u "a" "z"
+                     , ImpCharacter () u "o" ]
+        let impList = ImpList () u typ (AList () u impEls)
+        pprint Fortran90 impList `shouldBe` "integer (x, a-z, o)"
+
 valueExpressions :: Expression () -> Maybe (Expression ())
 valueExpressions e@ExpValue{} = Just e
 valueExpressions _ = Nothing

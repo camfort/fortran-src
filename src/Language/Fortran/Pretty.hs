@@ -140,6 +140,13 @@ instance Pretty (Expression a) => Pretty (ControlPair a) where
       , Fortran66 <- v = error "Fortran 66 does not use named control pairs."
       | Just str <- mStr = text str <+> char '=' <+> pprint v exp
 
+instance Pretty (ImpElement a) => Pretty (ImpList a) where
+    pprint v (ImpList _ _ bt els) = pprint v bt <+> parens (pprint v els)
+
+instance Pretty (ImpElement a) where
+    pprint v (ImpCharacter _ _ c) = text c
+    pprint v (ImpRange _ _ beg end) = text beg <> "-" <> text end
+
 instance (Pretty (Argument a), Pretty (Value a)) => Pretty (Expression a) where
     pprint v (ExpValue _ s val)  =
          pprint v val
@@ -248,7 +255,7 @@ instance Pretty BinaryOp where
     pprint v (BinCustom custom) = text $ "." ++ custom ++ "."
 
 commaSep :: [Doc] -> Doc
-commaSep = vcat . punctuate (comma <> space)
+commaSep = hcat . punctuate (comma <> space)
 
 floatDoc :: SrcSpan -> Doc -> Doc
 floatDoc span d | lineDistance span == 0 =
