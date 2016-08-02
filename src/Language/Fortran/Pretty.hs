@@ -22,30 +22,68 @@ import Text.PrettyPrint
 class Pretty t where
    pprint :: FortranVersion -> t -> Doc
 
--- A subset of Value permit the 'FirstParameter' operation
-instance FirstParameter (Value a) String
-instance (FirstParameter (Value a) String, Pretty (Expression a))
-       => Pretty (Value a) where
-    pprint v ValStar       = char '*'
-    pprint v ValAssignment = "assignment (=)"
-    pprint v (ValComplex e1 e2) =
-        parens $ commaSep [pprint v e1, pprint v e2]
-    pprint v (ValString str) =
-        char '"' <> text str <> char '"'
-    pprint v valLit =
-        text . getFirstParameter $ valLit
+instance Pretty a => Pretty (Maybe a) where
+    pprint v Nothing  = empty
+    pprint v (Just e) = pprint v e
 
-instance Pretty (Expression a) => Pretty (Index a) where
-    pprint v (IxSingle _ s Nothing e) = pprint v e
-    -- This is an intermediate expression form which shouldn't make it
-    -- to the pretty printer
-    pprint v (IxSingle _ s (Just _) e) = pprint v e
-    pprint v (IxRange _ s low up stride) =
-       low' <> char ':' <> up' <> stride'
-      where
-        low' = maybe empty (pprint v) low
-        up'  = maybe empty (pprint v) up
-        stride' =  maybe empty (\e -> char ':' <> pprint v e) stride
+instance (Pretty (e a)) => Pretty (AList e a) where
+    pprint v es = commaSep (map (pprint v) (aStrip es))
+
+instance Pretty BaseType where
+    pprint v TypeInteger = caps v "integer"
+    pprint v TypeReal    = caps v "real"
+    pprint v TypeDoublePrecision = caps v "double precision"
+    pprint v TypeComplex = caps v "complex"
+    pprint Fortran77Extended TypeDoubleComplex = "DOUBLECOMPLEX"
+    pprint v TypeLogical = caps v "logical"
+    pprint v TypeCharacter = caps v "character"
+    pprint v (TypeCustom str) = "type(" <> text str <> ")"
+
+instance Pretty (TypeSpec a) where
+    pprint v (TypeSpec _ a basetype mselector) =
+      pprint v basetype <>
+      case mselector of
+        Nothing -> empty
+        Just (Selector _ s Nothing Nothing) -> empty
+        Just (Selector _ s mlength mkind)   ->
+          case basetype of
+            -- Character type spec
+            TypeCharacter ->
+              parens
+                (maybe empty (\e -> "len=" <> pprint v e) mlength
+              <> maybe empty (\k -> comma <+> "kind=" <> pprint v k) mkind)
+            -- Non character type spec
+            _ -> parens (maybe empty (\k -> "kind=" <> pprint v k) mkind)
+
+instance Pretty (Expression a) => Pretty (Statement a) where
+    pprint v (StDeclaration _ s typespec attributes declarators) = empty
+    pprint v (StExpressionAssign _ span e1 e2) = empty
+    pprint v _ = empty
+
+instance Pretty (Argument a) where
+    pprint v (Argument _ s key e) = floatDoc s $
+       case key of
+         Just keyName -> text keyName <+> char '=' <+> pprint v e
+         Nothing      -> pprint v e
+
+instance Pretty (DimensionDeclarator a) => Pretty (Attribute a) where
+    pprint v (AttrParameter _ _)   = caps v "parameter"
+    pprint v (AttrPublic    _ _)   = caps v "public"
+    pprint v (AttrPrivate   _ _)   = caps v "private"
+    pprint v (AttrAllocatable _ _) = caps v "allocatable"
+    pprint v (AttrDimension _ _ dims) = caps v "dimesion" <> parens (pprint v dims)
+    pprint v (AttrExternal _ _)    = caps v "external"
+    pprint v (AttrIntent _ _ i)    = caps v "intent" <> parens (pprint v i)
+    pprint v (AttrIntrinsic _ _)   = caps v "intrinsic"
+    pprint v (AttrOptional _ _)    = caps v "optional"
+    pprint v (AttrPointer _ _)     = caps v "pointer"
+    pprint v (AttrSave _ _)        = caps v "save"
+    pprint v (AttrTarget _ _)      = caps v "target"
+
+instance Pretty Intent where
+    pprint v In = caps v "in"
+    pprint v Out = caps v "out"
+    pprint v InOut = caps v "in out"
 
 instance (Pretty (Expression a)) => Pretty (DoSpecification a) where
     pprint v (DoSpecification _ s e0assign en stride) =
@@ -86,53 +124,30 @@ instance (Pretty (Argument a), Pretty (Value a)) => Pretty (Expression a) where
     pprint v (ExpReturnSpec _ s e) =
         floatDoc s $ char '*' <> pprint v e
 
-instance (Pretty (e a)) => Pretty (AList e a) where
-    pprint v es = commaSep (map (pprint v) (aStrip es))
+instance Pretty (Expression a) => Pretty (Index a) where
+    pprint v (IxSingle _ s Nothing e) = pprint v e
+    -- This is an intermediate expression form which shouldn't make it
+    -- to the pretty printer
+    pprint v (IxSingle _ s (Just _) e) = pprint v e
+    pprint v (IxRange _ s low up stride) =
+       low' <> char ':' <> up' <> stride'
+      where
+        low' = maybe empty (pprint v) low
+        up'  = maybe empty (pprint v) up
+        stride' =  maybe empty (\e -> char ':' <> pprint v e) stride
 
-instance Pretty (Argument a) where
-    pprint v (Argument _ s key e) = floatDoc s $
-       case key of
-         Just keyName -> text keyName <+> char '=' <+> pprint v e
-         Nothing      -> pprint v e
-
-instance Pretty BaseType where
-    pprint v TypeInteger = caps v "integer"
-    pprint v TypeReal    = caps v "real"
-    pprint v TypeDoublePrecision = caps v "double precision"
-    pprint v TypeComplex = caps v "complex"
-    pprint Fortran77Extended TypeDoubleComplex = "DOUBLECOMPLEX"
-    pprint v TypeLogical = caps v "logical"
-    pprint v TypeCharacter = caps v "character"
-    pprint v (TypeCustom str) = "type(" <> text str <> ")"
-
-instance Pretty (TypeSpec a) where
-    pprint v (TypeSpec _ a basetype mselector) =
-      pprint v basetype <>
-      case mselector of
-        Nothing -> empty
-        Just (Selector _ s Nothing Nothing) -> empty
-        Just (Selector _ s mlength mkind)   ->
-          case basetype of
-            -- Character type spec
-            TypeCharacter ->
-              parens
-                (maybe empty (\e -> "len=" <> pprint v e) mlength
-              <> maybe empty (\k -> comma <+> "kind=" <> pprint v k) mkind)
-            -- Non character type spec
-            _ -> parens (maybe empty (\k -> "kind=" <> pprint v k) mkind)
-
-instance Pretty (DimensionDeclarator a) where
-    pprint v (DimensionDeclarator _ _ me1 me2) =
-      pprint v me1 <> maybe empty (const $ char ':') me1 <> pprint v me2
-
-instance Pretty a => Pretty (Maybe a) where
-    pprint v Nothing  = empty
-    pprint v (Just e) = pprint v e
-
-instance Pretty Intent where
-    pprint v In = caps v "in"
-    pprint v Out = caps v "out"
-    pprint v InOut = caps v "in out"
+-- A subset of Value permit the 'FirstParameter' operation
+instance FirstParameter (Value a) String
+instance (FirstParameter (Value a) String, Pretty (Expression a))
+       => Pretty (Value a) where
+    pprint v ValStar       = char '*'
+    pprint v ValAssignment = "assignment (=)"
+    pprint v (ValComplex e1 e2) =
+        parens $ commaSep [pprint v e1, pprint v e2]
+    pprint v (ValString str) =
+        char '"' <> text str <> char '"'
+    pprint v valLit =
+        text . getFirstParameter $ valLit
 
 instance Pretty (Expression a) => Pretty (Declarator a) where
     pprint v (DeclVariable _ s e Nothing (Just e')) =
@@ -158,25 +173,15 @@ instance Pretty (Expression a) => Pretty (Declarator a) where
     pprint v (DeclArray _ s ae dims len init) =
         error $ "Malformed syntax tree: decl-array has init value at " ++ show s
 
+instance Pretty (DimensionDeclarator a) where
+    pprint v (DimensionDeclarator _ _ me1 me2) =
+      pprint v me1 <> maybe empty (const $ char ':') me1 <> pprint v me2
 
-instance Pretty (DimensionDeclarator a) => Pretty (Attribute a) where
-    pprint v (AttrParameter _ _)   = caps v "parameter"
-    pprint v (AttrPublic    _ _)   = caps v "public"
-    pprint v (AttrPrivate   _ _)   = caps v "private"
-    pprint v (AttrAllocatable _ _) = caps v "allocatable"
-    pprint v (AttrDimension _ _ dims) = caps v "dimesion" <> parens (pprint v dims)
-    pprint v (AttrExternal _ _)    = caps v "external"
-    pprint v (AttrIntent _ _ i)    = caps v "intent" <> parens (pprint v i)
-    pprint v (AttrIntrinsic _ _)   = caps v "intrinsic"
-    pprint v (AttrOptional _ _)    = caps v "optional"
-    pprint v (AttrPointer _ _)     = caps v "pointer"
-    pprint v (AttrSave _ _)        = caps v "save"
-    pprint v (AttrTarget _ _)      = caps v "target"
-
-instance Pretty (Expression a) => Pretty (Statement a) where
-    pprint v (StDeclaration _ s typespec attributes declarators) = empty
-    pprint v (StExpressionAssign _ span e1 e2) = empty
-    pprint v _ = empty
+instance Pretty UnaryOp where
+    pprint v Plus  = char '+'
+    pprint v Minus = char '-'
+    pprint v Not   = ".not."
+    pprint v (UnCustom custom) = text $ "." ++ custom ++ "."
 
 instance Pretty BinaryOp where
     pprint v Addition       = char '+'
@@ -196,12 +201,6 @@ instance Pretty BinaryOp where
     pprint v Equivalent = ".eqv."
     pprint v NotEquivalent = ".neqv."
     pprint v (BinCustom custom) = text $ "." ++ custom ++ "."
-
-instance Pretty UnaryOp where
-    pprint v Plus  = char '+'
-    pprint v Minus = char '-'
-    pprint v Not   = ".not."
-    pprint v (UnCustom custom) = text $ "." ++ custom ++ "."
 
 commaSep :: [Doc] -> Doc
 commaSep = vcat . punctuate (comma <> space)
