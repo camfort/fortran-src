@@ -152,6 +152,10 @@ instance Pretty (Expression a) => Pretty (Namelist a) where
       char '/' <> pprint Fortran90 name <> char '/' <> pprint Fortran90 elems
     pprint _ _ = error "Namelists statements are introduced in Fortran 90."
 
+instance Pretty (Expression a) => Pretty (DataGroup a) where
+    pprint v (DataGroup _ _ vars exps) =
+      pprint v vars <> char '/' <> pprint v exps <> char '/'
+
 instance Pretty (ImpElement a) where
     pprint v (ImpCharacter _ _ c) = text c
     pprint v (ImpRange _ _ beg end) = text beg <> "-" <> text end
