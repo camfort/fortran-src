@@ -15,6 +15,8 @@ import Language.Fortran.Util.Position
 import Language.Fortran.Util.FirstParameter
 import Language.Fortran.Util.SecondParameter
 
+import Control.Monad (void)
+
 import Text.PrettyPrint
 
 class Pretty t where
@@ -121,10 +123,7 @@ instance Pretty (TypeSpec a) where
 
 instance Pretty (DimensionDeclarator a) where
     pprint v (DimensionDeclarator _ _ me1 me2) =
-      case (me1, me2) of
-        (Nothing, Nothing) -> char ':'
-        (Nothing, Just (ExpValue _ _ ValStar)) -> char '*'
-        (me1, me2) -> pprint v me1 <> char ':' <> pprint v me2
+      pprint v me1 <> maybe empty (const $ char ':') me1 <> pprint v me2
 
 instance Pretty a => Pretty (Maybe a) where
     pprint v Nothing  = empty

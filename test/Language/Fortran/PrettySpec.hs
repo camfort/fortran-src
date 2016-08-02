@@ -28,6 +28,7 @@ import Text.PrettyPrint
 import Text.PrettyPrint.GenericPretty
 
 import Test.Hspec
+import TestUtil
 
 --derive makeArbitrary ''Expression
 --derive makeArbitrary ''Statement
@@ -76,6 +77,24 @@ spec =
     describe "Size-related invariants (statements)" $ do
      let ppr = prop_pprintsize :: FortranVersion -> Statement () -> Spec
      checkAll Just (ppr version) ast
+
+    describe "Size-related invariants (dimension declarator)" $ do
+     let ppr = prop_pprintsize :: FortranVersion -> DimensionDeclarator ()
+            -> Spec
+     checkAll Just (ppr version) ast
+
+    describe "Dimension declarator" $ do
+      it "Prints left bound dimension declarator" $ do
+        let dd = DimensionDeclarator () u (Just $ intGen 42) Nothing
+        pprint Fortran90 dd `shouldBe` text "42:"
+
+      it "Prints right bound dimension declarator" $ do
+        let dd = DimensionDeclarator () u Nothing (Just $ intGen 42)
+        pprint Fortran90 dd `shouldBe` text "42"
+
+      it "Prints bounded dimension declarator" $ do
+        let dd = DimensionDeclarator () u (Just $ intGen 24) (Just $ intGen 42)
+        pprint Fortran90 dd `shouldBe` text "24:42"
 
 valueExpressions :: Expression () -> Maybe (Expression ())
 valueExpressions e@ExpValue{} = Just e
