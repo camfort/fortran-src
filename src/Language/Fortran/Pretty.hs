@@ -147,6 +147,11 @@ instance Pretty (Expression a) => Pretty (CommonGroup a) where
     pprint v (CommonGroup _ _ mName elems) =
       char '/' <> pprint v mName <> char '/' <> pprint v elems
 
+instance Pretty (Expression a) => Pretty (Namelist a) where
+    pprint Fortran90 (Namelist _ _ name elems) =
+      char '/' <> pprint Fortran90 name <> char '/' <> pprint Fortran90 elems
+    pprint _ _ = error "Namelists statements are introduced in Fortran 90."
+
 instance Pretty (ImpElement a) where
     pprint v (ImpCharacter _ _ c) = text c
     pprint v (ImpRange _ _ beg end) = text beg <> "-" <> text end
