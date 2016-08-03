@@ -141,6 +141,11 @@ spec =
         let group = CommonGroup () u (Just $ varGen "my_g") (AList () u globs)
         pprint Fortran66 group `shouldBe` "/my_g/x, y, z"
 
+    describe "Format item" $
+      it "prints hollerith constant" $ do
+        let ed = FIHollerith () u (ValHollerith "hello darling")
+        pprint Fortran77 ed `shouldBe` "13hhello darling"
+
 valueExpressions :: Expression () -> Maybe (Expression ())
 valueExpressions e@ExpValue{} = Just e
 valueExpressions _ = Nothing

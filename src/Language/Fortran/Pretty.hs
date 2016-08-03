@@ -123,6 +123,13 @@ instance Pretty Intent where
     pprint Fortran90 InOut = "in out"
     pprint _ _ = error "Attributes are introduced in Fortran90."
 
+-- TODO come back to this once edit descriptors are properly handled in the
+-- parser.
+instance Pretty (Expression a) => Pretty (FormatItem a) where
+    pprint _ (FIHollerith _ _ (ValHollerith s)) =
+      text (show $ length s) <> char 'h' <> text s
+    pprint _ _ = error "Not yet supported."
+
 instance (Pretty (Expression a)) => Pretty (DoSpecification a) where
     pprint v (DoSpecification _ s e0assign en stride) =
       case e0assign of
