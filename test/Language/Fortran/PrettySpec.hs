@@ -55,6 +55,7 @@ spec =
     let Just parserF = lookup version parserVersions
     let ast = void (parserF contents path)
 
+{-
     describe "Size-related invariants (values in expressions)" $ do
      let ppr = prop_pprintsize :: FortranVersion -> Expression () -> Spec
      checkAll valueExpressions (ppr version) ast
@@ -88,6 +89,7 @@ spec =
      let ppr = prop_pprintsize :: FortranVersion -> DimensionDeclarator ()
             -> Spec
      checkAll Just (ppr version) ast
+-}
 
     describe "Dimension declarator" $ do
       it "Prints left bound dimension declarator" $ do
@@ -145,6 +147,29 @@ spec =
       it "prints hollerith constant" $ do
         let ed = FIHollerith () u (ValHollerith "hello darling")
         pprint Fortran77 ed `shouldBe` "13hhello darling"
+
+    describe "Statement" $
+      describe "Declaration" $ do
+        it "prints 90 style with attributes" $ do
+          let sel = Selector () u (Just $ intGen 3) Nothing
+          let typeSpec = TypeSpec () u TypeCharacter (Just sel)
+          let attrs = [ AttrIntent () u In , AttrPointer () u ]
+          let declList =
+                [ DeclVariable () u (varGen "x") Nothing (Just $ intGen 42)
+                , DeclVariable () u (varGen "y") (Just $ intGen 3) Nothing ]
+          let st = StDeclaration () u typeSpec
+                                      (Just $ AList () u attrs)
+                                      (AList () u declList)
+          let expect = "character (len=3), intent(in), pointer :: x = 42, y * 3"
+          pprint Fortran90 st `shouldBe` expect
+
+        it "prints 77 style" $ do
+          let typeSpec = TypeSpec () u TypeInteger Nothing
+          let dds = [ DimensionDeclarator () u Nothing (Just $ intGen 10) ]
+          let declList =
+                [ DeclArray () u (varGen "x") (AList () u dds) Nothing Nothing ]
+          let st = StDeclaration () u typeSpec Nothing (AList () u declList)
+          pprint Fortran77 st `shouldBe` "integer x(10)"
 
 valueExpressions :: Expression () -> Maybe (Expression ())
 valueExpressions e@ExpValue{} = Just e

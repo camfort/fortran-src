@@ -8,6 +8,7 @@
 module Language.Fortran.Pretty where
 
 import Data.Char
+import Data.Maybe (isJust)
 import Prelude hiding (EQ,LT,GT)
 import Language.Fortran.AST
 import Language.Fortran.ParserMonad
@@ -40,20 +41,9 @@ instance Pretty BaseType where
     pprint v (TypeCustom str) = "type(" <> text str <> ")"
 
 instance Pretty (TypeSpec a) where
-    pprint v (TypeSpec _ a basetype mselector) =
-      pprint v basetype <>
-      case mselector of
-        Nothing -> empty
-        Just (Selector _ s Nothing Nothing) -> empty
-        Just (Selector _ s mlength mkind)   ->
-          case basetype of
-            -- Character type spec
-            TypeCharacter ->
-              parens
-                (maybe empty (\e -> "len=" <> pprint v e) mlength
-              <> maybe empty (\k -> comma <+> "kind=" <> pprint v k) mkind)
-            -- Non character type spec
-            _ -> parens (maybe empty (\k -> "kind=" <> pprint v k) mkind)
+    pprint v (TypeSpec _ _ baseType mSelector) =
+      pprint v baseType <>
+      if isJust mSelector then space <> pprint v mSelector else empty
 
 instance Pretty (Selector a) where
   pprint Fortran66 s =
@@ -83,9 +73,91 @@ instance Pretty (Selector a) where
       kind e = "kind=" <> pprint Fortran90 e
 
 instance Pretty (Expression a) => Pretty (Statement a) where
-    pprint v (StDeclaration _ s typespec attributes declarators) = empty
-    pprint v (StExpressionAssign _ span e1 e2) = empty
-    pprint v _ = empty
+    pprint v st@(StDeclaration _ s typeSpec mAttrList declList)
+      | Fortran90 <- v =
+          pprint v typeSpec <>
+          (if isJust mAttrList then comma else empty) <+>
+          pprint v mAttrList <+>
+          text "::" <+>
+          pprint v declList
+      | Fortran77Extended <- v = pprint v typeSpec <+> pprint v declList
+      | Fortran66 <- v = pprint Fortran77Extended st
+      | Fortran77 <- v = pprint Fortran77Extended st
+    pprint _ _ = empty
+{-
+    pprint v (StIntent _ s s3 s4) = _
+    pprint v (StOptional _ s s3) = _
+    pprint v (StPublic _ s s3) = _
+    pprint v (StPrivate _ s s3) = _
+    pprint v (StSave _ s s3) = _
+    pprint v (StDimension _ s s3) = _
+    pprint v (StAllocatable _ s s3) = _
+    pprint v (StPointer _ s s3) = _
+    pprint v (StTarget _ s s3) = _
+    pprint v (StData _ s s3) = _
+    pprint v (StNamelist _ s s3) = _
+    pprint v (StParameter _ s s3) = _
+    pprint v (StExternal _ s s3) = _
+    pprint v (StIntrinsic _ s s3) = _
+    pprint v (StCommon _ s s3) = _
+    pprint v (StEquivalence _ s s3) = _
+    pprint v (StFormat _ s s3) = _
+    pprint v (StImplicit _ s s3) = _
+    pprint v (StEntry _ s s3 s4 s5) = _
+    pprint v (StInclude _ s s3) = _
+    pprint v (StDo _ s s3 s4 s5) = _
+    pprint v (StDoWhile _ s s3 s4 s5) = _
+    pprint v (StEnddo _ s s3) = _
+    pprint v (StCycle _ s s3) = _
+    pprint v (StExit _ s s3) = _
+    pprint v (StIfLogical _ s s3 s4) = _
+    pprint v (StIfArithmetic _ s s3 s4 s5 s6) = _
+    pprint v (StIfThen _ s s3 s4) = _
+    pprint v (StElse _ s s3) = _
+    pprint v (StElsif _ s s3 s4) = _
+    pprint v (StEndif _ s s3) = _
+    pprint v (StSelectCase _ s s3 s4) = _
+    pprint v (StCase _ s s3 s4) = _
+    pprint v (StEndcase _ s s3) = _
+    pprint v (StFunction _ s s3 s4 s5) = _
+    pprint v (StExpressionAssign _ s s3 s4) = _
+    pprint v (StPointerAssign _ s s3 s4) = _
+    pprint v (StLabelAssign _ s s3 s4) = _
+    pprint v (StGotoUnconditional _ s s3) = _
+    pprint v (StGotoAssigned _ s s3 s4) = _
+    pprint v (StGotoComputed _ s s3 s4) = _
+    pprint v (StCall _ s s3 s4) = _
+    pprint v (StReturn _ s s3) = _
+    pprint v (StContinue _ s) = _
+    pprint v (StStop _ s s3) = _
+    pprint v (StPause _ s s3) = _
+    pprint v (StRead _ s s3 s4) = _
+    pprint v (StRead2 _ s s3 s4) = _
+    pprint v (StWrite _ s s3 s4) = _
+    pprint v (StPrint _ s s3 s4) = _
+    pprint v (StOpen _ s s3) = _
+    pprint v (StClose _ s s3) = _
+    pprint v (StInquire _ s s3) = _
+    pprint v (StRewind _ s s3) = _
+    pprint v (StRewind2 _ s s3) = _
+    pprint v (StBackspace _ s s3) = _
+    pprint v (StBackspace2 _ s s3) = _
+    pprint v (StEndfile _ s s3) = _
+    pprint v (StEndfile2 _ s s3) = _
+    pprint v (StAllocate _ s s3 s4) = _
+    pprint v (StNullify _ s s3) = _
+    pprint v (StDeallocate _ s s3 s4) = _
+    pprint v (StWhere _ s s3 s4) = _
+    pprint v (StWhereConstruct _ s s3) = _
+    pprint v (StElsewhere _ s) = _
+    pprint v (StEndWhere _ s) = _
+    pprint v (StUse _ s s3 s4) = _
+    pprint v (StModuleProcedure _ s s3) = _
+    pprint v (StType _ s s3 s4) = _
+    pprint v (StEndType _ s s3) = _
+    pprint v (StSequence _ s) = _
+    pprint v (StFormatBogus _ s s3) = _
+-}
 
 instance Pretty (Expression a) => Pretty (Use a) where
     pprint Fortran90 (UseRename _ _ uSrc uDst) =
