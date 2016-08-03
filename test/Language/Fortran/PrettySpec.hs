@@ -148,7 +148,7 @@ spec =
         let ed = FIHollerith () u (ValHollerith "hello darling")
         pprint Fortran77 ed `shouldBe` "13hhello darling"
 
-    describe "Statement" $
+    describe "Statement" $ do
       describe "Declaration" $ do
         it "prints 90 style with attributes" $ do
           let sel = Selector () u (Just $ intGen 3) Nothing
@@ -170,6 +170,12 @@ spec =
                 [ DeclArray () u (varGen "x") (AList () u dds) Nothing Nothing ]
           let st = StDeclaration () u typeSpec Nothing (AList () u declList)
           pprint Fortran77 st `shouldBe` "integer x(10)"
+
+      describe "Intent" $
+        it "prints intent statement" $ do
+          let exps = [ varGen "x", varGen "y" ]
+          let st = StIntent () u In (AList () u exps)
+          pprint Fortran90 st `shouldBe` "intent (in) :: x, y"
 
 valueExpressions :: Expression () -> Maybe (Expression ())
 valueExpressions e@ExpValue{} = Just e

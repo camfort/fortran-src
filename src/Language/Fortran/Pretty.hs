@@ -72,7 +72,7 @@ instance Pretty (Selector a) where
       len e  = "len=" <> pprint Fortran90 e
       kind e = "kind=" <> pprint Fortran90 e
 
-instance Pretty (Expression a) => Pretty (Statement a) where
+instance (Pretty (Expression a), Pretty Intent) => Pretty (Statement a) where
     pprint v st@(StDeclaration _ s typeSpec mAttrList declList)
       | Fortran90 <- v =
           pprint v typeSpec <>
@@ -83,9 +83,14 @@ instance Pretty (Expression a) => Pretty (Statement a) where
       | Fortran77Extended <- v = pprint v typeSpec <+> pprint v declList
       | Fortran66 <- v = pprint Fortran77Extended st
       | Fortran77 <- v = pprint Fortran77Extended st
+
+    pprint v (StIntent _ s intent declList)
+      | v <- Fortran90 =
+          "intent" <+> parens (pprint v intent) <+> "::" <+> pprint v declList
+      | v < Fortran90 = error "Intent statement is introduced in Fortran 90."
+
     pprint _ _ = empty
 {-
-    pprint v (StIntent _ s s3 s4) = _
     pprint v (StOptional _ s s3) = _
     pprint v (StPublic _ s s3) = _
     pprint v (StPrivate _ s s3) = _
