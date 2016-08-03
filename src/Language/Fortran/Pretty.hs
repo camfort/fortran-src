@@ -95,21 +95,59 @@ instance (Pretty (Expression a), Pretty Intent) => Pretty (Statement a) where
           text "::" <+>
           pprint v declList
 
-    pprint v (StIntent _ s intent declList)
-      | v < Fortran90 = error "Intent statement is introduced in Fortran 90."
+    pprint v (StIntent _ _ intent exps)
       | v >= Fortran90 =
-          "intent" <+> parens (pprint v intent) <+> "::" <+> pprint v declList
+          "intent" <+> parens (pprint v intent) <+> "::" <+> pprint v exps
+      | otherwise =
+        unsupported v "Intent statement is introduced in Fortran 90."
+
+    pprint v (StOptional _ _ vars)
+      | v >= Fortran90 = "optional ::" <+> pprint v vars
+      | otherwise =
+        unsupported v "Optional statement is introduced in Fortran 90."
+
+    pprint v (StPublic _ _ mVars)
+      | v >= Fortran90 =
+        "public" <>
+        if isJust mVars then " :: " <> pprint v mVars else empty
+      | otherwise =
+        unsupported v "Public statement is introduced in Fortran 90."
+
+    pprint v (StPrivate _ _ mVars)
+      | v >= Fortran90 =
+        "private" <>
+        if isJust mVars then " :: " <> pprint v mVars else empty
+      | otherwise =
+        unsupported v "Private statement is introduced in Fortran 90."
+
+    pprint v (StSave _ _ mVars)
+      | v >= Fortran90 =
+        "save" <>
+        if isJust mVars then " :: " <> pprint v mVars else empty
+      | otherwise =
+        unsupported v "Save statement is introduced in Fortran 90."
+
+    pprint v (StDimension _ _ decls)
+      | v >= Fortran90 = "dimension ::" <+> pprint v decls
+      | otherwise = "dimension" <+> pprint v decls
+
+    pprint v (StAllocatable _ _ decls)
+      | v >= Fortran90 = "allocatable ::" <+> pprint v decls
+      | otherwise =
+        unsupported v "Allocatable statement is introduced in Fortran 90."
+
+    pprint v (StPointer _ _ decls)
+      | v >= Fortran90 = "pointer ::" <+> pprint v decls
+      | otherwise =
+        unsupported v "Pointer statement is introduced in Fortran 90."
+
+    pprint v (StTarget _ _ decls)
+      | v >= Fortran90 = "target ::" <+> pprint v decls
+      | otherwise =
+        unsupported v "Target statement is introduced in Fortran 90."
 
     pprint _ _ = empty
 {-
-    pprint v (StOptional _ s s3) = _
-    pprint v (StPublic _ s s3) = _
-    pprint v (StPrivate _ s s3) = _
-    pprint v (StSave _ s s3) = _
-    pprint v (StDimension _ s s3) = _
-    pprint v (StAllocatable _ s s3) = _
-    pprint v (StPointer _ s s3) = _
-    pprint v (StTarget _ s s3) = _
     pprint v (StData _ s s3) = _
     pprint v (StNamelist _ s s3) = _
     pprint v (StParameter _ s s3) = _
