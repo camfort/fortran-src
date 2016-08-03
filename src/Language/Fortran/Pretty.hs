@@ -20,6 +20,10 @@ import Control.Monad (void)
 
 import Text.PrettyPrint
 
+unsupported :: FortranVersion -> String -> a
+unsupported fv msg = error $
+    msg ++ " You called pretty print with " ++ show fv ++ "."
+
 class Pretty t where
    pprint :: FortranVersion -> t -> Doc
 
@@ -35,10 +39,19 @@ instance Pretty BaseType where
     pprint v TypeReal    = "real"
     pprint v TypeDoublePrecision = "double precision"
     pprint v TypeComplex = "complex"
-    pprint Fortran77Extended TypeDoubleComplex = "DOUBLECOMPLEX"
+    pprint v TypeDoubleComplex
+      | v == Fortran77Extended = "double complex"
+      | otherwise =
+        unsupported v "Double Complex is an unofficial Fortran 77 extension."
     pprint v TypeLogical = "logical"
-    pprint v TypeCharacter = "character"
-    pprint v (TypeCustom str) = "type(" <> text str <> ")"
+    pprint v TypeCharacter
+      | v >= Fortran77 = "character"
+      | otherwise =
+        unsupported v "Character data type is introduced in Fortran 77."
+    pprint v (TypeCustom str)
+      | v >= Fortran90 = "type" <+> parens (text str)
+      | otherwise =
+        unsupported v "User defined types are introduced in Fortran 90."
 
 instance Pretty (TypeSpec a) where
     pprint v (TypeSpec _ _ baseType mSelector) =
@@ -46,48 +59,46 @@ instance Pretty (TypeSpec a) where
       if isJust mSelector then space <> pprint v mSelector else empty
 
 instance Pretty (Selector a) where
-  pprint Fortran66 s =
-    error "Not possible to pretty print kind/length selectors for Fortran 66."
+  pprint v (Selector _ _ mLenSel mKindSel)
+    | v < Fortran77 =
+      unsupported Fortran66 "Length and kind selectors are introduced in \
+                            \Fortran 77 and 90 respectively."
 
-  pprint Fortran77 s = pprint Fortran77Extended s
+    | v < Fortran90 =
+      case (mLenSel, mKindSel) of
+        (Just lenSel, Nothing) ->
+          char '*' <+> parens (pprint Fortran77Extended lenSel)
+        (Nothing, Just kindSel) ->
+          char '*' <+> parens (pprint Fortran77Extended kindSel)
+        _ -> error "Kind and length selectors can be active one at a time in\
+                   \Fortran 77."
 
-  pprint Fortran77Extended (Selector _ _ mLenSel mKindSel)
-    | (Just lenSel, Nothing) <- (mLenSel, mKindSel) =
-        char '*' <+> parens (pprint Fortran77Extended lenSel)
-    | (Nothing, Just kindSel) <- (mLenSel, mKindSel) =
-        char '*' <+> parens (pprint Fortran77Extended kindSel)
-    | otherwise =
-        error "Kind and length selectors can be active one at a time in\
-              \Fortran 77."
-
-  pprint Fortran90 (Selector _ _ mLenSel mKindSel)
-    | (Just lenSel, Just kindSel) <- (mLenSel, mKindSel) =
-      parens $ len lenSel <> char ',' <+> kind kindSel
-    | (Nothing, Just kindSel) <- (mLenSel, mKindSel) = parens $ kind kindSel
-    | (Just lenDev, Nothing) <- (mLenSel, mKindSel) = parens $ len lenDev
-    | otherwise =
-        error "No way for both kind and length selectors to be empty in \
-              \Fortran 90."
+    | v >= Fortran90 =
+      case (mLenSel, mKindSel) of
+        (Just lenSel, Just kindSel) ->
+          parens $ len lenSel <> char ',' <+> kind kindSel
+        (Nothing, Just kindSel) -> parens $ kind kindSel
+        (Just lenDev, Nothing) -> parens $ len lenDev
+        _ -> error "No way for both kind and length selectors to be empty in \
+                   \Fortran 90 onwards."
     where
       len e  = "len=" <> pprint Fortran90 e
       kind e = "kind=" <> pprint Fortran90 e
 
 instance (Pretty (Expression a), Pretty Intent) => Pretty (Statement a) where
     pprint v st@(StDeclaration _ s typeSpec mAttrList declList)
-      | Fortran90 <- v =
+      | v < Fortran90 = pprint v typeSpec <+> pprint v declList
+      | v >= Fortran90 =
           pprint v typeSpec <>
           (if isJust mAttrList then comma else empty) <+>
           pprint v mAttrList <+>
           text "::" <+>
           pprint v declList
-      | Fortran77Extended <- v = pprint v typeSpec <+> pprint v declList
-      | Fortran66 <- v = pprint Fortran77Extended st
-      | Fortran77 <- v = pprint Fortran77Extended st
 
     pprint v (StIntent _ s intent declList)
-      | v <- Fortran90 =
-          "intent" <+> parens (pprint v intent) <+> "::" <+> pprint v declList
       | v < Fortran90 = error "Intent statement is introduced in Fortran 90."
+      | v >= Fortran90 =
+          "intent" <+> parens (pprint v intent) <+> "::" <+> pprint v declList
 
     pprint _ _ = empty
 {-
@@ -165,11 +176,13 @@ instance (Pretty (Expression a), Pretty Intent) => Pretty (Statement a) where
 -}
 
 instance Pretty (Expression a) => Pretty (Use a) where
-    pprint Fortran90 (UseRename _ _ uSrc uDst) =
-      pprint Fortran90 uSrc <+> "=>" <+> pprint Fortran90 uDst
-    pprint Fortran90 (UseID _ _ u) = pprint Fortran90 u
-
-    pprint _ _ = error "Module system is introduced in Fortran 90."
+    pprint v use
+      | v >= Fortran90 =
+        case use of
+          UseRename _ _ uSrc uDst -> pprint v uSrc <+> "=>" <+> pprint v uDst
+          UseID _ _ u -> pprint v u
+      | v < Fortran90 =
+        unsupported v "Module system is introduced in Fortran 90."
 
 instance Pretty (Argument a) where
     pprint v (Argument _ s key e) = floatDoc s $
@@ -178,27 +191,33 @@ instance Pretty (Argument a) where
          Nothing      -> pprint v e
 
 instance Pretty (DimensionDeclarator a) => Pretty (Attribute a) where
-    pprint Fortran90 (AttrParameter _ _)   = "parameter"
-    pprint Fortran90 (AttrPublic    _ _)   = "public"
-    pprint Fortran90 (AttrPrivate   _ _)   = "private"
-    pprint Fortran90 (AttrAllocatable _ _) = "allocatable"
-    pprint Fortran90 (AttrDimension _ _ dims) =
-      "dimesion" <> parens (pprint Fortran90 dims)
-    pprint Fortran90 (AttrExternal _ _)    = "external"
-    pprint Fortran90 (AttrIntent _ _ i)    =
-      "intent" <> parens (pprint Fortran90 i)
-    pprint Fortran90 (AttrIntrinsic _ _)   = "intrinsic"
-    pprint Fortran90 (AttrOptional _ _)    = "optional"
-    pprint Fortran90 (AttrPointer _ _)     = "pointer"
-    pprint Fortran90 (AttrSave _ _)        = "save"
-    pprint Fortran90 (AttrTarget _ _)      = "target"
-    pprint _ _ = error "Attributes are introduced in Fortran 90."
+    pprint v attr
+      | v >= Fortran90 =
+        case attr of
+          AttrParameter _ _ -> "parameter"
+          AttrPublic _ _ -> "public"
+          AttrPrivate _ _ -> "private"
+          AttrAllocatable _ _ -> "allocatable"
+          AttrDimension _ _ dims ->
+            "dimesion" <> parens (pprint v dims)
+          AttrExternal _ _ -> "external"
+          AttrIntent _ _ intent ->
+            "intent" <> parens (pprint v intent)
+          AttrIntrinsic _ _ -> "intrinsic"
+          AttrOptional _ _ -> "optional"
+          AttrPointer _ _ -> "pointer"
+          AttrSave _ _ -> "save"
+          AttrTarget _ _ -> "target"
+      | otherwise = unsupported v "Attributes are introduced in Fortran 90."
 
 instance Pretty Intent where
-    pprint Fortran90 In = "in"
-    pprint Fortran90 Out = "out"
-    pprint Fortran90 InOut = "in out"
-    pprint _ _ = error "Attributes are introduced in Fortran90."
+    pprint v intent
+      | v >= Fortran90 =
+        case intent of
+          In -> "in"
+          Out -> "out"
+          InOut -> "inout"
+      | otherwise = unsupported v "Attributes are introduced in Fortran90."
 
 -- TODO come back to this once edit descriptors are properly handled in the
 -- parser.
@@ -208,21 +227,25 @@ instance Pretty (Expression a) => Pretty (FormatItem a) where
     pprint _ _ = error "Not yet supported."
 
 instance (Pretty (Expression a)) => Pretty (DoSpecification a) where
-    pprint v (DoSpecification _ s e0assign en stride) =
-      case e0assign of
-        s@StExpressionAssign{} ->
-          pprint v s <> comma <+> pprint v en
-                     <> maybe empty (\e -> comma <> pprint v e) stride
+    pprint v (DoSpecification _ _ s@StExpressionAssign{} limit mStride) =
+      pprint v s <> comma
+      <+> pprint v limit
+      <> maybe empty ((comma<+>) . pprint v) mStride
 
-        _ -> error $ "Malformed syntax tree: do-specification has non-assignment\
-                      \statement at location " ++ show s
+    -- Given DoSpec. has a single constructor, the only way for pattern
+    -- match above to fail is to have the wrong type of statement embedded
+    -- in it.
+    pprint _ _ = error "Incorrect initialisation in DO specification."
 
 instance Pretty (Expression a) => Pretty (ControlPair a) where
     pprint v (ControlPair _ _ mStr exp)
-      | Nothing <- mStr = pprint v exp
-      | Just _ <- mStr
-      , Fortran66 <- v = error "Fortran 66 does not use named control pairs."
-      | Just str <- mStr = text str <+> char '=' <+> pprint v exp
+      | v >= Fortran77
+      , Just str <- mStr =
+        text str <+> char '=' <+> pprint v exp
+      | v < Fortran77
+      , Just str <- mStr =
+        unsupported v "Named control pairs are introduced in Fortran 77."
+      | otherwise = pprint v exp
 
 instance Pretty (ImpElement a) => Pretty (ImpList a) where
     pprint v (ImpList _ _ bt els) = pprint v bt <+> parens (pprint v els)
@@ -234,7 +257,8 @@ instance Pretty (Expression a) => Pretty (CommonGroup a) where
 instance Pretty (Expression a) => Pretty (Namelist a) where
     pprint Fortran90 (Namelist _ _ name elems) =
       char '/' <> pprint Fortran90 name <> char '/' <> pprint Fortran90 elems
-    pprint _ _ = error "Namelists statements are introduced in Fortran 90."
+    pprint v _ =
+      unsupported v "Namelists statements are introduced in Fortran 90."
 
 instance Pretty (Expression a) => Pretty (DataGroup a) where
     pprint v (DataGroup _ _ vars exps) =
@@ -255,8 +279,7 @@ instance (Pretty (Argument a), Pretty (Value a)) => Pretty (Expression a) where
         floatDoc s $ pprint v op <+> pprint v e
 
     pprint v (ExpSubscript _ s e ixs) =
-        floatDoc s $ pprint v e
-                 <> parens (commaSep (map (pprint v) (aStrip ixs)))
+        floatDoc s $ pprint v e <> parens (pprint v ixs)
 
     pprint v (ExpDataRef _ s e1 e2) =
         floatDoc s $ pprint v e1 <+> char '%' <+> pprint v e2
@@ -290,66 +313,105 @@ instance FirstParameter (Value a) String
 instance (FirstParameter (Value a) String, Pretty (Expression a))
        => Pretty (Value a) where
     pprint v ValStar       = char '*'
-    pprint v ValAssignment = "assignment (=)"
-    pprint v (ValComplex e1 e2) =
-        parens $ commaSep [pprint v e1, pprint v e2]
-    pprint v (ValString str) =
-        char '"' <> text str <> char '"'
-    pprint v valLit =
-        text . getFirstParameter $ valLit
+    pprint v ValAssignment
+      | v >= Fortran90 = "assignment (=)"
+      -- TODO better error message is needed. Assignment is too vague.
+      | otherwise = unsupported v "Asiggnment is introduced in Fortran 90."
+    pprint v (ValOperator op)
+      | v >= Fortran90 = "operator" <+> parens (text op)
+      -- TODO better error message is needed. Operator is too vague.
+      | otherwise = unsupported v "Operator is introduced in Fortran 90."
+    pprint v (ValComplex e1 e2) = parens $ commaSep [pprint v e1, pprint v e2]
+    pprint v (ValString str) = quotes $ text str
+    pprint v valLit = text . getFirstParameter $ valLit
 
 instance Pretty (Expression a) => Pretty (Declarator a) where
-    pprint v (DeclVariable _ s e Nothing (Just e')) =
-        pprint v e <+> char '=' <+> pprint v e'
-    pprint v (DeclVariable _ s e Nothing Nothing) =
-        pprint v e
-    pprint v (DeclVariable _ s e (Just (ExpValue _ _ ValStar)) Nothing) =
-        pprint v e <+> char '*' <+> parens (char '*')
-    pprint v (DeclVariable _ s e (Just len) Nothing) =
-        pprint v e <+> char '*' <+> pprint v len
-    pprint v (DeclVariable _ s e (Just len) (Just e')) =
-        error $ "Malformed syntax tree: decl-variable has both length and\
-              \and initial value at " ++ show s
-    pprint v (DeclArray _ s ae dims Nothing Nothing) =
-        pprint v ae <> parens (pprint v dims)
+    pprint v (DeclVariable _ _ e mLen mInit)
+      | v >= Fortran90 =
+        pprint v e <>
+        maybe empty (("*"<>) . pprint v) mLen <>
+        maybe empty ((" ="<+>) . pprint v) mInit
 
-    pprint v (DeclArray _ s ae dims (Just (ExpValue _ _ ValStar)) Nothing) =
-        pprint v ae <> parens (pprint v dims) <> char '*' <> parens (char '*')
+    pprint v (DeclVariable _ _ e mLen mInit)
+      | v >= Fortran77 =
+        case mInit of
+          Nothing -> pprint v e <>
+                     maybe empty (("*"<>) . pprint v) mLen
+          _ -> unsupported v "Variable initialisations in declarations is \
+                             \introduced in Fortran 90."
+    pprint v (DeclVariable _ _ e mLen mInit)
+      | Nothing <- mLen
+      , Nothing <- mInit = pprint v e
+      | Just _ <- mInit =
+        unsupported v "Variable initialisations in declarations is introduced \
+                      \in Fortran 90."
+      | Just _ <- mLen =
+        unsupported v "Variable width in declarations is introduced in Fortran \
+                      \77."
 
-    pprint v (DeclArray _ s ae dims (Just len) Nothing) =
-        pprint v ae <> parens (pprint v dims) <> char '*' <> pprint v len
+    pprint v (DeclArray _ _ e dims mLen mInit)
+      | v >= Fortran90 =
+        pprint v e <> parens (pprint v dims) <>
+        maybe empty (("*"<>) . pprint v) mLen <>
+        maybe empty ((" ="<+>) . pprint v) mInit
 
-    pprint v (DeclArray _ s ae dims len init) =
-        error $ "Malformed syntax tree: decl-array has init value at " ++ show s
+    pprint v (DeclArray _ _ e dims mLen mInit)
+      | v >= Fortran77 =
+        case mInit of
+          Nothing -> pprint v e <> parens (pprint v dims) <>
+                     maybe empty (("*"<>) . pprint v) mLen
+          _ -> unsupported v "Variable initialisations in declarations is \
+                             \introduced in Fortran 90."
+    pprint v (DeclArray _ _ e dims mLen mInit)
+      | Nothing <- mLen
+      , Nothing <- mInit = pprint v e <> parens (pprint v dims)
+      | Just _ <- mInit =
+        unsupported v "Variable initialisations in declarations is introduced \
+                      \in Fortran 90."
+      | Just _ <- mLen =
+        unsupported v "Variable width in declarations is introduced in Fortran \
+                      \77."
 
 instance Pretty (DimensionDeclarator a) where
     pprint v (DimensionDeclarator _ _ me1 me2) =
       pprint v me1 <> maybe empty (const $ char ':') me1 <> pprint v me2
 
 instance Pretty UnaryOp where
-    pprint v Plus  = char '+'
-    pprint v Minus = char '-'
-    pprint v Not   = ".not."
-    pprint v (UnCustom custom) = text $ "." ++ custom ++ "."
+    pprint _ Plus  = char '+'
+    pprint _ Minus = char '-'
+    pprint _ Not   = ".not."
+    pprint v (UnCustom custom)
+      | v >= Fortran90 = text $ "." ++ custom ++ "."
+      | otherwise =
+        unsupported v "Custom unary operators are introduct in Fortran 90."
 
 instance Pretty BinaryOp where
-    pprint v Addition       = char '+'
-    pprint v Subtraction    = char '-'
-    pprint v Multiplication = char '*'
-    pprint v Division       = char '/'
-    pprint v Exponentiation = "**"
-    pprint v Concatenation  = "//"
-    pprint v GT  = if v77orLess v then ".gt." else ">"
-    pprint v LT  = if v77orLess v then ".lt." else "<"
-    pprint v LTE = if v77orLess v then ".le." else "<="
-    pprint v GTE = if v77orLess v then ".ge." else ">="
-    pprint v EQ  = if v77orLess v then ".eq." else "=="
-    pprint v NE  = if v77orLess v then ".ne." else "!="
+    pprint _ Addition       = char '+'
+    pprint _ Subtraction    = char '-'
+    pprint _ Multiplication = char '*'
+    pprint _ Division       = char '/'
+    pprint _ Exponentiation = "**"
+    pprint v Concatenation
+      | v >= Fortran77 = "//"
+      | otherwise = unsupported v "Character type is introduced in Fortran 77."
+    pprint v GT  = if v <= Fortran77Extended then ".gt." else ">"
+    pprint v LT  = if v <= Fortran77Extended then ".lt." else "<"
+    pprint v LTE = if v <= Fortran77Extended then ".le." else "<="
+    pprint v GTE = if v <= Fortran77Extended then ".ge." else ">="
+    pprint v EQ  = if v <= Fortran77Extended then ".eq." else "=="
+    pprint v NE  = if v <= Fortran77Extended then ".ne." else "!="
     pprint v Or  = ".or."
     pprint v And = ".and."
-    pprint v Equivalent = ".eqv."
-    pprint v NotEquivalent = ".neqv."
-    pprint v (BinCustom custom) = text $ "." ++ custom ++ "."
+    pprint v Equivalent
+      | v >= Fortran77 = ".eqv."
+      | otherwise = unsupported v ".EQV. operator is introduced in Fortran 77."
+    pprint v NotEquivalent
+      | v >= Fortran77 = ".neqv."
+      | otherwise = unsupported v ".NEQV. operator is introduced in Fortran 77."
+    pprint v (BinCustom custom)
+      | v >= Fortran90 = "." <> text custom <> "."
+      | otherwise =
+        unsupported v "Custom binary operators are introduced in Fortran90."
 
 commaSep :: [Doc] -> Doc
 commaSep = hcat . punctuate (comma <> space)

@@ -160,7 +160,7 @@ spec =
           let st = StDeclaration () u typeSpec
                                       (Just $ AList () u attrs)
                                       (AList () u declList)
-          let expect = "character (len=3), intent(in), pointer :: x = 42, y * 3"
+          let expect = "character (len=3), intent(in), pointer :: x = 42, y*3"
           pprint Fortran90 st `shouldBe` expect
 
         it "prints 77 style" $ do
