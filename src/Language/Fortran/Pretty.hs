@@ -164,9 +164,11 @@ instance (Pretty (Expression a), Pretty Intent) => Pretty (Statement a) where
     pprint v (StEquivalence _ _ (AList _ _ equivGroups)) =
       "equivalence" <+> commaSep (map (parens . pprint v) equivGroups)
 
+    pprint v (StFormat _ _ (AList _ _ formatItems)) =
+      "format" <+> hcat (map (pprint v) formatItems)
+
     pprint _ _ = empty
 {-
-    pprint v (StFormat _ s s3) = _
     pprint v (StImplicit _ s s3) = _
     pprint v (StEntry _ s s3 s4 s5) = _
     pprint v (StInclude _ s s3) = _
