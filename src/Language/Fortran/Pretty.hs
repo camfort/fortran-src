@@ -159,10 +159,13 @@ instance (Pretty (Expression a), Pretty Intent) => Pretty (Statement a) where
     pprint v (StExternal _ _ vars) = "external" <+> pprint v vars
     pprint v (StIntrinsic _ _ vars) = "intrinsic" <+> pprint v vars
 
+    pprint v (StCommon _ _ aCommonGroups) = "common" <+> pprint v aCommonGroups
+
+    pprint v (StEquivalence _ _ (AList _ _ equivGroups)) =
+      "equivalence" <+> commaSep (map (parens . pprint v) equivGroups)
+
     pprint _ _ = empty
 {-
-    pprint v (StCommon _ s s3) = _
-    pprint v (StEquivalence _ s s3) = _
     pprint v (StFormat _ s s3) = _
     pprint v (StImplicit _ s s3) = _
     pprint v (StEntry _ s s3 s4 s5) = _

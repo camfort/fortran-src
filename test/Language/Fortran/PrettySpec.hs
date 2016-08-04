@@ -212,6 +212,13 @@ spec =
           let st = StParameter () u (AList () u decls)
           pprint Fortran90 st `shouldBe` "parameter (x = 42, y = 24)"
 
+      describe "Equivalence" $
+        it "prints multiple equivalence groups" $ do
+          let equivGroups = [ AList () u [ varGen "x", varGen "y" ]
+                            , AList () u [ varGen "z" ] ]
+          let st = StEquivalence () u (AList () u equivGroups)
+          pprint Fortran90 st `shouldBe` "equivalence (x, y), (z)"
+
 valueExpressions :: Expression () -> Maybe (Expression ())
 valueExpressions e@ExpValue{} = Just e
 valueExpressions _ = Nothing
