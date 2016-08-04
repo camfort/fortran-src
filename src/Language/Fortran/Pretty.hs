@@ -156,10 +156,11 @@ instance (Pretty (Expression a), Pretty Intent) => Pretty (Statement a) where
 
     pprint v (StParameter _ _ aDecls) = "parameter" <+> parens (pprint v aDecls)
 
+    pprint v (StExternal _ _ vars) = "external" <+> pprint v vars
+    pprint v (StIntrinsic _ _ vars) = "intrinsic" <+> pprint v vars
+
     pprint _ _ = empty
 {-
-    pprint v (StExternal _ s s3) = _
-    pprint v (StIntrinsic _ s s3) = _
     pprint v (StCommon _ s s3) = _
     pprint v (StEquivalence _ s s3) = _
     pprint v (StFormat _ s s3) = _
