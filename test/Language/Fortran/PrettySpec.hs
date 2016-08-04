@@ -226,6 +226,22 @@ spec =
           let entry = StEntry () u (varGen "func") (Just aargs) (Just result)
           pprint Fortran90 entry `shouldBe` "entry func (x, y) result (z)"
 
+      describe "Do" $ do
+        it "prints infinity do" $ do
+          let stDo = StDo () u Nothing Nothing Nothing
+          pprint Fortran90 stDo `shouldBe` "do"
+
+        let doInit = StExpressionAssign () u (varGen "i") (intGen (-1))
+        let doSpec = DoSpecification () u doInit (intGen 5) Nothing
+
+        it "prints labeled do" $ do
+          let stDo = StDo () u Nothing (Just $ intGen 42) (Just doSpec)
+          pprint Fortran90 stDo `shouldBe` "do 42 i = -1, 5"
+
+        it "prints named do" $ do
+          let stDo = StDo () u (Just "mistral") Nothing (Just doSpec)
+          pprint Fortran90 stDo `shouldBe` "mistral: do i = -1, 5"
+
 valueExpressions :: Expression () -> Maybe (Expression ())
 valueExpressions e@ExpValue{} = Just e
 valueExpressions _ = Nothing

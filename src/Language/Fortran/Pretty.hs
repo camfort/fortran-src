@@ -184,9 +184,25 @@ instance (Pretty (Expression a), Pretty Intent) => Pretty (Statement a) where
 
     pprint v (StInclude _ _ file) = "include" <+> pprint v file
 
+    pprint v (StDo _ s mConstructor mLabel mDoSpec)
+      | v < Fortran90
+      , Just _ <- mConstructor =
+        unsupported v "Named DO blocks are introduced in Fortran 90."
+      | v < Fortran77Extended
+      , Nothing <- mLabel =
+        unsupported v "Labelless DO blocks are introduced in Fortran 90."
+      | v < Fortran90
+      , Nothing <- mDoSpec =
+        unsupported v "Infinite DO loops are introduced in Fortran 90."
+      | otherwise =
+        maybe empty (\name -> text name <> ": ") mConstructor <>
+        hang (hang "do" 1 (pprint v mLabel)) 1 (pprint v mDoSpec)
+
+    pprint v (StExpressionAssign _ _ lhs rhs) =
+      pprint v lhs <+> equals <+> pprint v rhs
+
     pprint _ _ = empty
 {-
-    pprint v (StDo _ s s3 s4 s5) = _
     pprint v (StDoWhile _ s s3 s4 s5) = _
     pprint v (StEnddo _ s s3) = _
     pprint v (StCycle _ s s3) = _
@@ -201,7 +217,6 @@ instance (Pretty (Expression a), Pretty Intent) => Pretty (Statement a) where
     pprint v (StCase _ s s3 s4) = _
     pprint v (StEndcase _ s s3) = _
     pprint v (StFunction _ s s3 s4 s5) = _
-    pprint v (StExpressionAssign _ s s3 s4) = _
     pprint v (StPointerAssign _ s s3 s4) = _
     pprint v (StLabelAssign _ s s3 s4) = _
     pprint v (StGotoUnconditional _ s s3) = _
