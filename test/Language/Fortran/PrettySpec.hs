@@ -177,6 +177,20 @@ spec =
           let st = StIntent () u In (AList () u exps)
           pprint Fortran90 st `shouldBe` "intent (in) :: x, y"
 
+      describe "Data" $ do
+        let groups =
+              [ DataGroup () u (AList () u [ varGen "x"])
+                               (AList () u [ intGen 42 ])
+              , DataGroup () u (AList () u [ varGen "y"])
+                               (AList () u [ intGen 24 ]) ]
+        let st = StData () u (AList () u groups)
+
+        it "prints 90 style data statement with multiple groups" $
+          pprint Fortran90 st `shouldBe` "data x/42/, y/24/"
+
+        it "prints 77 style data statement with multiple groups" $
+          pprint Fortran77Extended st `shouldBe` "data x/42/ y/24/"
+
 valueExpressions :: Expression () -> Maybe (Expression ())
 valueExpressions e@ExpValue{} = Just e
 valueExpressions _ = Nothing

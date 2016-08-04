@@ -146,10 +146,17 @@ instance (Pretty (Expression a), Pretty Intent) => Pretty (Statement a) where
       | otherwise =
         unsupported v "Target statement is introduced in Fortran 90."
 
+    pprint v (StData _ _ aDataGroups@(AList _ _ dataGroups))
+      | v >= Fortran90 = "data" <+> pprint v aDataGroups
+      | otherwise = "data" <+> hsep (map (pprint v) dataGroups)
+
+    pprint v (StNamelist _ _ namelist)
+      | v >= Fortran90 = "namelist" <+> pprint v namelist
+      | otherwise =
+        unsupported v "Namelist statement is introduced in Fortran 90."
+
     pprint _ _ = empty
 {-
-    pprint v (StData _ s s3) = _
-    pprint v (StNamelist _ s s3) = _
     pprint v (StParameter _ s s3) = _
     pprint v (StExternal _ s s3) = _
     pprint v (StIntrinsic _ s s3) = _
