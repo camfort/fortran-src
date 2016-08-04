@@ -220,11 +220,16 @@ instance (Pretty (Expression a), Pretty Intent) => Pretty (Statement a) where
     pprint v (StExpressionAssign _ _ lhs rhs) =
       pprint v lhs <+> equals <+> pprint v rhs
 
+    pprint v (StCycle _ _ mConstructor)
+      | v >= Fortran90 = hang "cycle" 1 (pprint v mConstructor)
+      | otherwise = unsupported v "Cycle is introduced in Fortran 90."
+
+    pprint v (StExit _ _ mConstructor)
+      | v >= Fortran77Extended = hang "exit" 1 (pprint v mConstructor)
+      | otherwise = unsupported v "Exit first appeared in Fortran 77 extension."
+
     pprint _ _ = empty
 {-
-    pprint v (StEnddo _ s s3) = _
-    pprint v (StCycle _ s s3) = _
-    pprint v (StExit _ s s3) = _
     pprint v (StIfLogical _ s s3 s4) = _
     pprint v (StIfArithmetic _ s s3 s4 s5 s6) = _
     pprint v (StIfThen _ s s3 s4) = _
