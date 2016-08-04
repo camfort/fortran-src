@@ -204,6 +204,14 @@ spec =
         it "prints 77 style data statement with multiple groups" $
           pprint Fortran77Extended st `shouldBe` "data x/42/ y/24/"
 
+      describe "Parameter" $
+        it "prints vanilla statement" $ do
+          let decls = [ DeclVariable () u (varGen "x") Nothing (Just $ intGen 42)
+                      , DeclVariable () u (varGen "y") Nothing (Just $ intGen 24)
+                      ]
+          let st = StParameter () u (AList () u decls)
+          pprint Fortran90 st `shouldBe` "parameter (x = 42, y = 24)"
+
 valueExpressions :: Expression () -> Maybe (Expression ())
 valueExpressions e@ExpValue{} = Just e
 valueExpressions _ = Nothing

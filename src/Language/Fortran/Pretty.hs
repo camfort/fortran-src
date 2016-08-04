@@ -154,9 +154,10 @@ instance (Pretty (Expression a), Pretty Intent) => Pretty (Statement a) where
       | otherwise =
         unsupported v "Namelist statement is introduced in Fortran 90."
 
+    pprint v (StParameter _ _ aDecls) = "parameter" <+> parens (pprint v aDecls)
+
     pprint _ _ = empty
 {-
-    pprint v (StParameter _ s s3) = _
     pprint v (StExternal _ s s3) = _
     pprint v (StIntrinsic _ s s3) = _
     pprint v (StCommon _ s s3) = _
