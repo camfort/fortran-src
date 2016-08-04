@@ -31,6 +31,9 @@ instance Pretty a => Pretty (Maybe a) where
     pprint v Nothing  = empty
     pprint v (Just e) = pprint v e
 
+instance Pretty String where
+    pprint _ = text
+
 instance (Pretty (e a)) => Pretty (AList e a) where
     pprint v es = commaSep (map (pprint v) (aStrip es))
 
@@ -198,12 +201,27 @@ instance (Pretty (Expression a), Pretty Intent) => Pretty (Statement a) where
         maybe empty (\name -> text name <> ": ") mConstructor <>
         hang (hang "do" 1 (pprint v mLabel)) 1 (pprint v mDoSpec)
 
+    pprint v (StDoWhile _ _ mConstructor mLabel pred)
+      | v < Fortran77Extended =
+        unsupported v "While loops first appear as Fortran 77 extension."
+      | otherwise =
+        maybe empty (\name -> text name <> ": ") mConstructor <>
+        hang "do" 1 (pprint v mLabel) <+>
+        "while" <+> parens (pprint v pred)
+
+    pprint v (StEnddo _ _ mConstructor)
+      | v < Fortran77Extended =
+        unsupported v "END DO first appeared as Fortran 77 extension."
+      | v < Fortran90
+      , name <- mConstructor =
+        unsupported v "Named DO loops are introduced in Fortran 90."
+      | otherwise = hang "end do" 1 (pprint v mConstructor)
+
     pprint v (StExpressionAssign _ _ lhs rhs) =
       pprint v lhs <+> equals <+> pprint v rhs
 
     pprint _ _ = empty
 {-
-    pprint v (StDoWhile _ s s3 s4 s5) = _
     pprint v (StEnddo _ s s3) = _
     pprint v (StCycle _ s s3) = _
     pprint v (StExit _ s s3) = _
