@@ -167,9 +167,12 @@ instance (Pretty (Expression a), Pretty Intent) => Pretty (Statement a) where
     pprint v (StFormat _ _ (AList _ _ formatItems)) =
       "format" <+> hcat (map (pprint v) formatItems)
 
+    pprint v (StImplicit _ _ mImpLists)
+      | Just impLists <- mImpLists = "implicit" <+> pprint v impLists
+      | otherwise = "implicit none"
+
     pprint _ _ = empty
 {-
-    pprint v (StImplicit _ s s3) = _
     pprint v (StEntry _ s s3 s4 s5) = _
     pprint v (StInclude _ s s3) = _
     pprint v (StDo _ s s3 s4 s5) = _
