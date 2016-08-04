@@ -89,8 +89,8 @@ tokens :-
 <scN> "("                                         { leftPar }
 <scN> ")" / { ifConditionEndP }                   { decPar >> toSC scI >> addSpan TRightPar }
 <scN> ")"                                         { decPar >> addSpan TRightPar }
-<scN> "(/"                                        { addSpan TLeftInitPar }
-<scN> "/)"                                        { addSpan TRightInitPar }
+<scN> "(/" / { notDefinedOperP }                  { addSpan TLeftInitPar }
+<scN> "/)" / { notDefinedOperP }                  { addSpan TRightInitPar }
 <scN> ","                                         { comma }
 <scN> ";"                                         { resetPar >> toSC 0 >> addSpan TSemiColon }
 <scN> ":"                                         { addSpan TColon }
@@ -389,6 +389,17 @@ genericSpecP _ _ _ ai = Just True == do
   else if constr `elem` fmap fillConstr [ TComma, TDoubleColon ]
   then return $ seenConstr (fillConstr TPublic) ai || seenConstr (fillConstr TPrivate) ai
   else Nothing
+
+notDefinedOperP :: User -> AlexInput -> Int -> AlexInput -> Bool
+notDefinedOperP _ _ _ ai
+  | prevToken:_ <- prevTokens
+  , fillConstr TOperator == toConstr prevToken  = False
+  | prevToken:prevToken':_ <- prevTokens
+  , fillConstr TLeftPar  == toConstr prevToken
+  , fillConstr TOperator == toConstr prevToken' = False
+  | otherwise                                   = True
+  where
+    prevTokens = aiPreviousTokensInLine ai
 
 typeSpecP :: User -> AlexInput -> Int -> AlexInput -> Bool
 typeSpecP _ _ _ ai
