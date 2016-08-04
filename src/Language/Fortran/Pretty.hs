@@ -182,9 +182,10 @@ instance (Pretty (Expression a), Pretty Intent) => Pretty (Statement a) where
         hang (pprint v name) 1 (parens $ pprint v mArgs) <>
         maybe empty (\result -> " result" <+> parens (pprint v result)) mResult
 
+    pprint v (StInclude _ _ file) = "include" <+> pprint v file
+
     pprint _ _ = empty
 {-
-    pprint v (StInclude _ s s3) = _
     pprint v (StDo _ s s3 s4 s5) = _
     pprint v (StDoWhile _ s s3 s4 s5) = _
     pprint v (StEnddo _ s s3) = _
