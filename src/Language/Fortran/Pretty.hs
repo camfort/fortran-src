@@ -171,9 +171,19 @@ instance (Pretty (Expression a), Pretty Intent) => Pretty (Statement a) where
       | Just impLists <- mImpLists = "implicit" <+> pprint v impLists
       | otherwise = "implicit none"
 
+    pprint v (StEntry _ _ name mArgs mResult)
+      | v < Fortran90 =
+        case mResult of
+          Nothing ->
+            "entry" <+> hang (pprint v name) 1 (parens $ pprint v mArgs)
+          Just _ -> unsupported v "Explicit result is introduced in Fortran 90."
+      | otherwise =
+        "entry" <+>
+        hang (pprint v name) 1 (parens $ pprint v mArgs) <>
+        maybe empty (\result -> " result" <+> parens (pprint v result)) mResult
+
     pprint _ _ = empty
 {-
-    pprint v (StEntry _ s s3 s4 s5) = _
     pprint v (StInclude _ s s3) = _
     pprint v (StDo _ s s3 s4 s5) = _
     pprint v (StDoWhile _ s s3 s4 s5) = _

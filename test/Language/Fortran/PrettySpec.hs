@@ -219,6 +219,13 @@ spec =
           let st = StEquivalence () u (AList () u equivGroups)
           pprint Fortran90 st `shouldBe` "equivalence (x, y), (z)"
 
+      describe "Equivalence" $
+        it "prints entry point with arguments and result specified" $ do
+          let aargs = AList () u [ varGen "x", varGen "y" ]
+          let result = varGen "z"
+          let entry = StEntry () u (varGen "func") (Just aargs) (Just result)
+          pprint Fortran90 entry `shouldBe` "entry func (x, y) result (z)"
+
 valueExpressions :: Expression () -> Maybe (Expression ())
 valueExpressions e@ExpValue{} = Just e
 valueExpressions _ = Nothing
