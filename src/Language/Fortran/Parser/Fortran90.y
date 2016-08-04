@@ -796,6 +796,7 @@ DECLARATOR_LIST :: { [ Declarator A0 ] }
 
 INITIALISED_DECLARATOR :: { Declarator A0 }
 : DECLARATOR '=' EXPRESSION { setInitialisation $1 $3 }
+| DECLARATOR '=>' EXPRESSION { setInitialisation $1 $3 }
 | DECLARATOR { $1 }
 
 DECLARATOR :: { Declarator A0 }
