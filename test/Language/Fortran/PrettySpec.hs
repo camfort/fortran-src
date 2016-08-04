@@ -177,6 +177,19 @@ spec =
           let st = StIntent () u In (AList () u exps)
           pprint Fortran90 st `shouldBe` "intent (in) :: x, y"
 
+      describe "Save" $ do
+        it "prints lone save statement" $ do
+          let st = StSave () u Nothing
+          pprint Fortran90 st `shouldBe` "save"
+
+        let st = StSave () u (Just $ AList () u [ varGen "x", varGen "y" ])
+
+        it "prints 90 style save statement with vars" $
+          pprint Fortran90 st `shouldBe` "save :: x, y"
+
+        it "prints 77 style save statement with vars" $
+          pprint Fortran77Extended st `shouldBe` "save x, y"
+
       describe "Data" $ do
         let groups =
               [ DataGroup () u (AList () u [ varGen "x"])

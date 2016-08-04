@@ -124,8 +124,7 @@ instance (Pretty (Expression a), Pretty Intent) => Pretty (Statement a) where
       | v >= Fortran90 =
         "save" <>
         if isJust mVars then " :: " <> pprint v mVars else empty
-      | otherwise =
-        unsupported v "Save statement is introduced in Fortran 90."
+      | otherwise = hang "save" 1 (pprint v mVars)
 
     pprint v (StDimension _ _ decls)
       | v >= Fortran90 = "dimension ::" <+> pprint v decls
