@@ -302,9 +302,13 @@ instance (Pretty (Expression a), Pretty Intent) => Pretty (Statement a) where
     pprint v (StFunction _ _ name args rhs) =
       pprint v name <> parens (pprint v args) <+> equals <+> pprint v rhs
 
+    pprint v (StPointerAssign _ _ lhs rhs)
+      | v >= Fortran90 = pprint v lhs <+> "=>" <+> pprint v rhs
+      | otherwise =
+        unsupported v "Pointer assignments are introduced in Fortran 90."
+
     pprint _ _ = empty
 {-
-    pprint v (StPointerAssign _ s s3 s4) = _
     pprint v (StLabelAssign _ s s3 s4) = _
     pprint v (StGotoUnconditional _ s s3) = _
     pprint v (StGotoAssigned _ s s3 s4) = _
