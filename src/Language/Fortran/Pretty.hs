@@ -290,11 +290,14 @@ instance (Pretty (Expression a), Pretty Intent) => Pretty (Statement a) where
 
     pprint v (StCall _ _ name args) = pprint v name <+> parens (pprint v args)
 
+    pprint v (StContinue _ _) = "continue"
+
+    pprint v (StStop _ _ code) = "stop" <+> pprint v code
+
+    pprint v (StPause _ _ code) = "pause" <+> pprint v code
+
     pprint _ _ = empty
 {-
-    pprint v (StContinue _ s) = _
-    pprint v (StStop _ s s3) = _
-    pprint v (StPause _ s s3) = _
     pprint v (StRead _ s s3 s4) = _
     pprint v (StRead2 _ s s3 s4) = _
     pprint v (StWrite _ s s3 s4) = _

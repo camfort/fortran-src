@@ -279,6 +279,10 @@ spec =
           let fSt = StFunction () u (varGen "pi") (AList () u args) (varGen "x")
           pprint Fortran90 fSt `shouldBe` "pi(x, y) = x"
 
+      describe "Stop" $
+        it "prints stop with code" $
+          pprint Fortran66 (StStop () u (Just $ intGen 1)) `shouldBe` "stop 1"
+
 valueExpressions :: Expression () -> Maybe (Expression ())
 valueExpressions e@ExpValue{} = Just e
 valueExpressions _ = Nothing
