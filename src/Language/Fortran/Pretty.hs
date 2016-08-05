@@ -20,9 +20,10 @@ import Control.Monad (void)
 
 import Text.PrettyPrint
 
-unsupported :: FortranVersion -> String -> a
-unsupported fv msg = error $
-    msg ++ " You called pretty print with " ++ show fv ++ "."
+tooOld :: FortranVersion -> String -> FortranVersion -> a
+tooOld currentVersion featureName featureVersion = error $
+    featureName ++ " was introduced in " ++ show featureVersion ++
+    ". You called pretty print with " ++ show currentVersion ++ "."
 
 class Pretty t where
    pprint :: FortranVersion -> t -> Doc
@@ -44,17 +45,14 @@ instance Pretty BaseType where
     pprint v TypeComplex = "complex"
     pprint v TypeDoubleComplex
       | v == Fortran77Extended = "double complex"
-      | otherwise =
-        unsupported v "Double Complex is an unofficial Fortran 77 extension."
+      | otherwise = tooOld v "Double complex" Fortran77Extended
     pprint v TypeLogical = "logical"
     pprint v TypeCharacter
       | v >= Fortran77 = "character"
-      | otherwise =
-        unsupported v "Character data type is introduced in Fortran 77."
+      | otherwise = tooOld v "Character data type" Fortran77
     pprint v (TypeCustom str)
       | v >= Fortran90 = "type" <+> parens (text str)
-      | otherwise =
-        unsupported v "User defined types are introduced in Fortran 90."
+      | otherwise = tooOld v "User defined type" Fortran90
 
 instance Pretty (TypeSpec a) where
     pprint v (TypeSpec _ _ baseType mSelector) =
@@ -63,10 +61,7 @@ instance Pretty (TypeSpec a) where
 
 instance Pretty (Selector a) where
   pprint v (Selector _ _ mLenSel mKindSel)
-    | v < Fortran77 =
-      unsupported Fortran66 "Length and kind selectors are introduced in \
-                            \Fortran 77 and 90 respectively."
-
+    | v < Fortran77 = tooOld v "Length/kind selector" Fortran77
     | v < Fortran90 =
       case (mLenSel, mKindSel) of
         (Just lenSel, Nothing) ->
@@ -101,27 +96,23 @@ instance (Pretty (Expression a), Pretty Intent) => Pretty (Statement a) where
     pprint v (StIntent _ _ intent exps)
       | v >= Fortran90 =
           "intent" <+> parens (pprint v intent) <+> "::" <+> pprint v exps
-      | otherwise =
-        unsupported v "Intent statement is introduced in Fortran 90."
+      | otherwise = tooOld v "Intent statement" Fortran90
 
     pprint v (StOptional _ _ vars)
       | v >= Fortran90 = "optional ::" <+> pprint v vars
-      | otherwise =
-        unsupported v "Optional statement is introduced in Fortran 90."
+      | otherwise = tooOld v "Optional statement" Fortran90
 
     pprint v (StPublic _ _ mVars)
       | v >= Fortran90 =
         "public" <>
         if isJust mVars then " :: " <> pprint v mVars else empty
-      | otherwise =
-        unsupported v "Public statement is introduced in Fortran 90."
+      | otherwise = tooOld v "Public statement" Fortran90
 
     pprint v (StPrivate _ _ mVars)
       | v >= Fortran90 =
         "private" <>
         if isJust mVars then " :: " <> pprint v mVars else empty
-      | otherwise =
-        unsupported v "Private statement is introduced in Fortran 90."
+      | otherwise = tooOld v "Private statement" Fortran90
 
     pprint v (StSave _ _ mVars)
       | v >= Fortran90 =
@@ -135,18 +126,15 @@ instance (Pretty (Expression a), Pretty Intent) => Pretty (Statement a) where
 
     pprint v (StAllocatable _ _ decls)
       | v >= Fortran90 = "allocatable ::" <+> pprint v decls
-      | otherwise =
-        unsupported v "Allocatable statement is introduced in Fortran 90."
+      | otherwise = tooOld v "Allocatable statement" Fortran90
 
     pprint v (StPointer _ _ decls)
       | v >= Fortran90 = "pointer ::" <+> pprint v decls
-      | otherwise =
-        unsupported v "Pointer statement is introduced in Fortran 90."
+      | otherwise = tooOld v "Pointer statement" Fortran90
 
     pprint v (StTarget _ _ decls)
       | v >= Fortran90 = "target ::" <+> pprint v decls
-      | otherwise =
-        unsupported v "Target statement is introduced in Fortran 90."
+      | otherwise = tooOld v "Target statement" Fortran90
 
     pprint v (StData _ _ aDataGroups@(AList _ _ dataGroups))
       | v >= Fortran90 = "data" <+> pprint v aDataGroups
@@ -154,8 +142,7 @@ instance (Pretty (Expression a), Pretty Intent) => Pretty (Statement a) where
 
     pprint v (StNamelist _ _ namelist)
       | v >= Fortran90 = "namelist" <+> pprint v namelist
-      | otherwise =
-        unsupported v "Namelist statement is introduced in Fortran 90."
+      | otherwise = tooOld v "Namelist statement" Fortran90
 
     pprint v (StParameter _ _ aDecls) = "parameter" <+> parens (pprint v aDecls)
 
@@ -179,7 +166,7 @@ instance (Pretty (Expression a), Pretty Intent) => Pretty (Statement a) where
         case mResult of
           Nothing ->
             "entry" <+> hang (pprint v name) 1 (parens $ pprint v mArgs)
-          Just _ -> unsupported v "Explicit result is introduced in Fortran 90."
+          Just _ -> tooOld v "Explicit result" Fortran90
       | otherwise =
         "entry" <+>
         hang (pprint v name) 1 (parens $ pprint v mArgs) <>
@@ -189,32 +176,26 @@ instance (Pretty (Expression a), Pretty Intent) => Pretty (Statement a) where
 
     pprint v (StDo _ s mConstructor mLabel mDoSpec)
       | v < Fortran90
-      , Just _ <- mConstructor =
-        unsupported v "Named DO blocks are introduced in Fortran 90."
+      , Just _ <- mConstructor = tooOld v "Named DO block" Fortran90
       | v < Fortran77Extended
-      , Nothing <- mLabel =
-        unsupported v "Labelless DO blocks are introduced in Fortran 90."
+      , Nothing <- mLabel = tooOld v "Labelless DO block" Fortran90
       | v < Fortran90
-      , Nothing <- mDoSpec =
-        unsupported v "Infinite DO loops are introduced in Fortran 90."
+      , Nothing <- mDoSpec = tooOld v "Infinite DO loop" Fortran90
       | otherwise =
         maybe empty (\name -> text name <> ": ") mConstructor <>
         hang (hang "do" 1 (pprint v mLabel)) 1 (pprint v mDoSpec)
 
     pprint v (StDoWhile _ _ mConstructor mLabel pred)
-      | v < Fortran77Extended =
-        unsupported v "While loops first appear as Fortran 77 extension."
+      | v < Fortran77Extended = tooOld v "While loop" Fortran77Extended
       | otherwise =
         maybe empty (\name -> text name <> ": ") mConstructor <>
         hang "do" 1 (pprint v mLabel) <+>
         "while" <+> parens (pprint v pred)
 
     pprint v (StEnddo _ _ mConstructor)
-      | v < Fortran77Extended =
-        unsupported v "END DO first appeared as Fortran 77 extension."
+      | v < Fortran77Extended = tooOld v "End do" Fortran77Extended
       | v < Fortran90
-      , name <- mConstructor =
-        unsupported v "Named DO loops are introduced in Fortran 90."
+      , name <- mConstructor = tooOld v "Named DO loop" Fortran90
       | otherwise = hang "end do" 1 (pprint v mConstructor)
 
     pprint v (StExpressionAssign _ _ lhs rhs) =
@@ -222,11 +203,11 @@ instance (Pretty (Expression a), Pretty Intent) => Pretty (Statement a) where
 
     pprint v (StCycle _ _ mConstructor)
       | v >= Fortran90 = hang "cycle" 1 (pprint v mConstructor)
-      | otherwise = unsupported v "Cycle is introduced in Fortran 90."
+      | otherwise = tooOld v "Cycle" Fortran90
 
     pprint v (StExit _ _ mConstructor)
       | v >= Fortran77Extended = hang "exit" 1 (pprint v mConstructor)
-      | otherwise = unsupported v "Exit first appeared in Fortran 77 extension."
+      | otherwise = tooOld v "Exit" Fortran77Extended
 
     pprint v (StIfLogical _ _ pred st) =
       "if" <+> parens (pprint v pred) <+> pprint v st
@@ -244,18 +225,16 @@ instance (Pretty (Expression a), Pretty Intent) => Pretty (Statement a) where
       | v >= Fortran77Extended =
         case mConstructor of
           Nothing -> "if" <+> parens (pprint v condition) <+> "then"
-          _ -> unsupported v "Else first appeared in Fortran 77 extension."
-      | otherwise =
-        unsupported v "Structured if first appeared in Fortran 90."
+          _ -> tooOld v "Else" Fortran77Extended
+      | otherwise = tooOld v "Structured if" Fortran90
 
     pprint v (StElse _ _ mConstructor)
       | v >= Fortran90 = hang "else" 1 (pprint v mConstructor)
       | v >= Fortran77Extended =
         case mConstructor of
           Nothing -> "else"
-          Just _ -> unsupported v "Named else is introduced in Fortran 90."
-      | otherwise =
-        unsupported v "Else first appeared in Fortran 77 extension."
+          Just _ -> tooOld v "Named else" Fortran90
+      | otherwise = tooOld v "Else" Fortran77Extended
 
     pprint v (StElsif _ _ mConstructor condition)
       | v >= Fortran90 =
@@ -265,25 +244,22 @@ instance (Pretty (Expression a), Pretty Intent) => Pretty (Statement a) where
       | v >= Fortran77Extended =
         case mConstructor of
           Nothing -> "else if" <+> parens (pprint v condition)
-          _ -> unsupported v "Named else if is introduced in Fortran 90."
-      | otherwise =
-        unsupported v "Else if first appeared in Fortran 77 extension."
+          _ -> tooOld v "Named else if" Fortran90
+      | otherwise = tooOld v "Else if" Fortran77Extended
 
     pprint v (StEndif _ _ mConstructor)
       | v >= Fortran90 = hang "end if" 1 (pprint v mConstructor)
       | v >= Fortran77Extended =
         case mConstructor of
           Nothing -> "end if"
-          Just _ -> unsupported v "Named end if is introduced in Fortran 90."
-      | otherwise =
-        unsupported v "End if first appeared in Fortran 77 extension."
+          Just _ -> tooOld v "Named end if" Fortran90
+      | otherwise = tooOld v "End if" Fortran77Extended
 
     pprint v (StSelectCase _ _ mConstructor exp)
       | v >= Fortran90 =
         maybe empty (\name -> pprint v name <> ": ") mConstructor <>
         "select case" <+> parens (pprint v exp)
-      | otherwise =
-        unsupported v "Case statements are introduced in Fortran 90."
+      | otherwise = tooOld v "Case statement" Fortran90
 
     pprint v (StCase _ _ mConstructor mCase)
       | v >= Fortran90 =
@@ -291,21 +267,18 @@ instance (Pretty (Expression a), Pretty Intent) => Pretty (Statement a) where
           Just casee ->
             hang ("case" <+> parens (pprint v casee)) 1 (pprint v mConstructor)
           Nothing -> hang "case default" 1 (pprint v mConstructor)
-      | otherwise =
-        unsupported v "Case statements are introduced in Fortran 90."
+      | otherwise = tooOld v "Case statement" Fortran90
 
     pprint v (StEndcase _ _ mConstructor)
       | v >= Fortran90 = hang "end case" 1 (pprint v mConstructor)
-      | otherwise =
-        unsupported v "Case statements are introduced in Fortran 90."
+      | otherwise = tooOld v "Case statement" Fortran90
 
     pprint v (StFunction _ _ name args rhs) =
       pprint v name <> parens (pprint v args) <+> equals <+> pprint v rhs
 
     pprint v (StPointerAssign _ _ lhs rhs)
       | v >= Fortran90 = pprint v lhs <+> "=>" <+> pprint v rhs
-      | otherwise =
-        unsupported v "Pointer assignments are introduced in Fortran 90."
+      | otherwise = tooOld v "Pointer assignment" Fortran90
 
     pprint _ _ = empty
 {-
@@ -352,8 +325,7 @@ instance Pretty (Expression a) => Pretty (Use a) where
         case use of
           UseRename _ _ uSrc uDst -> pprint v uSrc <+> "=>" <+> pprint v uDst
           UseID _ _ u -> pprint v u
-      | v < Fortran90 =
-        unsupported v "Module system is introduced in Fortran 90."
+      | v < Fortran90 = tooOld v "Module system" Fortran90
 
 instance Pretty (Argument a) where
     pprint v (Argument _ s key e) = floatDoc s $
@@ -379,7 +351,7 @@ instance Pretty (DimensionDeclarator a) => Pretty (Attribute a) where
           AttrPointer _ _ -> "pointer"
           AttrSave _ _ -> "save"
           AttrTarget _ _ -> "target"
-      | otherwise = unsupported v "Attributes are introduced in Fortran 90."
+      | otherwise = tooOld v "Declaration attribute" Fortran90
 
 instance Pretty Intent where
     pprint v intent
@@ -388,7 +360,7 @@ instance Pretty Intent where
           In -> "in"
           Out -> "out"
           InOut -> "inout"
-      | otherwise = unsupported v "Attributes are introduced in Fortran90."
+      | otherwise = tooOld v "Declaration attribute" Fortran90
 
 -- TODO come back to this once edit descriptors are properly handled in the
 -- parser.
@@ -414,8 +386,7 @@ instance Pretty (Expression a) => Pretty (ControlPair a) where
       , Just str <- mStr =
         text str <+> char '=' <+> pprint v exp
       | v < Fortran77
-      , Just str <- mStr =
-        unsupported v "Named control pairs are introduced in Fortran 77."
+      , Just str <- mStr = tooOld v "Named control pair" Fortran77
       | otherwise = pprint v exp
 
 instance Pretty (ImpElement a) => Pretty (ImpList a) where
@@ -428,8 +399,7 @@ instance Pretty (Expression a) => Pretty (CommonGroup a) where
 instance Pretty (Expression a) => Pretty (Namelist a) where
     pprint Fortran90 (Namelist _ _ name elems) =
       char '/' <> pprint Fortran90 name <> char '/' <> pprint Fortran90 elems
-    pprint v _ =
-      unsupported v "Namelists statements are introduced in Fortran 90."
+    pprint v _ = tooOld v "Namelist statement" Fortran90
 
 instance Pretty (Expression a) => Pretty (DataGroup a) where
     pprint v (DataGroup _ _ vars exps) =
@@ -487,11 +457,11 @@ instance (FirstParameter (Value a) String, Pretty (Expression a))
     pprint v ValAssignment
       | v >= Fortran90 = "assignment (=)"
       -- TODO better error message is needed. Assignment is too vague.
-      | otherwise = unsupported v "Asiggnment is introduced in Fortran 90."
+      | otherwise = tooOld v "Asiggnment" Fortran90
     pprint v (ValOperator op)
       | v >= Fortran90 = "operator" <+> parens (text op)
       -- TODO better error message is needed. Operator is too vague.
-      | otherwise = unsupported v "Operator is introduced in Fortran 90."
+      | otherwise = tooOld v "Operator" Fortran90
     pprint v (ValComplex e1 e2) = parens $ commaSep [pprint v e1, pprint v e2]
     pprint v (ValString str) = quotes $ text str
     pprint v valLit = text . getFirstParameter $ valLit
@@ -508,17 +478,12 @@ instance Pretty (Expression a) => Pretty (Declarator a) where
         case mInit of
           Nothing -> pprint v e <>
                      maybe empty (("*"<>) . pprint v) mLen
-          _ -> unsupported v "Variable initialisations in declarations is \
-                             \introduced in Fortran 90."
+          _ -> tooOld v "Variable initialisation" Fortran90
     pprint v (DeclVariable _ _ e mLen mInit)
       | Nothing <- mLen
       , Nothing <- mInit = pprint v e
-      | Just _ <- mInit =
-        unsupported v "Variable initialisations in declarations is introduced \
-                      \in Fortran 90."
-      | Just _ <- mLen =
-        unsupported v "Variable width in declarations is introduced in Fortran \
-                      \77."
+      | Just _ <- mInit = tooOld v "Variable initialisation" Fortran90
+      | Just _ <- mLen = tooOld v "Variable width" Fortran77
 
     pprint v (DeclArray _ _ e dims mLen mInit)
       | v >= Fortran90 =
@@ -531,17 +496,12 @@ instance Pretty (Expression a) => Pretty (Declarator a) where
         case mInit of
           Nothing -> pprint v e <> parens (pprint v dims) <>
                      maybe empty (("*"<>) . pprint v) mLen
-          _ -> unsupported v "Variable initialisations in declarations is \
-                             \introduced in Fortran 90."
+          _ -> tooOld v "Variable initialisation" Fortran90
     pprint v (DeclArray _ _ e dims mLen mInit)
       | Nothing <- mLen
       , Nothing <- mInit = pprint v e <> parens (pprint v dims)
-      | Just _ <- mInit =
-        unsupported v "Variable initialisations in declarations is introduced \
-                      \in Fortran 90."
-      | Just _ <- mLen =
-        unsupported v "Variable width in declarations is introduced in Fortran \
-                      \77."
+      | Just _ <- mInit = tooOld v "Variable initialisation" Fortran90
+      | Just _ <- mLen = tooOld v "Variable width" Fortran77
 
 instance Pretty (DimensionDeclarator a) where
     pprint v (DimensionDeclarator _ _ me1 me2) =
@@ -553,8 +513,7 @@ instance Pretty UnaryOp where
     pprint _ Not   = ".not."
     pprint v (UnCustom custom)
       | v >= Fortran90 = text $ "." ++ custom ++ "."
-      | otherwise =
-        unsupported v "Custom unary operators are introduct in Fortran 90."
+      | otherwise = tooOld v "Custom unary operator" Fortran90
 
 instance Pretty BinaryOp where
     pprint _ Addition       = char '+'
@@ -564,7 +523,7 @@ instance Pretty BinaryOp where
     pprint _ Exponentiation = "**"
     pprint v Concatenation
       | v >= Fortran77 = "//"
-      | otherwise = unsupported v "Character type is introduced in Fortran 77."
+      | otherwise = tooOld v "Character type" Fortran77
     pprint v GT  = if v <= Fortran77Extended then ".gt." else ">"
     pprint v LT  = if v <= Fortran77Extended then ".lt." else "<"
     pprint v LTE = if v <= Fortran77Extended then ".le." else "<="
@@ -575,14 +534,13 @@ instance Pretty BinaryOp where
     pprint v And = ".and."
     pprint v Equivalent
       | v >= Fortran77 = ".eqv."
-      | otherwise = unsupported v ".EQV. operator is introduced in Fortran 77."
+      | otherwise = tooOld v ".EQV. operator" Fortran77
     pprint v NotEquivalent
       | v >= Fortran77 = ".neqv."
-      | otherwise = unsupported v ".NEQV. operator is introduced in Fortran 77."
+      | otherwise = tooOld v ".NEQV. operator" Fortran77
     pprint v (BinCustom custom)
       | v >= Fortran90 = "." <> text custom <> "."
-      | otherwise =
-        unsupported v "Custom binary operators are introduced in Fortran90."
+      | otherwise = tooOld v "Custom binary operator" Fortran90
 
 commaSep :: [Doc] -> Doc
 commaSep = hcat . punctuate (comma <> space)
