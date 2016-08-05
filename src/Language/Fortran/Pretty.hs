@@ -278,11 +278,29 @@ instance (Pretty (Expression a), Pretty Intent) => Pretty (Statement a) where
       | otherwise =
         unsupported v "End if first appeared in Fortran 77 extension."
 
+    pprint v (StSelectCase _ _ mConstructor exp)
+      | v >= Fortran90 =
+        maybe empty (\name -> pprint v name <> ": ") mConstructor <>
+        "select case" <+> parens (pprint v exp)
+      | otherwise =
+        unsupported v "Case statements are introduced in Fortran 90."
+
+    pprint v (StCase _ _ mConstructor mCase)
+      | v >= Fortran90 =
+        case mCase of
+          Just casee ->
+            hang ("case" <+> parens (pprint v casee)) 1 (pprint v mConstructor)
+          Nothing -> hang "case default" 1 (pprint v mConstructor)
+      | otherwise =
+        unsupported v "Case statements are introduced in Fortran 90."
+
+    pprint v (StEndcase _ _ mConstructor)
+      | v >= Fortran90 = hang "end case" 1 (pprint v mConstructor)
+      | otherwise =
+        unsupported v "Case statements are introduced in Fortran 90."
+
     pprint _ _ = empty
 {-
-    pprint v (StSelectCase _ s s3 s4) = _
-    pprint v (StCase _ s s3 s4) = _
-    pprint v (StEndcase _ s s3) = _
     pprint v (StFunction _ s s3 s4 s5) = _
     pprint v (StPointerAssign _ s s3 s4) = _
     pprint v (StLabelAssign _ s s3 s4) = _

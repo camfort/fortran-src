@@ -257,6 +257,22 @@ spec =
           let ifThen = StIfThen () u (Just "mistral") valTrue
           pprint Fortran90 ifThen `shouldBe` "mistral: if (.true.) then"
 
+      describe "Case" $ do
+        it "prints select case" $ do
+          let sc = StSelectCase () u Nothing (varGen "x")
+          pprint Fortran90 sc `shouldBe` "select case (x)"
+
+        it "prints filled case" $ do
+          let caseRanges =
+                [ IxRange () u (Just $ intGen 0) (Just $ intGen 100) Nothing
+                , IxSingle () u Nothing (intGen 10) ]
+          let casee = StCase () u Nothing (Just $ AList () u caseRanges)
+          pprint Fortran90 casee `shouldBe` "case (0:100, 10)"
+
+        it "prints named default case" $ do
+          let casee = StCase () u (Just "mistral") Nothing
+          pprint Fortran90 casee `shouldBe` "case default mistral"
+
 valueExpressions :: Expression () -> Maybe (Expression ())
 valueExpressions e@ExpValue{} = Just e
 valueExpressions _ = Nothing
