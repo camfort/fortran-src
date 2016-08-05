@@ -289,9 +289,10 @@ instance (Pretty (Expression a), Pretty Intent) => Pretty (Statement a) where
     pprint v (StGotoComputed _ _ labels target) =
       "goto" <+> parens (pprint v labels) <+> pprint v target
 
+    pprint v (StCall _ _ name args) = pprint v name <+> parens (pprint v args)
+
     pprint _ _ = empty
 {-
-    pprint v (StReturn _ s s3) = _
     pprint v (StContinue _ s) = _
     pprint v (StStop _ s s3) = _
     pprint v (StPause _ s s3) = _
