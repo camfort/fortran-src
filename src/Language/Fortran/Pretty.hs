@@ -299,9 +299,11 @@ instance (Pretty (Expression a), Pretty Intent) => Pretty (Statement a) where
       | otherwise =
         unsupported v "Case statements are introduced in Fortran 90."
 
+    pprint v (StFunction _ _ name args rhs) =
+      pprint v name <> parens (pprint v args) <+> equals <+> pprint v rhs
+
     pprint _ _ = empty
 {-
-    pprint v (StFunction _ s s3 s4 s5) = _
     pprint v (StPointerAssign _ s s3 s4) = _
     pprint v (StLabelAssign _ s s3 s4) = _
     pprint v (StGotoUnconditional _ s s3) = _

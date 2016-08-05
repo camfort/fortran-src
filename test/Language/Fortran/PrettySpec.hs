@@ -273,6 +273,12 @@ spec =
           let casee = StCase () u (Just "mistral") Nothing
           pprint Fortran90 casee `shouldBe` "case default mistral"
 
+      describe "Function statement" $
+        it "prints function statement" $ do
+          let args = [ varGen "x", varGen "y" ]
+          let fSt = StFunction () u (varGen "pi") (AList () u args) (varGen "x")
+          pprint Fortran90 fSt `shouldBe` "pi(x, y) = x"
+
 valueExpressions :: Expression () -> Maybe (Expression ())
 valueExpressions e@ExpValue{} = Just e
 valueExpressions _ = Nothing
