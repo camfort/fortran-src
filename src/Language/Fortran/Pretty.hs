@@ -306,17 +306,22 @@ instance (Pretty (Expression a), Pretty Intent) => Pretty (Statement a) where
     pprint v (StPrint _ _ formatId mIolist) =
       "print" <+> pprint v formatId <> comma <?+> pprint v mIolist
 
+    pprint v (StOpen _ _ cilist) = "open" <+> parens (pprint v cilist)
+    pprint v (StClose _ _ cilist) = "close" <+> parens (pprint v cilist)
+    pprint v (StInquire _ _ cilist) = "inquire" <+> parens (pprint v cilist)
+
+    pprint v (StRewind _ _ cilist) = "rewind" <+> parens (pprint v cilist)
+    pprint v (StRewind2 _ _ unit) = "rewind" <+> pprint v unit
+
+    pprint v (StBackspace _ _ cilist) =
+      "backspace" <+> parens (pprint v cilist)
+    pprint v (StBackspace2 _ _ unit) = "backspace" <+> pprint v unit
+
+    pprint v (StEndfile _ _ cilist) = "endfile" <+> parens (pprint v cilist)
+    pprint v (StEndfile2 _ _ unit) = "endfile" <+> pprint v unit
+
     pprint _ _ = empty
 {-
-    pprint v (StOpen _ s s3) = _
-    pprint v (StClose _ s s3) = _
-    pprint v (StInquire _ s s3) = _
-    pprint v (StRewind _ s s3) = _
-    pprint v (StRewind2 _ s s3) = _
-    pprint v (StBackspace _ s s3) = _
-    pprint v (StBackspace2 _ s s3) = _
-    pprint v (StEndfile _ s s3) = _
-    pprint v (StEndfile2 _ s s3) = _
     pprint v (StAllocate _ s s3 s4) = _
     pprint v (StNullify _ s s3) = _
     pprint v (StDeallocate _ s s3 s4) = _
