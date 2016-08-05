@@ -25,6 +25,14 @@ tooOld currentVersion featureName featureVersion = error $
     featureName ++ " was introduced in " ++ show featureVersion ++
     ". You called pretty print with " ++ show currentVersion ++ "."
 
+(<?>) :: Doc -> Doc -> Doc
+doc1 <?> doc2 = if doc1 == empty || doc2 == empty then empty else doc1 <> doc2
+infixl 7 <?>
+
+(<?+>) :: Doc -> Doc -> Doc
+doc1 <?+> doc2 = if doc1 == empty || doc2 == empty then empty else doc1 <+> doc2
+infixl 7 <?+>
+
 class Pretty t where
    pprint :: FortranVersion -> t -> Doc
 
@@ -102,21 +110,15 @@ instance (Pretty (Expression a), Pretty Intent) => Pretty (Statement a) where
       | otherwise = tooOld v "Optional statement" Fortran90
 
     pprint v (StPublic _ _ mVars)
-      | v >= Fortran90 =
-        "public" <>
-        if isJust mVars then " :: " <> pprint v mVars else empty
+      | v >= Fortran90 = "public" <> " :: " <?> pprint v mVars
       | otherwise = tooOld v "Public statement" Fortran90
 
     pprint v (StPrivate _ _ mVars)
-      | v >= Fortran90 =
-        "private" <>
-        if isJust mVars then " :: " <> pprint v mVars else empty
+      | v >= Fortran90 = "private" <> " :: " <?> pprint v mVars
       | otherwise = tooOld v "Private statement" Fortran90
 
     pprint v (StSave _ _ mVars)
-      | v >= Fortran90 =
-        "save" <>
-        if isJust mVars then " :: " <> pprint v mVars else empty
+      | v >= Fortran90 = "save" <> " :: " <?> pprint v mVars
       | otherwise = "save" <+> pprint v mVars
 
     pprint v (StDimension _ _ decls)
@@ -169,7 +171,7 @@ instance (Pretty (Expression a), Pretty Intent) => Pretty (Statement a) where
       | otherwise =
         "entry" <+>
         pprint v name <+> parens (pprint v mArgs) <+>
-        maybe empty (\result -> "result" <+> parens (pprint v result)) mResult
+        "result (" <?> pprint v mResult <?> char ')'
 
     pprint v (StInclude _ _ file) = "include" <+> pprint v file
 
@@ -181,13 +183,13 @@ instance (Pretty (Expression a), Pretty Intent) => Pretty (Statement a) where
       | v < Fortran90
       , Nothing <- mDoSpec = tooOld v "Infinite DO loop" Fortran90
       | otherwise =
-        maybe empty (\name -> text name <> ": ") mConstructor <>
+        pprint v mConstructor <?> colon <+>
         "do" <+> pprint v mLabel <+> pprint v mDoSpec
 
     pprint v (StDoWhile _ _ mConstructor mLabel pred)
       | v < Fortran77Extended = tooOld v "While loop" Fortran77Extended
       | otherwise =
-        maybe empty (\name -> text name <> ": ") mConstructor <>
+        pprint v mConstructor <?> colon <+>
         "do" <+> pprint v mLabel <+>
         "while" <+> parens (pprint v pred)
 
@@ -219,7 +221,7 @@ instance (Pretty (Expression a), Pretty Intent) => Pretty (Statement a) where
 
     pprint v (StIfThen _ _ mConstructor condition)
       | v >= Fortran90 =
-        maybe empty (\name -> pprint v name <> ": ") mConstructor <>
+        pprint v mConstructor <?> colon <+>
         "if" <+> parens (pprint v condition) <+> "then"
       | v >= Fortran77Extended =
         case mConstructor of
@@ -254,7 +256,7 @@ instance (Pretty (Expression a), Pretty Intent) => Pretty (Statement a) where
 
     pprint v (StSelectCase _ _ mConstructor exp)
       | v >= Fortran90 =
-        maybe empty (\name -> pprint v name <> ": ") mConstructor <>
+        pprint v mConstructor <?> colon <+>
         "select case" <+> parens (pprint v exp)
       | otherwise = tooOld v "Case statement" Fortran90
 
@@ -375,7 +377,7 @@ instance (Pretty (Expression a)) => Pretty (DoSpecification a) where
     pprint v (DoSpecification _ _ s@StExpressionAssign{} limit mStride) =
       pprint v s <> comma
       <+> pprint v limit
-      <> maybe empty ((comma<+>) . pprint v) mStride
+      <> comma <?+> pprint v mStride
 
     -- Given DoSpec. has a single constructor, the only way for pattern
     -- match above to fail is to have the wrong type of statement embedded
@@ -385,8 +387,7 @@ instance (Pretty (Expression a)) => Pretty (DoSpecification a) where
 instance Pretty (Expression a) => Pretty (ControlPair a) where
     pprint v (ControlPair _ _ mStr exp)
       | v >= Fortran77
-      , Just str <- mStr =
-        text str <+> char '=' <+> pprint v exp
+      , Just str <- mStr = text str <+> char '=' <+> pprint v exp
       | v < Fortran77
       , Just str <- mStr = tooOld v "Named control pair" Fortran77
       | otherwise = pprint v exp
@@ -445,11 +446,7 @@ instance Pretty (Expression a) => Pretty (Index a) where
     -- to the pretty printer
     pprint v (IxSingle _ s (Just _) e) = pprint v e
     pprint v (IxRange _ s low up stride) =
-       low' <> char ':' <> up' <> stride'
-      where
-        low' = maybe empty (pprint v) low
-        up'  = maybe empty (pprint v) up
-        stride' =  maybe empty (\e -> char ':' <> pprint v e) stride
+       pprint v low <> colon <> pprint v up <> colon <?> pprint v stride
 
 -- A subset of Value permit the 'FirstParameter' operation
 instance FirstParameter (Value a) String
@@ -472,15 +469,16 @@ instance Pretty (Expression a) => Pretty (Declarator a) where
     pprint v (DeclVariable _ _ e mLen mInit)
       | v >= Fortran90 =
         pprint v e <>
-        maybe empty (("*"<>) . pprint v) mLen <>
-        maybe empty ((" ="<+>) . pprint v) mInit
+        char '*' <?> pprint v mLen <+>
+        char '=' <?+> pprint v mInit
 
     pprint v (DeclVariable _ _ e mLen mInit)
       | v >= Fortran77 =
         case mInit of
           Nothing -> pprint v e <>
-                     maybe empty (("*"<>) . pprint v) mLen
+                     char '*' <?> pprint v mLen
           _ -> tooOld v "Variable initialisation" Fortran90
+
     pprint v (DeclVariable _ _ e mLen mInit)
       | Nothing <- mLen
       , Nothing <- mInit = pprint v e
@@ -489,15 +487,15 @@ instance Pretty (Expression a) => Pretty (Declarator a) where
 
     pprint v (DeclArray _ _ e dims mLen mInit)
       | v >= Fortran90 =
-        pprint v e <> parens (pprint v dims) <>
-        maybe empty (("*"<>) . pprint v) mLen <>
-        maybe empty ((" ="<+>) . pprint v) mInit
+        pprint v e <> parens (pprint v dims) <+>
+        "*" <?> pprint v mLen <+>
+        equals <?> pprint v mInit
 
     pprint v (DeclArray _ _ e dims mLen mInit)
       | v >= Fortran77 =
         case mInit of
           Nothing -> pprint v e <> parens (pprint v dims) <>
-                     maybe empty (("*"<>) . pprint v) mLen
+                     "*" <?> pprint v mLen
           _ -> tooOld v "Variable initialisation" Fortran90
     pprint v (DeclArray _ _ e dims mLen mInit)
       | Nothing <- mLen
@@ -507,7 +505,7 @@ instance Pretty (Expression a) => Pretty (Declarator a) where
 
 instance Pretty (DimensionDeclarator a) where
     pprint v (DimensionDeclarator _ _ me1 me2) =
-      pprint v me1 <> maybe empty (const $ char ':') me1 <> pprint v me2
+      pprint v me1 <?> colon <> pprint v me2
 
 instance Pretty UnaryOp where
     pprint _ Plus  = char '+'
