@@ -283,6 +283,12 @@ spec =
         it "prints stop with code" $
           pprint Fortran66 (StStop () u (Just $ intGen 1)) `shouldBe` "stop 1"
 
+      describe "IO" $
+        describe "Print" $
+          it "prints vanilla print statement" $ do
+            let st = StPrint () u starVal (Just $ AList () u [ intGen 42 ])
+            pprint Fortran90 st `shouldBe` "print *, 42"
+
 valueExpressions :: Expression () -> Maybe (Expression ())
 valueExpressions e@ExpValue{} = Just e
 valueExpressions _ = Nothing

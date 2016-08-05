@@ -296,12 +296,18 @@ instance (Pretty (Expression a), Pretty Intent) => Pretty (Statement a) where
 
     pprint v (StPause _ _ code) = "pause" <+> pprint v code
 
+    pprint v (StRead _ _ cilist mIolist) =
+      "read" <+> parens (pprint v cilist) <+> pprint v mIolist
+    pprint v (StRead2 _ s formatId mIolist) =
+      "read" <+> pprint v formatId <> comma <?+> pprint v mIolist
+
+    pprint v (StWrite _ _ cilist mIolist) =
+      "write" <+> parens (pprint v cilist) <+> pprint v mIolist
+    pprint v (StPrint _ _ formatId mIolist) =
+      "print" <+> pprint v formatId <> comma <?+> pprint v mIolist
+
     pprint _ _ = empty
 {-
-    pprint v (StRead _ s s3 s4) = _
-    pprint v (StRead2 _ s s3 s4) = _
-    pprint v (StWrite _ s s3 s4) = _
-    pprint v (StPrint _ s s3 s4) = _
     pprint v (StOpen _ s s3) = _
     pprint v (StClose _ s s3) = _
     pprint v (StInquire _ s s3) = _
