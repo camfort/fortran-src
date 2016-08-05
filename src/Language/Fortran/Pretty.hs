@@ -280,13 +280,17 @@ instance (Pretty (Expression a), Pretty Intent) => Pretty (Statement a) where
       | v >= Fortran90 = pprint v lhs <+> "=>" <+> pprint v rhs
       | otherwise = tooOld v "Pointer assignment" Fortran90
 
+    pprint v (StLabelAssign _ _ label binding) =
+      "assign" <+> pprint v label <+> "to" <+> pprint v binding
+
+    pprint v (StGotoUnconditional _ _ label) = "goto" <+> pprint v label
+    pprint v (StGotoAssigned _ _ target labels) =
+      "goto" <+> pprint v target <+> parens (pprint v labels)
+    pprint v (StGotoComputed _ _ labels target) =
+      "goto" <+> parens (pprint v labels) <+> pprint v target
+
     pprint _ _ = empty
 {-
-    pprint v (StLabelAssign _ s s3 s4) = _
-    pprint v (StGotoUnconditional _ s s3) = _
-    pprint v (StGotoAssigned _ s s3 s4) = _
-    pprint v (StGotoComputed _ s s3 s4) = _
-    pprint v (StCall _ s s3 s4) = _
     pprint v (StReturn _ s s3) = _
     pprint v (StContinue _ s) = _
     pprint v (StStop _ s s3) = _
