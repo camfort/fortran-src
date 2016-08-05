@@ -56,8 +56,7 @@ instance Pretty BaseType where
 
 instance Pretty (TypeSpec a) where
     pprint v (TypeSpec _ _ baseType mSelector) =
-      pprint v baseType <>
-      if isJust mSelector then space <> pprint v mSelector else empty
+      pprint v baseType <+> pprint v mSelector
 
 instance Pretty (Selector a) where
   pprint v (Selector _ _ mLenSel mKindSel)
@@ -118,7 +117,7 @@ instance (Pretty (Expression a), Pretty Intent) => Pretty (Statement a) where
       | v >= Fortran90 =
         "save" <>
         if isJust mVars then " :: " <> pprint v mVars else empty
-      | otherwise = hang "save" 1 (pprint v mVars)
+      | otherwise = "save" <+> pprint v mVars
 
     pprint v (StDimension _ _ decls)
       | v >= Fortran90 = "dimension ::" <+> pprint v decls
@@ -165,12 +164,12 @@ instance (Pretty (Expression a), Pretty Intent) => Pretty (Statement a) where
       | v < Fortran90 =
         case mResult of
           Nothing ->
-            "entry" <+> hang (pprint v name) 1 (parens $ pprint v mArgs)
+            "entry" <+> pprint v name <+> parens (pprint v mArgs)
           Just _ -> tooOld v "Explicit result" Fortran90
       | otherwise =
         "entry" <+>
-        hang (pprint v name) 1 (parens $ pprint v mArgs) <>
-        maybe empty (\result -> " result" <+> parens (pprint v result)) mResult
+        pprint v name <+> parens (pprint v mArgs) <+>
+        maybe empty (\result -> "result" <+> parens (pprint v result)) mResult
 
     pprint v (StInclude _ _ file) = "include" <+> pprint v file
 
@@ -183,30 +182,30 @@ instance (Pretty (Expression a), Pretty Intent) => Pretty (Statement a) where
       , Nothing <- mDoSpec = tooOld v "Infinite DO loop" Fortran90
       | otherwise =
         maybe empty (\name -> text name <> ": ") mConstructor <>
-        hang (hang "do" 1 (pprint v mLabel)) 1 (pprint v mDoSpec)
+        "do" <+> pprint v mLabel <+> pprint v mDoSpec
 
     pprint v (StDoWhile _ _ mConstructor mLabel pred)
       | v < Fortran77Extended = tooOld v "While loop" Fortran77Extended
       | otherwise =
         maybe empty (\name -> text name <> ": ") mConstructor <>
-        hang "do" 1 (pprint v mLabel) <+>
+        "do" <+> pprint v mLabel <+>
         "while" <+> parens (pprint v pred)
 
     pprint v (StEnddo _ _ mConstructor)
       | v < Fortran77Extended = tooOld v "End do" Fortran77Extended
       | v < Fortran90
       , name <- mConstructor = tooOld v "Named DO loop" Fortran90
-      | otherwise = hang "end do" 1 (pprint v mConstructor)
+      | otherwise = "end do" <+> pprint v mConstructor
 
     pprint v (StExpressionAssign _ _ lhs rhs) =
       pprint v lhs <+> equals <+> pprint v rhs
 
     pprint v (StCycle _ _ mConstructor)
-      | v >= Fortran90 = hang "cycle" 1 (pprint v mConstructor)
+      | v >= Fortran90 = "cycle" <+> pprint v mConstructor
       | otherwise = tooOld v "Cycle" Fortran90
 
     pprint v (StExit _ _ mConstructor)
-      | v >= Fortran77Extended = hang "exit" 1 (pprint v mConstructor)
+      | v >= Fortran77Extended = "exit" <+> pprint v mConstructor
       | otherwise = tooOld v "Exit" Fortran77Extended
 
     pprint v (StIfLogical _ _ pred st) =
@@ -229,7 +228,7 @@ instance (Pretty (Expression a), Pretty Intent) => Pretty (Statement a) where
       | otherwise = tooOld v "Structured if" Fortran90
 
     pprint v (StElse _ _ mConstructor)
-      | v >= Fortran90 = hang "else" 1 (pprint v mConstructor)
+      | v >= Fortran90 = "else" <+> pprint v mConstructor
       | v >= Fortran77Extended =
         case mConstructor of
           Nothing -> "else"
@@ -238,9 +237,7 @@ instance (Pretty (Expression a), Pretty Intent) => Pretty (Statement a) where
 
     pprint v (StElsif _ _ mConstructor condition)
       | v >= Fortran90 =
-        hang ("else if" <+> parens (pprint v condition))
-             1
-             (pprint v mConstructor)
+        "else if" <+> parens (pprint v condition) <+> pprint v mConstructor
       | v >= Fortran77Extended =
         case mConstructor of
           Nothing -> "else if" <+> parens (pprint v condition)
@@ -248,7 +245,7 @@ instance (Pretty (Expression a), Pretty Intent) => Pretty (Statement a) where
       | otherwise = tooOld v "Else if" Fortran77Extended
 
     pprint v (StEndif _ _ mConstructor)
-      | v >= Fortran90 = hang "end if" 1 (pprint v mConstructor)
+      | v >= Fortran90 = "end if" <+> pprint v mConstructor
       | v >= Fortran77Extended =
         case mConstructor of
           Nothing -> "end if"
@@ -265,12 +262,12 @@ instance (Pretty (Expression a), Pretty Intent) => Pretty (Statement a) where
       | v >= Fortran90 =
         case mCase of
           Just casee ->
-            hang ("case" <+> parens (pprint v casee)) 1 (pprint v mConstructor)
-          Nothing -> hang "case default" 1 (pprint v mConstructor)
+            "case" <+> parens (pprint v casee) <+> pprint v mConstructor
+          Nothing -> "case default" <+> pprint v mConstructor
       | otherwise = tooOld v "Case statement" Fortran90
 
     pprint v (StEndcase _ _ mConstructor)
-      | v >= Fortran90 = hang "end case" 1 (pprint v mConstructor)
+      | v >= Fortran90 = "end case" <+> pprint v mConstructor
       | otherwise = tooOld v "Case statement" Fortran90
 
     pprint v (StFunction _ _ name args rhs) =
@@ -431,7 +428,7 @@ instance (Pretty (Argument a), Pretty (Value a)) => Pretty (Expression a) where
         floatDoc s $ pprint v e1 <+> char '%' <+> pprint v e2
 
     pprint v (ExpFunctionCall _ s e mes) =
-        floatDoc s $ pprint v e <> parens (maybe empty (pprint v) mes)
+        floatDoc s $ pprint v e <> parens (pprint v mes)
 
     pprint v (ExpImpliedDo _ s es dospec) =
         floatDoc s $ pprint v es <> comma <+> pprint v dospec
@@ -548,7 +545,7 @@ instance Pretty BinaryOp where
       | otherwise = tooOld v "Custom binary operator" Fortran90
 
 commaSep :: [Doc] -> Doc
-commaSep = hcat . punctuate (comma <> space)
+commaSep = hcat . punctuate ", "
 
 floatDoc :: SrcSpan -> Doc -> Doc
 floatDoc span d | lineDistance span == 0 =
