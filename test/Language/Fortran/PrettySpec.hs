@@ -242,6 +242,21 @@ spec =
           let stDo = StDo () u (Just "mistral") Nothing (Just doSpec)
           pprint Fortran90 stDo `shouldBe` "mistral: do i = -1, 5"
 
+      describe "If" $ do
+        it "prints arithmetic if" $ do
+          let arIf = StIfArithmetic () u (intGen 0)
+                (intGen 10) (intGen 20) (intGen 30)
+          pprint Fortran66 arIf `shouldBe` "if (0) 10, 20, 30"
+
+        it "prints logical if" $ do
+          let as = StExpressionAssign () u (varGen "x") (intGen 42)
+          let logIf = StIfLogical () u valFalse as
+          pprint Fortran90 logIf `shouldBe` "if (.false.) x = 42"
+
+        it "prints named if-then" $ do
+          let ifThen = StIfThen () u (Just "mistral") valTrue
+          pprint Fortran90 ifThen `shouldBe` "mistral: if (.true.) then"
+
 valueExpressions :: Expression () -> Maybe (Expression ())
 valueExpressions e@ExpValue{} = Just e
 valueExpressions _ = Nothing

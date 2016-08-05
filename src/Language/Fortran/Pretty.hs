@@ -228,14 +228,58 @@ instance (Pretty (Expression a), Pretty Intent) => Pretty (Statement a) where
       | v >= Fortran77Extended = hang "exit" 1 (pprint v mConstructor)
       | otherwise = unsupported v "Exit first appeared in Fortran 77 extension."
 
+    pprint v (StIfLogical _ _ pred st) =
+      "if" <+> parens (pprint v pred) <+> pprint v st
+
+    pprint v (StIfArithmetic _ _ exp ltPred eqPred gtPred) =
+      "if" <+> parens (pprint v exp) <+>
+      pprint v ltPred <> comma <+>
+      pprint v eqPred <> comma <+>
+      pprint v gtPred
+
+    pprint v (StIfThen _ _ mConstructor condition)
+      | v >= Fortran90 =
+        maybe empty (\name -> pprint v name <> ": ") mConstructor <>
+        "if" <+> parens (pprint v condition) <+> "then"
+      | v >= Fortran77Extended =
+        case mConstructor of
+          Nothing -> "if" <+> parens (pprint v condition) <+> "then"
+          _ -> unsupported v "Else first appeared in Fortran 77 extension."
+      | otherwise =
+        unsupported v "Structured if first appeared in Fortran 90."
+
+    pprint v (StElse _ _ mConstructor)
+      | v >= Fortran90 = hang "else" 1 (pprint v mConstructor)
+      | v >= Fortran77Extended =
+        case mConstructor of
+          Nothing -> "else"
+          Just _ -> unsupported v "Named else is introduced in Fortran 90."
+      | otherwise =
+        unsupported v "Else first appeared in Fortran 77 extension."
+
+    pprint v (StElsif _ _ mConstructor condition)
+      | v >= Fortran90 =
+        hang ("else if" <+> parens (pprint v condition))
+             1
+             (pprint v mConstructor)
+      | v >= Fortran77Extended =
+        case mConstructor of
+          Nothing -> "else if" <+> parens (pprint v condition)
+          _ -> unsupported v "Named else if is introduced in Fortran 90."
+      | otherwise =
+        unsupported v "Else if first appeared in Fortran 77 extension."
+
+    pprint v (StEndif _ _ mConstructor)
+      | v >= Fortran90 = hang "end if" 1 (pprint v mConstructor)
+      | v >= Fortran77Extended =
+        case mConstructor of
+          Nothing -> "end if"
+          Just _ -> unsupported v "Named end if is introduced in Fortran 90."
+      | otherwise =
+        unsupported v "End if first appeared in Fortran 77 extension."
+
     pprint _ _ = empty
 {-
-    pprint v (StIfLogical _ s s3 s4) = _
-    pprint v (StIfArithmetic _ s s3 s4 s5 s6) = _
-    pprint v (StIfThen _ s s3 s4) = _
-    pprint v (StElse _ s s3) = _
-    pprint v (StElsif _ s s3 s4) = _
-    pprint v (StEndif _ s s3) = _
     pprint v (StSelectCase _ s s3 s4) = _
     pprint v (StCase _ s s3 s4) = _
     pprint v (StEndcase _ s s3) = _
