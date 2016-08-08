@@ -332,13 +332,26 @@ instance (Pretty (Expression a), Pretty Intent) => Pretty (Statement a) where
 
     pprint v (StNullify _ _ vars) = "nullify" <+> pprint v vars
 
+    pprint v (StWhere _ _ mask assignment)
+      | v >= Fortran90 =
+        "where" <+> parens (pprint v mask) <+> pprint v assignment
+      | otherwise = tooOld v "Where statement" Fortran90
+
+    pprint v (StWhereConstruct _ _ mask)
+      | v >= Fortran90 = "where" <+> parens (pprint v mask)
+      | otherwise = tooOld v "Where construct" Fortran90
+
+    pprint v (StElsewhere _ _)
+      | v >= Fortran90 = "else where"
+      | otherwise = tooOld v "Else where" Fortran90
+
+    pprint v (StEndWhere _ _)
+      | v >= Fortran90 = "end where"
+      | otherwise = tooOld v "End where" Fortran90
+
     pprint _ _ = empty
 
 {-
-    pprint v (StWhere _ s s3 s4) = _
-    pprint v (StWhereConstruct _ s s3) = _
-    pprint v (StElsewhere _ s) = _
-    pprint v (StEndWhere _ s) = _
     pprint v (StUse _ s s3 s4) = _
     pprint v (StModuleProcedure _ s s3) = _
     pprint v (StType _ s s3 s4) = _

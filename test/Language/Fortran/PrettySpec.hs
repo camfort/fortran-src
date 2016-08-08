@@ -296,6 +296,12 @@ spec =
             let st = StAllocate () u (AList () u [ varGen "x" ]) (Just pair)
             pprint Fortran90 st `shouldBe` "allocate (x, stat=s)"
 
+      describe "Where" $
+        it "prints statement" $ do
+          let stAssign = StExpressionAssign () u (varGen "x") (intGen 42)
+          let stWhere = StWhere () u valTrue stAssign
+          pprint Fortran90 stWhere `shouldBe` "where (.true.) x = 42"
+
 
 valueExpressions :: Expression () -> Maybe (Expression ())
 valueExpressions e@ExpValue{} = Just e
