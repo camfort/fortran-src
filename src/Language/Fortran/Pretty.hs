@@ -355,10 +355,14 @@ instance (Pretty (Expression a), Pretty Intent) => Pretty (Statement a) where
         (comma <+> (pprint v only <> colon) <?+> pprint v mappings)
       | otherwise = tooOld v "Module system" Fortran90
 
+    pprint v (StModuleProcedure _ _ procedures)
+      | v >= Fortran90 =
+        "module procedure" <+> pprint v procedures
+      | otherwise = tooOld v "Module procedure" Fortran90
+
     pprint _ _ = empty
 
 {-
-    pprint v (StModuleProcedure _ s s3) = _
     pprint v (StType _ s s3 s4) = _
     pprint v (StEndType _ s s3) = _
     pprint v (StSequence _ s) = _
