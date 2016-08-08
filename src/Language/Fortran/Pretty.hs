@@ -43,7 +43,7 @@ instance Pretty a => Pretty (Maybe a) where
 instance Pretty String where
     pprint _ = text
 
-instance (Pretty (e a)) => Pretty (AList e a) where
+instance Pretty (e a) => Pretty (AList e a) where
     pprint v es = commaSep (map (pprint v) (aStrip es))
 
 instance Pretty BaseType where
@@ -90,7 +90,7 @@ instance Pretty (Selector a) where
       len e  = "len=" <> pprint Fortran90 e
       kind e = "kind=" <> pprint Fortran90 e
 
-instance (Pretty (Expression a), Pretty Intent) => Pretty (Statement a) where
+instance Pretty (Statement a) where
     pprint v st@(StDeclaration _ s typeSpec mAttrList declList)
       | v < Fortran90 = pprint v typeSpec <+> pprint v declList
       | v >= Fortran90 =
@@ -378,7 +378,7 @@ instance Pretty Only where
     pprint v Exclusive = "only"
     pprint v Permissive = empty
 
-instance Pretty (Expression a) => Pretty (Use a) where
+instance Pretty (Use a) where
     pprint v use
       | v >= Fortran90 =
         case use of
@@ -392,7 +392,7 @@ instance Pretty (Argument a) where
          Just keyName -> text keyName <+> char '=' <+> pprint v e
          Nothing      -> pprint v e
 
-instance Pretty (DimensionDeclarator a) => Pretty (Attribute a) where
+instance Pretty (Attribute a) where
     pprint v attr
       | v >= Fortran90 =
         case attr of
@@ -423,12 +423,12 @@ instance Pretty Intent where
 
 -- TODO come back to this once edit descriptors are properly handled in the
 -- parser.
-instance Pretty (Expression a) => Pretty (FormatItem a) where
+instance Pretty (FormatItem a) where
     pprint _ (FIHollerith _ _ (ValHollerith s)) =
       text (show $ length s) <> char 'h' <> text s
     pprint _ _ = error "Not yet supported."
 
-instance (Pretty (Expression a)) => Pretty (DoSpecification a) where
+instance Pretty (DoSpecification a) where
     pprint v (DoSpecification _ _ s@StExpressionAssign{} limit mStride) =
       pprint v s <> comma
       <+> pprint v limit
@@ -439,7 +439,7 @@ instance (Pretty (Expression a)) => Pretty (DoSpecification a) where
     -- in it.
     pprint _ _ = error "Incorrect initialisation in DO specification."
 
-instance Pretty (Expression a) => Pretty (ControlPair a) where
+instance Pretty (ControlPair a) where
     pprint v (ControlPair _ _ mStr exp)
       | v >= Fortran77
       , Just str <- mStr = text str <> char '=' <> pprint v exp
@@ -447,19 +447,19 @@ instance Pretty (Expression a) => Pretty (ControlPair a) where
       , Just str <- mStr = tooOld v "Named control pair" Fortran77
       | otherwise = pprint v exp
 
-instance Pretty (ImpElement a) => Pretty (ImpList a) where
+instance Pretty (ImpList a) where
     pprint v (ImpList _ _ bt els) = pprint v bt <+> parens (pprint v els)
 
-instance Pretty (Expression a) => Pretty (CommonGroup a) where
+instance Pretty (CommonGroup a) where
     pprint v (CommonGroup _ _ mName elems) =
       char '/' <> pprint v mName <> char '/' <> pprint v elems
 
-instance Pretty (Expression a) => Pretty (Namelist a) where
+instance Pretty (Namelist a) where
     pprint Fortran90 (Namelist _ _ name elems) =
       char '/' <> pprint Fortran90 name <> char '/' <> pprint Fortran90 elems
     pprint v _ = tooOld v "Namelist statement" Fortran90
 
-instance Pretty (Expression a) => Pretty (DataGroup a) where
+instance Pretty (DataGroup a) where
     pprint v (DataGroup _ _ vars exps) =
       pprint v vars <> char '/' <> pprint v exps <> char '/'
 
@@ -467,7 +467,7 @@ instance Pretty (ImpElement a) where
     pprint v (ImpCharacter _ _ c) = text c
     pprint v (ImpRange _ _ beg end) = text beg <> "-" <> text end
 
-instance (Pretty (Argument a), Pretty (Value a)) => Pretty (Expression a) where
+instance Pretty (Expression a) where
     pprint v (ExpValue _ s val)  =
          pprint v val
 
@@ -495,7 +495,7 @@ instance (Pretty (Argument a), Pretty (Value a)) => Pretty (Expression a) where
     pprint v (ExpReturnSpec _ s e) =
         floatDoc s $ char '*' <> pprint v e
 
-instance Pretty (Expression a) => Pretty (Index a) where
+instance Pretty (Index a) where
     pprint v (IxSingle _ s Nothing e) = pprint v e
     -- This is an intermediate expression form which shouldn't make it
     -- to the pretty printer
@@ -505,8 +505,7 @@ instance Pretty (Expression a) => Pretty (Index a) where
 
 -- A subset of Value permit the 'FirstParameter' operation
 instance FirstParameter (Value a) String
-instance (FirstParameter (Value a) String, Pretty (Expression a))
-       => Pretty (Value a) where
+instance Pretty (Value a) where
     pprint v ValStar       = char '*'
     pprint v ValAssignment
       | v >= Fortran90 = "assignment (=)"
@@ -520,7 +519,7 @@ instance (FirstParameter (Value a) String, Pretty (Expression a))
     pprint v (ValString str) = quotes $ text str
     pprint v valLit = text . getFirstParameter $ valLit
 
-instance Pretty (Expression a) => Pretty (Declarator a) where
+instance Pretty (Declarator a) where
     pprint v (DeclVariable _ _ e mLen mInit)
       | v >= Fortran90 =
         pprint v e <>
