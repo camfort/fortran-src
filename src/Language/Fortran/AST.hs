@@ -188,7 +188,7 @@ data Statement a  =
   | StWhereConstruct      a SrcSpan (Expression a)
   | StElsewhere           a SrcSpan
   | StEndWhere            a SrcSpan
-  | StUse                 a SrcSpan (Expression a) (Maybe (AList Use a))
+  | StUse                 a SrcSpan (Expression a) Only (Maybe (AList Use a))
   | StModuleProcedure     a SrcSpan (AList Expression a)
   | StType                a SrcSpan (Maybe (AList Attribute a)) String
   | StEndType             a SrcSpan (Maybe String)
@@ -197,6 +197,9 @@ data Statement a  =
   -- parsing problem.
   | StFormatBogus         a SrcSpan String
   deriving (Eq, Show, Data, Typeable, Generic, Functor)
+
+data Only = Exclusive | Permissive
+  deriving (Eq, Show, Data, Typeable, Generic)
 
 data Use a =
     UseRename a SrcSpan (Expression a) (Expression a)
@@ -557,6 +560,7 @@ instance Out a => Out (ProgramFile a)
 instance Out a => Out (ProgramUnit a)
 instance (Out a, Out (t a)) => Out (AList t a)
 instance Out a => Out (Statement a)
+instance Out Only
 instance Out a => Out (Argument a)
 instance Out a => Out (Use a)
 instance Out a => Out (Attribute a)
