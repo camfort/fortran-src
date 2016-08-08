@@ -87,7 +87,7 @@ labelWithinBlocks b = perBlock b
     perBlock (BlIf a s e1 e2 bss)      = BlIf a s (mfill i e1) (mmfill i e2) bss               where i = insLabel a
     perBlock (BlCase a s e1 e2 is bss) = BlCase a s (mfill i e1) (fill i e2) (mmfill i is) bss where i = insLabel a
     perBlock (BlDo a s e1 e2 bs)       = BlDo a s (mfill i e1) (mfill i e2) bs                 where i = insLabel a
-    perBlock (BlDoWhile a s e1 e2 bs)  = BlDoWhile a s (mfill i e1) (fill i e2) bs             where i = insLabel a
+    perBlock (BlDoWhile a s e1 n e2 bs)  = BlDoWhile a s (mfill i e1) n (fill i e2) bs         where i = insLabel a
     perBlock b                           = b
 
     mfill i  = fmap (fill i)
@@ -288,7 +288,7 @@ perBlock b@(BlDo _ _ mlab (Just spec) bs) = do
   me3' <- case me3 of Just e3 -> Just `fmap` processFunctionCalls e3; Nothing -> return Nothing
   perDoBlock Nothing b bs
 perBlock b@(BlDo _ _ _ Nothing bs) = perDoBlock Nothing b bs
-perBlock b@(BlDoWhile _ _ _ exp bs) = perDoBlock (Just exp) b bs
+perBlock b@(BlDoWhile _ _ _ _ exp bs) = perDoBlock (Just exp) b bs
 perBlock b@(BlStatement _ _ _ (StReturn {})) =
   processLabel b >> addToBBlock b >> closeBBlock_
 perBlock b@(BlStatement _ _ _ (StGotoUnconditional {})) =
@@ -408,7 +408,7 @@ genTemp str = do
 -- Strip nested code not necessary since it is duplicated in another
 -- basic block.
 stripNestedBlocks (BlDo a s l ds _)         = BlDo a s l ds []
-stripNestedBlocks (BlDoWhile a s l e _)     = BlDoWhile a s l e []
+stripNestedBlocks (BlDoWhile a s l n e _)     = BlDoWhile a s l n e []
 stripNestedBlocks (BlIf a s l exps _)       = BlIf a s l exps []
 stripNestedBlocks (BlStatement a s l
                    (StIfLogical a' s' e _)) = BlStatement a s l (StIfLogical a' s' e (StEndif a' s' Nothing))

@@ -132,10 +132,10 @@ groupDo' blocks@(b:bs) = b' : bs'
     (b', bs') = case b of
       BlStatement a s label st
         -- Do While statement
-        | StDoWhile _ _ mNameTarget _ condition <- st ->
+        | StDoWhile _ _ mTarget _ condition <- st ->
           let ( blocks, leftOverBlocks ) =
-                collectNonDoBlocks groupedBlocks mNameTarget
-          in ( BlDoWhile a (getTransSpan s blocks) label condition blocks
+                collectNonDoBlocks groupedBlocks mTarget
+          in ( BlDoWhile a (getTransSpan s blocks) label mTarget condition blocks
              , leftOverBlocks)
         -- Vanilla do statement
         | StDo _ _ mNameTarget Nothing doSpec <- st ->
@@ -267,7 +267,7 @@ applyGroupingToSubblocks f b
   | BlCase a s l scrutinee conds blocks <- b =
       BlCase a s l scrutinee conds $ map f blocks
   | BlDo a s l doSpec blocks <- b = BlDo a s l doSpec $ f blocks
-  | BlDoWhile a s l doSpec blocks <- b = BlDoWhile a s l doSpec $ f blocks
+  | BlDoWhile a s l n doSpec blocks <- b = BlDoWhile a s l n doSpec $ f blocks
   | BlInterface{} <- b =
       error "Interface blocks do not have groupable subblocks. Must not occur."
   | BlComment{} <- b =
