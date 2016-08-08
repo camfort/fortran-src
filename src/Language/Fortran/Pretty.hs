@@ -368,6 +368,10 @@ instance (Pretty (Expression a), Pretty Intent) => Pretty (Statement a) where
       | v >= Fortran90 = "end type" <+> pprint v name
       | otherwise  = tooOld v "Derived type" Fortran90
 
+    pprint v (StSequence _ _)
+      | v >= Fortran90 = "sequence"
+      | otherwise = tooOld v "Sequence" Fortran90
+
     pprint _ _ = empty
 
 {-
