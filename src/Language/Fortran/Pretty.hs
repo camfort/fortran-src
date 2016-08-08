@@ -372,11 +372,7 @@ instance (Pretty (Expression a), Pretty Intent) => Pretty (Statement a) where
       | v >= Fortran90 = "sequence"
       | otherwise = tooOld v "Sequence" Fortran90
 
-    pprint _ _ = empty
-
-{-
-    pprint v (StFormatBogus _ s s3) = _
--}
+    pprint v (StFormatBogus _ _ blob) = "format" <+> pprint v blob
 
 instance Pretty Only where
     pprint v Exclusive = "only"
