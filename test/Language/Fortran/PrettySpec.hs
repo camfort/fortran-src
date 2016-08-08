@@ -302,6 +302,11 @@ spec =
           let stWhere = StWhere () u valTrue stAssign
           pprint Fortran90 stWhere `shouldBe` "where (.true.) x = 42"
 
+      describe "Use" $
+        it "prints exlusive use statement" $ do
+          let aRenames = AList () u [ UseRename () u (varGen "x") (varGen "y") ]
+          let st = StUse () u (varGen "my_mod") Exclusive (Just aRenames)
+          pprint Fortran90 st `shouldBe` "use my_mod, only: x => y"
 
 valueExpressions :: Expression () -> Maybe (Expression ())
 valueExpressions e@ExpValue{} = Just e

@@ -349,16 +349,25 @@ instance (Pretty (Expression a), Pretty Intent) => Pretty (Statement a) where
       | v >= Fortran90 = "end where"
       | otherwise = tooOld v "End where" Fortran90
 
+    pprint v (StUse _ _ moduleName only mappings)
+      | v >= Fortran90 =
+        "use" <+> pprint v moduleName <>
+        (comma <+> (pprint v only <> colon) <?+> pprint v mappings)
+      | otherwise = tooOld v "Module system" Fortran90
+
     pprint _ _ = empty
 
 {-
-    pprint v (StUse _ s s3 s4) = _
     pprint v (StModuleProcedure _ s s3) = _
     pprint v (StType _ s s3 s4) = _
     pprint v (StEndType _ s s3) = _
     pprint v (StSequence _ s) = _
     pprint v (StFormatBogus _ s s3) = _
 -}
+
+instance Pretty Only where
+    pprint v Exclusive = "only"
+    pprint v Permissive = empty
 
 instance Pretty (Expression a) => Pretty (Use a) where
     pprint v use
