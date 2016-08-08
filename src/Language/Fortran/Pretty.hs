@@ -360,12 +360,17 @@ instance (Pretty (Expression a), Pretty Intent) => Pretty (Statement a) where
         "module procedure" <+> pprint v procedures
       | otherwise = tooOld v "Module procedure" Fortran90
 
+    pprint v (StType _ _ attrs name)
+      | v >= Fortran90 = "type" <+> pprint v attrs <+> pprint v name
+      | otherwise  = tooOld v "Derived type" Fortran90
+
+    pprint v (StEndType _ _ name)
+      | v >= Fortran90 = "end type" <+> pprint v name
+      | otherwise  = tooOld v "Derived type" Fortran90
+
     pprint _ _ = empty
 
 {-
-    pprint v (StType _ s s3 s4) = _
-    pprint v (StEndType _ s s3) = _
-    pprint v (StSequence _ s) = _
     pprint v (StFormatBogus _ s s3) = _
 -}
 
