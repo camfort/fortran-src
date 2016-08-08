@@ -121,7 +121,7 @@ spec =
     describe "Control pair" $
       it "prints named control pair" $ do
         let cp = ControlPair () u (Just "errno") (intGen 42)
-        pprint Fortran77Extended cp `shouldBe` "errno = 42"
+        pprint Fortran77Extended cp `shouldBe` "errno=42"
 
     describe "Implicit list" $
       it "prints mixed implicit lists" $ do
@@ -288,6 +288,14 @@ spec =
           it "prints vanilla print statement" $ do
             let st = StPrint () u starVal (Just $ AList () u [ intGen 42 ])
             pprint Fortran90 st `shouldBe` "print *, 42"
+
+      describe "Allocation" $
+        describe "Allocate" $
+          it "prints allocate statement" $ do
+            let pair = ControlPair () u (Just "stat") (varGen "s")
+            let st = StAllocate () u (AList () u [ varGen "x" ]) (Just pair)
+            pprint Fortran90 st `shouldBe` "allocate (x, stat=s)"
+
 
 valueExpressions :: Expression () -> Maybe (Expression ())
 valueExpressions e@ExpValue{} = Just e

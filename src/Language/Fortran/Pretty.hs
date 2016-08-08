@@ -320,11 +320,21 @@ instance (Pretty (Expression a), Pretty Intent) => Pretty (Statement a) where
     pprint v (StEndfile _ _ cilist) = "endfile" <+> parens (pprint v cilist)
     pprint v (StEndfile2 _ _ unit) = "endfile" <+> pprint v unit
 
+    pprint v (StAllocate _ _ vars contPair)
+      | v >= Fortran90 =
+        "allocate" <+> parens (pprint v vars <> comma <?+> pprint v contPair)
+      | otherwise = tooOld v "Allocate" Fortran90
+
+    pprint v (StDeallocate _ _ vars contPair)
+      | v >= Fortran90 =
+        "deallocate" <+> parens (pprint v vars <> comma <?+> pprint v contPair)
+      | otherwise = tooOld v "Deallocate" Fortran90
+
+    pprint v (StNullify _ _ vars) = "nullify" <+> pprint v vars
+
     pprint _ _ = empty
+
 {-
-    pprint v (StAllocate _ s s3 s4) = _
-    pprint v (StNullify _ s s3) = _
-    pprint v (StDeallocate _ s s3 s4) = _
     pprint v (StWhere _ s s3 s4) = _
     pprint v (StWhereConstruct _ s s3) = _
     pprint v (StElsewhere _ s) = _
@@ -401,7 +411,7 @@ instance (Pretty (Expression a)) => Pretty (DoSpecification a) where
 instance Pretty (Expression a) => Pretty (ControlPair a) where
     pprint v (ControlPair _ _ mStr exp)
       | v >= Fortran77
-      , Just str <- mStr = text str <+> char '=' <+> pprint v exp
+      , Just str <- mStr = text str <> char '=' <> pprint v exp
       | v < Fortran77
       , Just str <- mStr = tooOld v "Named control pair" Fortran77
       | otherwise = pprint v exp
