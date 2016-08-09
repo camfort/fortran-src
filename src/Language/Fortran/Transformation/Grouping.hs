@@ -1,8 +1,8 @@
 module Language.Fortran.Transformation.Grouping ( groupIf
-                                      , groupDo
-                                      , groupLabeledDo
-                                      , groupCase
-                                      ) where
+                                                , groupDo
+                                                , groupLabeledDo
+                                                , groupCase
+                                                ) where
 
 import Language.Fortran.AST
 import Language.Fortran.Analysis
