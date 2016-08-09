@@ -86,7 +86,7 @@ labelWithinBlocks b = perBlock b
     perBlock (BlStatement a s e st)    = BlStatement a s (mfill i e) (fill i st)               where i = insLabel a
     perBlock (BlIf a s e1 e2 bss)      = BlIf a s (mfill i e1) (mmfill i e2) bss               where i = insLabel a
     perBlock (BlCase a s e1 e2 is bss) = BlCase a s (mfill i e1) (fill i e2) (mmfill i is) bss where i = insLabel a
-    perBlock (BlDo a s e1 e2 bs)       = BlDo a s (mfill i e1) (mfill i e2) bs                 where i = insLabel a
+    perBlock (BlDo a s e1 mn tl e2 bs) = BlDo a s (mfill i e1) mn tl (mfill i e2) bs           where i = insLabel a
     perBlock (BlDoWhile a s e1 n e2 bs)  = BlDoWhile a s (mfill i e1) n (fill i e2) bs         where i = insLabel a
     perBlock b                           = b
 
@@ -281,13 +281,13 @@ perBlock b@(BlStatement a ss _ (StIfLogical _ _ exp stm)) = do
   createEdges [(ifN, thenN, ()), (ifN, nxtN, ()), (thenN, nxtN, ())]
 
 perBlock b@(BlStatement _ _ _ (StIfArithmetic {})) = error "BBlocks: StIfArithmetic unsupported"
-perBlock b@(BlDo _ _ mlab (Just spec) bs) = do
+perBlock b@(BlDo _ _ mlab _ _ (Just spec) bs) = do
   let DoSpecification _ _ (StExpressionAssign _ _ _ e1) e2 me3 = spec
   e1'  <- processFunctionCalls e1
   e2'  <- processFunctionCalls e2
   me3' <- case me3 of Just e3 -> Just `fmap` processFunctionCalls e3; Nothing -> return Nothing
   perDoBlock Nothing b bs
-perBlock b@(BlDo _ _ _ Nothing bs) = perDoBlock Nothing b bs
+perBlock b@(BlDo _ _ _ _ _ Nothing bs) = perDoBlock Nothing b bs
 perBlock b@(BlDoWhile _ _ _ _ exp bs) = perDoBlock (Just exp) b bs
 perBlock b@(BlStatement _ _ _ (StReturn {})) =
   processLabel b >> addToBBlock b >> closeBBlock_
@@ -407,8 +407,8 @@ genTemp str = do
 
 -- Strip nested code not necessary since it is duplicated in another
 -- basic block.
-stripNestedBlocks (BlDo a s l ds _)         = BlDo a s l ds []
-stripNestedBlocks (BlDoWhile a s l n e _)     = BlDoWhile a s l n e []
+stripNestedBlocks (BlDo a s l mn tl ds _)   = BlDo a s l mn tl ds []
+stripNestedBlocks (BlDoWhile a s l n e _)   = BlDoWhile a s l n e []
 stripNestedBlocks (BlIf a s l exps _)       = BlIf a s l exps []
 stripNestedBlocks (BlStatement a s l
                    (StIfLogical a' s' e _)) = BlStatement a s l (StIfLogical a' s' e (StEndif a' s' Nothing))
@@ -619,13 +619,13 @@ showBlock (BlStatement _ _ mlab st)
         StDimension _ _ adecls       -> "dimension " ++ aIntercalate ", " showDecl adecls
         _                            -> ""
 showBlock (BlIf _ _ mlab (Just e1:_) _) = showLab mlab ++ "if " ++ showExpr e1 ++ "\\l"
-showBlock (BlDo _ _ mlab (Just spec) _) =
+showBlock (BlDo _ _ mlab _ _ (Just spec) _) =
     showLab mlab ++ "do " ++ showExpr e1 ++ " <- " ++
       showExpr e2 ++ ", " ++
       showExpr e3 ++ ", " ++
       maybe "1" showExpr me4 ++ "\\l"
   where DoSpecification _ _ (StExpressionAssign _ _ e1 e2) e3 me4 = spec
-showBlock (BlDo _ _ _ Nothing _) = "do"
+showBlock (BlDo _ _ _ _ _ Nothing _) = "do"
 showBlock _ = ""
 
 showAttr (AttrParameter _ _) = "parameter"

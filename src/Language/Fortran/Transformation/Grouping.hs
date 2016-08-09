@@ -138,10 +138,10 @@ groupDo' blocks@(b:bs) = b' : bs'
           in ( BlDoWhile a (getTransSpan s blocks) label mTarget condition blocks
              , leftOverBlocks)
         -- Vanilla do statement
-        | StDo _ _ mNameTarget Nothing doSpec <- st ->
+        | StDo _ _ mName Nothing doSpec <- st ->
           let ( blocks, leftOverBlocks ) =
-                collectNonDoBlocks groupedBlocks mNameTarget
-          in ( BlDo a (getTransSpan s blocks) label doSpec blocks
+                collectNonDoBlocks groupedBlocks mName
+          in ( BlDo a (getTransSpan s blocks) label mName Nothing doSpec blocks
              , leftOverBlocks)
       b | containsGroups b ->
         ( applyGroupingToSubblocks groupDo' b, groupedBlocks )
@@ -171,10 +171,10 @@ groupLabeledDo' [ ] = [ ]
 groupLabeledDo' blos@(b:bs) = b' : bs'
   where
     (b', bs') = case b of
-      BlStatement a s label (StDo _ _ _ (Just (ExpValue _ _ (ValInteger targetLabel))) doSpec) ->
+      BlStatement a s label (StDo _ _ mn tl@(Just (ExpValue _ _ (ValInteger targetLabel))) doSpec) ->
         let ( blocks, leftOverBlocks ) =
               collectNonLabeledDoBlocks targetLabel groupedBlocks
-        in ( BlDo a (getTransSpan s blocks) label doSpec blocks
+        in ( BlDo a (getTransSpan s blocks) label mn tl doSpec blocks
            , leftOverBlocks)
       b | containsGroups b ->
         ( applyGroupingToSubblocks groupLabeledDo' b, groupedBlocks )
@@ -266,7 +266,7 @@ applyGroupingToSubblocks f b
   | BlIf a s l conds blocks <- b = BlIf a s l conds $ map f blocks
   | BlCase a s l scrutinee conds blocks <- b =
       BlCase a s l scrutinee conds $ map f blocks
-  | BlDo a s l doSpec blocks <- b = BlDo a s l doSpec $ f blocks
+  | BlDo a s l n tl doSpec blocks <- b = BlDo a s l n tl doSpec $ f blocks
   | BlDoWhile a s l n doSpec blocks <- b = BlDoWhile a s l n doSpec $ f blocks
   | BlInterface{} <- b =
       error "Interface blocks do not have groupable subblocks. Must not occur."
