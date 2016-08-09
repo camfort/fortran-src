@@ -11,8 +11,10 @@ import Language.Fortran.Transformation.TransformMonad
 import Debug.Trace
 
 genericGroup :: ([ Block (Analysis a) ] -> [ Block (Analysis a) ]) -> Transform a ()
-genericGroup groupingFunction = do
-    modifyProgramFile $ \ (ProgramFile pus e) -> ProgramFile (zip (map fst pus) . map (go . snd) $ pus) e
+genericGroup groupingFunction =
+    modifyProgramFile $
+      \(ProgramFile pus e) ->
+        ProgramFile (zip (map fst pus) . map (go . snd) $ pus) e
   where
     go pu =
       case pu of
