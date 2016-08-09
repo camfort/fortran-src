@@ -94,7 +94,7 @@ instance Pretty (Selector a) where
       kind e = "kind=" <> pprint Fortran90 e
 
 instance Pretty [ProgramUnit a] where
-    pprint v = foldl' (\b a -> b <> pprint v a) empty
+    pprint v = foldl' (\b a -> b <?> newline <> pprint v a) empty
 
 instance Pretty (ProgramUnit a) where
     pprint _ _ = empty
@@ -109,18 +109,18 @@ instance Pretty (Block a) where
     {-
     pprint v (BlIf _ _ mLabel conds bodies) = _
     pprint v (BlCase _ _ mLabel scrutinee conds bodies) = _
-
+    -}
 
     pprint v (BlInterface _ _ mLabel pus moduleProcs)
       | v >= Fortran90 =
         pprint v mLabel <+>
         "interface" <> newline <>
         pprint v pus <>
+        newline <>
         pprint v moduleProcs <>
         "end interface" <> newline
       | otherwise = tooOld v "Interface" Fortran90
 
-    -}
     pprint v (BlDo _ _ mLabel mn tl doSpec body el)
       | v >= Fortran77Extended =
         pprint v mLabel <>
