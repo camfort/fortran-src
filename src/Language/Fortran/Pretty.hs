@@ -106,8 +106,25 @@ instance Pretty (Block a) where
     pprint v (BlStatement _ _ mLabel st) =
       pprint v mLabel <+> pprint v st <> newline
 
+    pprint v (BlIf _ _ mLabel mName conds bodies el)
+      | v >= Fortran77 =
+        pprint v mLabel <+>
+        pprint v mName <?> colon <+>
+        "if" <+> parens (pprint v firstCond) <+> "then" <> newline <>
+        pprint v firstBody <>
+        foldl' (<>) empty (map displayCondBlock restCondsBodies) <>
+        (pprint v el <+> "end if" <+> pprint v mName) <> newline
+      | otherwise = tooOld v "Structured if" Fortran77
+      where
+        ((firstCond, firstBody): restCondsBodies) = zip conds bodies
+        displayCondBlock (mCond, block) =
+          case mCond of {
+            Just cond -> "else if" <+> parens (pprint v cond) <+> "then";
+            Nothing -> "else"
+          } <> newline <>
+          pprint v block
+
     {-
-    pprint v (BlIf _ _ mLabel conds bodies) = _
     pprint v (BlCase _ _ mLabel scrutinee conds bodies) = _
     -}
 

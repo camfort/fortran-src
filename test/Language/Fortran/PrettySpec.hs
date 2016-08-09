@@ -379,6 +379,34 @@ spec =
                                , "42 continue" ]
           pprint Fortran90 bl `shouldBe` text expect
 
+      describe "If" $ do
+        it "prints vanilla structured if" $ do
+          let bl = BlIf () u Nothing Nothing [ Just valTrue ] [ body ] Nothing
+          let expect = unlines [ "if (.true.) then"
+                               , "print *, i"
+                               , "i = i - 1"
+                               , "end if" ]
+          pprint Fortran90 bl `shouldBe` text expect
+
+        it "prints multiple condition named structured if" $ do
+          let conds = [ Just valTrue, Just valFalse, Just valTrue, Nothing ]
+          let bodies = replicate 4 body
+          let bl = BlIf () u Nothing (Just "mistral") conds bodies Nothing
+          let expect = unlines [ "mistral: if (.true.) then"
+                               , "print *, i"
+                               , "i = i - 1"
+                               , "else if (.false.) then"
+                               , "print *, i"
+                               , "i = i - 1"
+                               , "else if (.true.) then"
+                               , "print *, i"
+                               , "i = i - 1"
+                               , "else"
+                               , "print *, i"
+                               , "i = i - 1"
+                               , "end if mistral" ]
+          pprint Fortran90 bl `shouldBe` text expect
+
 valueExpressions :: Expression () -> Maybe (Expression ())
 valueExpressions e@ExpValue{} = Just e
 valueExpressions _ = Nothing
