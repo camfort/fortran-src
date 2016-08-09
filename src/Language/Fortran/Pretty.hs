@@ -662,7 +662,7 @@ instance Pretty BinaryOp where
     pprint v LTE = if v <= Fortran77Extended then ".le." else "<="
     pprint v GTE = if v <= Fortran77Extended then ".ge." else ">="
     pprint v EQ  = if v <= Fortran77Extended then ".eq." else "=="
-    pprint v NE  = if v <= Fortran77Extended then ".ne." else "!="
+    pprint v NE  = if v <= Fortran77Extended then ".ne." else "/="
     pprint v Or  = ".or."
     pprint v And = ".and."
     pprint v Equivalent
