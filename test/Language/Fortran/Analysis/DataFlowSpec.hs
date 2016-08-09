@@ -106,16 +106,16 @@ spec =
 
       it "genDefMap" $
         testGenDefMap F90 programLoop4Alt `shouldBe`
-          M.fromList [("i",IS.fromList [5,13]),("j",IS.fromList [7,9]),("r",IS.fromList [3,8])]
+          M.fromList [("i",IS.fromList [5,12]),("j",IS.fromList [7,9]),("r",IS.fromList [3,8])]
 
       it "reachingDefinitions" $ do
         IM.lookup 9 (reachingDefinitions dm gr) `shouldBe`
-          Just (IS.fromList [3,5,7,8,9,13], IS.fromList [3,5,7,8,9,13])
+          Just (IS.fromList [3,5,7,8,9,12], IS.fromList [3,5,7,8,9,12])
 
       it "flowsTo" $ do
         (S.fromList . edges . genFlowsToGraph bm dm gr $ reachingDefinitions dm gr) `shouldBe`
-          S.fromList [(3,8),(3,17),(5,8),(5,13),(5,15),(7,8),(7,9),(7,11),
-                       (8,8),(8,17),(9,8),(9,9),(9,11),(13,8),(13,13),(13,15)]
+          S.fromList [(3,8),(3,15),(5,8),(5,12),(5,13),(7,8),(7,9),(7,10),
+                       (8,8),(8,15),(9,8),(9,9),(9,10),(12,8),(12,12),(12,13)]
 
     -----------------------------------------------
 

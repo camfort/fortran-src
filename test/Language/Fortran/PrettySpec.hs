@@ -335,7 +335,7 @@ spec =
           let body = [ BlStatement () u Nothing st1
                      , BlStatement () u Nothing st2 ]
           let cond = ExpBinary () u LFA.GT (varGen "i") (intGen 42)
-          let bl = BlDoWhile () u Nothing (Just "my_block") cond body
+          let bl = BlDoWhile () u Nothing (Just "my_block") cond body Nothing
           let expect = unlines [ "my_block: do while (i > 42)"
                                , "print *, i"
                                , "i = i - 1"
