@@ -5,7 +5,7 @@
 module Language.Fortran.Pretty where
 
 import Data.Char
-import Data.Maybe (isJust)
+import Data.Maybe (isJust, isNothing)
 import Data.List (foldl')
 
 import Prelude hiding (EQ,LT,GT)
@@ -110,15 +110,6 @@ instance Pretty (Block a) where
     pprint v (BlIf _ _ mLabel conds bodies) = _
     pprint v (BlCase _ _ mLabel scrutinee conds bodies) = _
 
-    pprint v (BlDo _ _ mLabel targetLabel doSpec body)
-      | v >= Fortran77Extended =
-        pprint v mLabel <>
-        "do" <+> pprint v targetLabel <+> pprint v doSpec <> newline
-        pprint v body
-      | otherwise =
-        pprint v mLabel <>
-        "do" <+> pprint v targetLabel <+> pprint v doSpec <> newline
-        pprint v body
 
     pprint v (BlInterface _ _ mLabel pus moduleProcs)
       | v >= Fortran90 =
@@ -128,15 +119,33 @@ instance Pretty (Block a) where
         pprint v moduleProcs <>
         "end interface" <> newline
       | otherwise = tooOld v "Interface" Fortran90
-    -}
 
-    pprint v (BlDoWhile _ _ mLabel mName cond body)
+    -}
+    pprint v (BlDo _ _ mLabel mn tl doSpec body el)
+      | v >= Fortran77Extended =
+        pprint v mLabel <>
+        pprint v mn <?> colon <+>
+        "do" <+> pprint v tl <+> pprint v doSpec <> newline <>
+        pprint v body <>
+        if isJust tl && isNothing mn
+          then empty
+          else pprint v el <+> "end do" <+> pprint v mn <> newline
+      | otherwise =
+        case tl of
+          Just targetLabel ->
+            pprint v mLabel <>
+            "do" <+> pprint v targetLabel <+> pprint v doSpec <> newline <>
+            pprint v body
+          Nothing ->
+            error "Fortran 77 and earlier versions only have labeled DO blocks"
+
+    pprint v (BlDoWhile _ _ mLabel mName cond body el)
       | v >= Fortran77Extended =
         pprint v mLabel <+>
         pprint v mName <?> colon <+>
         "do while" <+> parens (pprint v cond) <> newline <>
         pprint v body <>
-        "end do" <+> pprint v mName <> newline
+        (pprint v el <+> "end do" <+> pprint v mName) <> newline
       | otherwise = tooOld v "Do while loop" Fortran77Extended
 
     pprint v (BlComment _ _ comment)

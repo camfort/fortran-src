@@ -327,13 +327,13 @@ spec =
       describe "Interface" $
         it "prints interface block" pending
 
+      let decrementRHS = ExpBinary () u Subtraction (varGen "i") (intGen 1)
+      let st1 = StPrint () u starVal (Just $ AList () u [ varGen "i" ])
+      let st2 = StExpressionAssign () u (varGen "i") decrementRHS
+      let body = [ BlStatement () u Nothing st1 , BlStatement () u Nothing st2 ]
+
       describe "Do While" $
         it "prints simple do while loop" $ do
-          let decrementRHS = ExpBinary () u Subtraction (varGen "i") (intGen 1)
-          let st1 = StPrint () u starVal (Just $ AList () u [ varGen "i" ])
-          let st2 = StExpressionAssign () u (varGen "i") decrementRHS
-          let body = [ BlStatement () u Nothing st1
-                     , BlStatement () u Nothing st2 ]
           let cond = ExpBinary () u LFA.GT (varGen "i") (intGen 42)
           let bl = BlDoWhile () u Nothing (Just "my_block") cond body Nothing
           let expect = unlines [ "my_block: do while (i > 42)"
@@ -342,6 +342,45 @@ spec =
                                , "end do my_block" ]
           pprint Fortran90 bl `shouldBe` text expect
 
+      describe "Do" $ do
+        it "prints 90 style do loop" $ do
+          let iAssign = StExpressionAssign () u (varGen "i") (intGen 1)
+          let doSpec = DoSpecification () u iAssign (intGen 9) (Just (intGen 2))
+          let bl = BlDo () u Nothing Nothing Nothing (Just doSpec) body Nothing
+          let expect = unlines [ "do i = 1, 9, 2"
+                               , "print *, i"
+                               , "i = i - 1"
+                               , "end do" ]
+          pprint Fortran90 bl `shouldBe` text expect
+
+        it "prints named infinite do loop" $ do
+          let bl = BlDo () u Nothing (Just "joker") Nothing Nothing body Nothing
+          let expect = unlines [ "joker: do"
+                               , "print *, i"
+                               , "i = i - 1"
+                               , "end do joker" ]
+          pprint Fortran90 bl `shouldBe` text expect
+
+        it "prints named labeled do loop" $ do
+          let iAssign = StExpressionAssign () u (varGen "i") (intGen 1)
+          let doSpec = DoSpecification () u iAssign (intGen 9) (Just (intGen 2))
+          let bl = BlDo () u Nothing (Just "joker") (Just $ intGen 42) (Just doSpec) body (Just $ intGen 42)
+          let expect = unlines [ "joker: do 42 i = 1, 9, 2"
+                               , "print *, i"
+                               , "i = i - 1"
+                               , "42 end do joker" ]
+          pprint Fortran90 bl `shouldBe` text expect
+
+        it "prints vanilla labeled do loop" $ do
+          let iAssign = StExpressionAssign () u (varGen "i") (intGen 1)
+          let doSpec = DoSpecification () u iAssign (intGen 9) (Just (intGen 2))
+          let body2 = body ++ [ BlStatement () u (Just $ intGen 42) (StContinue () u) ]
+          let bl = BlDo () u Nothing Nothing (Just $ intGen 42) (Just doSpec) body2 (Just $ intGen 42)
+          let expect = unlines [ "do 42 i = 1, 9, 2"
+                               , "print *, i"
+                               , "i = i - 1"
+                               , "42 continue" ]
+          pprint Fortran90 bl `shouldBe` text expect
 
 valueExpressions :: Expression () -> Maybe (Expression ())
 valueExpressions e@ExpValue{} = Just e
