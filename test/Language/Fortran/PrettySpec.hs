@@ -16,7 +16,7 @@ import Data.Maybe (catMaybes)
 
 import Control.Monad (void)
 
-import Language.Fortran.AST
+import Language.Fortran.AST as LFA
 import Language.Fortran.ParserMonad
 import Language.Fortran.Pretty
 import Language.Fortran.Parser.Any
@@ -307,6 +307,41 @@ spec =
           let aRenames = AList () u [ UseRename () u (varGen "x") (varGen "y") ]
           let st = StUse () u (varGen "my_mod") Exclusive (Just aRenames)
           pprint Fortran90 st `shouldBe` "use my_mod, only: x => y"
+
+    describe "Blocks" $ do
+      describe "Comment" $ do
+        let blComment = BlComment () u " si vis pacem para bellum"
+
+        it "prints 90 style comment" $
+          pprint Fortran90 blComment `shouldBe` "! si vis pacem para bellum\n"
+
+        it "prints 66 style comment" $
+          pprint Fortran66 blComment `shouldBe` "c si vis pacem para bellum\n"
+
+      describe "Statement" $
+        it "prints vanilla print" $ do
+          let st = StPrint () u starVal Nothing
+          let bl = BlStatement () u (Just $ intGen 42) st
+          pprint Fortran90 bl `shouldBe` "42 print *\n"
+
+      describe "Interface" $
+        it "prints interface block" pending
+
+      describe "Do While" $
+        it "prints simple do while loop" $ do
+          let decrementRHS = ExpBinary () u Subtraction (varGen "i") (intGen 1)
+          let st1 = StPrint () u starVal (Just $ AList () u [ varGen "i" ])
+          let st2 = StExpressionAssign () u (varGen "i") decrementRHS
+          let body = [ BlStatement () u Nothing st1
+                     , BlStatement () u Nothing st2 ]
+          let cond = ExpBinary () u LFA.GT (varGen "i") (intGen 42)
+          let bl = BlDoWhile () u Nothing (Just "my_block") cond body
+          let expect = unlines [ "my_block: do while (i > 42)"
+                               , "print *, i"
+                               , "i = i - 1"
+                               , "end do my_block" ]
+          pprint Fortran90 bl `shouldBe` text expect
+
 
 valueExpressions :: Expression () -> Maybe (Expression ())
 valueExpressions e@ExpValue{} = Just e

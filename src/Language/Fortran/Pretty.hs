@@ -6,7 +6,10 @@ module Language.Fortran.Pretty where
 
 import Data.Char
 import Data.Maybe (isJust)
+import Data.List (foldl')
+
 import Prelude hiding (EQ,LT,GT)
+
 import Language.Fortran.AST
 import Language.Fortran.ParserMonad
 import Language.Fortran.Util.Position
@@ -29,6 +32,9 @@ infixl 7 <?>
 (<?+>) :: Doc -> Doc -> Doc
 doc1 <?+> doc2 = if doc1 == empty || doc2 == empty then empty else doc1 <+> doc2
 infixl 7 <?+>
+
+newline :: Doc
+newline = char '\n'
 
 class Pretty t where
    pprint :: FortranVersion -> t -> Doc
@@ -86,6 +92,56 @@ instance Pretty (Selector a) where
     where
       len e  = "len=" <> pprint Fortran90 e
       kind e = "kind=" <> pprint Fortran90 e
+
+instance Pretty [ProgramUnit a] where
+    pprint v = foldl' (\b a -> b <> pprint v a) empty
+
+instance Pretty (ProgramUnit a) where
+    pprint _ _ = empty
+
+instance Pretty [Block a] where
+    pprint v = foldl' (\b a -> b <> pprint v a) empty
+
+instance Pretty (Block a) where
+    pprint v (BlStatement _ _ mLabel st) =
+      pprint v mLabel <+> pprint v st <> newline
+
+    {-
+    pprint v (BlIf _ _ mLabel conds bodies) = _
+    pprint v (BlCase _ _ mLabel scrutinee conds bodies) = _
+
+    pprint v (BlDo _ _ mLabel targetLabel doSpec body)
+      | v >= Fortran77Extended =
+        pprint v mLabel <>
+        "do" <+> pprint v targetLabel <+> pprint v doSpec <> newline
+        pprint v body
+      | otherwise =
+        pprint v mLabel <>
+        "do" <+> pprint v targetLabel <+> pprint v doSpec <> newline
+        pprint v body
+
+    pprint v (BlInterface _ _ mLabel pus moduleProcs)
+      | v >= Fortran90 =
+        pprint v mLabel <+>
+        "interface" <> newline <>
+        pprint v pus <>
+        pprint v moduleProcs <>
+        "end interface" <> newline
+      | otherwise = tooOld v "Interface" Fortran90
+    -}
+
+    pprint v (BlDoWhile _ _ mLabel mName cond body)
+      | v >= Fortran77Extended =
+        pprint v mLabel <+>
+        pprint v mName <?> colon <+>
+        "do while" <+> parens (pprint v cond) <> newline <>
+        pprint v body <>
+        "end do" <+> pprint v mName <> newline
+      | otherwise = tooOld v "Do while loop" Fortran77Extended
+
+    pprint v (BlComment _ _ comment)
+      | v >= Fortran90 = char '!' <> text comment <> newline
+      | otherwise = char 'c' <> text comment <> newline
 
 instance Pretty (Statement a) where
     pprint v st@(StDeclaration _ s typeSpec mAttrList declList)
