@@ -407,6 +407,27 @@ spec =
                                , "end if mistral" ]
           pprint Fortran90 bl `shouldBe` text expect
 
+      describe "Case" $
+        it "prints complicated structured if" $ do
+          let range = IxRange () u (Just $ intGen 2) (Just $ intGen 4) Nothing
+          let cases = [ Just (AList () u [range])
+                      , Just (AList () u [ IxSingle () u Nothing (intGen 7) ])
+                      , Nothing ]
+          let bodies = replicate 3 body
+          let bl = BlCase () u Nothing Nothing (varGen "x") cases bodies (Just (intGen 42))
+          let expect = unlines [ "select case (x)"
+                               , "case (2:4)"
+                               , "print *, i"
+                               , "i = i - 1"
+                               , "case (7)"
+                               , "print *, i"
+                               , "i = i - 1"
+                               , "case default"
+                               , "print *, i"
+                               , "i = i - 1"
+                               , "42 end select" ]
+          pprint Fortran90 bl `shouldBe` text expect
+
 valueExpressions :: Expression () -> Maybe (Expression ())
 valueExpressions e@ExpValue{} = Just e
 valueExpressions _ = Nothing

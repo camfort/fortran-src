@@ -124,9 +124,21 @@ instance Pretty (Block a) where
           } <> newline <>
           pprint v block
 
-    {-
-    pprint v (BlCase _ _ mLabel scrutinee conds bodies) = _
-    -}
+    pprint v (BlCase _ _ mLabel mName scrutinee ranges bodies el)
+      | v >= Fortran90 =
+        pprint v mLabel <+>
+        pprint v mName <?> colon <+>
+        "select case" <+> parens (pprint v scrutinee) <> newline <>
+        foldl' (<>) empty (zipWith (curry displayRangeBlock) ranges bodies) <>
+        (pprint v el <+> "end select" <+> pprint v mName) <> newline
+      | otherwise = tooOld v "Select case" Fortran90
+      where
+        displayRangeBlock (mRanges, block) =
+          "case" <+>
+          case mRanges of {
+            Just ranges -> parens (pprint v ranges);
+            Nothing -> "default" } <> newline <>
+          pprint v block
 
     pprint v (BlInterface _ _ mLabel pus moduleProcs)
       | v >= Fortran90 =
