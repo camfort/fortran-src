@@ -8,6 +8,7 @@
 
 module Language.Fortran.ParserMonad where
 
+import GHC.IO.Exception
 import Control.Exception
 
 import Control.Monad.State
@@ -179,11 +180,19 @@ decPar = do
 -- Generic token collection and functions
 -------------------------------------------------------------------------------
 
+throwIOerror s = throw $
+  IOError { ioe_handle      = Nothing
+          , ioe_type        = UserError
+          , ioe_location    = "fortran-src"
+          , ioe_description = s
+          , ioe_errno       = Nothing
+          , ioe_filename    = Nothing }
+
 runParse :: (Loc b, LastToken b c, Show c) => Parse b c a -> ParseState b -> (a, ParseState b)
 runParse lexer initState =
   case unParse lexer initState of
     ParseOk a s -> (a, s)
-    ParseFailed e -> error $ show e
+    ParseFailed e -> throwIOerror $ show e
 
 evalParse :: (Loc b, LastToken b c, Show c) => Parse b c a -> ParseState b -> a
 evalParse m s = fst (runParse m s)
