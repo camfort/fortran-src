@@ -921,8 +921,9 @@ lexer' = do
   let user = User version paranthesesCount
   case alexScanUser user newAlex startCode of
     AlexEOF -> return $ TEOF $ SrcSpan (getPos alex) (getPos alex)
-    AlexError _ ->
-      fail $ "Lexing failed. "
+    AlexError _ -> do
+      parseState <- get
+      fail $ psFilename parseState ++ ": lexing failed. "
 #ifdef DEBUG
         ++ '\n' : show newAlex ++ "\n"
 #endif

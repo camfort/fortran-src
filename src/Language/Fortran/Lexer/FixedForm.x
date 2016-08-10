@@ -826,7 +826,9 @@ lexer' = do
   version <- getVersion
   case alexScanUser version alexInput startCode of
     AlexEOF -> return $ TEOF $ SrcSpan (getPos alexInput) (getPos alexInput)
-    AlexError _ -> fail "Lexing failed. "
+    AlexError _ -> do
+      parseState <- get
+      fail $ psFilename parseState ++ ": lexing failed. "
     AlexSkip newAlex _ -> putAlex newAlex >> lexer'
     AlexToken newAlex startCode action -> do
       putAlex newAlex
