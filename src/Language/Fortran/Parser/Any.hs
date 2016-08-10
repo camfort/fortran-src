@@ -22,6 +22,7 @@ deduceVersion path
   | isExtensionOf ".f2003"  = Fortran2003
   | isExtensionOf ".f08"    = Fortran2008
   | isExtensionOf ".f2008"  = Fortran2008
+  | otherwise               = Fortran90 -- default
   where
     isExtensionOf = flip isSuffixOf $ map toLower path
 
