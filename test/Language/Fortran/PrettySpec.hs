@@ -454,6 +454,24 @@ spec =
                                , "end module my_mod" ]
           pprint Fortran90 mod `shouldBe` text expect
 
+      describe "Subroutine" $ do
+        it "prints recursive subroutine with args without sub programs" $ do
+          let args = AList () u [ varGen "x", varGen "y", varGen "z" ]
+          let sub = PUSubroutine () u True "sub" (Just args) body Nothing
+          let expect = unlines [ "recursive subroutine sub(x, y, z)"
+                               , "print *, i"
+                               , "i = i - 1"
+                               , "end subroutine sub" ]
+          pprint Fortran90 sub `shouldBe` text expect
+
+        it "prints 66 style subroutine without args" $ do
+          let mod = PUSubroutine () u False "sub" Nothing body Nothing
+          let expect = unlines [ "subroutine sub"
+                               , "print *, i"
+                               , "i = i - 1"
+                               , "end" ]
+          pprint Fortran66 mod `shouldBe` text expect
+
 valueExpressions :: Expression () -> Maybe (Expression ())
 valueExpressions e@ExpValue{} = Just e
 valueExpressions _ = Nothing

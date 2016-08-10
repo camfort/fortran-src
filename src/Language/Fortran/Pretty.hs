@@ -126,8 +126,25 @@ instance Pretty (ProgramUnit a) where
         "end module" <+> text name <> newline
       | otherwise = tooOld v "Module system" Fortran90
 
+    pprint v (PUSubroutine _ _ isRec name mArgs body mSubs)
+      | isRec && v < Fortran90 = tooOld v "Recursive subroutine" Fortran90
+      | Just _ <- mSubs
+      , v < Fortran90 = tooOld v "Subroutine subprograms" Fortran90
+      | otherwise =
+        (if isRec then "recursive" else empty) <+>
+        "subroutine" <+> text name <>
+        lparen <?> pprint v mArgs <?> rparen <> newline <>
+        pprint v body <>
+        "end" <>
+        if v <= Fortran77
+          then newline
+          else
+            " subroutine" <>
+            if v < Fortran90
+              then newline
+              else space <> text name <> newline
+
     {-
-    pprint v (PUSubroutine _ _ pu3 pu4 pu5 pu6 pu7) = _
     pprint v (PUFunction _ _ pu3 pu4 pu5 pu6 pu7 pu8 pu9) = _
     pprint v (PUBlockData _ _ pu3 pu4) = _
     -}
