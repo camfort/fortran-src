@@ -171,39 +171,46 @@ groupLabeledDo' [ ] = [ ]
 groupLabeledDo' blos@(b:bs) = b' : bs'
   where
     (b', bs') = case b of
-      BlStatement a s label (StDo _ span _ (Just (ExpValue _ _ (ValInteger targetLabel))) doSpec) ->
-        case collectNonLabeledDoBlocks targetLabel groupedBlocks of
-            -- Successfully grouped
-            Just ( blocks, leftOverBlocks ) ->
-               ( BlDo a (getTransSpan s blocks) label doSpec blocks, leftOverBlocks)
+      BlStatement a s label
+        (StDo _ _ _ (Just (ExpValue _ _ (ValInteger targetLabel))) doSpec) ->
 
-            -- Failed to group
-            Nothing -> (b, groupedBlocks)
+        case collectNonLabeledDoBlocks targetLabel groupedBlocks of
+          -- Successfully grouped
+          Just ( blocks, leftOverBlocks ) ->
+           ( BlDo a (getTransSpan s blocks) label doSpec blocks, leftOverBlocks)
+
+          -- Failed to group, so leave ungrouped
+          Nothing -> (b, groupedBlocks)
 
       b | containsGroups b ->
         ( applyGroupingToSubblocks groupLabeledDo' b, groupedBlocks )
       _ -> (b, groupedBlocks)
-    groupedBlocks = groupLabeledDo' bs -- Assume everything to the right is grouped.
 
-collectNonLabeledDoBlocks :: String -> [ Block (Analysis a) ] -> Maybe ([ Block (Analysis a) ], [ Block (Analysis a) ])
+    -- Assume everything to the right is grouped.
+    groupedBlocks = groupLabeledDo' bs
+
+collectNonLabeledDoBlocks ::
+    String -> [ Block (Analysis a) ]
+           -> Maybe ([ Block (Analysis a) ], [ Block (Analysis a) ])
 collectNonLabeledDoBlocks targetLabel blocks =
   case blocks of
     -- Didn't find a statement with matching label; don't group
     [] -> Nothing
-    
+
     -- Found matching statement
     b@(BlStatement _ _ (Just (ExpValue _ _ (ValInteger label))) _):rest
       | label == targetLabel -> Just ([ b ], rest)
 
     -- Error case of badly-bracketted do-blocks; fail
     b@(BlDo _ span _ _ blocks):rest
-      | badlyNested targetLabel (collectNonLabeledDoBlocks targetLabel blocks) ->
-        error $ "End of nonblock DO statement interwoven with another DO at " ++ show span
+      | badNesting targetLabel (collectNonLabeledDoBlocks targetLabel blocks) ->
+        error $ "End of nonblock DO statement interwoven with another DO at "
+                ++ show span
 
     b:bs -> do (bs', rest) <- collectNonLabeledDoBlocks targetLabel bs
                return (b : bs', rest)
 
-badlyNested targetLabel (Just (bs, rest)) | length rest == 0 =
+badNesting targetLabel (Just (bs, rest)) | length rest == 0 =
     case last bs of
       -- Last statement in an already grouped DO block
       -- is a labelled statement matching the target label:
@@ -211,10 +218,11 @@ badlyNested targetLabel (Just (bs, rest)) | length rest == 0 =
       -- which is valid (i.e., well-nested).
       b@(BlStatement _ _ (Just (ExpValue _ _ (ValInteger label))) _)
          | label == targetLabel -> False
-      -- Otherwise, badly nested
+      -- Otherwise, the label doesn't match and we have badly nested
+      -- do blocks
       otherwise                 -> True
-badlyNested _ (Just _) = True
-badlyNested _ _        = False
+badNesting _ (Just _) = True
+badNesting _ _        = False
 
 --------------------------------------------------------------------------------
 -- Grouping case statements
