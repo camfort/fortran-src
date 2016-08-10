@@ -117,8 +117,16 @@ instance Pretty (ProgramUnit a) where
         pprint v mSubs <>
         "end" <> " program" <?+> pprint v mName <> newline
 
+    pprint v (PUModule _ _ name body mSubs)
+      | v >= Fortran90 =
+        "module" <+> text name <> newline <>
+        pprint v body <>
+        newline <?> "contains" <?> newline <?> newline <?>
+        pprint v mSubs <>
+        "end module" <+> text name <> newline
+      | otherwise = tooOld v "Module system" Fortran90
+
     {-
-    pprint v (PUModule _ _ pu3 pu4 pu5) = _
     pprint v (PUSubroutine _ _ pu3 pu4 pu5 pu6 pu7) = _
     pprint v (PUFunction _ _ pu3 pu4 pu5 pu6 pu7 pu8 pu9) = _
     pprint v (PUBlockData _ _ pu3 pu4) = _

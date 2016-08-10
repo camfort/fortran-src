@@ -445,6 +445,15 @@ spec =
                                , "end" ]
           pprint Fortran66 main `shouldBe` text expect
 
+      describe "Module" $
+        it "prints module without sub programs" $ do
+          let mod = PUModule () u "my_mod" body Nothing
+          let expect = unlines [ "module my_mod"
+                               , "print *, i"
+                               , "i = i - 1"
+                               , "end module my_mod" ]
+          pprint Fortran90 mod `shouldBe` text expect
+
 valueExpressions :: Expression () -> Maybe (Expression ())
 valueExpressions e@ExpValue{} = Just e
 valueExpressions _ = Nothing
