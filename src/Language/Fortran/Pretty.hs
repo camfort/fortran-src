@@ -14,9 +14,6 @@ import Language.Fortran.AST
 import Language.Fortran.ParserMonad
 import Language.Fortran.Util.Position
 import Language.Fortran.Util.FirstParameter
-import Language.Fortran.Util.SecondParameter
-
-import Control.Monad (void)
 
 import Text.PrettyPrint
 
