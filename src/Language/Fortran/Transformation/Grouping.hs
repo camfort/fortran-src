@@ -179,8 +179,16 @@ groupLabeledDo' blos@(b:bs) = b' : bs'
           Just ( blocks, leftOverBlocks ) ->
            ( BlDo a (getTransSpan s blocks) label doSpec blocks, leftOverBlocks)
 
-          -- Failed to group, so leave ungrouped
-          Nothing -> (b, groupedBlocks)
+          -- Failed to group
+          Nothing ->
+            -- Split at the targetLabel on the original block list
+            case collectNonLabeledDoBlocks targetLabel bs of
+               -- If there is never an end-point to the block
+               -- then skip this block and group the rest
+               Nothing -> (b , groupLabeledDo' bs)
+               -- Otherwise, leave all blocks ungrouped *up-to the labelled
+               -- target statement* and proceed with grouping on the rest
+               Just ( blocks, rest ) -> ( b , blocks ++ groupLabeledDo' rest )
 
       b | containsGroups b ->
         ( applyGroupingToSubblocks groupLabeledDo' b, groupedBlocks )
@@ -188,6 +196,7 @@ groupLabeledDo' blos@(b:bs) = b' : bs'
 
     -- Assume everything to the right is grouped.
     groupedBlocks = groupLabeledDo' bs
+
 
 collectNonLabeledDoBlocks ::
     String -> [ Block (Analysis a) ]
