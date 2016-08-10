@@ -308,6 +308,11 @@ spec =
           let st = StUse () u (varGen "my_mod") Exclusive (Just aRenames)
           pprint Fortran90 st `shouldBe` "use my_mod, only: x => y"
 
+    let decrementRHS = ExpBinary () u Subtraction (varGen "i") (intGen 1)
+    let st1 = StPrint () u starVal (Just $ AList () u [ varGen "i" ])
+    let st2 = StExpressionAssign () u (varGen "i") decrementRHS
+    let body = [ BlStatement () u Nothing st1 , BlStatement () u Nothing st2 ]
+
     describe "Blocks" $ do
       describe "Comment" $ do
         let blComment = BlComment () u " si vis pacem para bellum"
@@ -326,11 +331,6 @@ spec =
 
       describe "Interface" $
         it "prints interface block" pending
-
-      let decrementRHS = ExpBinary () u Subtraction (varGen "i") (intGen 1)
-      let st1 = StPrint () u starVal (Just $ AList () u [ varGen "i" ])
-      let st2 = StExpressionAssign () u (varGen "i") decrementRHS
-      let body = [ BlStatement () u Nothing st1 , BlStatement () u Nothing st2 ]
 
       describe "Do While" $
         it "prints simple do while loop" $ do
@@ -427,6 +427,23 @@ spec =
                                , "i = i - 1"
                                , "42 end select" ]
           pprint Fortran90 bl `shouldBe` text expect
+
+    describe "Program units" $ do
+      describe "Main" $ do
+        it "prints 90 style main without sub programs" $ do
+          let main = PUMain () u (Just "main") body Nothing
+          let expect = unlines [ "program main"
+                               , "print *, i"
+                               , "i = i - 1"
+                               , "end program main" ]
+          pprint Fortran90 main `shouldBe` text expect
+
+        it "prints 66 style main" $ do
+          let main = PUMain () u Nothing body Nothing
+          let expect = unlines [ "print *, i"
+                               , "i = i - 1"
+                               , "end" ]
+          pprint Fortran66 main `shouldBe` text expect
 
 valueExpressions :: Expression () -> Maybe (Expression ())
 valueExpressions e@ExpValue{} = Just e

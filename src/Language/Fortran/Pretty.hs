@@ -97,7 +97,32 @@ instance Pretty [ProgramUnit a] where
     pprint v = foldl' (\b a -> b <?> newline <> pprint v a) empty
 
 instance Pretty (ProgramUnit a) where
-    pprint _ _ = empty
+    pprint v (PUMain _ _ mName body mSubs)
+      | v < Fortran77 =
+        if isJust mName
+          then tooOld v "Named main program unit" Fortran77
+          else
+            if isJust mSubs
+              then tooOld v "Subprogram unit" Fortran90
+              else pprint v body <> "end" <> newline
+      | v < Fortran90 =
+        "program" <?+> pprint v mName <?> newline <>
+        if isJust mSubs
+          then tooOld v "Subprogram unit" Fortran90
+          else pprint v body <> "end" <> newline
+      | otherwise =
+        "program" <?+> pprint v mName <?> newline <>
+        pprint v body <>
+        newline <?> "contains" <?> newline <?> newline <?>
+        pprint v mSubs <>
+        "end" <> " program" <?+> pprint v mName <> newline
+
+    {-
+    pprint v (PUModule _ _ pu3 pu4 pu5) = _
+    pprint v (PUSubroutine _ _ pu3 pu4 pu5 pu6 pu7) = _
+    pprint v (PUFunction _ _ pu3 pu4 pu5 pu6 pu7 pu8 pu9) = _
+    pprint v (PUBlockData _ _ pu3 pu4) = _
+    -}
 
 instance Pretty [Block a] where
     pprint v = foldl' (\b a -> b <> pprint v a) empty
