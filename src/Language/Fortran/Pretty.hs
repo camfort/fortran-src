@@ -93,6 +93,13 @@ instance Pretty (Selector a) where
       len e  = "len=" <> pprint Fortran90 e
       kind e = "kind=" <> pprint Fortran90 e
 
+instance Pretty (ProgramFile a) where
+    pprint v (ProgramFile commentUnitPairs trailingComments) =
+      foldl' (\b a -> b <> pprintPair a) empty commentUnitPairs <>
+      pprint v trailingComments
+      where
+        pprintPair (comments, pu) = pprint v comments <> pprint v pu
+
 instance Pretty [ProgramUnit a] where
     pprint v = foldl' (\b a -> b <?> newline <> pprint v a) empty
 

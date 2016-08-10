@@ -455,6 +455,24 @@ spec =
                                , "end function f" ]
           pprint Fortran90 fun `shouldBe` text expect
 
+    describe "Program file" $
+      it "prints simple program file" $ do
+        let body = [ BlStatement () u Nothing (StContinue () u) ]
+        let pu = PUModule () u "my_mod" body Nothing
+        let com = BlComment () u "hello!"
+        let pf = ProgramFile [([com], pu), ([com], pu)] [com, com]
+        let expect = unlines [ "!hello!"
+                             , "module my_mod"
+                             , "continue"
+                             , "end module my_mod"
+                             , "!hello!"
+                             , "module my_mod"
+                             , "continue"
+                             , "end module my_mod"
+                             , "!hello!"
+                             , "!hello!" ]
+        pprint Fortran90 pf `shouldBe` text expect
+
 valueExpressions :: Expression () -> Maybe (Expression ())
 valueExpressions e@ExpValue{} = Just e
 valueExpressions _ = Nothing
