@@ -127,30 +127,20 @@ instance Pretty (ProgramUnit a) where
       | otherwise = tooOld v "Module system" Fortran90
 
     pprint v (PUSubroutine _ _ isRec name mArgs body mSubs)
-      | isRec && v < Fortran90 = tooOld v "Recursive subroutine" Fortran90
-      | Just _ <- mSubs
-      , v < Fortran90 = tooOld v "Subroutine subprogram" Fortran90
+      | isRec, v < Fortran90 = tooOld v "Recursive subroutine" Fortran90
+      | isJust mSubs, v < Fortran90 = tooOld v "Subroutine subprogram" Fortran90
       | otherwise =
         (if isRec then "recursive" else empty) <+>
         "subroutine" <+> text name <>
         lparen <?> pprint v mArgs <?> rparen <> newline <>
         pprint v body <>
         newline <?> "contains" <?> newline <?> newline <?> pprint v mSubs <>
-        "end" <>
-        if v <= Fortran77
-          then newline
-          else
-            " subroutine" <>
-            if v < Fortran90
-              then newline
-              else space <> text name <> newline
+        endGen v "subroutine" name
 
     pprint v (PUFunction _ _ mRetType isRec name mArgs mRes body mSubs)
-      | isRec && v < Fortran90 = tooOld v "Recursive subroutine" Fortran90
-      | Just _ <- mRes
-      , v < Fortran90 = tooOld v "Function result" Fortran90
-      | Just _ <- mSubs
-      , v < Fortran90 = tooOld v "Function subprogram" Fortran90
+      | isRec, v < Fortran90 = tooOld v "Recursive function" Fortran90
+      | isJust mRes, v < Fortran90 = tooOld v "Function result" Fortran90
+      | isJust mSubs, v < Fortran90 = tooOld v "Function subprogram" Fortran90
       | otherwise =
         pprint v mRetType <+>
         (if isRec then "recursive" else empty) <+>
@@ -159,17 +149,22 @@ instance Pretty (ProgramUnit a) where
         "result" <?> lparen <?> pprint v mRes <?> rparen <> newline <>
         pprint v body <>
         newline <?> "contains" <?> newline <?> newline <?> pprint v mSubs <>
-        "end" <>
-        if v <= Fortran77
-          then newline
-          else
-            " function" <>
-            if v < Fortran90
-              then newline
-              else space <> text name <> newline
-    {-
-    pprint v (PUBlockData _ _ pu3 pu4) = _
-    -}
+        endGen v "function" name
+
+    pprint v (PUBlockData _ _ mName body)
+      | v < Fortran77, isJust mName = tooOld v "Named block data" Fortran77
+      | otherwise =
+        "block data" <+> pprint v mName <> newline <>
+        pprint v body <>
+        endGen v "block data" mName
+
+endGen :: Pretty a => FortranVersion -> Doc -> a -> Doc
+endGen v constructName name = "end" <+> middle <> newline
+  where
+    middle
+      | v < Fortran77 = empty
+      | v < Fortran90 = constructName
+      | otherwise = constructName <?+> pprint v name
 
 instance Pretty [Block a] where
     pprint v = foldl' (\b a -> b <> pprint v a) empty
