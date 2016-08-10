@@ -31,10 +31,6 @@ import Text.PrettyPrint.GenericPretty
 import Test.Hspec
 import TestUtil
 
---derive makeArbitrary ''Expression
---derive makeArbitrary ''Statement
---derive makeArbitrary ''Value
-
 checkAll :: forall a b c . (Out c, Data c, Data a, Data b)
          => (b -> Maybe c) -> (c -> Spec) -> a -> Spec
 checkAll restrict check t =
@@ -49,48 +45,6 @@ samplesBase = "test" </> "Language" </> "Fortran" </> "samples"
 spec :: Spec
 spec =
   describe "Pretty printer tests" $ do
-    let path = samplesBase </> "simple.f90"
-    contents <- runIO $ flexReadFile path
-    let version = deduceVersion path
-    let Just parserF = lookup version parserVersions
-    let ast = void (parserF contents path)
-
-{-
-    describe "Size-related invariants (values in expressions)" $ do
-     let ppr = prop_pprintsize :: FortranVersion -> Expression () -> Spec
-     checkAll valueExpressions (ppr version) ast
-
-    describe "Size-related invariants (do specifications)" $ do
-     let ppr = prop_pprintsize :: FortranVersion -> DoSpecification () -> Spec
-     checkAll Just (ppr version) ast
-
-    describe "Size-related invariants (indices)" $ do
-     let ppr = prop_pprintsize :: FortranVersion -> Index () -> Spec
-     checkAll Just (ppr version) ast
-
-    describe "Size-related invariants (expressions)" $ do
-     let ppr = prop_pprintsize :: FortranVersion -> Expression () -> Spec
-     checkAll Just (ppr version) ast
-
-    describe "Size-related invariants (arguments)" $ do
-     let ppr = prop_pprintsize :: FortranVersion -> Argument () -> Spec
-     checkAll Just (ppr version) ast
-
-    describe "Size-related invariants (statements)" $ do
-     let ppr = prop_pprintsize :: FortranVersion -> Statement () -> Spec
-     checkAll Just (ppr version) ast
-
-    describe "Size-related invariants (dimension declarator)" $ do
-     let ppr = prop_pprintsize :: FortranVersion -> DimensionDeclarator ()
-            -> Spec
-     checkAll Just (ppr version) ast
-
-    describe "Size-related invariants (selector)" $ do
-     let ppr = prop_pprintsize :: FortranVersion -> DimensionDeclarator ()
-            -> Spec
-     checkAll Just (ppr version) ast
--}
-
     describe "Dimension declarator" $ do
       it "Prints left bound dimension declarator" $ do
         let dd = DimensionDeclarator () u (Just $ intGen 42) Nothing
