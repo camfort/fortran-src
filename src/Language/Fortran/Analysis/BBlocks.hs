@@ -3,7 +3,8 @@
 {-# LANGUAGE FlexibleContexts, PatternGuards, ScopedTypeVariables #-}
 module Language.Fortran.Analysis.BBlocks
   ( analyseBBlocks, genBBlockMap, showBBGr, showAnalysedBBGr, showBBlocks, bbgrToDOT, BBlockMap
-  , genSuperBBGr, SuperBBGr, showSuperBBGr, superBBGrToDOT, superBBGrGraph, superBBGrClusters )
+  , genSuperBBGr, SuperBBGr, showSuperBBGr, superBBGrToDOT, superBBGrGraph, superBBGrClusters
+  , findLabeledBBlock )
 where
 
 import Data.Generics.Uniplate.Data
@@ -532,6 +533,12 @@ fromJustMsg _ (Just x) = x
 fromJustMsg msg _      = error msg
 
 --------------------------------------------------
+
+findLabeledBBlock :: String -> BBGr a -> Maybe Node
+findLabeledBBlock lab gr =
+  listToMaybe [ n | (n, bs) <- labNodes gr, b <- bs
+                  , ExpValue _ _ (ValInteger lab') <- maybeToList (getLabel b)
+                  , lab == lab' ]
 
 -- | Show a basic block graph in a somewhat decent way.
 showBBGr :: (Out a, Show a) => BBGr a -> String

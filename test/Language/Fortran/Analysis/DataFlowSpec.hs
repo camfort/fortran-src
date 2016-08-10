@@ -1,3 +1,4 @@
+{-# LANGUAGE ScopedTypeVariables #-}
 module Language.Fortran.Analysis.DataFlowSpec where
 
 import Test.Hspec
@@ -21,6 +22,7 @@ import Data.Graph.Inductive.PatriciaTree (Gr)
 import Data.Maybe
 import Data.List
 import Data.Data
+import Data.Generics.Uniplate.Operations
 import qualified Data.ByteString.Char8 as B
 
 data F77 = F77
@@ -55,9 +57,12 @@ spec :: Spec
 spec =
   describe "Dataflow" $ do
   ----------------------------------------------
+    let pf = pParser F77 programLoop4
     describe "loop4" $ do
       it "genBackEdgeMap" $ do
-        testBackEdges F77 "loop4" programLoop4 `shouldBe` (IM.fromList [(9, 6), (11, 2)])
+        let gr = testGraph F77 "loop4" programLoop4
+        testBackEdges F77 "loop4" programLoop4 `shouldBe`
+          IM.fromList [(findLabelBB gr 8, findLabelBB gr 10), (findLabelBB gr 7, findLabelBB gr 20)]
 
       it "loopNodes" $ do
         let pf = pParser F77 programLoop4
@@ -65,19 +70,19 @@ spec =
         let domMap = dominators gr
         let bedges = genBackEdgeMap domMap gr
         S.fromList (loopNodes bedges gr) `shouldBe`
-          S.fromList [IS.fromList [6, 9], IS.fromList [2, 5, 6, 7, 9, 11]]
+          S.fromList [findLabelsBB gr [5,6,7,20], IS.unions [findLabelsBB gr [4,5,6,7,8,10,20,30], findSuccsBB gr [20]]]
 
       it "genDefMap" $
         testGenDefMap F77 programLoop4 `shouldBe`
-          M.fromList [("i",IS.fromList [4,13]),("j",IS.fromList [7,10]),("r",IS.fromList [2,9])]
+          M.fromList [("i",findLabelsBl pf [3,30]),("j",findLabelsBl pf [4,6]),("r",findLabelsBl pf [2,5])]
 
       it "reachingDefinitions" $ do
         let pf = pParser F77 programLoop4
         let gr = fromJust . M.lookup (Named "loop4") $ genBBlockMap pf
         let bm = genBlockMap pf
         let dm = genDefMap bm
-        IM.lookup 9 (reachingDefinitions dm gr) `shouldBe`
-          Just (IS.fromList [2,4,7,9,10,13], IS.fromList [4,9,10,13])
+        IM.lookup (findLabelBB gr 5) (reachingDefinitions dm gr) `shouldBe`
+          Just (findLabelsBl pf [2,3,4,5,6,30], findLabelsBl pf [3,4,5,6,30])
 
       it "flowsTo" $ do
         let pf = pParser F77 programLoop4
@@ -85,7 +90,14 @@ spec =
         let bm = genBlockMap pf
         let dm = genDefMap bm
         (S.fromList . edges . genFlowsToGraph bm dm gr $ reachingDefinitions dm gr) `shouldBe`
-          S.fromList [(2,9),(2,16),(4,5),(4,9),(4,13),(7,8),(7,9),(7,10),(9,9),(9,16),(10,8),(10,9),(10,10),(13,5),(13,9),(13,13)]
+          -- Find the flows of the assignment statements in the program.
+          findLabelsBlEdges pf [(2,5),(2,40)            -- r = 0
+                               ,(3,5),(3,10),(3,30)     -- i = 1
+                               ,(4,5),(4,6),(4,20)      -- j = 1
+                               ,(5,5),(5,40)            -- r = r + i * j
+                               ,(6,5),(6,6),(6,20)      -- j = j + 1
+                               ,(30,5),(30,10),(30,30)  -- i = i + 1
+                               ]
 
   ----------------------------------------------
     let pf = pParser F90 programLoop4Alt
@@ -98,55 +110,65 @@ spec =
 
     describe "loop4 alt (module)" $ do
       it "genBackEdgeMap" $ do
-        testBackEdges F90 "loop4" programLoop4Alt `shouldBe` (IM.fromList [(5, 4), (6, 2)])
+        let gr = testGraph F90 "loop4" programLoop4Alt
+        testBackEdges F90 "loop4" programLoop4Alt `shouldBe`
+          IM.fromList [(findLabelBB gr 30, findLabelBB gr 20), (findLabelBB gr 40, findLabelBB gr 10)]
 
       it "loopNodes" $ do
         S.fromList (loopNodes bedges gr) `shouldBe`
-          S.fromList [IS.fromList [6, 7], IS.fromList [4, 5, 6, 7, 8]]
+          S.fromList [findLabelsBB gr [20,21,22,30], findLabelsBB gr [10,11,20,21,22,30,31,40]]
 
       it "genDefMap" $
         testGenDefMap F90 programLoop4Alt `shouldBe`
-          M.fromList [("i",IS.fromList [5,13]),("j",IS.fromList [7,9]),("r",IS.fromList [3,8])]
+          M.fromList [("i",findLabelsBl pf [2,31]),("j",findLabelsBl pf [11,22]),("r",findLabelsBl pf [1,21])]
 
       it "reachingDefinitions" $ do
-        IM.lookup 9 (reachingDefinitions dm gr) `shouldBe`
-          Just (IS.fromList [3,5,7,8,9,13], IS.fromList [3,5,7,8,9,13])
+        IM.lookup (findLabelBB gr 21) (reachingDefinitions dm gr) `shouldBe`
+          Just (findLabelsBl pf [1,2,11,21,22,31], findLabelsBl pf [2,11,21,22,31])
 
       it "flowsTo" $ do
         (S.fromList . edges . genFlowsToGraph bm dm gr $ reachingDefinitions dm gr) `shouldBe`
-          S.fromList [(3,8),(3,17),(5,8),(5,13),(5,15),(7,8),(7,9),(7,11),
-                       (8,8),(8,17),(9,8),(9,9),(9,11),(13,8),(13,13),(13,15)]
+          -- Find the flows of the assignment statements in the program.
+          findLabelsBlEdges pf [(1,21),(1,41)           -- r = 0
+                               ,(2,10),(2,21),(2,31)    -- i = 1
+                               ,(11,20),(11,21),(11,22) -- j = 1
+                               ,(21,21),(21,41)         -- r = r + i * j
+                               ,(22,20),(22,21),(22,22) -- j = j + 1
+                               ,(31,10),(31,21),(31,31) -- i = i + 1
+                               ]
 
     -----------------------------------------------
 
     describe "rd3" $ do
       it "genBackEdgeMap" $ do
-        testBackEdges F77 "f" programRd3 `shouldBe` (IM.fromList [(4, 2)])
+        let gr = testGraph F77 "f" programRd3
+        testBackEdges F77 "f" programRd3 `shouldBe` IM.singleton (findLabelBB gr 4) (findLabelBB gr 1)
 
-      -- it "loopNodes" $ do
-      --   let (pf, gr) = testPfAndGraph "f" programRd3
-      --   let domMap = dominators gr
-      --   let bedges = genBackEdgeMap domMap gr
-      --   S.fromList (loopNodes bedges gr) `shouldBe`
-      --     S.fromList [IS.fromList [2, 3]]
-
-      -- it "genDefMap" $ do
-        -- testGenDefMap F77 programRd3 `shouldBe`
-        --   M.fromList [ ("_f_t#0",IS.fromList [14]),("a",IS.fromList [4]),("b",IS.fromList [3]),("f",IS.fromList [7]),("f[0]",IS.fromList [12]),("f[1]",IS.fromList [13,16]),("i",IS.fromList [6]),("x",IS.fromList [11]) ]
+      it "loopNodes" $ do
+        let (pf, gr) = testPfAndGraph F77 "f" programRd3
+        let domMap = dominators gr
+        let bedges = genBackEdgeMap domMap gr
+        S.fromList (loopNodes bedges gr) `shouldBe`
+          S.fromList [findLabelsBB gr [1,2,3,4]]
 
       it "reachingDefinitions" $ do
         let (pf, gr) = testPfAndGraph F77 "f" programRd3
         let bm = genBlockMap pf
         let dm = genDefMap bm
-        IM.lookup 3 (reachingDefinitions dm gr) `shouldBe`
-          Just (IS.fromList [3,4,6,11], IS.fromList [3,4,6,11])
+        IM.lookup (findLabelBB gr 5) (reachingDefinitions dm gr) `shouldBe`
+          Just (IS.unions [findBBlockBl gr 0, findLabelsBl pf [1,2,3]]
+               ,IS.unions [findBBlockBl gr 0, findLabelsBl pf [1,2,3,5]])
 
       it "flowsTo" $ do
         let (pf, gr) = testPfAndGraph F77 "f" programRd3
         let bm = genBlockMap pf
         let dm = genDefMap bm
-        (S.fromList . edges . genFlowsToGraph bm dm gr $ reachingDefinitions dm gr) `shouldBe`
-          S.fromList [ (3,4),(4,3),(4,7),(6,3),(6,4),(7,12),(11,3),(11,13) ]
+        (S.fromList . edges . genFlowsToGraph bm dm gr $ reachingDefinitions dm gr) `shouldSatisfy`
+          -- Find the flows of the assignment statements in the program.
+          S.isSubsetOf (findLabelsBlEdges pf [(1,2),(1,3) -- do 4  i = 2, 10
+                                             ,(2,3)       -- b(i) = a(i-1) + x
+                                             ,(3,2),(3,5) -- a(i) = b(i)
+                                             ])
 
     describe "rd4" $ do
       it "ivMapByASTBlock" $ do
@@ -156,28 +178,66 @@ spec =
         let ivMap  = genInductionVarMapByASTBlock bedges gr
         (sort . map (\ x -> (head x, length x)) . group . sort . map S.size $ IM.elems ivMap) `shouldBe` [(1,3),(2,3)]
 
+--------------------------------------------------
+-- Label-finding helper functions to help write tests that are
+-- insensitive to minor changes to the AST.
+
+-- For each Fortran label in the list, find the corresponding basic
+-- block, return as an IntSet.
+findLabelsBB :: BBGr a -> [Int] -> IS.IntSet
+findLabelsBB gr = IS.fromList . mapMaybe (flip findLabeledBBlock gr . show)
+
+findLabelBB :: BBGr a -> Int -> Node
+findLabelBB gr = (error "findLabelBB" `fromMaybe`) . flip findLabeledBBlock gr . show
+
+-- For each Fortran label in the list, find the successors of the
+-- corresponding basic block, return as an IntSet.
+findSuccsBB :: BBGr a -> [Int] -> IS.IntSet
+findSuccsBB gr = IS.fromList . concatMap (suc gr) . mapMaybe (flip findLabeledBBlock gr . show)
+
+-- For each Fortran label in the list, find the AST-block label numbers ('insLabel') associated
+findLabelsBl :: forall a. Data a => ProgramFile (Analysis a) -> [Int] -> IS.IntSet
+findLabelsBl pf labs = IS.fromList [ i | b <- universeBi pf :: [Block (Analysis a)]
+                                       , ExpValue _ _ (ValInteger lab') <- maybeToList (getLabel b)
+                                       , lab' `elem` labsS
+                                       , let a = getAnnotation b
+                                       , i <- maybeToList (insLabel a) ]
+  where labsS = map show labs
+
+-- Translate a list of edges given as Fortran labels into a set of
+-- edges given as AST-block label numbers.
+findLabelsBlEdges :: Data a => ProgramFile (Analysis a) -> [(Int, Int)] -> S.Set (Int, Int)
+findLabelsBlEdges pf = S.fromList . map convEdge
+  where
+    convEdge (a, b)
+      | a':_ <- IS.toList (findLabelsBl pf [a]) -- FIXME: inefficient
+      , b':_ <- IS.toList (findLabelsBl pf [b]) = (a', b')
+      | otherwise = error $ "findLabelsBlEdges (" ++ show a ++ "," ++ show b ++ ")"
+
+-- Get the set of AST-block labels found in a given basic block
+findBBlockBl :: BBGr (Analysis a) -> Int -> IS.IntSet
+findBBlockBl gr = IS.fromList . mapMaybe (insLabel . getAnnotation) . concat . maybeToList . lab gr
+
+--------------------------------------------------
+-- Test programs
 
 programLoop4 = unlines [
       "      program loop4"
-    , "      integer r, i, j"
+    , " 1    integer r, i, j"
     , ""
-    , "      r = 0"
+    , " 2    r = 0"
     , ""
-    , "c     outer loop"
-    , "      i = 1"
+    , " 3    i = 1"
     , " 10   if (i .gt. 10) goto 40"
     , ""
-    , "c     inner loop"
-    , "      j = 1"
+    , " 4    j = 1"
     , " 20   if (j .gt. 5) goto 30"
-    , "      r = r + i * j"
-    , "      j = j + 1"
-    , "      goto 20"
-    , "c     inner loop end"
+    , " 5    r = r + i * j"
+    , " 6    j = j + 1"
+    , " 7    goto 20"
     , ""
     , " 30   i = i + 1"
-    , "      goto 10"
-    , "c     outer loop end"
+    , " 8    goto 10"
     , ""
     , " 40   write (*,*) r"
     , "      end"
@@ -190,25 +250,25 @@ programLoop4Alt = unlines [
     , "      subroutine loop4()"
     , "      integer r, i, j"
     , ""
-    , "      r = 0"
+    , " 1    r = 0"
     , ""
-    , "!     outer loop"
-    , "      i = 1"
-    , "      do while (i .gt. 10)"
+--    , "!     outer loop"
+    , " 2    i = 1"
+    , " 10   do while (i .gt. 10)"
     , ""
-    , "!     inner loop"
-    , "      j = 1"
-    , "      do while (j .gt. 5)"
-    , "      r = r + i * j"
-    , "      j = j + 1"
-    , "      end do"
-    , "!     inner loop end"
+--    , "!     inner loop"
+    , " 11   j = 1"
+    , " 20   do while (j .gt. 5)"
+    , " 21   r = r + i * j"
+    , " 22   j = j + 1"
+    , " 30   end do"
+--    , "!     inner loop end"
     , ""
-    , "      i = i + 1"
-    , "      end do"
-    , "!     outer loop end"
+    , " 31   i = i + 1"
+    , " 40   end do"
+--    , "!     outer loop end"
     , ""
-    , "      write (*,*) r"
+    , " 41   write (*,*) r"
     , "      end subroutine"
     , "      end module"
   ]
@@ -218,11 +278,11 @@ programRd3 = unlines [
     , "      integer i, a, b, x, f"
     , "      dimension a(10), b(10)"
     , ""
-    , "      do 10 i = 2, 10"
-    , "         b(i) = a(i-1) + x"
-    , "         a(i) = b(i)"
-    , " 10   continue"
-    , "      f = a(10)"
+    , " 1    do 4  i = 2, 10"
+    , " 2       b(i) = a(i-1) + x"
+    , " 3       a(i) = b(i)"
+    , " 4    continue"
+    , " 5    f = a(10)"
     , "      end"
     , "      program rd3"
     , "      implicit none"

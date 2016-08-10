@@ -33,7 +33,7 @@ spec =
       it "branching nodes" $ do
         let pf = pParser programLoop4
         let gr = fromJust . M.lookup (Named "loop4") $ genBBlockMap pf
-        (suc gr 2, suc gr 6) `shouldBe` ([3, 5], [7, 9])
+        (IS.size (findSuccsBB gr [10]), IS.size (findSuccsBB gr [20])) `shouldBe` (2, 2)
       it "all reachable" $ do
         let pf = pParser programLoop4
         let gr = fromJust . M.lookup (Named "loop4") $ genBBlockMap pf
@@ -46,6 +46,26 @@ spec =
         let reached = IS.fromList $ rdfs [-1] gr
         let nodeSet = IS.fromList $ nodes gr
         reached `shouldBe` nodeSet
+
+--------------------------------------------------
+-- Label-finding helper functions to help write tests that are
+-- insensitive to minor changes to the AST.
+
+-- For each label in the list, find the corresponding basic block,
+-- return as an IntSet.
+findLabelsBB :: BBGr a -> [Int] -> IS.IntSet
+findLabelsBB gr = IS.fromList . mapMaybe (flip findLabeledBBlock gr . show)
+
+findLabelBB :: BBGr a -> Int -> Node
+findLabelBB gr = (error "findLabelBB" `fromMaybe`) . flip findLabeledBBlock gr . show
+
+-- For each label in the list, find the successors of the
+-- corresponding basic block, return as an IntSet.
+findSuccsBB :: BBGr a -> [Int] -> IS.IntSet
+findSuccsBB gr = IS.fromList . concatMap (suc gr) . mapMaybe (flip findLabeledBBlock gr . show)
+
+--------------------------------------------------
+-- Test programs
 
 programLoop4 = unlines [
       "      program loop4"
