@@ -472,6 +472,19 @@ spec =
                                , "end" ]
           pprint Fortran66 mod `shouldBe` text expect
 
+      describe "Function" $ do
+        let tSpec = Just $ TypeSpec () u TypeInteger Nothing
+
+        it "prints function with args with result without sub programs" $ do
+          let args = AList () u [ varGen "x", varGen "y", varGen "z" ]
+          let res = Just $ varGen "i"
+          let fun = PUFunction () u tSpec False "f" (Just args) res body Nothing
+          let expect = unlines [ "integer function f(x, y, z) result(i)"
+                               , "print *, i"
+                               , "i = i - 1"
+                               , "end function f" ]
+          pprint Fortran90 fun `shouldBe` text expect
+
 valueExpressions :: Expression () -> Maybe (Expression ())
 valueExpressions e@ExpValue{} = Just e
 valueExpressions _ = Nothing

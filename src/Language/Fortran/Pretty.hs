@@ -129,12 +129,13 @@ instance Pretty (ProgramUnit a) where
     pprint v (PUSubroutine _ _ isRec name mArgs body mSubs)
       | isRec && v < Fortran90 = tooOld v "Recursive subroutine" Fortran90
       | Just _ <- mSubs
-      , v < Fortran90 = tooOld v "Subroutine subprograms" Fortran90
+      , v < Fortran90 = tooOld v "Subroutine subprogram" Fortran90
       | otherwise =
         (if isRec then "recursive" else empty) <+>
         "subroutine" <+> text name <>
         lparen <?> pprint v mArgs <?> rparen <> newline <>
         pprint v body <>
+        newline <?> "contains" <?> newline <?> newline <?> pprint v mSubs <>
         "end" <>
         if v <= Fortran77
           then newline
@@ -144,8 +145,29 @@ instance Pretty (ProgramUnit a) where
               then newline
               else space <> text name <> newline
 
+    pprint v (PUFunction _ _ mRetType isRec name mArgs mRes body mSubs)
+      | isRec && v < Fortran90 = tooOld v "Recursive subroutine" Fortran90
+      | Just _ <- mRes
+      , v < Fortran90 = tooOld v "Function result" Fortran90
+      | Just _ <- mSubs
+      , v < Fortran90 = tooOld v "Function subprogram" Fortran90
+      | otherwise =
+        pprint v mRetType <+>
+        (if isRec then "recursive" else empty) <+>
+        "function" <+> text name <>
+        lparen <?> pprint v mArgs <?> rparen <+>
+        "result" <?> lparen <?> pprint v mRes <?> rparen <> newline <>
+        pprint v body <>
+        newline <?> "contains" <?> newline <?> newline <?> pprint v mSubs <>
+        "end" <>
+        if v <= Fortran77
+          then newline
+          else
+            " function" <>
+            if v < Fortran90
+              then newline
+              else space <> text name <> newline
     {-
-    pprint v (PUFunction _ _ pu3 pu4 pu5 pu6 pu7 pu8 pu9) = _
     pprint v (PUBlockData _ _ pu3 pu4) = _
     -}
 
