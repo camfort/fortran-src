@@ -719,7 +719,7 @@ instance Pretty (Expression a) where
          pprint' v val
 
     pprint' v (ExpBinary _ s op e1 e2) =
-        pprint' v e1 <+> pprint' v op <+> pprint' v e2
+        parens (pprint' v e1 <+> pprint' v op <+> pprint' v e2)
 
     pprint' v (ExpUnary _ s op e) =
         pprint' v op <+> pprint' v e
