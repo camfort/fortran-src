@@ -2,7 +2,6 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE UndecidableInstances #-}
-{-# LANGUAGE OverlappingInstances #-}
 
 module Language.Fortran.Pretty where
 
@@ -38,7 +37,7 @@ newline = char '\n'
 class IndentablePretty t where
     pprint :: FortranVersion -> t -> Maybe Int -> Doc
 
-instance Pretty a => IndentablePretty a where
+instance {-# OVERLAPPABLE #-} Pretty a => IndentablePretty a where
     pprint v t _ = pprint' v t
 
 instance IndentablePretty a => IndentablePretty (Maybe a) where
