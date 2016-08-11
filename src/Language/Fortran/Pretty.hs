@@ -537,7 +537,7 @@ instance Pretty (Statement a) where
 
     pprint' v (StContinue _ _) = "continue"
 
-    pprint' v (StReturn _ _ exp) = "return" <?+> pprint' v exp
+    pprint' v (StReturn _ _ exp) = "return" <+> pprint' v exp
 
     pprint' v (StStop _ _ code) = "stop" <+> pprint' v code
 
@@ -634,7 +634,7 @@ instance Pretty (Use a) where
       | v < Fortran90 = tooOld v "Module system" Fortran90
 
 instance Pretty (Argument a) where
-    pprint' v (Argument _ s key e) = floatDoc s $
+    pprint' v (Argument _ s key e) =
        case key of
          Just keyName -> text keyName <+> char '=' <+> pprint' v e
          Nothing      -> pprint' v e
@@ -719,28 +719,28 @@ instance Pretty (Expression a) where
          pprint' v val
 
     pprint' v (ExpBinary _ s op e1 e2) =
-        floatDoc s $ pprint' v e1 <+> pprint' v op <+> pprint' v e2
+        pprint' v e1 <+> pprint' v op <+> pprint' v e2
 
     pprint' v (ExpUnary _ s op e) =
-        floatDoc s $ pprint' v op <+> pprint' v e
+        pprint' v op <+> pprint' v e
 
     pprint' v (ExpSubscript _ s e ixs) =
-        floatDoc s $ pprint' v e <> parens (pprint' v ixs)
+        pprint' v e <> parens (pprint' v ixs)
 
     pprint' v (ExpDataRef _ s e1 e2) =
-        floatDoc s $ pprint' v e1 <+> char '%' <+> pprint' v e2
+        pprint' v e1 <+> char '%' <+> pprint' v e2
 
     pprint' v (ExpFunctionCall _ s e mes) =
-        floatDoc s $ pprint' v e <> parens (pprint' v mes)
+        pprint' v e <> parens (pprint' v mes)
 
     pprint' v (ExpImpliedDo _ s es dospec) =
-        floatDoc s $ pprint' v es <> comma <+> pprint' v dospec
+        pprint' v es <> comma <+> pprint' v dospec
 
     pprint' v (ExpInitialisation _ s es) =
-        floatDoc s $ "(/" <> pprint' v es <> "/)"
+        "(/" <> pprint' v es <> "/)"
 
     pprint' v (ExpReturnSpec _ s e) =
-        floatDoc s $ char '*' <> pprint' v e
+        char '*' <> pprint' v e
 
 instance Pretty (Index a) where
     pprint' v (IxSingle _ s Nothing e) = pprint' v e
@@ -845,14 +845,3 @@ instance Pretty BinaryOp where
 
 commaSep :: [Doc] -> Doc
 commaSep = hcat . punctuate ", "
-
-floatDoc :: SrcSpan -> Doc -> Doc
-floatDoc span d | lineDistance span == 0 =
-   -- If the rendered pretty print is less than the width of
-   -- the span, then pad to the end with spaces
-   if length (render d) < columnDistance span
-   then vcat (d : replicate (columnDistance span - length (render d)) space)
-   else d
-
--- Difficult to know what to dif line distance is non-zero
-floatDoc span d = d
