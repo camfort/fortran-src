@@ -34,8 +34,23 @@ infixl 7 <?+>
 newline :: Doc
 newline = char '\n'
 
+type Indentation = Maybe Int
+
+incIndentation :: Indentation -> Indentation
+incIndentation indentation = (+2) <$> indentation
+
+indent :: Indentation -> Doc -> Doc
+indent Nothing d = d
+indent (Just i) d = text (replicate i ' ') <> d
+
+overlay :: Doc -> Doc -> Doc
+overlay top bottom = text $ top' ++ drop (length top') (render bottom)
+  where top' = render top
+
+fixedForm = Just 6
+
 class IndentablePretty t where
-    pprint :: FortranVersion -> t -> Maybe Int -> Doc
+    pprint :: FortranVersion -> t -> Indentation -> Doc
 
 instance {-# OVERLAPPABLE #-} Pretty a => IndentablePretty a where
     pprint v t _ = pprint' v t
@@ -62,62 +77,95 @@ instance IndentablePretty (ProgramUnit a) where
           else
             if isJust mSubs
               then tooOld v "Subprogram unit" Fortran90
-              else pprint v body i <> "end" <> newline
+              else pprint v body fixedForm <>
+                   indent fixedForm ("end" <> newline)
       | v < Fortran90 =
-        "program" <?+> pprint' v mName <?> newline <>
+        indent fixedForm ("program" <?+> pprint' v mName <?> newline) <>
         if isJust mSubs
           then tooOld v "Subprogram unit" Fortran90
-          else pprint v body i <> "end" <> newline
+          else pprint v body fixedForm <>
+               indent fixedForm ("end" <> newline)
       | otherwise =
-        "program" <?+> pprint' v mName <?> newline <>
-        pprint v body i <>
-        newline <?> "contains" <?> newline <?> newline <?>
-        pprint v mSubs i <>
-        "end" <> " program" <?+> pprint' v mName <> newline
+        indent i ("program" <?+> pprint' v mName <?> newline) <>
+        pprint v body nextI <>
+        newline <?>
+        indent nextI ("contains" <> newline) <?>
+        newline <?>
+        pprint v mSubs nextI <>
+        indent i ("end" <> " program" <?+> pprint' v mName <> newline)
+      where
+        nextI = incIndentation i
 
     pprint v (PUModule _ _ name body mSubs) i
       | v >= Fortran90 =
-        "module" <+> text name <> newline <>
-        pprint v body i <>
-        newline <?> "contains" <?> newline <?> newline <?>
-        pprint v mSubs i <>
-        "end module" <+> text name <> newline
+        indent i ("module" <+> text name <> newline) <>
+        pprint v body nextI <>
+        newline <?>
+        indent nextI ("contains" <?> newline) <?>
+        newline <?>
+        pprint v mSubs nextI <>
+        indent i ("end module" <+> text name <> newline)
       | otherwise = tooOld v "Module system" Fortran90
+      where
+        nextI = incIndentation i
 
     pprint v (PUSubroutine _ _ isRec name mArgs body mSubs) i
       | isRec, v < Fortran90 = tooOld v "Recursive subroutine" Fortran90
       | isJust mSubs, v < Fortran90 = tooOld v "Subroutine subprogram" Fortran90
       | otherwise =
-        (if isRec then "recursive" else empty) <+>
-        "subroutine" <+> text name <>
-        lparen <?> pprint' v mArgs <?> rparen <> newline <>
-        pprint v body i <>
-        newline <?> "contains" <?> newline <?> newline <?> pprint v mSubs i <>
-        endGen v "subroutine" name
+        indent curI
+          ((if isRec then "recursive" else empty) <+>
+          "subroutine" <+> text name <>
+          lparen <?> pprint' v mArgs <?> rparen <> newline) <>
+        pprint v body nextI <>
+        newline <?>
+        indent nextI ("contains" <> newline) <?>
+        newline <?>
+        pprint v mSubs nextI <>
+        endGen v "subroutine" name curI
+        where
+          curI = if v >= Fortran90 then i else fixedForm
+          nextI = if v >= Fortran90
+                    then incIndentation i
+                    else incIndentation fixedForm
 
     pprint v (PUFunction _ _ mRetType isRec name mArgs mRes body mSubs) i
       | isRec, v < Fortran90 = tooOld v "Recursive function" Fortran90
       | isJust mRes, v < Fortran90 = tooOld v "Function result" Fortran90
       | isJust mSubs, v < Fortran90 = tooOld v "Function subprogram" Fortran90
       | otherwise =
-        pprint' v mRetType <+>
-        (if isRec then "recursive" else empty) <+>
-        "function" <+> text name <>
-        lparen <?> pprint' v mArgs <?> rparen <+>
-        "result" <?> lparen <?> pprint' v mRes <?> rparen <> newline <>
-        pprint v body i <>
-        newline <?> "contains" <?> newline <?> newline <?> pprint v mSubs i <>
-        endGen v "function" name
+        indent curI
+          (pprint' v mRetType <+>
+          (if isRec then "recursive" else empty) <+>
+          "function" <+> text name <>
+          lparen <?> pprint' v mArgs <?> rparen <+>
+          "result" <?> lparen <?> pprint' v mRes <?> rparen <> newline) <>
+        pprint v body nextI <>
+        newline <?>
+        indent nextI ("contains" <> newline) <?>
+        newline <?>
+        pprint v mSubs nextI <>
+        endGen v "function" name curI
+        where
+          curI = if v >= Fortran90 then i else fixedForm
+          nextI = if v >= Fortran90
+                    then incIndentation i
+                    else incIndentation fixedForm
 
     pprint v (PUBlockData _ _ mName body) i
       | v < Fortran77, isJust mName = tooOld v "Named block data" Fortran77
       | otherwise =
-        "block data" <+> pprint' v mName <> newline <>
-        pprint v body i <>
-        endGen v "block data" mName
+        indent curI ("block data" <+> pprint' v mName <> newline) <>
+        pprint v body nextI <>
+        endGen v "block data" mName curI
+        where
+          curI = if v >= Fortran90 then i else fixedForm
+          nextI = if v >= Fortran90
+                    then incIndentation i
+                    else incIndentation fixedForm
 
-endGen :: Pretty a => FortranVersion -> Doc -> a -> Doc
-endGen v constructName name = "end" <+> middle <> newline
+endGen :: Pretty a => FortranVersion -> Doc -> a -> Indentation -> Doc
+endGen v constructName name i = indent i $ "end" <+> middle <> newline
   where
     middle
       | v < Fortran77 = empty
@@ -129,81 +177,105 @@ instance IndentablePretty [Block a] where
 
 instance IndentablePretty (Block a) where
     pprint v (BlStatement _ _ mLabel st) i =
-      pprint' v mLabel <+> pprint' v st <> newline
+      if v >= Fortran90
+        then indent i (pprint' v mLabel <+> pprint' v st <> newline)
+        else pprint' v mLabel `overlay` indent i (pprint' v st <> newline)
 
     pprint v (BlIf _ _ mLabel mName conds bodies el) i
       | v >= Fortran77 =
-        pprint' v mLabel <+>
-        pprint' v mName <?> colon <+>
-        "if" <+> parens (pprint' v firstCond) <+> "then" <> newline <>
-        pprint v firstBody i <>
+        labeledIndent mLabel
+          (pprint' v mName <?> colon <+>
+          "if" <+> parens (pprint' v firstCond) <+> "then" <> newline) <>
+        pprint v firstBody nextI <>
         foldl' (<>) empty (map displayCondBlock restCondsBodies) <>
-        (pprint' v el <+> "end if" <+> pprint' v mName) <> newline
+        labeledIndent el ("end if" <+> pprint' v mName <> newline)
       | otherwise = tooOld v "Structured if" Fortran77
       where
         ((firstCond, firstBody): restCondsBodies) = zip conds bodies
         displayCondBlock (mCond, block) =
-          case mCond of {
-            Just cond -> "else if" <+> parens (pprint' v cond) <+> "then";
-            Nothing -> "else"
-          } <> newline <>
-          pprint v block i
+          indent i
+            (case mCond of {
+              Just cond -> "else if" <+> parens (pprint' v cond) <+> "then";
+              Nothing -> "else"
+            } <> newline) <>
+          pprint v block nextI
+        nextI = incIndentation i
+        labeledIndent label stDoc =
+          if v >= Fortran90
+            then indent i (pprint' v label <+> stDoc)
+            else pprint' v mLabel `overlay` indent i stDoc
 
     pprint v (BlCase _ _ mLabel mName scrutinee ranges bodies el) i
       | v >= Fortran90 =
-        pprint' v mLabel <+>
-        pprint' v mName <?> colon <+>
-        "select case" <+> parens (pprint' v scrutinee) <> newline <>
+        indent i
+          (pprint' v mLabel <+>
+          pprint' v mName <?> colon <+>
+          "select case" <+> parens (pprint' v scrutinee) <> newline) <>
         foldl' (<>) empty (zipWith (curry displayRangeBlock) ranges bodies) <>
-        (pprint' v el <+> "end select" <+> pprint' v mName) <> newline
+        indent i (pprint' v el <+> "end select" <+> pprint' v mName <> newline)
       | otherwise = tooOld v "Select case" Fortran90
       where
         displayRangeBlock (mRanges, block) =
-          "case" <+>
-          case mRanges of {
-            Just ranges -> parens (pprint' v ranges);
-            Nothing -> "default" } <> newline <>
-          pprint v block i
+          indent nextI
+            ("case" <+>
+            case mRanges of {
+              Just ranges -> parens (pprint' v ranges);
+              Nothing -> "default" } <> newline) <>
+          pprint v block (incIndentation nextI)
+        nextI = incIndentation i
 
     pprint v (BlInterface _ _ mLabel pus moduleProcs) i
       | v >= Fortran90 =
-        pprint' v mLabel <+>
-        "interface" <> newline <>
-        pprint v pus i <>
+        indent i (pprint' v mLabel <+> "interface" <> newline) <>
+        pprint v pus nextI <>
         newline <>
-        pprint v moduleProcs i <>
-        "end interface" <> newline
+        pprint v moduleProcs nextI <>
+        indent i ("end interface" <> newline)
       | otherwise = tooOld v "Interface" Fortran90
+      where
+        nextI = incIndentation i
 
     pprint v (BlDo _ _ mLabel mn tl doSpec body el) i
       | v >= Fortran77Extended =
-        pprint' v mLabel <>
-        pprint' v mn <?> colon <+>
-        "do" <+> pprint' v tl <+> pprint' v doSpec <> newline <>
-        pprint v body i <>
+        labeledIndent mLabel
+          (pprint' v mn <?> colon <+>
+          "do" <+> pprint' v tl <+> pprint' v doSpec <> newline) <>
+        pprint v body nextI <>
         if isJust tl && isNothing mn
           then empty
-          else pprint' v el <+> "end do" <+> pprint' v mn <> newline
+          else labeledIndent el ("end do" <+> pprint' v mn <> newline)
       | otherwise =
         case tl of
-          Just targetLabel ->
-            pprint' v mLabel <>
-            "do" <+> pprint' v targetLabel <+> pprint' v doSpec <> newline <>
-            pprint v body i
+          Just tLabel ->
+            labeledIndent mLabel
+              ("do" <+> pprint' v tLabel <+> pprint' v doSpec <> newline) <>
+            pprint v body nextI
           Nothing ->
             error "Fortran 77 and earlier versions only have labeled DO blocks"
+      where
+        nextI = incIndentation i
+        labeledIndent label stDoc =
+          if v >= Fortran90
+            then indent i (pprint' v label <+> stDoc)
+            else pprint' v mLabel `overlay` indent i stDoc
 
     pprint v (BlDoWhile _ _ mLabel mName cond body el) i
-      | v >= Fortran77Extended =
-        pprint' v mLabel <+>
-        pprint' v mName <?> colon <+>
-        "do while" <+> parens (pprint' v cond) <> newline <>
-        pprint v body i <>
-        (pprint' v el <+> "end do" <+> pprint' v mName) <> newline
+       | v >= Fortran77Extended =
+        labeledIndent mLabel
+          (pprint' v mName <?> colon <+>
+          "do while" <+> parens (pprint' v cond) <> newline) <>
+        pprint v body nextI <>
+        labeledIndent el ("end do" <+> pprint' v mName <> newline)
       | otherwise = tooOld v "Do while loop" Fortran77Extended
+      where
+        nextI = incIndentation i
+        labeledIndent label stDoc =
+          if v >= Fortran90
+            then indent i (pprint' v label <+> stDoc)
+            else pprint' v mLabel `overlay` indent i stDoc
 
     pprint v (BlComment _ _ comment) i
-      | v >= Fortran90 = char '!' <> text comment <> newline
+      | v >= Fortran90 = indent i (char '!' <> text comment <> newline)
       | otherwise = char 'c' <> text comment <> newline
 
 class Pretty t where

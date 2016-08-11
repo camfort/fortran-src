@@ -327,11 +327,11 @@ spec =
         it "prints vanilla labeled do loop" $ do
           let body2 = body ++ [ BlStatement () u (Just $ intGen 42) (StContinue () u) ]
           let bl = BlDo () u Nothing Nothing (Just $ intGen 42) (Just doSpec) body2 (Just $ intGen 42)
-          let expect = unlines [ "do 42 i = 1, 9, 2"
-                               , "print *, i"
-                               , "i = i - 1"
-                               , "42 continue" ]
-          pprint Fortran90 bl Nothing `shouldBe` text expect
+          let expect = unlines [ "      do 42 i = 1, 9, 2"
+                               , "        print *, i"
+                               , "        i = i - 1"
+                               , "42      continue" ]
+          pprint Fortran77 bl (Just 6) `shouldBe` text expect
 
       describe "If" $ do
         it "prints vanilla structured if" $ do
@@ -436,10 +436,10 @@ spec =
 
         it "prints 66 style subroutine without args" $ do
           let mod = PUSubroutine () u False "sub" Nothing body Nothing
-          let expect = unlines [ "subroutine sub"
-                               , "  print *, i"
-                               , "  i = i - 1"
-                               , "end" ]
+          let expect = unlines [ "      subroutine sub"
+                               , "        print *, i"
+                               , "        i = i - 1"
+                               , "      end" ]
           pprint Fortran66 mod Nothing `shouldBe` text expect
 
       describe "Function" $ do
