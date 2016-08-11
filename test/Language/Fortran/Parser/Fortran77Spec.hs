@@ -183,6 +183,12 @@ spec =
       let st = StEntry () u func (Just $ AList () u args) Nothing
       sParser "      entry me (a,b,*)" `shouldBe'` st
 
+    it "parses 'character a*8'" $ do
+      let decl = DeclVariable () u (varGen "a") (Just $ intGen 8) Nothing
+      let typeSpec = TypeSpec () u TypeCharacter Nothing
+      let st = StDeclaration () u typeSpec Nothing (AList () u [ decl ])
+      sParser "      character a*8" `shouldBe'` st
+
 exampleProgram1 = unlines
   [ "      program hello"
   , "      integer x"

@@ -570,6 +570,8 @@ ARRAY_DECLARATOR
 VARIABLE_DECLARATOR :: { Declarator A0 }
 VARIABLE_DECLARATOR
 : VARIABLE { DeclVariable () (getSpan $1) $1 Nothing Nothing }
+| VARIABLE '*' EXPRESSION
+  { DeclVariable () (getTransSpan $1 $3) $1 (Just $3) Nothing }
 
 DIMENSION_DECLARATORS :: { AList DimensionDeclarator A0 }
 DIMENSION_DECLARATORS
