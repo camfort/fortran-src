@@ -537,6 +537,8 @@ instance Pretty (Statement a) where
 
     pprint' v (StContinue _ _) = "continue"
 
+    pprint' v (StReturn _ _ exp) = "return" <?+> pprint' v exp
+
     pprint' v (StStop _ _ code) = "stop" <+> pprint' v code
 
     pprint' v (StPause _ _ code) = "pause" <+> pprint' v code
