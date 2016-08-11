@@ -112,11 +112,11 @@ spec =
       it "genBackEdgeMap" $ do
         let gr = testGraph F90 "loop4" programLoop4Alt
         testBackEdges F90 "loop4" programLoop4Alt `shouldBe`
-          IM.fromList [(findLabelBB gr 30, findLabelBB gr 20), (findLabelBB gr 40, findLabelBB gr 10)]
+          IM.fromList [(findLabelBB gr 22, findLabelBB gr 20), (findLabelBB gr 31, findLabelBB gr 10)]
 
       it "loopNodes" $ do
         S.fromList (loopNodes bedges gr) `shouldBe`
-          S.fromList [findLabelsBB gr [20,21,22,30], findLabelsBB gr [10,11,20,21,22,30,31,40]]
+          S.fromList [findLabelsBB gr [20,21,22], findLabelsBB gr [10,11,20,21,22,31,40]]
 
       it "genDefMap" $
         testGenDefMap F90 programLoop4Alt `shouldBe`
@@ -261,11 +261,11 @@ programLoop4Alt = unlines [
     , " 20   do while (j .gt. 5)"
     , " 21   r = r + i * j"
     , " 22   j = j + 1"
-    , " 30   end do"
+    , "      end do"
 --    , "!     inner loop end"
     , ""
     , " 31   i = i + 1"
-    , " 40   end do"
+    , "      end do"
 --    , "!     outer loop end"
     , ""
     , " 41   write (*,*) r"
