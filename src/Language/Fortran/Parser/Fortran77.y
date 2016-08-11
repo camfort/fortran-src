@@ -175,7 +175,7 @@ NAME :: { Name } : id { let (TId _ name) = $1 in name }
 BLOCKS :: { [ Block A0 ] }
 BLOCKS
 : BLOCKS BLOCK { $2 : $1 }
-| BLOCK { [ $1 ] }
+| {- EMPTY -} { [ ] }
 
 BLOCK :: { Block A0 }
 BLOCK

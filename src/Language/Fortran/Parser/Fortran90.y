@@ -278,7 +278,7 @@ BLOCK_DATA_END :: { Token }
 
 NAME :: { Name } : id { let (TId _ name) = $1 in name }
 
-BLOCKS :: { [ Block A0 ] } : BLOCKS BLOCK { $2 : $1 } | BLOCK { [ $1 ] }
+BLOCKS :: { [ Block A0 ] } : BLOCKS BLOCK { $2 : $1 } | {- EMPTY -} { [ ] }
 
 BLOCK :: { Block A0 }
 : INTEGER_LITERAL STATEMENT MAYBE_COMMENT NEWLINE

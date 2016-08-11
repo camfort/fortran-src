@@ -110,16 +110,13 @@ PROGRAM
 
 PROGRAM_INNER :: { ProgramFile A0 }
 PROGRAM_INNER
-: PROGRAM_UNITS { ProgramFile (MetaInfo { miVersion = Fortran66 })  (reverse $1) [ ] }
-| PROGRAM_UNITS BLOCKS { ProgramFile (MetaInfo { miVersion = Fortran66 })  (reverse $1) (reverse $2) }
+: PROGRAM_UNITS BLOCKS { ProgramFile (MetaInfo { miVersion = Fortran66 })  (reverse $1) (reverse $2) }
 
 PROGRAM_UNITS :: { [ ([ Block A0 ], ProgramUnit A0) ] }
 PROGRAM_UNITS
 : PROGRAM_UNITS MAIN_PROGRAM_UNIT { ([ ], $2) : $1 }
-| PROGRAM_UNITS OTHER_PROGRAM_UNIT { ([ ], $2) : $1 }
 | PROGRAM_UNITS BLOCKS OTHER_PROGRAM_UNIT { (reverse $2, $3) : $1 }
 | MAIN_PROGRAM_UNIT { [ ([ ], $1) ] }
-| OTHER_PROGRAM_UNIT { [ ([ ], $1) ] }
 | BLOCKS OTHER_PROGRAM_UNIT { [ (reverse $1, $2) ] }
 
 MAIN_PROGRAM_UNIT :: { ProgramUnit A0 }
@@ -147,7 +144,7 @@ NAME :: { Name } : id { let (TId _ name) = $1 in name }
 BLOCKS :: { [ Block A0 ] }
 BLOCKS
 : BLOCKS BLOCK { $2 : $1 }
-| BLOCK { [ $1 ] }
+| {- EMPTY -} { [ ] }
 
 BLOCK :: { Block A0 }
 BLOCK
