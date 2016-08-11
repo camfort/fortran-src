@@ -5,6 +5,7 @@
 
 module Language.Fortran.Util.Position where
 
+import qualified Data.ByteString.Char8 as B
 import Data.Data
 import Data.Typeable
 import Text.PrettyPrint.GenericPretty
@@ -45,6 +46,14 @@ instance Show SrcSpan where
 instance Out SrcSpan where
   doc s = text $ show s
   docPrec _ = doc
+
+-- Difference between the column of the upper and lower positions in a span
+columnDistance :: SrcSpan -> Int
+columnDistance (SrcSpan (Position _ c1 _) (Position _ c2 _)) = c2 - c1
+
+-- Difference between the lines of the upper and lower positions in a span
+lineDistance :: SrcSpan -> Int
+lineDistance (SrcSpan (Position _ _ l1) (Position _ _ l2)) = l2 - l1
 
 initSrcSpan :: SrcSpan
 initSrcSpan = SrcSpan initPosition initPosition

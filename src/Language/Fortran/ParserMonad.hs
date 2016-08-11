@@ -31,7 +31,16 @@ data FortranVersion = Fortran66
                     | Fortran95
                     | Fortran2003
                     | Fortran2008
-                    deriving (Ord, Eq, Show, Data, Typeable, Generic)
+                    deriving (Ord, Eq, Data, Typeable, Generic)
+
+instance Show FortranVersion where
+  show Fortran66 = "Fortran 66"
+  show Fortran77 = "Fortran 77"
+  show Fortran77Extended = "Fortran 77 Extended"
+  show Fortran90 = "Fortran 90"
+  show Fortran95 = "Fortran 95"
+  show Fortran2003 = "Fortran 2003"
+  show Fortran2008 = "Fortran 2008"
 
 data ParanthesesCount = ParanthesesCount
   { pcActual :: Integer

@@ -33,7 +33,7 @@ example1Blocks =
   , BlStatement () u Nothing (StEndif () u Nothing) ]
 
 expectedExample1 = ProgramFile mi77 [ ([ ], PUMain () u (Just "example1") expectedExample1Blocks Nothing) ] [ ]
-expectedExample1Blocks = [ BlIf () u Nothing [ Just valTrue ] [ [ BlStatement () u Nothing (StEndif () u Nothing) ] ] ]
+expectedExample1Blocks = [ BlIf () u Nothing Nothing [ Just valTrue ] [ [ ] ] Nothing ]
 
 -- if (.true.) then
 --   integer x
@@ -57,18 +57,18 @@ example2Blocks =
   , BlStatement () u Nothing (StEndif () u Nothing) ]
 
 expectedExample2 = ProgramFile mi77 [ ([ ], PUMain () u (Just "example2") expectedExample2Blocks Nothing) ] [ ]
-expectedExample2Blocks = [ BlIf () u Nothing [ Just valTrue, Just valTrue, Nothing ] blockGroups ]
+expectedExample2Blocks = [ BlIf () u Nothing Nothing [ Just valTrue, Just valTrue, Nothing ] blockGroups Nothing ]
 blockGroups =
   [ [ BlStatement () u Nothing (StDeclaration () u (TypeSpec () u TypeInteger Nothing) Nothing (AList () u [ DeclVariable () u (varGen "x") Nothing Nothing ]))
     , innerIf ]
   , [ ]
-  , [ innerIf
-    , BlStatement () u Nothing (StEndif () u Nothing) ] ]
-innerIf = BlIf () u Nothing [ Just valFalse ] [ [ BlStatement () u Nothing (StEndif () u Nothing) ] ]
+  , [ innerIf ] ]
+innerIf = BlIf () u Nothing Nothing [ Just valFalse ] [ [ ] ] Nothing
 
 
 -- do 10 i = 0, 10
 -- 10   continue
+label10 = Just (ExpValue () u (ValInteger "10"))
 example1do = ProgramFile mi77 [ ([ ], PUMain () u (Just "example1") example1doblocks Nothing) ] [ ]
 example1doblocks =
   [ BlStatement () u Nothing
@@ -81,13 +81,16 @@ dospec = (Just (DoSpecification () u
 
 expectedExample1do = ProgramFile mi77 [ ([ ], PUMain () u (Just "example1") expectedExample1doBlocks Nothing) ] [ ]
 expectedExample1doBlocks =
-  [ BlDo () u Nothing dospec
-     [BlStatement () u (Just (ExpValue () u (ValInteger "10"))) (StContinue () u)]]
+  [ BlDo () u Nothing Nothing label10 dospec
+     [BlStatement () u label10 (StContinue () u)] Nothing ]
 
 
+label20 = Just (ExpValue () u (ValInteger "20"))
 -- do 10 i = 0, 10
 -- do 10 i = 0, 10
 -- 10   continue
+-- do 20 i = 0, 10
+-- 20   continue
 example2do = ProgramFile mi77 [ ([ ], PUMain () u (Just "example2") example2doblocks Nothing) ] [ ]
 example2doblocks =
   [ BlStatement () u Nothing
@@ -106,5 +109,5 @@ expectedExample2doBlocks =
     BlStatement () u Nothing
       (StDo () u Nothing (Just (ExpValue () u (ValInteger "10"))) dospec),
     BlStatement () u (Just (ExpValue () u (ValInteger "10"))) (StContinue () u),
-    BlDo () u Nothing dospec
-     [BlStatement () u (Just (ExpValue () u (ValInteger "20"))) (StContinue () u)]]
+    BlDo () u Nothing Nothing label20 dospec
+     [BlStatement () u (Just (ExpValue () u (ValInteger "20"))) (StContinue () u) ] Nothing ]

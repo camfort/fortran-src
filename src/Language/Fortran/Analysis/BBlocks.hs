@@ -81,15 +81,18 @@ labelBlocks gr = transform eachBlock gr
     transform = transformBiM
 
 labelWithinBlocks :: forall a. Data a => Block (Analysis a) -> Block (Analysis a)
-labelWithinBlocks b = perBlock b
+labelWithinBlocks = perBlock
   where
     perBlock :: Block (Analysis a) -> Block (Analysis a)
-    perBlock (BlStatement a s e st)    = BlStatement a s (mfill i e) (fill i st)               where i = insLabel a
-    perBlock (BlIf a s e1 e2 bss)      = BlIf a s (mfill i e1) (mmfill i e2) bss               where i = insLabel a
-    perBlock (BlCase a s e1 e2 is bss) = BlCase a s (mfill i e1) (fill i e2) (mmfill i is) bss where i = insLabel a
-    perBlock (BlDo a s e1 e2 bs)       = BlDo a s (mfill i e1) (mfill i e2) bs                 where i = insLabel a
-    perBlock (BlDoWhile a s e1 e2 bs)  = BlDoWhile a s (mfill i e1) (fill i e2) bs             where i = insLabel a
-    perBlock b                           = b
+    perBlock b =
+      case b of
+        BlStatement a s e st -> BlStatement a s (mfill i e) (fill i st)
+        BlIf a s e1 mn e2 bss el -> BlIf a s (mfill i e1) mn (mmfill i e2) bss el
+        BlCase a s e1 mn e2 is bss el -> BlCase a s (mfill i e1) mn (fill i e2) (mmfill i is) bss el
+        BlDo a s e1 mn tl e2 bs el -> BlDo a s (mfill i e1) mn tl (mfill i e2) bs el
+        BlDoWhile a s e1 n e2 bs el -> BlDoWhile a s (mfill i e1) n (fill i e2) bs el
+        _ -> b
+      where i = insLabel $ getAnnotation b
 
     mfill i  = fmap (fill i)
     mmfill i = fmap (fmap (fill i))
@@ -247,7 +250,7 @@ processBlocks bs = do
 perBlock :: Data a => Block (Analysis a) -> BBlocker (Analysis a) ()
 -- invariant: curNode corresponds to curBB, and is not yet in the graph
 -- invariant: curBB is in reverse order
-perBlock b@(BlIf _ _ _ exps bss) = do
+perBlock b@(BlIf _ _ _ _ exps bss _) = do
   processLabel b
   exps' <- forM (map fromJust . filter isJust $ exps) processFunctionCalls
   addToBBlock $ stripNestedBlocks b
@@ -282,14 +285,14 @@ perBlock b@(BlStatement a ss _ (StIfLogical _ _ exp stm)) = do
   createEdges [(ifN, thenN, ()), (ifN, nxtN, ()), (thenN, nxtN, ())]
 
 perBlock b@(BlStatement _ _ _ (StIfArithmetic {})) = error "BBlocks: StIfArithmetic unsupported"
-perBlock b@(BlDo _ _ mlab (Just spec) bs) = do
+perBlock b@(BlDo _ _ mlab _ _ (Just spec) bs _) = do
   let DoSpecification _ _ (StExpressionAssign _ _ _ e1) e2 me3 = spec
   e1'  <- processFunctionCalls e1
   e2'  <- processFunctionCalls e2
   me3' <- case me3 of Just e3 -> Just `fmap` processFunctionCalls e3; Nothing -> return Nothing
   perDoBlock Nothing b bs
-perBlock b@(BlDo _ _ _ Nothing bs) = perDoBlock Nothing b bs
-perBlock b@(BlDoWhile _ _ _ exp bs) = perDoBlock (Just exp) b bs
+perBlock b@(BlDo _ _ _ _ _ Nothing bs _) = perDoBlock Nothing b bs
+perBlock b@(BlDoWhile _ _ _ _ exp bs _) = perDoBlock (Just exp) b bs
 perBlock b@(BlStatement _ _ _ (StReturn {})) =
   processLabel b >> addToBBlock b >> closeBBlock_
 perBlock b@(BlStatement _ _ _ (StGotoUnconditional {})) =
@@ -408,9 +411,9 @@ genTemp str = do
 
 -- Strip nested code not necessary since it is duplicated in another
 -- basic block.
-stripNestedBlocks (BlDo a s l ds _)         = BlDo a s l ds []
-stripNestedBlocks (BlDoWhile a s l e _)     = BlDoWhile a s l e []
-stripNestedBlocks (BlIf a s l exps _)       = BlIf a s l exps []
+stripNestedBlocks (BlDo a s l mn tl ds _ el)   = BlDo a s l mn tl ds [] el
+stripNestedBlocks (BlDoWhile a s l n e _ el)   = BlDoWhile a s l n e [] el
+stripNestedBlocks (BlIf a s l mn exps _ el)       = BlIf a s l mn exps [] el
 stripNestedBlocks (BlStatement a s l
                    (StIfLogical a' s' e _)) = BlStatement a s l (StIfLogical a' s' e (StEndif a' s' Nothing))
 stripNestedBlocks b                         = b
@@ -625,14 +628,14 @@ showBlock (BlStatement _ _ mlab st)
             aIntercalate ", " showDecl adecls
         StDimension _ _ adecls       -> "dimension " ++ aIntercalate ", " showDecl adecls
         _                            -> ""
-showBlock (BlIf _ _ mlab (Just e1:_) _) = showLab mlab ++ "if " ++ showExpr e1 ++ "\\l"
-showBlock (BlDo _ _ mlab (Just spec) _) =
+showBlock (BlIf _ _ mlab _ (Just e1:_) _ _) = showLab mlab ++ "if " ++ showExpr e1 ++ "\\l"
+showBlock (BlDo _ _ mlab _ _ (Just spec) _ _) =
     showLab mlab ++ "do " ++ showExpr e1 ++ " <- " ++
       showExpr e2 ++ ", " ++
       showExpr e3 ++ ", " ++
       maybe "1" showExpr me4 ++ "\\l"
   where DoSpecification _ _ (StExpressionAssign _ _ e1 e2) e3 me4 = spec
-showBlock (BlDo _ _ _ Nothing _) = "do"
+showBlock (BlDo _ _ _ _ _ Nothing _ _) = "do"
 showBlock _ = ""
 
 showAttr (AttrParameter _ _) = "parameter"

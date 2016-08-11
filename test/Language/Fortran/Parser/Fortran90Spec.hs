@@ -422,5 +422,5 @@ spec =
       let renames = fromList ()
             [ UseRename () u (varGen "sprod") (varGen "prod")
             , UseRename () u (varGen "a") (varGen "b") ]
-      let st = StUse () u (varGen "stats_lib") (Just renames)
+      let st = StUse () u (varGen "stats_lib") Permissive (Just renames)
       sParser "use stats_lib, sprod => prod, a => b" `shouldBe'` st

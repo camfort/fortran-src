@@ -115,12 +115,45 @@ data ProgramUnit a =
   deriving (Eq, Show, Data, Typeable, Generic, Functor)
 
 data Block a =
-    BlStatement a SrcSpan (Maybe (Expression a)) (Statement a)
-  | BlIf a SrcSpan (Maybe (Expression a)) [ Maybe (Expression a) ] [ [ Block a ] ]
-  | BlCase a SrcSpan (Maybe (Expression a)) (Expression a) [ Maybe (AList Index a) ] [ [ Block a ] ]
-  | BlDo a SrcSpan (Maybe (Expression a)) (Maybe (DoSpecification a)) [ Block a ]
-  | BlDoWhile a SrcSpan (Maybe (Expression a)) (Expression a) [ Block a ]
-  | BlInterface a SrcSpan (Maybe (Expression a)) [ ProgramUnit a ] [ Block a ]
+    BlStatement a SrcSpan
+                (Maybe (Expression a))       -- Label
+                (Statement a)                -- Statement
+
+  | BlIf        a SrcSpan
+                (Maybe (Expression a))       -- Label
+                (Maybe String)               -- Construct name
+                [ Maybe (Expression a) ]     -- Conditions
+                [ [ Block a ] ]              -- Bodies
+                (Maybe (Expression a))       -- Label to END IF
+
+  | BlCase      a SrcSpan
+                (Maybe (Expression a))       -- Label
+                (Maybe String)               -- Construct name
+                (Expression a)               -- Scrutinee
+                [ Maybe (AList Index a) ]    -- Case ranges
+                [ [ Block a ] ]              -- Bodies
+                (Maybe (Expression a))       -- Label to END SELECT
+
+  | BlDo        a SrcSpan
+                (Maybe (Expression a))       -- Label
+                (Maybe String)               -- Construct name
+                (Maybe (Expression a))       -- Target label
+                (Maybe (DoSpecification a))  -- Do Specification
+                [ Block a ]                  -- Body
+                (Maybe (Expression a))       -- Label to END DO
+
+  | BlDoWhile   a SrcSpan
+                (Maybe (Expression a))       -- Label
+                (Maybe String)               -- Construct name
+                (Expression a)               -- Condition
+                [ Block a ]                  -- Body
+                (Maybe (Expression a))       -- Label to END DO
+
+  | BlInterface a SrcSpan
+                (Maybe (Expression a))       -- label
+                [ ProgramUnit a ]            -- Routine decls. in the interface
+                [ Block a ]                  -- Module procedures
+
   | BlComment a SrcSpan String
   deriving (Eq, Show, Data, Typeable, Generic, Functor)
 
@@ -192,7 +225,7 @@ data Statement a  =
   | StWhereConstruct      a SrcSpan (Expression a)
   | StElsewhere           a SrcSpan
   | StEndWhere            a SrcSpan
-  | StUse                 a SrcSpan (Expression a) (Maybe (AList Use a))
+  | StUse                 a SrcSpan (Expression a) Only (Maybe (AList Use a))
   | StModuleProcedure     a SrcSpan (AList Expression a)
   | StType                a SrcSpan (Maybe (AList Attribute a)) String
   | StEndType             a SrcSpan (Maybe String)
@@ -201,6 +234,9 @@ data Statement a  =
   -- parsing problem.
   | StFormatBogus         a SrcSpan String
   deriving (Eq, Show, Data, Typeable, Generic, Functor)
+
+data Only = Exclusive | Permissive
+  deriving (Eq, Show, Data, Typeable, Generic)
 
 data Use a =
     UseRename a SrcSpan (Expression a) (Expression a)
@@ -508,15 +544,15 @@ class Labeled f where
 
 instance Labeled Block where
   getLabel (BlStatement _ _ l _) = l
-  getLabel (BlIf _ _ l _ _) = l
-  getLabel (BlDo _ _ l _ _) = l
-  getLabel (BlDoWhile _ _ l _ _) = l
+  getLabel (BlIf _ _ l _ _ _ _) = l
+  getLabel (BlDo _ _ l _ _ _ _ _) = l
+  getLabel (BlDoWhile _ _ l _ _ _ _) = l
   getLabel _ = Nothing
 
   setLabel (BlStatement a s _ st) l = BlStatement a s (Just l) st
-  setLabel (BlIf a s _ conds bs) l = BlIf a s (Just l) conds bs
-  setLabel (BlDo a s _ spec bs) l = BlDo a s (Just l) spec bs
-  setLabel (BlDoWhile a s _ spec bs) l = BlDoWhile a s (Just l) spec bs
+  setLabel (BlIf a s _ mn conds bs el) l = BlIf a s (Just l) mn conds bs el
+  setLabel (BlDo a s _ mn tl spec bs el) l = BlDo a s (Just l) mn tl spec bs el
+  setLabel (BlDoWhile a s _ n spec bs el) l = BlDoWhile a s (Just l) n spec bs el
   setLabel b l = b
 
 class Conditioned f where
@@ -565,6 +601,7 @@ instance Out a => Out (ProgramFile a)
 instance Out a => Out (ProgramUnit a)
 instance (Out a, Out (t a)) => Out (AList t a)
 instance Out a => Out (Statement a)
+instance Out Only
 instance Out a => Out (Argument a)
 instance Out a => Out (Use a)
 instance Out a => Out (Attribute a)

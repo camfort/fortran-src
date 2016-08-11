@@ -144,12 +144,12 @@ blockRhsExprs :: Data a => Block a -> [Expression a]
 blockRhsExprs (BlStatement _ _ _ (StExpressionAssign _ _ lhs rhs))
   | ExpSubscript _ _ _ subs <- lhs = universeBi rhs ++ universeBi subs
   | otherwise                      = universeBi rhs
-blockRhsExprs (BlDo _ _ _ (Just (DoSpecification _ _ (StExpressionAssign _ _ lhs rhs) e1 e2)) _)
+blockRhsExprs (BlDo _ _ _ _ _ (Just (DoSpecification _ _ (StExpressionAssign _ _ lhs rhs) e1 e2)) _ _)
   | ExpSubscript _ _ _ subs <- lhs = universeBi (rhs, e1, e2) ++ universeBi subs
   | otherwise                      = universeBi (rhs, e1, e2)
 blockRhsExprs (BlStatement _ _ _ (StDeclaration {})) = []
-blockRhsExprs (BlDoWhile _ _ e1 e2 _)   = universeBi (e1, e2)
-blockRhsExprs (BlIf _ _ e1 e2 _)        = universeBi (e1, e2)
+blockRhsExprs (BlDoWhile _ _ e1 _ e2 _ _)   = universeBi (e1, e2)
+blockRhsExprs (BlIf _ _ e1 _ e2 _ _)        = universeBi (e1, e2)
 blockRhsExprs b                         = universeBi b
 
 -- | Set of names used -- not defined -- by an AST-block.
@@ -157,18 +157,18 @@ blockVarUses :: Data a => Block (Analysis a) -> [Name]
 blockVarUses (BlStatement _ _ _ (StExpressionAssign _ _ lhs rhs))
   | ExpSubscript _ _ _ subs <- lhs = allVars rhs ++ concatMap allVars (aStrip subs)
   | otherwise                      = allVars rhs
-blockVarUses (BlDo _ _ _ (Just (DoSpecification _ _ (StExpressionAssign _ _ lhs rhs) e1 e2)) _)
+blockVarUses (BlDo _ _ _ _ _ (Just (DoSpecification _ _ (StExpressionAssign _ _ lhs rhs) e1 e2)) _ _)
   | ExpSubscript _ _ _ subs <- lhs = allVars rhs ++ allVars e1 ++ maybe [] allVars e2 ++ concatMap allVars (aStrip subs)
   | otherwise                      = allVars rhs ++ allVars e1 ++ maybe [] allVars e2
 blockVarUses (BlStatement _ _ _ (StDeclaration {})) = []
-blockVarUses (BlDoWhile _ _ e1 e2 _)   = maybe [] allVars e1 ++ allVars e2
-blockVarUses (BlIf _ _ e1 e2 _)        = maybe [] allVars e1 ++ concatMap (maybe [] allVars) e2
+blockVarUses (BlDoWhile _ _ e1 _ e2 _ _)   = maybe [] allVars e1 ++ allVars e2
+blockVarUses (BlIf _ _ e1 _ e2 _ _)        = maybe [] allVars e1 ++ concatMap (maybe [] allVars) e2
 blockVarUses b                         = allVars b
 
 -- | Set of names defined by an AST-block.
 blockVarDefs :: Data a => Block (Analysis a) -> [Name]
 blockVarDefs (BlStatement _ _ _ st) = allLhsVars st
-blockVarDefs (BlDo _ _ _ (Just doSpec) _)  = allLhsVars doSpec
+blockVarDefs (BlDo _ _ _ _ _ (Just doSpec) _ _)  = allLhsVars doSpec
 blockVarDefs _                      = []
 
 -- Local variables:

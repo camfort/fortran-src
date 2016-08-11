@@ -1,8 +1,8 @@
 module Language.Fortran.Transformation.Grouping ( groupIf
-                                      , groupDo
-                                      , groupLabeledDo
-                                      , groupCase
-                                      ) where
+                                                , groupDo
+                                                , groupLabeledDo
+                                                , groupCase
+                                                ) where
 
 import Language.Fortran.AST
 import Language.Fortran.Analysis
@@ -11,8 +11,10 @@ import Language.Fortran.Transformation.TransformMonad
 import Debug.Trace
 
 genericGroup :: ([ Block (Analysis a) ] -> [ Block (Analysis a) ]) -> Transform a ()
-genericGroup groupingFunction = do
-    modifyProgramFile $ \ (ProgramFile mi pus e) -> ProgramFile mi (zip (map fst pus) . map (go . snd) $ pus) e
+genericGroup groupingFunction =
+    modifyProgramFile $
+      \(ProgramFile mi pus e) ->
+        ProgramFile mi (zip (map fst pus) . map (go . snd) $ pus) e
   where
     go pu =
       case pu of
@@ -50,10 +52,10 @@ groupIf' (b:bs) = b' : bs'
   where
     (b', bs') = case b of
       BlStatement a s label st
-        | StIfThen{} <- st -> -- If statement
-          let ( conditions, blocks, leftOverBlocks ) =
+        | StIfThen _ _ mName _ <- st -> -- If statement
+          let ( conditions, blocks, leftOverBlocks, endLabel ) =
                 decomposeIf (b:groupedBlocks)
-          in ( BlIf a (getTransSpan s blocks) label conditions blocks
+          in ( BlIf a (getTransSpan s blocks) label mName conditions blocks endLabel
              , leftOverBlocks)
       b | containsGroups b -> -- Map to subblocks for groupable blocks
         ( applyGroupingToSubblocks groupIf' b, groupedBlocks )
@@ -80,26 +82,31 @@ groupIf' (b:bs) = b' : bs'
 -- In that case it decomposes the block into list of (maybe) conditions and
 -- blocks that those conditions correspond to. Additionally, it returns
 -- whatever is after the if block.
-decomposeIf :: [ Block (Analysis a) ] -> ([ Maybe (Expression (Analysis a)) ], [ [ Block (Analysis a) ] ], [ Block (Analysis a) ])
+decomposeIf :: [ Block (Analysis a) ]
+            -> ( [ Maybe (Expression (Analysis a)) ],
+                 [ [ Block (Analysis a) ] ],
+                 [ Block (Analysis a) ],
+                 Maybe (Expression (Analysis a)) )
 decomposeIf blocks@(BlStatement _ _ _ (StIfThen _ _ mTargetName _):rest) =
     decomposeIf' blocks
   where
-    decomposeIf' (BlStatement _ _ _ st:rest) =
+    decomposeIf' (BlStatement _ _ mLabel st:rest) =
       case st of
         StIfThen _ _ _ condition -> go (Just condition) rest
         StElsif _ _ _ condition -> go (Just condition) rest
         StElse{} -> go Nothing rest
         StEndif _ _ mName
-          | mName == mTargetName -> ([], [], rest)
+          | mName == mTargetName -> ([], [], rest, mLabel)
           | otherwise -> error $ "If statement name does not match that of " ++
                                    "the corresponding end if statement."
         _ -> error "Block with non-if related statement. Should never occur."
     go maybeCondition blocks =
       let (nonConditionBlocks, rest') = collectNonConditionalBlocks blocks
-          (conditions, listOfBlocks, rest'') = decomposeIf' rest'
+          (conditions, listOfBlocks, rest'', endLabel) = decomposeIf' rest'
       in ( maybeCondition : conditions
          , nonConditionBlocks : listOfBlocks
-         , rest'' )
+         , rest''
+         , endLabel )
 
 -- This compiles the executable blocks under various if conditions.
 collectNonConditionalBlocks :: [ Block (Analysis a) ] -> ([ Block (Analysis a) ], [ Block (Analysis a) ])
@@ -111,7 +118,7 @@ collectNonConditionalBlocks blocks =
     -- conditional directives. The reason is that this block can be
     -- a branch target if it is labeled according to the specification, hence
     -- it is presence in the parse tree is meaningful.
-    b@(BlStatement _ _ _ StEndif{}):_ -> ([ b ], blocks)
+    b@(BlStatement _ _ _ StEndif{}):_ -> ([], blocks)
     -- Catch all case for all non-if related blocks.
     b:bs -> let (bs', rest) = collectNonConditionalBlocks bs in (b : bs', rest)
     -- In this case the structured if block is malformed and the file ends
@@ -132,31 +139,35 @@ groupDo' blocks@(b:bs) = b' : bs'
     (b', bs') = case b of
       BlStatement a s label st
         -- Do While statement
-        | StDoWhile _ _ mNameTarget _ condition <- st ->
-          let ( blocks, leftOverBlocks ) =
-                collectNonDoBlocks groupedBlocks mNameTarget
-          in ( BlDoWhile a (getTransSpan s blocks) label condition blocks
+        | StDoWhile _ _ mTarget _ condition <- st ->
+          let ( blocks, leftOverBlocks, endLabel ) =
+                collectNonDoBlocks groupedBlocks mTarget
+          in ( BlDoWhile a (getTransSpan s blocks) label mTarget condition blocks endLabel
              , leftOverBlocks)
         -- Vanilla do statement
-        | StDo _ _ mNameTarget Nothing doSpec <- st ->
-          let ( blocks, leftOverBlocks ) =
-                collectNonDoBlocks groupedBlocks mNameTarget
-          in ( BlDo a (getTransSpan s blocks) label doSpec blocks
+        | StDo _ _ mName Nothing doSpec <- st ->
+          let ( blocks, leftOverBlocks, endLabel ) =
+                collectNonDoBlocks groupedBlocks mName
+          in ( BlDo a (getTransSpan s blocks) label mName Nothing doSpec blocks endLabel
              , leftOverBlocks)
       b | containsGroups b ->
         ( applyGroupingToSubblocks groupDo' b, groupedBlocks )
       _ -> ( b, groupedBlocks )
     groupedBlocks = groupDo' bs -- Assume everything to the right is grouped.
 
-collectNonDoBlocks :: [ Block (Analysis a) ] -> Maybe String -> ([ Block (Analysis a)], [ Block (Analysis a) ])
+collectNonDoBlocks :: [ Block (Analysis a) ] -> Maybe String
+                   -> ( [ Block (Analysis a)]
+                      , [ Block (Analysis a) ]
+                      , Maybe (Expression (Analysis a)) )
 collectNonDoBlocks blocks mNameTarget =
   case blocks of
-    b@(BlStatement _ _ _ (StEnddo _ _ mName)):rest
-      | mName == mNameTarget -> ([ b ], rest)
+    b@(BlStatement _ _ mLabel (StEnddo _ _ mName)):rest
+      | mName == mNameTarget -> ([ ], rest, mLabel)
       | otherwise ->
           error "Do block name does not match that of the end statement."
     b:bs ->
-      let (bs', rest) = collectNonDoBlocks bs mNameTarget in (b : bs', rest)
+      let (bs', rest, mLabel) = collectNonDoBlocks bs mNameTarget
+      in (b : bs', rest, mLabel)
     _ -> error "Premature file ending while parsing structured do block."
 
 --------------------------------------------------------------------------------
@@ -172,12 +183,13 @@ groupLabeledDo' blos@(b:bs) = b' : bs'
   where
     (b', bs') = case b of
       BlStatement a s label
-        (StDo _ _ _ (Just (ExpValue _ _ (ValInteger targetLabel))) doSpec) ->
+        (StDo _ _ mn tl@(Just (ExpValue _ _ (ValInteger targetLabel))) doSpec) ->
 
         case collectNonLabeledDoBlocks targetLabel groupedBlocks of
           -- Successfully grouped
           Just ( blocks, leftOverBlocks ) ->
-           ( BlDo a (getTransSpan s blocks) label doSpec blocks, leftOverBlocks)
+           ( BlDo a (getTransSpan s blocks) label mn tl doSpec blocks Nothing
+           , leftOverBlocks )
 
           -- Failed to group
           Nothing ->
@@ -189,7 +201,6 @@ groupLabeledDo' blos@(b:bs) = b' : bs'
                -- Otherwise, leave all blocks ungrouped *up-to the labelled
                -- target statement* and proceed with grouping on the rest
                Just ( blocks, rest ) -> ( b , blocks ++ groupLabeledDo' rest )
-
       b | containsGroups b ->
         ( applyGroupingToSubblocks groupLabeledDo' b, groupedBlocks )
       _ -> (b, groupedBlocks)
@@ -211,7 +222,7 @@ collectNonLabeledDoBlocks targetLabel blocks =
       | label == targetLabel -> Just ([ b ], rest)
 
     -- Error case of badly-bracketted do-blocks; fail
-    b@(BlDo _ span _ _ blocks):rest
+    b@(BlDo _ span _ _ _ _ blocks _):rest
       | badNesting targetLabel (collectNonLabeledDoBlocks targetLabel blocks) ->
         error $ "End of nonblock DO statement interwoven with another DO at "
                 ++ show span
@@ -246,10 +257,10 @@ groupCase' (b:bs) = b' : bs'
   where
     (b', bs') = case b of
       BlStatement a s label st
-        | StSelectCase _ _ mTargetName scrutinee <- st ->
+        | StSelectCase _ _ mName scrutinee <- st ->
           let blocksToDecomp = dropWhile isComment groupedBlocks
-              ( conds, blocks, leftOverBlocks ) = decomposeCase blocksToDecomp mTargetName
-          in ( BlCase a (getTransSpan s blocks) label scrutinee conds blocks
+              ( conds, blocks, leftOverBlocks, endLabel ) = decomposeCase blocksToDecomp mName
+          in ( BlCase a (getTransSpan s blocks) label mName scrutinee conds blocks endLabel
              , leftOverBlocks)
       b | containsGroups b -> -- Map to subblocks for groupable blocks
         ( applyGroupingToSubblocks groupCase' b, groupedBlocks )
@@ -257,8 +268,12 @@ groupCase' (b:bs) = b' : bs'
     groupedBlocks = groupCase' bs -- Assume everything to the right is grouped.
     isComment b = case b of { BlComment{} -> True; _ -> False }
 
-decomposeCase :: [ Block (Analysis a) ] -> Maybe String -> ([ Maybe (AList Index (Analysis a)) ], [ [ Block (Analysis a) ] ], [ Block (Analysis a) ])
-decomposeCase blocks@(BlStatement _ _ _ st:rest) mTargetName =
+decomposeCase :: [ Block (Analysis a) ] -> Maybe String
+              -> ( [ Maybe (AList Index (Analysis a)) ]
+                 , [ [ Block (Analysis a) ] ]
+                 , [ Block (Analysis a) ]
+                 , Maybe (Expression (Analysis a)) )
+decomposeCase blocks@(BlStatement _ _ mLabel st:rest) mTargetName =
     case st of
       StCase _ _ mName mCondition
         | Nothing <- mName -> go mCondition rest
@@ -266,17 +281,17 @@ decomposeCase blocks@(BlStatement _ _ _ st:rest) mTargetName =
         | otherwise -> error $ "Case name does not match that of " ++
                                  "the corresponding select case statement."
       StEndcase _ _ mName
-        | mName == mTargetName -> ([], [], rest)
+        | mName == mTargetName -> ([], [], rest, mLabel)
         | otherwise -> error $ "End case name does not match that of " ++
                                  "the corresponding select case statement."
       _ -> error "Block with non-case related statement. Must not occur."
   where
     go mCondition blocks =
       let (nonCaseBlocks, rest) = collectNonCaseBlocks blocks
-          (conditions, listOfBlocks, rest') = decomposeCase rest mTargetName
+          (conditions, listOfBlocks, rest', endLabel) = decomposeCase rest mTargetName
       in ( mCondition : conditions
          , nonCaseBlocks : listOfBlocks
-         , rest' )
+         , rest', endLabel )
 
 -- This compiles the executable blocks under various if conditions.
 collectNonCaseBlocks :: [ Block (Analysis a) ] -> ([ Block (Analysis a) ], [ Block (Analysis a) ])
@@ -284,7 +299,7 @@ collectNonCaseBlocks blocks =
   case blocks of
     b@(BlStatement _ _ _ st):_
       | StCase{} <- st -> ( [], blocks )
-      | StEndcase{} <- st -> ( [ b ], blocks )
+      | StEndcase{} <- st -> ( [], blocks )
     -- In this case case block is malformed and the file ends prematurely.
     b:bs -> let (bs', rest) = collectNonCaseBlocks bs in (b : bs', rest)
     _ -> error "Premature file ending while parsing select case block."
@@ -308,11 +323,11 @@ applyGroupingToSubblocks :: ([ Block (Analysis a) ] -> [ Block (Analysis a) ]) -
 applyGroupingToSubblocks f b
   | BlStatement{} <- b =
       error "Individual statements do not have subblocks. Must not occur."
-  | BlIf a s l conds blocks <- b = BlIf a s l conds $ map f blocks
-  | BlCase a s l scrutinee conds blocks <- b =
-      BlCase a s l scrutinee conds $ map f blocks
-  | BlDo a s l doSpec blocks <- b = BlDo a s l doSpec $ f blocks
-  | BlDoWhile a s l doSpec blocks <- b = BlDoWhile a s l doSpec $ f blocks
+  | BlIf a s l mn conds blocks el <- b = BlIf a s l mn conds (map f blocks) el
+  | BlCase a s l mn scrutinee conds blocks el <- b =
+      BlCase a s l mn scrutinee conds (map f blocks) el
+  | BlDo a s l n tl doSpec blocks el <- b = BlDo a s l n tl doSpec (f blocks) el
+  | BlDoWhile a s l n doSpec blocks el <- b = BlDoWhile a s l n doSpec (f blocks) el
   | BlInterface{} <- b =
       error "Interface blocks do not have groupable subblocks. Must not occur."
   | BlComment{} <- b =

@@ -8,6 +8,8 @@ import Data.Text (unpack)
 import Data.Text.Encoding (encodeUtf8, decodeUtf8With)
 import Data.Text.Encoding.Error (replace)
 
+import Text.PrettyPrint (render)
+
 import System.Console.GetOpt
 
 import System.Environment
@@ -26,6 +28,7 @@ import Language.Fortran.Parser.Fortran77 (fortran77Parser, extended77Parser)
 import Language.Fortran.Parser.Fortran90 (fortran90Parser)
 import Language.Fortran.Parser.Any
 
+import Language.Fortran.Pretty
 import Language.Fortran.Analysis
 import Language.Fortran.AST
 import Language.Fortran.Analysis.Types
@@ -77,6 +80,7 @@ main = do
       Rename     -> pp . runRenamer $ parserF contents path
       BBlocks    -> putStrLn . runBBlocks $ parserF contents path
       SuperGraph -> putStrLn . runSuperGraph $ parserF contents path
+      Reprint    -> putStrLn . render . flip (pprint version) (Just 0) $ parserF contents path
 
 superGraphDataFlow :: Data a => ProgramFile (Analysis a) -> SuperBBGr (Analysis a) -> String
 superGraphDataFlow pf sgr = showBBGr (nmap (map (fmap insLabel)) gr) ++ "\n\n" ++ replicate 50 '-' ++ "\n\n" ++ dfStr gr
@@ -117,7 +121,7 @@ printTypes tenv = do
   forM_ (M.toList tenv) $ \ (name, IDType { idVType = vt, idCType = ct }) ->
     printf "%s\t\t%s %s\n" name (drop 4 $ maybe "  -" show vt) (drop 2 $ maybe "   " show ct)
 
-data Action = Lex | Parse | Typecheck | Rename | BBlocks | SuperGraph
+data Action = Lex | Parse | Typecheck | Rename | BBlocks | SuperGraph | Reprint
 
 instance Read Action where
   readsPrec _ value =
@@ -163,6 +167,10 @@ options =
       ["supergraph"]
       (NoArg $ \ opts -> opts { action = SuperGraph })
       "analyse super graph of basic blocks"
+  , Option ['r']
+      ["reprint"]
+      (NoArg $ \ opts -> opts { action = Reprint })
+      "Parse and output using pretty printer"
   , Option []
       ["dot"]
       (NoArg $ \ opts -> opts { outputFormat = DOT })

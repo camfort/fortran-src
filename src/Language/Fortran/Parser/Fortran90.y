@@ -389,13 +389,13 @@ NONEXECUTABLE_STATEMENT :: { Statement A0 }
 | intrinsic VARIABLES
   { let alist = fromReverseList $2
     in StIntrinsic () (getTransSpan $1 alist) alist }
-| use VARIABLE { StUse () (getTransSpan $1 $2) $2 Nothing }
+| use VARIABLE { StUse () (getTransSpan $1 $2) $2 Permissive Nothing }
 | use VARIABLE ',' RENAME_LIST
   { let alist = fromReverseList $4
-    in StUse () (getTransSpan $1 alist) $2 (Just alist) }
+    in StUse () (getTransSpan $1 alist) $2 Permissive (Just alist) }
 | use VARIABLE ',' only ':' RENAME_LIST
   { let alist = fromReverseList $6
-    in StUse () (getTransSpan $1 alist) $2 (Just alist) }
+    in StUse () (getTransSpan $1 alist) $2 Exclusive (Just alist) }
 | entry VARIABLE RESULT
   { StEntry () (getTransSpan $1 $ maybe (getSpan $2) getSpan $3) $2 Nothing $3 }
 | entry VARIABLE '(' ')' RESULT
