@@ -347,19 +347,19 @@ spec =
           let bodies = replicate 4 body
           let bl = BlIf () u Nothing (Just "mistral") conds bodies Nothing
           let expect = unlines [ "mistral: if (.true.) then"
-                               , "print *, i"
-                               , "i = i - 1"
+                               , "  print *, i"
+                               , "  i = i - 1"
                                , "else if (.false.) then"
-                               , "print *, i"
-                               , "i = i - 1"
+                               , "  print *, i"
+                               , "  i = i - 1"
                                , "else if (.true.) then"
-                               , "print *, i"
-                               , "i = i - 1"
+                               , "  print *, i"
+                               , "  i = i - 1"
                                , "else"
-                               , "print *, i"
-                               , "i = i - 1"
+                               , "  print *, i"
+                               , "  i = i - 1"
                                , "end if mistral" ]
-          pprint Fortran90 bl Nothing `shouldBe` text expect
+          pprint Fortran90 bl (Just 0) `shouldBe` text expect
 
       describe "Case" $
         it "prints complicated structured if" $ do
@@ -370,17 +370,17 @@ spec =
           let bodies = replicate 3 body
           let bl = BlCase () u Nothing Nothing (varGen "x") cases bodies (Just (intGen 42))
           let expect = unlines [ "select case (x)"
-                               , "case (2:4)"
-                               , "print *, i"
-                               , "i = i - 1"
-                               , "case (7)"
-                               , "print *, i"
-                               , "i = i - 1"
-                               , "case default"
-                               , "print *, i"
-                               , "i = i - 1"
+                               , "  case (2:4)"
+                               , "    print *, i"
+                               , "    i = i - 1"
+                               , "  case (7)"
+                               , "    print *, i"
+                               , "    i = i - 1"
+                               , "  case default"
+                               , "    print *, i"
+                               , "    i = i - 1"
                                , "42 end select" ]
-          pprint Fortran90 bl Nothing `shouldBe` text expect
+          pprint Fortran90 bl (Just 0) `shouldBe` text expect
 
     describe "Program units" $ do
       describe "Main" $ do
@@ -394,35 +394,35 @@ spec =
 
         it "prints 66 style main" $ do
           let main = PUMain () u Nothing body Nothing
-          let expect = unlines [ "print *, i"
-                               , "i = i - 1"
-                               , "end" ]
-          pprint Fortran66 main Nothing `shouldBe` text expect
+          let expect = unlines [ "      print *, i"
+                               , "      i = i - 1"
+                               , "      end" ]
+          pprint Fortran66 main (Just 0) `shouldBe` text expect
 
       describe "Module" $ do
         it "prints module without sub programs" $ do
           let mod = PUModule () u "my_mod" body Nothing
           let expect = unlines [ "module my_mod"
-                               , "print *, i"
-                               , "i = i - 1"
+                               , "  print *, i"
+                               , "  i = i - 1"
                                , "end module my_mod" ]
-          pprint Fortran90 mod Nothing `shouldBe` text expect
+          pprint Fortran90 mod (Just 0) `shouldBe` text expect
 
         it "prints module with sub programs" $ do
           let sub = PUSubroutine () u False "sub" Nothing body Nothing
           let mod = PUModule () u "my_mod" body (Just [ sub ])
-          let expect = unlines [ "module my_mod"
-                               , "print *, i"
-                               , "i = i - 1"
+          let expect = unlines [ "   module my_mod"
+                               , "     print *, i"
+                               , "     i = i - 1"
                                , ""
-                               , "contains"
+                               , "     contains"
                                , ""
-                               , "subroutine sub"
-                               , "print *, i"
-                               , "i = i - 1"
-                               , "end subroutine sub"
-                               , "end module my_mod" ]
-          pprint Fortran90 mod Nothing `shouldBe` text expect
+                               , "     subroutine sub"
+                               , "       print *, i"
+                               , "       i = i - 1"
+                               , "     end subroutine sub"
+                               , "   end module my_mod" ]
+          pprint Fortran90 mod (Just 3) `shouldBe` text expect
 
       describe "Subroutine" $ do
         it "prints recursive subroutine with args without sub programs" $ do
@@ -437,8 +437,8 @@ spec =
         it "prints 66 style subroutine without args" $ do
           let mod = PUSubroutine () u False "sub" Nothing body Nothing
           let expect = unlines [ "subroutine sub"
-                               , "print *, i"
-                               , "i = i - 1"
+                               , "  print *, i"
+                               , "  i = i - 1"
                                , "end" ]
           pprint Fortran66 mod Nothing `shouldBe` text expect
 
@@ -449,11 +449,11 @@ spec =
           let args = AList () u [ varGen "x", varGen "y", varGen "z" ]
           let res = Just $ varGen "i"
           let fun = PUFunction () u tSpec False "f" (Just args) res body Nothing
-          let expect = unlines [ "integer function f(x, y, z) result(i)"
-                               , "print *, i"
-                               , "i = i - 1"
-                               , "end function f" ]
-          pprint Fortran90 fun Nothing `shouldBe` text expect
+          let expect = unlines [ "  integer function f(x, y, z) result(i)"
+                               , "    print *, i"
+                               , "    i = i - 1"
+                               , "  end function f" ]
+          pprint Fortran90 fun (Just 2) `shouldBe` text expect
 
     describe "Program file" $
       it "prints simple program file" $ do
@@ -463,15 +463,15 @@ spec =
         let pf = ProgramFile [([com], pu), ([com], pu)] [com, com]
         let expect = unlines [ "!hello!"
                              , "module my_mod"
-                             , "continue"
+                             , "  continue"
                              , "end module my_mod"
                              , "!hello!"
                              , "module my_mod"
-                             , "continue"
+                             , "  continue"
                              , "end module my_mod"
                              , "!hello!"
                              , "!hello!" ]
-        pprint Fortran90 pf Nothing `shouldBe` text expect
+        pprint Fortran90 pf (Just 0) `shouldBe` text expect
 
 valueExpressions :: Expression () -> Maybe (Expression ())
 valueExpressions e@ExpValue{} = Just e
