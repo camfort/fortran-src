@@ -2,7 +2,7 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE OverloadedStrings #-}
 
-module Language.Fortran.PrettySpec where
+module Language.Fortran.PrettyPrintSpec where
 
 import qualified Data.ByteString.Char8 as B
 import Data.Text.Encoding (encodeUtf8, decodeUtf8With)
@@ -18,7 +18,7 @@ import Control.Monad (void)
 
 import Language.Fortran.AST as LFA
 import Language.Fortran.ParserMonad
-import Language.Fortran.Pretty
+import Language.Fortran.PrettyPrint
 import Language.Fortran.Parser.Any
 import Language.Fortran.Util.Position
 import Language.Fortran.Util.SecondParameter
