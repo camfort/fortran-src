@@ -3,7 +3,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE UndecidableInstances #-}
 
-module Language.Fortran.Pretty where
+module Language.Fortran.PrettyPrint where
 
 import Data.Char
 import Data.Maybe (isJust, isNothing)

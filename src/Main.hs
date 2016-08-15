@@ -28,7 +28,7 @@ import Language.Fortran.Parser.Fortran77 (fortran77Parser, extended77Parser)
 import Language.Fortran.Parser.Fortran90 (fortran90Parser)
 import Language.Fortran.Parser.Any
 
-import Language.Fortran.Pretty
+import Language.Fortran.PrettyPrint
 import Language.Fortran.Analysis
 import Language.Fortran.AST
 import Language.Fortran.Analysis.Types
