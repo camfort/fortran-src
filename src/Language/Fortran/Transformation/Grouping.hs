@@ -185,22 +185,10 @@ groupLabeledDo' blos@(b:bs) = b' : bs'
       BlStatement a s label
         (StDo _ _ mn tl@(Just (ExpValue _ _ (ValInteger targetLabel))) doSpec) ->
 
-        case collectNonLabeledDoBlocks targetLabel groupedBlocks of
-          -- Successfully grouped
-          Just ( blocks, leftOverBlocks ) ->
-           ( BlDo a (getTransSpan s blocks) label mn tl doSpec blocks Nothing
+        let ( blocks, leftOverBlocks ) =
+              collectNonLabeledDoBlocks targetLabel groupedBlocks
+        in ( BlDo a (getTransSpan s blocks) label mn tl doSpec blocks Nothing
            , leftOverBlocks )
-
-          -- Failed to group
-          Nothing ->
-            -- Split at the targetLabel on the original block list
-            case collectNonLabeledDoBlocks targetLabel bs of
-               -- If there is never an end-point to the block
-               -- then skip this block and group the rest
-               Nothing -> (b , groupLabeledDo' bs)
-               -- Otherwise, leave all blocks ungrouped *up-to the labelled
-               -- target statement* and proceed with grouping on the rest
-               Just ( blocks, rest ) -> ( b , blocks ++ groupLabeledDo' rest )
       b | containsGroups b ->
         ( applyGroupingToSubblocks groupLabeledDo' b, groupedBlocks )
       _ -> (b, groupedBlocks)
@@ -211,38 +199,18 @@ groupLabeledDo' blos@(b:bs) = b' : bs'
 
 collectNonLabeledDoBlocks ::
     String -> [ Block (Analysis a) ]
-           -> Maybe ([ Block (Analysis a) ], [ Block (Analysis a) ])
+           -> ([ Block (Analysis a) ], [ Block (Analysis a) ])
 collectNonLabeledDoBlocks targetLabel blocks =
   case blocks of
     -- Didn't find a statement with matching label; don't group
-    [] -> Nothing
+    [] -> error "Malformed labeled DO group."
 
     -- Found matching statement
     b@(BlStatement _ _ (Just (ExpValue _ _ (ValInteger label))) _):rest
-      | label == targetLabel -> Just ([ b ], rest)
+      | label == targetLabel -> ([ b ], rest)
 
-    -- Error case of badly-bracketted do-blocks; fail
-    b@(BlDo _ span _ _ _ _ blocks _):rest
-      | badNesting targetLabel (collectNonLabeledDoBlocks targetLabel blocks) ->
-        error $ "End of nonblock DO statement interwoven with another DO at "
-                ++ show span
-
-    b:bs -> do (bs', rest) <- collectNonLabeledDoBlocks targetLabel bs
-               return (b : bs', rest)
-
-badNesting targetLabel (Just (bs, rest)) | length rest == 0 =
-    case last bs of
-      -- Last statement in an already grouped DO block
-      -- is a labelled statement matching the target label:
-      -- i.e., this is a case of blocks with the same end-point
-      -- which is valid (i.e., well-nested).
-      b@(BlStatement _ _ (Just (ExpValue _ _ (ValInteger label))) _)
-         | label == targetLabel -> False
-      -- Otherwise, the label doesn't match and we have badly nested
-      -- do blocks
-      otherwise                 -> True
-badNesting _ (Just _) = True
-badNesting _ _        = False
+    b:bs -> let (bs', rest) = collectNonLabeledDoBlocks targetLabel bs
+            in (b : bs', rest)
 
 --------------------------------------------------------------------------------
 -- Grouping case statements
