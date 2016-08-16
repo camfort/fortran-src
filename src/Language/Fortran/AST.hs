@@ -626,4 +626,43 @@ instance Out a => Out (ControlPair a)
 instance Out UnaryOp
 instance Out BinaryOp
 
+-- Classifiers on statement and blocks ASTs
 
+nonExecutableStatement :: Statement a -> Bool
+nonExecutableStatement s = case s of
+    StIntent {}   -> True
+    StOptional {} -> True
+    StPublic {}   -> True
+    StPrivate {}  -> True
+    StSave {}     -> True
+    StDimension {} -> True
+    StAllocatable {} -> True
+    StPointer {}   -> True
+    StTarget {}    -> True
+    StData {}      -> True
+    StParameter {} -> True
+    StImplicit {}  -> True
+    StNamelist {}  -> True
+    StEquivalence {} -> True
+    StCommon {}    -> True
+    StExternal {}  -> True
+    StIntrinsic {} -> True
+    StUse {}       -> True
+    StEntry {}     -> True
+    StSequence {}  -> True
+    StType {}      -> True
+    StEndType {}   -> True
+    StFormatBogus {} -> True
+    StInclude {}   -> True
+    _              -> False
+
+executableStatement :: Statement a -> Bool
+executableStatement = not . nonExecutableStatement
+
+executableStatementBlock :: Block a -> Bool
+executableStatementBlock (BlStatement _ _ _ s) = executableStatement s
+executableStatementBlock _ = False
+
+nonExecutableStatementBlock :: Block a -> Bool
+nonExecutableStatementBlock (BlStatement _ _ _ s) = nonExecutableStatement s
+nonExecutableStatementBlock _ = False
