@@ -120,22 +120,6 @@ spec =
       it "should lex continuation lines properly" $
         resetSrcSpan (collectFixedTokens' Fortran66 continuationExample) `shouldBe` resetSrcSpan [ TType u "integer", TId u "ix", TNewline u, TId u "ix", TOpAssign u, TInt u "42", TNewline u, TEnd u, TNewline u, TEOF u ]
 
-      describe "lexing format items" $ do
-        it "lexes '10x'" $
-          resetSrcSpan (lex66 "      format 10x") `shouldBe` resetSrcSpan (Just $ TBlankDescriptor u 10)
-
-        it "lexes '10a1'" $
-          resetSrcSpan (lex66 "      format 10a1") `shouldBe` resetSrcSpan (Just $ TFieldDescriptorAIL u (Just 10) 'a' 1)
-
-        it "lexes 'a1'" $
-          resetSrcSpan (lex66 "      format a1") `shouldBe` resetSrcSpan (Just $ TFieldDescriptorAIL u Nothing 'a' 1)
-
-        it "lexes '20g10.3'" $
-          resetSrcSpan (lex66 "      format 20g10.3") `shouldBe` resetSrcSpan (Just $ TFieldDescriptorDEFG u (Just 20) 'g' 10 3)
-
-        it "lexes '-10p'" $
-          resetSrcSpan (lex66 "      format -10p") `shouldBe` resetSrcSpan (Just $ TScaleFactor u (-10))
-
     describe "lexN" $
       it "`lexN 5` parses lexes next five characters" $
         (lexemeMatch . aiLexeme) (evalParse (lexN 5 >> getAlex) (initParseState (B.pack "helloWorld") Fortran66 "")) `shouldBe` reverse "hello"
@@ -145,7 +129,7 @@ spec =
         resetSrcSpan (lex66 "      format 7hmistral") `shouldBe` resetSrcSpan (Just $ THollerith u "mistral")
 
       it "becomes case sensitive" $
-        resetSrcSpan (collectFixedTokens' Fortran66 "      format (5h a= 1)") `shouldBe` resetSrcSpan [ TFormat u, TLeftPar u, THollerith u " a= 1", TRightPar u, TEOF u ]
+        resetSrcSpan (collectFixedTokens' Fortran66 "      format (5h a= 1)") `shouldBe` resetSrcSpan [ TFormat u, TBlob u "(5ha=1)", TEOF u ]
 
     it "lexes if statement '        IF (IY) 5,6,6'" $
       resetSrcSpan (collectFixedTokens' Fortran66 "      IF (IY) 5,6,6") `shouldBe` resetSrcSpan [TIf u, TLeftPar u, TId u "iy", TRightPar u, TInt u "5", TComma u, TInt u "6", TComma u, TInt u "6", TEOF u]
