@@ -540,14 +540,22 @@ getTransSpan x y =
 
 class Labeled f where
   getLabel :: f a -> Maybe (Expression a)
+  getLastLabel :: f a -> Maybe (Expression a)
   setLabel :: f a -> Expression a -> f a
 
 instance Labeled Block where
   getLabel (BlStatement _ _ l _) = l
   getLabel (BlIf _ _ l _ _ _ _) = l
+  getLabel (BlCase _ _ l _ _ _ _ _) = l
   getLabel (BlDo _ _ l _ _ _ _ _) = l
   getLabel (BlDoWhile _ _ l _ _ _ _) = l
   getLabel _ = Nothing
+
+  getLastLabel b@BlStatement{} = getLabel b
+  getLastLabel (BlIf _ _ _ _ _ _ l) = l
+  getLastLabel (BlCase _ _ _ _ _ _ _ l) = l
+  getLastLabel (BlDo _ _ _ _ _ _ _ l) = l
+  getLastLabel (BlDoWhile _ _ _ _ _ _ l) = l
 
   setLabel (BlStatement a s _ st) l = BlStatement a s (Just l) st
   setLabel (BlIf a s _ mn conds bs el) l = BlIf a s (Just l) mn conds bs el

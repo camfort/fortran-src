@@ -183,12 +183,12 @@ groupLabeledDo' blos@(b:bs) = b' : bs'
   where
     (b', bs') = case b of
       BlStatement a s label
-        (StDo _ _ mn tl@(Just (ExpValue _ _ (ValInteger targetLabel))) doSpec) ->
-
-        let ( blocks, leftOverBlocks ) =
-              collectNonLabeledDoBlocks targetLabel groupedBlocks
-        in ( BlDo a (getTransSpan s blocks) label mn tl doSpec blocks Nothing
-           , leftOverBlocks )
+        (StDo _ _ mn tl doSpec) ->
+          let ( blocks, leftOverBlocks ) =
+                collectNonLabeledDoBlocks tl groupedBlocks
+              lastLabel = getLastLabel $ last blocks
+          in ( BlDo a (getTransSpan s blocks) label mn tl doSpec blocks lastLabel
+             , leftOverBlocks )
       b | containsGroups b ->
         ( applyGroupingToSubblocks groupLabeledDo' b, groupedBlocks )
       _ -> (b, groupedBlocks)
@@ -197,20 +197,23 @@ groupLabeledDo' blos@(b:bs) = b' : bs'
     groupedBlocks = groupLabeledDo' bs
 
 
-collectNonLabeledDoBlocks ::
-    String -> [ Block (Analysis a) ]
-           -> ([ Block (Analysis a) ], [ Block (Analysis a) ])
+collectNonLabeledDoBlocks :: Maybe (Expression (Analysis a)) -> [ Block (Analysis a) ]
+                          -> ([ Block (Analysis a) ], [ Block (Analysis a) ])
 collectNonLabeledDoBlocks targetLabel blocks =
   case blocks of
     -- Didn't find a statement with matching label; don't group
     [] -> error "Malformed labeled DO group."
 
-    -- Found matching statement
-    b@(BlStatement _ _ (Just (ExpValue _ _ (ValInteger label))) _):rest
-      | label == targetLabel -> ([ b ], rest)
+    b:bs
+      | compLabel (getLastLabel b) targetLabel -> ([ b ], bs)
+      | otherwise ->
+          let (bs', rest) = collectNonLabeledDoBlocks targetLabel bs
+          in (b : bs', rest)
 
-    b:bs -> let (bs', rest) = collectNonLabeledDoBlocks targetLabel bs
-            in (b : bs', rest)
+compLabel :: Maybe (Expression a) -> Maybe (Expression a) -> Bool
+compLabel (Just (ExpValue _ _ (ValInteger l1)))
+          (Just (ExpValue _ _ (ValInteger l2))) = l1 == l2
+compLabel _ _ = False
 
 --------------------------------------------------------------------------------
 -- Grouping case statements
