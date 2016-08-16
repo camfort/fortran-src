@@ -665,7 +665,8 @@ nonExecutableStatement s = case s of
     _              -> False
 
 executableStatement :: Statement a -> Bool
-executableStatement = not . nonExecutableStatement
+executableStatement (StData {}) = True
+executableStatement s = not . nonExecutableStatement $ s
 
 executableStatementBlock :: Block a -> Bool
 executableStatementBlock (BlStatement _ _ _ s) = executableStatement s
