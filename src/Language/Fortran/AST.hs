@@ -668,9 +668,9 @@ nonExecutableStatement v s = case s of
 
 executableStatement :: FortranVersion -> Statement a -> Bool
 -- Some statements are both executable and non-executable in Fortran 90 upwards
-executableStatement v (StFormat {}) | v >= Fortran90 = True
-executableStatement v (StEntry {})  | v >= Fortran90 = True
-executableStatement v (StData {})   | v >= Fortran90 = True
+executableStatement v StFormat{} | v >= Fortran90 = True
+executableStatement v StEntry{}  | v >= Fortran90 = True
+executableStatement v StData{}   | v >= Fortran90 = True
 executableStatement v s = not $ nonExecutableStatement v s
 
 executableStatementBlock :: FortranVersion -> Block a -> Bool
@@ -679,5 +679,5 @@ executableStatementBlock v _ = False
 
 nonExecutableStatementBlock :: FortranVersion -> Block a -> Bool
 nonExecutableStatementBlock v (BlStatement _ _ _ s) = nonExecutableStatement v s
-nonExecutableStatementBlock v (BlInterface {}) = True
+nonExecutableStatementBlock v BlInterface{} = True
 nonExecutableStatementBlock v _ = False
