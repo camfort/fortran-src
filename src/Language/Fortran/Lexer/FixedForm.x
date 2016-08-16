@@ -234,10 +234,26 @@ extendedIdP :: FortranVersion -> AlexInput -> Int -> AlexInput -> Bool
 extendedIdP fv a b ai = fv == Fortran77Extended && idP fv a b ai
 
 idP :: FortranVersion -> AlexInput -> Int -> AlexInput -> Bool
-idP fv _ _ ai = not (doP ai) && equalFollowsP fv ai
+idP fv _ _ ai = not (doP fv ai) && equalFollowsP fv ai
 
-doP :: AlexInput -> Bool
-doP ai = isPrefixOf "do" (reverse . lexemeMatch . aiLexeme $ ai)
+doP :: FortranVersion -> AlexInput -> Bool
+doP fv ai = isPrefixOf "do" (reverse . lexemeMatch . aiLexeme $ ai) &&
+    case unParse (lexer $ f) ps of
+      ParseOk True _ -> True
+      _ -> False
+  where
+    ps = ParseState
+      { psAlexInput = ai { aiStartCode = st}
+      , psVersion = fv
+      , psFilename = "<unknown>"
+      , psParanthesesCount = ParanthesesCount 0 False
+      , psContext = [ ConStart ] }
+    f t =
+      case t of
+        TNewline{} -> return False
+        TEOF{} -> return False
+        TComma{} -> return True
+        _ -> lexer f
 
 equalFollowsP :: FortranVersion -> AlexInput -> Bool
 equalFollowsP fv ai =
