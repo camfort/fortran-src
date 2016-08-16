@@ -307,6 +307,7 @@ selectorP user _ _ ai =
 ifConditionEndP :: User -> AlexInput -> Int -> AlexInput -> Bool
 ifConditionEndP (User _ pc) _ _ ai
     | (TIf{}:_) <- prevTokens = pc == ParanthesesCount 1 False
+    | (TIntegerLiteral{}:TIf{}:_) <- prevTokens = pc == ParanthesesCount 1 False
     | (TId{}:TColon{}:TIf{}:_) <- prevTokens = pc == ParanthesesCount 1 False
     | (TElsif{}:_) <- prevTokens = pc == ParanthesesCount 1 False
     | otherwise = False

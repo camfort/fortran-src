@@ -89,10 +89,7 @@ import Debug.Trace
   none                  { TNone _ }
   data                  { TData _ }
   format                { TFormat _ }
-  fieldDescriptorDEFG   { TFieldDescriptorDEFG _ _ _ _ _ }
-  fieldDescriptorAIL    { TFieldDescriptorAIL _ _ _ _ }
-  blankDescriptor       { TBlankDescriptor _ _ }
-  scaleFactor           { TScaleFactor _ _ }
+  blob                  { TBlob _ _ }
   int                   { TInt _ _ }
   exponent              { TExponent _ _ }
   bool                  { TBool _ _ }
@@ -398,7 +395,10 @@ NONEXECUTABLE_STATEMENT
 | common COMMON_GROUPS { StCommon () (getTransSpan $1 $2) (aReverse $2) }
 | equivalence EQUIVALENCE_GROUPS { StEquivalence () (getTransSpan $1 $2) (aReverse $2) }
 | data DATA_GROUPS { StData () (getTransSpan $1 $2) (aReverse $2) }
-| format FORMAT_ITEMS ')' { StFormat () (getTransSpan $1 $3) (aReverse $2) }
+-- Following is a fake node to make arbitrary FORMAT statements parsable.
+-- Must be fixed in the future. TODO
+| format blob
+  { let TBlob s blob = $2 in StFormatBogus () (getTransSpan $1 s) blob }
 | DECLARATION_STATEMENT { $1 }
 | implicit none { StImplicit () (getTransSpan $1 $2) Nothing }
 | implicit IMP_LISTS { StImplicit () (getTransSpan $1 $2) $ Just $ aReverse $2 }
@@ -472,26 +472,6 @@ ELEMENT :: { Expression A0 }
 ELEMENT
 : VARIABLE { $1 }
 | SUBSCRIPT { $1 }
-
-FORMAT_ITEMS :: { AList FormatItem A0 }
-FORMAT_ITEMS
-: FORMAT_ITEMS ',' FORMAT_ITEM { setSpan (getTransSpan $1 $3) $ $3 `aCons` $1 }
-| FORMAT_ITEMS ',' FORMAT_ITEM_DELIMETER { setSpan (getTransSpan $1 $3) $ $3 `aCons` $1 }
-| FORMAT_ITEMS FORMAT_ITEM { setSpan (getTransSpan $1 $2) $ $2 `aCons` $1 }
-| FORMAT_ITEMS FORMAT_ITEM_DELIMETER { setSpan (getTransSpan $1 $2) $ $2 `aCons` $1 }
-| '(' { AList () (getSpan $1) [ ] }
-
-FORMAT_ITEM_DELIMETER :: { FormatItem A0 } : '/' { FIDelimiter () (getSpan $1) }
-
-FORMAT_ITEM :: { FormatItem A0 }
-FORMAT_ITEM
-: int FORMAT_ITEMS ')' { FIFormatList () (getTransSpan $1 $3) (let (TInt _ s) = $1 in Just s) (aReverse $2) }
-| FORMAT_ITEMS ')' { FIFormatList () (getTransSpan $1 $2) Nothing (aReverse $1) }
-| HOLLERITH { let (ExpValue _ s val) = $1 in FIHollerith () s val }
-| fieldDescriptorDEFG { let (TFieldDescriptorDEFG s a b c d) = $1 in FIFieldDescriptorDEFG () s a b c d }
-| fieldDescriptorAIL { let (TFieldDescriptorAIL s a b c) = $1 in FIFieldDescriptorAIL () s a b c }
-| blankDescriptor { let (TBlankDescriptor s w) = $1 in FIBlankDescriptor () s w }
-| scaleFactor { let (TScaleFactor s sf) = $1 in FIScaleFactor () s sf }
 
 DATA_GROUPS :: { AList DataGroup A0 }
 DATA_GROUPS

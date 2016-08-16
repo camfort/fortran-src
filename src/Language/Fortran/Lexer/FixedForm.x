@@ -150,6 +150,7 @@ tokens :-
 
   -- Tokens related to format statement
   <keyword> "format"                          { toSC st >> addSpan TFormat  }
+  <st> "(".*")" / { formatP }                 { addSpanAndMatch TBlob }
 
   -- Tokens needed to parse integers, reals, double precision and complex
   -- constants
@@ -190,12 +191,6 @@ tokens :-
   <st,iif> ".gt."                             { addSpan TOpGT  }
   <st,iif> ".ge."                             { addSpan TOpGE  }
 
-  -- Field descriptors
-  <st> @repeat [defg] @width \. @integerConst { lexFieldDescriptorDEFG }
-  <st> @repeat [ail] @width                   { lexFieldDescriptorAIL }
-  <st> @width x                               { lexBlankDescriptor }
-  <st> "-"? @posIntegerConst p                { lexScaleFactor }
-
   -- ID
   <st,iif> @id                                { addSpanAndMatch TId }
   <st,iif> @idExtended / { extended77P }      { addSpanAndMatch TId }
@@ -208,6 +203,11 @@ tokens :-
 --------------------------------------------------------------------------------
 -- Predicated lexer helpers
 --------------------------------------------------------------------------------
+
+formatP :: FortranVersion -> AlexInput -> Int -> AlexInput -> Bool
+formatP _ _ _ ai
+  | Just TFormat{} <- aiPreviousToken ai = True
+  | otherwise = False
 
 formatExtendedP :: FortranVersion -> AlexInput -> Int -> AlexInput -> Bool
 formatExtendedP fv _ _ ai = fv == Fortran77Extended &&
@@ -234,10 +234,26 @@ extendedIdP :: FortranVersion -> AlexInput -> Int -> AlexInput -> Bool
 extendedIdP fv a b ai = fv == Fortran77Extended && idP fv a b ai
 
 idP :: FortranVersion -> AlexInput -> Int -> AlexInput -> Bool
-idP fv _ _ ai = not (doP ai) && equalFollowsP fv ai
+idP fv _ _ ai = not (doP fv ai) && equalFollowsP fv ai
 
-doP :: AlexInput -> Bool
-doP ai = isPrefixOf "do" (reverse . lexemeMatch . aiLexeme $ ai)
+doP :: FortranVersion -> AlexInput -> Bool
+doP fv ai = isPrefixOf "do" (reverse . lexemeMatch . aiLexeme $ ai) &&
+    case unParse (lexer $ f) ps of
+      ParseOk True _ -> True
+      _ -> False
+  where
+    ps = ParseState
+      { psAlexInput = ai { aiStartCode = st}
+      , psVersion = fv
+      , psFilename = "<unknown>"
+      , psParanthesesCount = ParanthesesCount 0 False
+      , psContext = [ ConStart ] }
+    f t =
+      case t of
+        TNewline{} -> return False
+        TEOF{} -> return False
+        TComma{} -> return True
+        _ -> lexer f
 
 equalFollowsP :: FortranVersion -> AlexInput -> Bool
 equalFollowsP fv ai =
@@ -485,50 +501,6 @@ lexN n = do
         lexN n
       Nothing -> return Nothing
 
--- Lexing various field descriptors
-
-lexFieldDescriptorDEFG :: LexAction (Maybe Token)
-lexFieldDescriptorDEFG = do
-  match <- getMatch
-  let (repeat, descriptor, width, rest) = takeRepeatDescriptorWidth match
-  let fractionWidth = (read $ fst $ takeNumber $ tail rest) :: Integer
-  s <- getLexemeSpan
-  return $ Just $ TFieldDescriptorDEFG s repeat descriptor width fractionWidth
-
-lexFieldDescriptorAIL :: LexAction (Maybe Token)
-lexFieldDescriptorAIL = do
-  match <- getMatch
-  let (repeat, descriptor, width, rest) = takeRepeatDescriptorWidth match
-  s <- getLexemeSpan
-  return $ Just $ TFieldDescriptorAIL s repeat descriptor width
-
-lexBlankDescriptor :: LexAction (Maybe Token)
-lexBlankDescriptor = do
-  match <- getMatch
-  let (width, _) = takeNumber match
-  s <- getLexemeSpan
-  return $ Just $ TBlankDescriptor s (read width :: Integer)
-
-lexScaleFactor :: LexAction (Maybe Token)
-lexScaleFactor = do
-  match <- getMatch
-  let (sign, rest) = if head match == '-' then (-1, tail match) else (1, match)
-  let (width, _) = takeNumber rest
-  s <- getLexemeSpan
-  return $ Just $ TScaleFactor s $ (read width) * sign
-
-takeRepeatDescriptorWidth :: String -> (Maybe Integer, Char, Integer, String)
-takeRepeatDescriptorWidth str =
-  let (repeatStr, rest) = takeNumber str
-      repeat = if repeatStr == [] then Nothing else Just $ (read repeatStr :: Integer)
-      descriptor = head rest
-      (widthStr, rest') = takeNumber $ tail rest
-      width = read widthStr :: Integer in
-    (repeat, descriptor, width, rest')
-
-takeNumber :: String -> (String, String)
-takeNumber str = span isDigit str
-
 maybeToKeyword :: LexAction (Maybe Token)
 maybeToKeyword = do
   decPar
@@ -614,10 +586,7 @@ data Token = TLeftPar             SrcSpan
            | TParameter           SrcSpan
            | TData                SrcSpan
            | TFormat              SrcSpan
-           | TFieldDescriptorDEFG SrcSpan (Maybe Integer) Char Integer Integer
-           | TFieldDescriptorAIL  SrcSpan (Maybe Integer) Char Integer
-           | TBlankDescriptor     SrcSpan Integer
-           | TScaleFactor         SrcSpan Integer
+           | TBlob                SrcSpan String
            | TInt                 SrcSpan String
            | TExponent            SrcSpan String
            | TBool                SrcSpan String

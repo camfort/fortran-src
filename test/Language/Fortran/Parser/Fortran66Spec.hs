@@ -136,22 +136,19 @@ spec =
 
       describe "FORMAT" $ do
         it "parses 'FORMAT ()'" $ do
-          let expectedSt = StFormat () u $ AList () u []
+          let expectedSt = StFormatBogus () u "()"
           sParser "      FORMAT ()" `shouldBe'` expectedSt
 
         it "parses 'FORMAT (///)'" $ do
-          let formatList = [FIDelimiter () u, FIDelimiter () u, FIDelimiter () u]
-              expectedSt = StFormat () u $ AList () u formatList
+          let expectedSt = StFormatBogus () u "(///)"
           sParser "      FORMAT (///)" `shouldBe'` expectedSt
 
         it "parses 'FORMAT (2i5/5hhello)'" $ do
-          let formatList = [FIFieldDescriptorAIL () u (Just 2) 'i' 5, FIDelimiter () u, FIHollerith () u (ValHollerith "hello")]
-              expectedSt = StFormat () u $ AList () u formatList
+          let expectedSt = StFormatBogus () u "(2i5/5hhello)"
           sParser "      FORMAT (2i5/5hhello)" `shouldBe'` expectedSt
 
         it "parses 'FORMAT (/(i5))'" $ do
-          let formatList = [FIDelimiter () u, FIFormatList () u Nothing (AList () u [FIFieldDescriptorAIL () u Nothing 'i' 5])]
-              expectedSt = StFormat () u $ AList () u formatList
+          let expectedSt = StFormatBogus () u "(/(i5))"
           sParser "      FORMAT (/(i5))" `shouldBe'` expectedSt
 
       describe "CALL" $ do
