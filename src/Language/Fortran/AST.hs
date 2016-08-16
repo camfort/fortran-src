@@ -636,42 +636,48 @@ instance Out BinaryOp
 
 -- Classifiers on statement and blocks ASTs
 
-nonExecutableStatement :: Statement a -> Bool
-nonExecutableStatement s = case s of
-    StIntent {}   -> True
-    StOptional {} -> True
-    StPublic {}   -> True
-    StPrivate {}  -> True
-    StSave {}     -> True
-    StDimension {} -> True
+nonExecutableStatement :: FortranVersion -> Statement a -> Bool
+nonExecutableStatement v s = case s of
+    StIntent {}      -> True
+    StOptional {}    -> True
+    StPublic {}      -> True
+    StPrivate {}     -> True
+    StSave {}        -> True
+    StDimension {}   -> True
     StAllocatable {} -> True
-    StPointer {}   -> True
-    StTarget {}    -> True
-    StData {}      -> True
-    StParameter {} -> True
-    StImplicit {}  -> True
-    StNamelist {}  -> True
+    StPointer {}     -> True
+    StTarget {}      -> True
+    StData {}        -> True
+    StParameter {}   -> True
+    StImplicit {}    -> True
+    StNamelist {}    -> True
     StEquivalence {} -> True
-    StCommon {}    -> True
-    StExternal {}  -> True
-    StIntrinsic {} -> True
-    StUse {}       -> True
-    StEntry {}     -> True
-    StSequence {}  -> True
-    StType {}      -> True
-    StEndType {}   -> True
+    StCommon {}      -> True
+    StExternal {}    -> True
+    StIntrinsic {}   -> True
+    StUse {}         -> True
+    StEntry {}       -> True
+    StSequence {}    -> True
+    StType {}        -> True
+    StEndType {}     -> True
+    StFormat {}      -> True
     StFormatBogus {} -> True
-    StInclude {}   -> True
-    _              -> False
+    StInclude {}     -> True
+    StDeclaration {} -> True
+    _                -> False
 
-executableStatement :: Statement a -> Bool
-executableStatement (StData {}) = True
-executableStatement s = not . nonExecutableStatement $ s
+executableStatement :: FortranVersion -> Statement a -> Bool
+-- Some statements are both executable and non-executable in Fortran 90 upwards
+executableStatement v (StFormat {}) | v >= Fortran90 = True
+executableStatement v (StEntry {})  | v >= Fortran90 = True
+executableStatement v (StData {})   | v >= Fortran90 = True
+executableStatement v s = not $ nonExecutableStatement v s
 
-executableStatementBlock :: Block a -> Bool
-executableStatementBlock (BlStatement _ _ _ s) = executableStatement s
-executableStatementBlock _ = False
+executableStatementBlock :: FortranVersion -> Block a -> Bool
+executableStatementBlock v (BlStatement _ _ _ s) = executableStatement v s
+executableStatementBlock v _ = False
 
-nonExecutableStatementBlock :: Block a -> Bool
-nonExecutableStatementBlock (BlStatement _ _ _ s) = nonExecutableStatement s
-nonExecutableStatementBlock _ = False
+nonExecutableStatementBlock :: FortranVersion -> Block a -> Bool
+nonExecutableStatementBlock v (BlStatement _ _ _ s) = nonExecutableStatement v s
+nonExecutableStatementBlock v (BlInterface {}) = True
+nonExecutableStatementBlock v _ = False
