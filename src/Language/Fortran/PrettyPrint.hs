@@ -49,6 +49,8 @@ overlay top bottom = text $ top' ++ drop (length top') (render bottom)
 
 fixedForm = Just 6
 
+pprintAndRender v t i = render $ pprint v t i
+
 class IndentablePretty t where
     pprint :: FortranVersion -> t -> Indentation -> Doc
 
