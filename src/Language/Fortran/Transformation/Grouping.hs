@@ -183,7 +183,7 @@ groupLabeledDo' blos@(b:bs) = b' : bs'
   where
     (b', bs') = case b of
       BlStatement a s label
-        (StDo _ _ mn tl doSpec) ->
+        (StDo _ _ mn tl@Just{} doSpec) ->
           let ( blocks, leftOverBlocks ) =
                 collectNonLabeledDoBlocks tl groupedBlocks
               lastLabel = getLastLabel $ last blocks

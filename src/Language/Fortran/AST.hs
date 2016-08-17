@@ -556,6 +556,7 @@ instance Labeled Block where
   getLastLabel (BlCase _ _ _ _ _ _ _ l) = l
   getLastLabel (BlDo _ _ _ _ _ _ _ l) = l
   getLastLabel (BlDoWhile _ _ _ _ _ _ l) = l
+  getLastLabel _ = Nothing
 
   setLabel (BlStatement a s _ st) l = BlStatement a s (Just l) st
   setLabel (BlIf a s _ mn conds bs el) l = BlIf a s (Just l) mn conds bs el
