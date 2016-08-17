@@ -5,7 +5,7 @@ before_install:
 - sudo apt-get install stack -y -qq
 - stack setup
 script:
-- GHC_OPTIONS="--ghc-options=\"$(ruby -e 'print (ENV["TRAVIS_TAG"] ? "-O3" : "-O0")')\""
+- "GHC_OPTIONS=\"--ghc-options=\"$(ruby -e 'print (ENV[%q|TRAVIS_TAG|] ? %q|-O3| : %q|-O0|)')\"\""
 - stack test $GHC_OPTIONS
 - stack haddock
 deploy:
