@@ -96,7 +96,7 @@ initAnalysis = fmap analysis0
 
 -- | Remove analysis annotations from the program, restoring the
 -- original annotations.
-stripAnalysis :: ProgramFile (Analysis a) -> ProgramFile a
+stripAnalysis :: Functor b => b (Analysis a) -> b a
 stripAnalysis = fmap prevAnnotation
 
 --------------------------------------------------
