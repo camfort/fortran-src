@@ -83,14 +83,18 @@ declarator _                       = return ()
 statement :: Data a => InferFunc (Statement (Analysis a))
 -- maybe FIXME: should Kind Selectors be part of types?
 statement (StDeclaration _ _ (TypeSpec _ _ baseType _) mAttrAList declAList)
-  | isArray <- any isAttrDimension (maybe [] aStrip mAttrAList)
+  | mAttrs  <- maybe [] aStrip mAttrAList
+  , isArray <- any isAttrDimension mAttrs
+  , isParam <- any isAttrParameter mAttrs
   , decls   <- aStrip declAList = do
     forM_ decls $ \ decl -> case decl of
-      DeclVariable _ _ v (Just _) _ -> recordType baseType CTVariable (varName v)
-      DeclVariable _ _ v Nothing _  -> recordBaseType baseType (varName v) >>
-                                       recordCType (if isArray then CTArray else CTVariable) (varName v)
       DeclArray _ _ v _ _ _         -> recordType baseType CTArray (varName v)
-    return ()
+      DeclVariable _ _ v (Just _) _ -> recordType baseType CTVariable (varName v)
+      DeclVariable _ _ v Nothing _  -> recordType baseType cType (varName v)
+        where
+          cType | isArray   = CTArray
+                | isParam   = CTParameter
+                | otherwise = CTVariable
 statement (StExpressionAssign _ _ (ExpSubscript _ _ v ixAList) _)
   --  | any (not . isIxSingle) (aStrip ixAList) = recordCType CTArray (varName v)  -- it's an array (or a string?) FIXME
   | all isIxSingle (aStrip ixAList) = do
@@ -175,7 +179,7 @@ allStatements = universeBi
 isAttrDimension (AttrDimension {}) = True
 isAttrDimension _                  = False
 
-isAttrParameter (AttrDimension {}) = True
+isAttrParameter (AttrParameter {}) = True
 isAttrParameter _                  = False
 
 isIxSingle (IxSingle {}) = True
