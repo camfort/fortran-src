@@ -38,10 +38,10 @@ spec = do
   describe "Local type inference" $ do
     it "infers from type declarations" $ do
       let mapping = inferTable ex4
-      mapping ! "x" `shouldBe` IDType (Just TypeInteger) Nothing
+      mapping ! "x" `shouldBe` IDType (Just TypeInteger) (Just CTVariable)
       mapping ! "y" `shouldBe` IDType (Just TypeInteger) (Just CTArray)
-      mapping ! "c" `shouldBe` IDType (Just TypeCharacter) Nothing
-      mapping ! "log" `shouldBe` IDType (Just TypeLogical) Nothing
+      mapping ! "c" `shouldBe` IDType (Just TypeCharacter) (Just CTVariable)
+      mapping ! "log" `shouldBe` IDType (Just TypeLogical) (Just CTVariable)
 
     it "infers from dimension declarations" $ do
       let mapping = inferTable ex5

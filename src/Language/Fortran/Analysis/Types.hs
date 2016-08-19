@@ -87,14 +87,18 @@ statement (StDeclaration _ _ (TypeSpec _ _ baseType _) mAttrAList declAList)
   , isArray <- any isAttrDimension mAttrs
   , isParam <- any isAttrParameter mAttrs
   , decls   <- aStrip declAList = do
+    env <- gets environ
     forM_ decls $ \ decl -> case decl of
       DeclArray _ _ v _ _ _         -> recordType baseType CTArray (varName v)
       DeclVariable _ _ v (Just _) _ -> recordType baseType CTVariable (varName v)
-      DeclVariable _ _ v Nothing _  -> recordType baseType cType (varName v)
+      DeclVariable _ _ v Nothing _  -> recordType baseType cType n
         where
-          cType | isArray   = CTArray
-                | isParam   = CTParameter
-                | otherwise = CTVariable
+          n = varName v
+          cType | isArray                                     = CTArray
+                | isParam                                     = CTParameter
+                | Just (IDType _ (Just ct)) <- M.lookup n env = ct
+                | otherwise                                   = CTVariable
+
 statement (StExpressionAssign _ _ (ExpSubscript _ _ v ixAList) _)
   --  | any (not . isIxSingle) (aStrip ixAList) = recordCType CTArray (varName v)  -- it's an array (or a string?) FIXME
   | all isIxSingle (aStrip ixAList) = do
