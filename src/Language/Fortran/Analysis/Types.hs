@@ -87,7 +87,8 @@ statement (StDeclaration _ _ (TypeSpec _ _ baseType _) mAttrAList declAList)
   , decls   <- aStrip declAList = do
     forM_ decls $ \ decl -> case decl of
       DeclVariable _ _ v (Just _) _ -> recordType baseType CTVariable (varName v)
-      DeclVariable _ _ v Nothing _  -> recordBaseType baseType (varName v) >> when isArray (recordCType CTArray (varName v))
+      DeclVariable _ _ v Nothing _  -> recordBaseType baseType (varName v) >>
+                                       recordCType (if isArray then CTArray else CTVariable) (varName v)
       DeclArray _ _ v _ _ _         -> recordType baseType CTArray (varName v)
     return ()
 statement (StExpressionAssign _ _ (ExpSubscript _ _ v ixAList) _)
