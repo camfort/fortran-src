@@ -109,6 +109,12 @@ statement (StExpressionAssign _ _ (ExpSubscript _ _ v ixAList) _)
 -- them in the first place? (iterate until fixed point?)
 statement (StFunction _ _ v _ _) = recordCType CTFunction (varName v)
 
+statement (StDimension _ _ declAList) = do
+  let decls = aStrip declAList
+  forM_ decls $ \ decl -> case decl of
+    DeclArray _ _ v _ _ _ -> recordCType CTArray (varName v)
+    _                     -> return ()
+
 statement _ = return ()
 
 annotateExpression :: Data a => Expression (Analysis a) -> Infer (Expression (Analysis a))
