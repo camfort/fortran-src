@@ -601,7 +601,7 @@ instance Pretty (Statement a) where
     pprint' v (StUse _ _ moduleName only mappings)
       | v >= Fortran90 =
         "use" <+> pprint' v moduleName <>
-        (comma <+> (pprint' v only <> colon) <?+> pprint' v mappings)
+        (comma <+> (pprint' v only) <?+> pprint' v mappings)
       | otherwise = tooOld v "Module system" Fortran90
 
     pprint' v (StModuleProcedure _ _ procedures)
@@ -624,7 +624,7 @@ instance Pretty (Statement a) where
     pprint' v (StFormatBogus _ _ blob) = "format" <+> pprint' v blob
 
 instance Pretty Only where
-    pprint' v Exclusive = "only"
+    pprint' v Exclusive = "only" <> colon
     pprint' v Permissive = empty
 
 instance Pretty (Use a) where
