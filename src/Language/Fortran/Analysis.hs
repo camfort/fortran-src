@@ -3,7 +3,7 @@
 -- |
 -- Common data structures and functions supporting analysis of the AST.
 module Language.Fortran.Analysis
-  ( initAnalysis, stripAnalysis, Analysis(..), varName, genVar, puName, blockRhsExprs, rhsExprs
+  ( initAnalysis, stripAnalysis, Analysis(..), varName, srcName, genVar, puName, blockRhsExprs, rhsExprs
   , ModEnv, NameType(..), IDType(..), ConstructType(..), BaseType(..)
   , lhsExprs, isLExpr, allVars, allLhsVars, blockVarUses, blockVarDefs
   , BB, BBGr
@@ -60,6 +60,7 @@ data IDType = IDType
 data Analysis a = Analysis
   { prevAnnotation :: a -- ^ original annotation
   , uniqueName     :: Maybe String -- ^ unique name for function/variable, after variable renaming phase
+  , sourceName     :: Maybe String -- ^ original name for function/variable found in source text
   , bBlocks        :: Maybe (BBGr (Analysis a)) -- ^ basic block graph
   , insLabel       :: Maybe Int -- ^ unique number for each block during dataflow analysis
   , moduleEnv      :: Maybe ModEnv
@@ -68,6 +69,7 @@ data Analysis a = Analysis
   deriving (Data, Show, Eq)
 analysis0 a = Analysis { prevAnnotation = a
                        , uniqueName     = Nothing
+                       , sourceName     = Nothing
                        , bBlocks        = Nothing
                        , insLabel       = Nothing
                        , moduleEnv      = Nothing
@@ -76,8 +78,15 @@ analysis0 a = Analysis { prevAnnotation = a
 -- | Obtain either uniqueName or source name from an ExpValue variable.
 varName :: Expression (Analysis a) -> String
 varName (ExpValue (Analysis { uniqueName = Just n }) _ (ValVariable {})) = n
-varName (ExpValue (Analysis { uniqueName = Nothing }) _ (ValVariable n)) = n
+varName (ExpValue (Analysis { sourceName = Just n }) _ (ValVariable {})) = n
+varName (ExpValue _ _ (ValVariable n))                                   = n
 varName _ = error "Use of varName on non-variable."
+
+-- | Obtain the source name from an ExpValue variable.
+srcName :: Expression (Analysis a) -> String
+srcName (ExpValue (Analysis { sourceName = Just n }) _ (ValVariable {})) = n
+srcName (ExpValue _ _ (ValVariable n))                                   = n
+srcName _ = error "Use of srcName on non-variable."
 
 -- | Generate an ExpValue variable with its source name == to its uniqueName.
 genVar :: Analysis a -> SrcSpan -> String -> Expression (Analysis a)

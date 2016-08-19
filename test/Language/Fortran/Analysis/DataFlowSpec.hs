@@ -36,8 +36,8 @@ instance Parser F90 where
     parser F90 src file = F90.fortran90Parser (B.pack src) file
 
 pParser :: Parser t => t -> String -> ProgramFile (Analysis ())
-pParser version source = analyseBBlocks . snd . rename . analyseRenames . initAnalysis
-                                        . resetSrcSpan $ parser version source "<unknown>"
+pParser version source = rename . analyseBBlocks . analyseRenames . initAnalysis
+                                . resetSrcSpan $ parser version source "<unknown>"
 
 withParse :: Data a => Parser t => t -> String -> (ProgramFile (Analysis A0) -> a) -> a
 withParse version source f = underRenaming (f . analyseBBlocks) (parser version source "<unknown>")

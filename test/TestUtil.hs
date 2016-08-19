@@ -11,6 +11,11 @@ import Language.Fortran.AST
 import Language.Fortran.ParserMonad
 import Language.Fortran.Util.Position
 
+import Language.Fortran.Analysis
+import Language.Fortran.Analysis.Renaming
+import qualified Data.Map as M
+import Data.Maybe
+
 u = initSrcSpan
 
 mi77 = MetaInfo { miVersion = Fortran77 }
@@ -56,3 +61,24 @@ resetSrcSpan = transformBi f
     f x = case cast x :: Maybe SrcSpan of
       Just _ -> initSrcSpan
       Nothing -> x
+
+--------------------------------------------------
+-- These functions do not work on modules with use-renaming so are
+-- only for testing purposes...
+underRenaming :: (Data a, Data b) => (ProgramFile (Analysis a) -> b) -> ProgramFile a -> b
+underRenaming f pf = tryUnrename `descendBi` f pf'
+  where
+    pf' = rename . analyseRenames . initAnalysis $ pf
+    renameMap = extractNameMap pf'
+    tryUnrename n = n `fromMaybe` M.lookup n renameMap
+
+extractNameMap :: Data a => ProgramFile (Analysis a) -> M.Map String String
+extractNameMap pf = eMap `M.union` puMap
+  where
+    eMap  = M.fromList [ (un, n) | ExpValue (Analysis { uniqueName = Just un, sourceName = Just n }) _ _ <- uniE pf ]
+    puMap = M.fromList [ (un, n) | pu <- uniPU pf, (Analysis { uniqueName = Just un, sourceName = Just n }) <- [getAnnotation pu] ]
+    uniE :: Data a => ProgramFile a -> [Expression a]
+    uniE = universeBi
+    uniPU :: Data a => ProgramFile a -> [ProgramUnit a]
+    uniPU = universeBi
+--------------------------------------------------

@@ -8,7 +8,7 @@
 -- analysis.
 
 module Language.Fortran.Analysis.Renaming
-  ( analyseRenames, rename, extractNameMap, renameAndStrip, unrename, underRenaming, NameMap )
+  ( analyseRenames, rename, unrename )
 where
 
 import Debug.Trace
@@ -33,13 +33,11 @@ import Data.Tuple
 --------------------------------------------------
 
 type ModuleMap     = Map ProgramUnitName ModEnv
-type NameMap       = Map String String
 
 type Renamer a     = State RenameState a -- the monad.
 data RenameState   = RenameState { scopeStack :: [String]
                                  , uniqNums   :: [Int]
                                  , environ    :: [ModEnv]
-                                 , nameMap    :: NameMap
                                  , moduleMap  :: ModuleMap }
   deriving (Show, Eq)
 type RenamerFunc t = t -> Renamer t
@@ -56,14 +54,14 @@ analyseRenames (ProgramFile mi cm_pus bs) = ProgramFile mi cm_pus' bs
     pus            = map snd cm_pus
 
 -- | Take the unique name annotations and substitute them into the actual AST.
-rename :: Data a => ProgramFile (Analysis a) -> (NameMap, ProgramFile (Analysis a))
-rename pf = (extractNameMap pf, trPU fPU (trE fE pf))
+rename :: Data a => ProgramFile (Analysis a) -> ProgramFile (Analysis a)
+rename pf = trPU fPU (trE fE pf)
   where
     trE :: Data a => (Expression a -> Expression a) -> ProgramFile a -> ProgramFile a
     trE = transformBi
     fE :: Data a => Expression (Analysis a) -> Expression (Analysis a)
     fE (ExpValue a s (ValVariable v)) = ExpValue a s . ValVariable $ fromMaybe v (uniqueName a)
-    fE x                 = x
+    fE x                              = x
 
     trPU :: Data a => (ProgramUnit a -> ProgramUnit a) -> ProgramFile a -> ProgramFile a
     trPU = transformBi
@@ -72,47 +70,26 @@ rename pf = (extractNameMap pf, trPU fPU (trE fE pf))
       PUFunction a s ty r (fromMaybe n (uniqueName a)) args res b subs
     fPU (PUSubroutine a s r n args b subs) =
       PUSubroutine a s r (fromMaybe n (uniqueName a)) args b subs
-    fPU x                            = x
+    fPU x = x
 
--- | Create a map of unique name => original name for each variable
--- and function in the program.
-extractNameMap :: Data a => ProgramFile (Analysis a) -> NameMap
-extractNameMap pf = eMap `union` puMap
+-- | Take a renamed program and undo the renames.
+unrename :: Data a => ProgramFile (Analysis a) -> ProgramFile (Analysis a)
+unrename pf = trPU fPU . trE fE $ pf
   where
-    eMap  = fromList [ (un, n) | ExpValue (Analysis { uniqueName = Just un }) _ (ValVariable n) <- uniE pf ]
-    puMap = fromList [ (un, n) | pu <- uniPU pf, Named un <- [puName pu], Named n <- [getName pu], n /= un ]
-    uniE :: Data a => ProgramFile a -> [Expression a]
-    uniE = universeBi
-    uniPU :: Data a => ProgramFile a -> [ProgramUnit a]
-    uniPU = universeBi
+    trE :: Data a => (Expression (Analysis a) -> Expression (Analysis a)) -> ProgramFile (Analysis a) -> ProgramFile (Analysis a)
+    trE = transformBi
+    fE :: Data a => Expression (Analysis a) -> Expression (Analysis a)
+    fE e@(ExpValue a s (ValVariable _)) = ExpValue a s (ValVariable (srcName e))
+    fE e                                = e
 
--- | Perform the rename, stripAnalysis, and extractNameMap functions.
-renameAndStrip :: Data a => ProgramFile (Analysis a) -> (NameMap, ProgramFile a)
-renameAndStrip pf = fmap stripAnalysis (rename pf)
-
--- | Take a renamed program and its corresponding NameMap, and undo the renames.
-unrename :: Data a => (NameMap, ProgramFile a) -> ProgramFile a
-unrename (nm, pf) = trPU fPU . trV fV $ pf
-  where
-    trV :: Data a => (Value a -> Value a) -> ProgramFile a -> ProgramFile a
-    trV = transformBi
-    fV :: Data a => Value a -> Value a
-    fV (ValVariable v) = ValVariable $ fromMaybe v (v `lookup` nm)
-    fV x                 = x
-
-    trPU :: Data a => (ProgramUnit a -> ProgramUnit a) -> ProgramFile a -> ProgramFile a
+    trPU :: Data a => (ProgramUnit (Analysis a) -> ProgramUnit (Analysis a)) -> ProgramFile (Analysis a) -> ProgramFile (Analysis a)
     trPU = transformBi
-    fPU :: Data a => ProgramUnit a -> ProgramUnit a
-    fPU (PUFunction a s ty r n args res b subs) = PUFunction a s ty r (fromMaybe n (n `lookup` nm)) args res b subs
-    fPU x               = x
-
--- | Run a function with the program file placed under renaming
--- analysis, then undo the renaming in the result of the function.
-underRenaming :: (Data a, Data b) => (ProgramFile (Analysis a) -> b) -> ProgramFile a -> b
-underRenaming f pf = tryUnrename `descendBi` f pf'
-  where
-    (renameMap, pf') = rename . analyseRenames . initAnalysis $ pf
-    tryUnrename n = n `fromMaybe` lookup n renameMap
+    fPU :: Data a => ProgramUnit (Analysis a) -> ProgramUnit (Analysis a)
+    fPU (PUFunction a s ty r n args res b subs)
+      | Just srcN <- sourceName a = PUFunction a s ty r srcN args res b subs
+    fPU (PUSubroutine a s r n args b subs)
+      | Just srcN <- sourceName a = PUSubroutine a s r srcN args b subs
+    fPU           pu              = pu
 
 --------------------------------------------------
 -- Renaming transformations for pieces of the AST. Uses a language of
@@ -142,7 +119,8 @@ programUnit (PUFunction a s ty rec name args res blocks m_contains) = do
   m_contains' <- renameSubPUs m_contains      -- handle contained program units
   blocks4     <- mapM renameBlock blocks3     -- process all uses of variables
   popScope
-  return . setUniqueName name' $ PUFunction a s ty rec name args' res' blocks4 m_contains'
+  let pu' = PUFunction a s ty rec name args' res' blocks4 m_contains'
+  return . setSourceName name . setUniqueName name' $ pu'
 
 programUnit (PUSubroutine a s rec name args blocks m_contains) = do
   Just name'  <- getFromEnv name                  -- get renamed subroutine name
@@ -154,7 +132,8 @@ programUnit (PUSubroutine a s rec name args blocks m_contains) = do
   m_contains' <- renameSubPUs m_contains      -- handle contained program units
   blocks3     <- mapM renameBlock blocks2     -- process all uses of variables
   popScope
-  return . setUniqueName name' $ PUSubroutine a s rec name args' blocks3 m_contains'
+  let pu' = PUSubroutine a s rec name args' blocks3 m_contains'
+  return . setSourceName name . setUniqueName name' $ pu'
 
 programUnit (PUMain a s n blocks m_contains) = do
   env0        <- initialEnv blocks
@@ -181,7 +160,6 @@ expression = renameExp
 renameState0 = RenameState { scopeStack = []
                            , uniqNums = [1..]
                            , environ = [empty]
-                           , nameMap = empty
                            , moduleMap = empty }
 -- Run the monad.
 runRenamer m = runState m
@@ -309,11 +287,15 @@ addUnique_ v nt = addUnique v nt >> return ()
 maybeAddUnique :: String -> NameType -> Renamer String
 maybeAddUnique v nt = maybe (addUnique v nt) return =<< getFromEnvsIfSubprogram v
 
--- If uniqueName property is not set, then set it.
-setUniqueName :: (Annotated f, Data a) => String -> f (Analysis a) -> f (Analysis a)
+-- If uniqueName/sourceName property is not set, then set it.
+setUniqueName, setSourceName :: (Annotated f, Data a) => String -> f (Analysis a) -> f (Analysis a)
 setUniqueName un x
   | a@(Analysis { uniqueName = Nothing }) <- getAnnotation x = setAnnotation (a { uniqueName = Just un }) x
-  | otherwise                                              = x
+  | otherwise                                                = x
+
+setSourceName sn x
+  | a@(Analysis { sourceName = Nothing }) <- getAnnotation x = setAnnotation (a { sourceName = Just sn }) x
+  | otherwise                                                = x
 
 -- Work recursively into sub-program units.
 renameSubPUs :: Data a => RenamerFunc (Maybe [ProgramUnit (Analysis a)])
@@ -346,7 +328,7 @@ renameGenericDecls = trans renameExpDecl
 -- declaration that possibly requires the creation of a new unique
 -- mapping.
 renameExpDecl :: Data a => RenamerFunc (Expression (Analysis a))
-renameExpDecl e@(ExpValue _ _ (ValVariable v)) = flip setUniqueName e `fmap` maybeAddUnique v NTVariable
+renameExpDecl e@(ExpValue _ _ (ValVariable v)) = flip setUniqueName (setSourceName v e) `fmap` maybeAddUnique v NTVariable
 renameExpDecl e                                = return e
 
 -- Find all declarators within a value and then dive within those
@@ -381,7 +363,7 @@ renameEntryPointResultDecl b = return b
 -- Rename an ExpValue variable, assuming that it is to be treated as a
 -- reference to a previous declaration, possibly in an outer scope.
 renameExp :: Data a => RenamerFunc (Expression (Analysis a))
-renameExp e@(ExpValue _ _ (ValVariable v)) = maybe e (flip setUniqueName e) `fmap` getFromEnvs v
+renameExp e@(ExpValue _ _ (ValVariable v)) = maybe e (flip setUniqueName (setSourceName v e)) `fmap` getFromEnvs v
 renameExp e                                = return e
 
 -- Rename all ExpValue variables found within the block, assuming that

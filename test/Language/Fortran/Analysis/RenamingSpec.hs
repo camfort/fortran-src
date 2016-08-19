@@ -21,8 +21,8 @@ import Debug.Trace
 
 testF90 pf = (resetSrcSpan . analyseRenames . initAnalysis) $ pf
 extractNameMap' = extractNameMap . analyseRenames . initAnalysis
-unrename' = unrename . renameAndStrip . analyseRenames . initAnalysis
-renameAndStrip' x = renameAndStrip . analyseRenames . initAnalysis $ x
+unrename' = stripAnalysis . unrename . rename . analyseRenames . initAnalysis
+renameAndStrip' x = stripAnalysis . rename . analyseRenames . initAnalysis $ x
 
 countUnrenamed e = length [ () | ExpValue (Analysis { uniqueName = Nothing }) _ (ValVariable {}) <- uniE_PF e ]
   where uniE_PF :: ProgramFile (Analysis ()) -> [Expression (Analysis ())]
