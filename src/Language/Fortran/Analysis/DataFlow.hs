@@ -325,9 +325,9 @@ type BackEdgeMap = IM.IntMap Node
 -- target node dominates the source node. If the backedges are viewed
 -- as (m -> n) then n is considered the 'loop-header'
 genBackEdgeMap :: Graph gr => DomMap -> gr a b -> BackEdgeMap
-genBackEdgeMap domMap = IM.filterWithKey isBackEdge . IM.fromList . edges
+genBackEdgeMap domMap = IM.fromList . filter isBackEdge . edges
   where
-    isBackEdge s t = t `IS.member` (fromJustMsg "genBackEdgeMap" $ s `IM.lookup` domMap)
+    isBackEdge (s, t) = t `IS.member` (fromJustMsg "genBackEdgeMap" $ s `IM.lookup` domMap)
 
 -- | For each loop in the program, find out which bblock nodes are
 -- part of the loop by looking through the backedges (m, n) where n is

@@ -178,6 +178,15 @@ spec =
         let ivMap  = genInductionVarMapByASTBlock bedges gr
         (sort . map (\ x -> (head x, length x)) . group . sort . map S.size $ IM.elems ivMap) `shouldBe` [(1,3),(2,3)]
 
+    describe "bug36" $ do
+      let pf = pParser F90 programBug36
+      let sgr = genSuperBBGr (genBBlockMap pf)
+      let gr = superBBGrGraph sgr
+      let domMap = dominators gr
+      let bedges = genBackEdgeMap domMap gr
+      it "loopNodes" $ do
+        length (loopNodes bedges gr) `shouldBe` 2
+
 --------------------------------------------------
 -- Label-finding helper functions to help write tests that are
 -- insensitive to minor changes to the AST.
@@ -313,6 +322,20 @@ programRd4 = unlines [
     , "      write (*,*) f(1)"
     , "      end"
     , ""
+    ]
+
+-- do not use line numbers
+programBug36 = unlines [
+      "program foo"
+    , "  implicit none"
+    , "  integer :: i, j"
+    , "  real, dimension(100) :: a, b"
+    , "  do i=1,100"
+    , "     do j=1,100"
+    , "      a(i) = b(i) + b(1)"
+    , "     end do"
+    , "  end do"
+    , "end program"
     ]
 
 -- Local variables:
