@@ -10,7 +10,7 @@ import Language.Fortran.Lexer.FixedForm (initParseState)
 import Language.Fortran.ParserMonad (FortranVersion(..), evalParse)
 import Language.Fortran.AST
 import Language.Fortran.Analysis
-import Language.Fortran.Analysis.Renaming
+import Language.Fortran.Analysis.Renaming hiding (extractNameMap, underRenaming)
 import Language.Fortran.Analysis.BBlocks
 import Language.Fortran.Analysis.DataFlow
 import qualified Data.Map as M

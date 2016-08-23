@@ -11,7 +11,7 @@ import Language.Fortran.AST
 import Language.Fortran.Util.Position
 import qualified Language.Fortran.Parser.Fortran90 as F90
 import Language.Fortran.Analysis
-import Language.Fortran.Analysis.Renaming
+import Language.Fortran.Analysis.Renaming hiding (extractNameMap, underRenaming)
 import Data.Generics.Uniplate.Data
 import Data.Generics.Uniplate.Operations
 import Data.Data

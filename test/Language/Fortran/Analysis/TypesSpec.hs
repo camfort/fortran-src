@@ -9,7 +9,7 @@ import Language.Fortran.Analysis
 import Data.Data
 import Language.Fortran.AST
 import Language.Fortran.Analysis.Types
-import Language.Fortran.Analysis.Renaming
+import Language.Fortran.Analysis.Renaming hiding (extractNameMap, underRenaming)
 import Language.Fortran.Analysis
 
 import Debug.Trace

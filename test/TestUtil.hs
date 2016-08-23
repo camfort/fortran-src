@@ -12,7 +12,7 @@ import Language.Fortran.ParserMonad
 import Language.Fortran.Util.Position
 
 import Language.Fortran.Analysis
-import Language.Fortran.Analysis.Renaming
+import Language.Fortran.Analysis.Renaming hiding (extractNameMap, underRenaming)
 import qualified Data.Map as M
 import Data.Maybe
 

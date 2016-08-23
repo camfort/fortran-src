@@ -8,7 +8,9 @@
 -- analysis.
 
 module Language.Fortran.Analysis.Renaming
-  ( analyseRenames, rename, unrename )
+  ( analyseRenames, rename, unrename
+  -- DEPRECATED:
+  , extractNameMap, renameAndStrip, underRenaming, NameMap )
 where
 
 import Debug.Trace
@@ -33,6 +35,7 @@ import Data.Tuple
 --------------------------------------------------
 
 type ModuleMap     = Map ProgramUnitName ModEnv
+type NameMap       = Map String String -- DEPRECATED
 
 type Renamer a     = State RenameState a -- the monad.
 data RenameState   = RenameState { scopeStack :: [String]
@@ -90,6 +93,33 @@ unrename pf = trPU fPU . trE fE $ pf
     fPU (PUSubroutine a s r n args b subs)
       | Just srcN <- sourceName a = PUSubroutine a s r srcN args b subs
     fPU           pu              = pu
+
+-- DEPRECATED:
+
+-- | DEPRECATED: Create a map of unique name => original name for each variable
+-- and function in the program.
+extractNameMap :: Data a => ProgramFile (Analysis a) -> NameMap
+extractNameMap pf = eMap `union` puMap
+  where
+    eMap  = fromList [ (un, n) | ExpValue (Analysis { uniqueName = Just un }) _ (ValVariable n) <- uniE pf ]
+    puMap = fromList [ (un, n) | pu <- uniPU pf, Named un <- [puName pu], Named n <- [getName pu], n /= un ]
+    uniE :: Data a => ProgramFile a -> [Expression a]
+    uniE = universeBi
+    uniPU :: Data a => ProgramFile a -> [ProgramUnit a]
+    uniPU = universeBi
+
+-- | DEPRECATED: Perform the rename, stripAnalysis, and extractNameMap functions.
+renameAndStrip :: Data a => ProgramFile (Analysis a) -> (NameMap, ProgramFile a)
+renameAndStrip pf = fmap stripAnalysis (extractNameMap pf, rename pf)
+
+-- | DEPRECATED: Run a function with the program file placed under renaming
+-- analysis, then undo the renaming in the result of the function.
+underRenaming :: (Data a, Data b) => (ProgramFile (Analysis a) -> b) -> ProgramFile a -> b
+underRenaming f pf = tryUnrename `descendBi` f (rename pf')
+  where
+    renameMap     = extractNameMap pf'
+    pf'           = analyseRenames . initAnalysis $ pf
+    tryUnrename n = n `fromMaybe` lookup n renameMap
 
 --------------------------------------------------
 -- Renaming transformations for pieces of the AST. Uses a language of
