@@ -3,7 +3,7 @@
 -- |
 -- Common data structures and functions supporting analysis of the AST.
 module Language.Fortran.Analysis
-  ( initAnalysis, stripAnalysis, Analysis(..), varName, srcName, genVar, puName, blockRhsExprs, rhsExprs
+  ( initAnalysis, stripAnalysis, Analysis(..), varName, srcName, genVar, puName, puSrcName, blockRhsExprs, rhsExprs
   , ModEnv, NameType(..), IDType(..), ConstructType(..), BaseType(..)
   , lhsExprs, isLExpr, allVars, allLhsVars, blockVarUses, blockVarDefs
   , BB, BBGr
@@ -92,10 +92,16 @@ srcName _ = error "Use of srcName on non-variable."
 genVar :: Analysis a -> SrcSpan -> String -> Expression (Analysis a)
 genVar a s n = ExpValue (a { uniqueName = Just n }) s (ValVariable n)
 
--- | Obtain either uniqueName or source program unit name.
+-- | Obtain either ProgramUnit uniqueName or whatever is in the AST.
 puName :: ProgramUnit (Analysis a) -> ProgramUnitName
 puName pu
   | Just n <- uniqueName (getAnnotation pu) = Named n
+  | otherwise                               = getName pu
+
+-- | Obtain either ProgramUnit sourceName or whatever is in the AST.
+puSrcName :: ProgramUnit (Analysis a) -> ProgramUnitName
+puSrcName pu
+  | Just n <- sourceName (getAnnotation pu) = Named n
   | otherwise                               = getName pu
 
 -- | Create analysis annotations for the program, saving the original
