@@ -116,8 +116,7 @@ test-suite spec
     text >= 1.2,
     bytestring >= 0.10,
     fgl,
-    fortran-src,
-    derive >= 2.5
+    fortran-src
   hs-source-dirs: test
   main-is: Spec.hs
   default-language:    Haskell2010
