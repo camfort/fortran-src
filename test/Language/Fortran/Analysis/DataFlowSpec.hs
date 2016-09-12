@@ -187,6 +187,20 @@ spec =
       it "loopNodes" $ do
         length (loopNodes bedges gr) `shouldBe` 2
 
+    describe "funcflow1" $ do
+      let pf = pParser F90 programFuncFlow1
+      let sgr = genSuperBBGr (genBBlockMap pf)
+      let gr = superBBGrGraph sgr
+      let bm = genBlockMap pf
+      let dm = genDefMap bm
+      let rDefs = reachingDefinitions dm gr
+      let flTo = genFlowsToGraph bm dm gr rDefs
+      it "flowsTo" $ do
+        (S.fromList . edges . trc $ flTo) `shouldSatisfy`
+          -- Find the flows of the assignment statements in the program.
+          S.isSubsetOf (findLabelsBlEdges pf [(1,2),(1,3),(3,2)])
+
+
 --------------------------------------------------
 -- Label-finding helper functions to help write tests that are
 -- insensitive to minor changes to the AST.
@@ -336,6 +350,19 @@ programBug36 = unlines [
     , "     end do"
     , "  end do"
     , "end program"
+    ]
+
+programFuncFlow1 = unlines [
+      "      program main"
+    , "        integer :: i, j"
+    , " 1      i = 1"
+    , " 2      j = f(i)"
+    , "      contains"
+    , "        integer function f(k)"
+    , "          integer :: k"
+    , " 3        f = k + 1"
+    , "        end function f"
+    , "      end program main"
     ]
 
 -- Local variables:

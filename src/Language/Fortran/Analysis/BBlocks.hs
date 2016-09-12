@@ -136,22 +136,23 @@ insEntryEdges pu = insEdge (0, 1, ()) . insNode (0, bs)
 -- create assignments of the form "x = f[1]" or "f[1] = x" at the
 -- entry/exit bblocks.
 genInOutAssignments pu exit
-  | exit, PUFunction _ _ _ _ n _ _ _ _ <- pu = zipWith genAssign (genVar a noSrcSpan n:vs) [0..]
+  | exit, PUFunction _ _ _ _ _ _ _ _ _ <- pu = zipWith genAssign (genVar a0 noSrcSpan fn:vs) [0..]
   | otherwise                                = zipWith genAssign vs [1..]
   where
-    pun           = puName pu
-    name i        = case pun of Named n -> n ++ "[" ++ show i ++ "]"
+    Named fn      = puName pu
+    name i        = fn ++ "[" ++ show i ++ "]"
+    a0            = head $ initAnalysis [prevAnnotation a]
     (a, s, vs)    = case pu of
       PUFunction _ _ _ _ _ (Just (AList a s vs)) _ _ _ -> (a, s, vs)
       PUSubroutine _ _ _ _ (Just (AList a s vs)) _ _   -> (a, s, vs)
       PUFunction a s _ _ _ Nothing _ _ _               -> (a, s, [])
       PUSubroutine a s _ _ Nothing _ _                 -> (a, s, [])
       _                                                -> (error "genInOutAssignments", error "genInOutAssignments", [])
-    genAssign v i = BlStatement a s Nothing (StExpressionAssign a s vl vr)
+    genAssign v i = BlStatement a0 s Nothing (StExpressionAssign a0 s vl vr)
       where
         (vl, vr) = if exit then (v', v) else (v, v')
         v'       = case v of
-          ExpValue a' s (ValVariable _) -> genVar a' s (name i)
+          ExpValue a' s (ValVariable _) -> genVar a0 s (name i)
           _               -> error $ "unhandled genAssign case: " ++ show (fmap (const ()) v)
 
 -- Remove exit edges for bblocks where standard construction doesn't apply.
@@ -428,17 +429,20 @@ processFunctionCalls = transformBiM processFunctionCall -- work bottom-up
 processFunctionCall :: Expression (Analysis a) -> BBlocker (Analysis a) (Expression (Analysis a))
 -- precondition: there are no more nested function calls within the actual arguments
 processFunctionCall (ExpFunctionCall a s fn@(ExpValue a' s' (ValVariable _)) aargs) = do
+  let a0 = head . initAnalysis $ [prevAnnotation a]
   (prevN, formalN) <- closeBBlock
 
   let exps = map extractExp (fromMaybe [] (aStrip <$> aargs))
 
   -- create bblock that assigns formal parameters (fn[1], fn[2], ...)
   let name i   = varName fn ++ "[" ++ show i ++ "]"
-  let formal (ExpValue a s (ValVariable _)) i = ExpValue a s (ValVariable (name i))
-      formal e i                              = ExpValue a s (ValVariable (name i))
-        where a = getAnnotation e; s = getSpan e
+  let setName n e = setAnnotation ((getAnnotation e) { uniqueName = Just n, sourceName = Just n }) e
+  let formal (ExpValue a s (ValVariable _)) i = setName n $ ExpValue a0 s (ValVariable n)
+        where n = name i
+      formal e i                              = setName n $ ExpValue a0 s (ValVariable n)
+        where a = getAnnotation e; s = getSpan e; n = name i
   forM_ (zip exps [1..]) $ \ (e, i) -> do
-    addToBBlock $ BlStatement a s Nothing (StExpressionAssign a' s' (formal e i) e)
+    addToBBlock $ BlStatement a0 s Nothing (StExpressionAssign a' s' (formal e i) e)
   (_, dummyCallN) <- closeBBlock
 
   -- create "dummy call" bblock with no parameters in the StCall AST-node.
@@ -450,11 +454,13 @@ processFunctionCall (ExpFunctionCall a s fn@(ExpValue a' s' (ValVariable _)) aar
   forM_ (zip exps [1..]) $ \ (e, i) ->
     -- this is only possible for l-expressions
     if isLExpr e then
-      addToBBlock $ BlStatement a s Nothing (StExpressionAssign a' s' e (formal e i))
+      addToBBlock $ BlStatement a0 s Nothing (StExpressionAssign a' s' e (formal e i))
     else return ()
-  temp <- (ExpValue a s . ValVariable) `fmap` genTemp (varName fn)
-  addToBBlock $ BlStatement a s Nothing
-                  (StExpressionAssign a' s' temp (ExpValue a s (ValVariable (name 0))))
+  tempName <- genTemp (varName fn)
+  let temp = setName tempName $ ExpValue a0 s (ValVariable tempName)
+  let retV = setName (name 0) $ ExpValue a0 s (ValVariable (name 0))
+
+  addToBBlock $ BlStatement a0 s Nothing (StExpressionAssign a0 s' temp retV)
   (_, nextN) <- closeBBlock
 
   -- connect the bblocks
