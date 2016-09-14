@@ -1,4 +1,4 @@
-{-# LANGUAGE ScopedTypeVariables, DeriveDataTypeable, StandaloneDeriving #-}
+{-# LANGUAGE ScopedTypeVariables, DeriveDataTypeable, StandaloneDeriving, DeriveGeneric #-}
 
 -- |
 -- Common data structures and functions supporting analysis of the AST.
@@ -16,7 +16,11 @@ import Data.Generics.Uniplate.Operations
 import Data.Data
 import Language.Fortran.AST
 import Data.Graph.Inductive.PatriciaTree (Gr)
+import GHC.Generics (Generic)
+import Text.PrettyPrint.GenericPretty
+import Text.PrettyPrint
 import qualified Data.Map as M
+import Data.Maybe
 
 --------------------------------------------------
 
@@ -41,7 +45,8 @@ type TransFunc f g a = (f (Analysis a) -> f (Analysis a)) -> g (Analysis a) -> g
 -- | The type of "transformBiM"-family functions
 type TransFuncM m f g a = (f (Analysis a) -> m (f (Analysis a))) -> g (Analysis a) -> m (g (Analysis a))
 
-data NameType = NTSubprogram | NTVariable deriving (Show, Eq, Ord, Data, Typeable)
+data NameType = NTSubprogram | NTVariable deriving (Show, Eq, Ord, Data, Typeable, Generic)
+instance Out NameType
 type ModEnv = M.Map String (String, NameType)
 
 data ConstructType =
@@ -50,12 +55,16 @@ data ConstructType =
   | CTVariable
   | CTArray
   | CTParameter
-  deriving (Data, Show, Eq)
+  deriving (Data, Show, Eq, Generic)
+
+instance Out ConstructType
 
 data IDType = IDType
   { idVType :: Maybe BaseType
   , idCType :: Maybe ConstructType }
-  deriving (Data, Show, Eq)
+  deriving (Data, Show, Eq, Generic)
+
+instance Out IDType
 
 data Analysis a = Analysis
   { prevAnnotation :: a -- ^ original annotation
@@ -66,7 +75,16 @@ data Analysis a = Analysis
   , moduleEnv      :: Maybe ModEnv
   , idType         :: Maybe IDType
   }
-  deriving (Data, Show, Eq)
+  deriving (Data, Show, Eq, Generic)
+
+instance Out (Analysis a) where
+  doc a = parens . text . unwords . map (uncurry (++) . fmap fromJust) . filter (isJust . snd) $
+            [ ("uniqueName: ", uniqueName a)
+            , ("sourceName: ", sourceName a)
+            , ("insLabel: ", fmap show (insLabel a))
+            , ("idType: ", fmap show (idType a)) ]
+  docPrec _ = doc
+
 analysis0 a = Analysis { prevAnnotation = a
                        , uniqueName     = Nothing
                        , sourceName     = Nothing
