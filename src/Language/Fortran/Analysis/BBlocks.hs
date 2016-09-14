@@ -86,12 +86,12 @@ labelWithinBlocks = perBlock
     perBlock :: Block (Analysis a) -> Block (Analysis a)
     perBlock b =
       case b of
-        BlStatement a s e st -> BlStatement a s (mfill i e) (fill i st)
-        BlIf a s e1 mn e2 bss el -> BlIf a s (mfill i e1) mn (mmfill i e2) bss el
-        BlCase a s e1 mn e2 is bss el -> BlCase a s (mfill i e1) mn (fill i e2) (mmfill i is) bss el
-        BlDo a s e1 mn tl e2 bs el -> BlDo a s (mfill i e1) mn tl (mfill i e2) bs el
-        BlDoWhile a s e1 n e2 bs el -> BlDoWhile a s (mfill i e1) n (fill i e2) bs el
-        _ -> b
+        BlStatement a s e st               -> BlStatement a s (mfill i e) (fill i st)
+        BlIf        a s e1 mn e2 bss el    -> BlIf        a s (mfill i e1) mn (mmfill i e2) bss el
+        BlCase      a s e1 mn e2 is bss el -> BlCase      a s (mfill i e1) mn (fill i e2) (mmfill i is) bss el
+        BlDo        a s e1 mn tl e2 bs el  -> BlDo        a s (mfill i e1) mn tl (mfill i e2) bs el
+        BlDoWhile   a s e1 n e2 bs el      -> BlDoWhile   a s (mfill i e1) n (fill i e2) bs el
+        _                             -> b
       where i = insLabel $ getAnnotation b
 
     mfill i  = fmap (fill i)
@@ -269,6 +269,23 @@ perBlock b@(BlIf _ _ _ _ exps bss _) = do
   -- if there is no "Else"-statement then we need an edge from ifN -> nxtN
   createEdges $ if any isNothing exps then es else (ifN, nxtN, ()):es
 
+perBlock b@(BlCase _ _ _ _ _ inds bss _) = do
+  processLabel b
+  addToBBlock $ stripNestedBlocks b
+  (selectN, _) <- closeBBlock
+
+  -- go through nested AST-blocks
+  startEnds <- forM bss $ \ bs -> do
+    (caseN, endN) <- processBlocks bs
+    genBBlock
+    return (caseN, endN)
+
+  -- connect all the new bblocks with edges, link to subsequent bblock labeled nxtN
+  nxtN   <- gets curNode
+  let es  = startEnds >>= \ (caseN, endN) -> [(selectN, caseN, ()), (endN, nxtN, ())]
+  -- if there is no "CASE DEFAULT"-statement then we need an edge from selectN -> nxtN
+  createEdges $ if any isNothing inds then es else (selectN, nxtN, ()):es
+
 perBlock b@(BlStatement a ss _ (StIfLogical _ _ exp stm)) = do
   processLabel b
   exp' <- processFunctionCalls exp
@@ -412,12 +429,13 @@ genTemp str = do
 
 -- Strip nested code not necessary since it is duplicated in another
 -- basic block.
-stripNestedBlocks (BlDo a s l mn tl ds _ el)   = BlDo a s l mn tl ds [] el
-stripNestedBlocks (BlDoWhile a s l n e _ el)   = BlDoWhile a s l n e [] el
-stripNestedBlocks (BlIf a s l mn exps _ el)       = BlIf a s l mn exps [] el
+stripNestedBlocks (BlDo a s l mn tl ds _ el)     = BlDo a s l mn tl ds [] el
+stripNestedBlocks (BlDoWhile a s l n e _ el)     = BlDoWhile a s l n e [] el
+stripNestedBlocks (BlIf a s l mn exps _ el)      = BlIf a s l mn exps [] el
+stripNestedBlocks (BlCase a s l mn sc inds _ el) = BlCase a s l mn sc inds [] el
 stripNestedBlocks (BlStatement a s l
-                   (StIfLogical a' s' e _)) = BlStatement a s l (StIfLogical a' s' e (StEndif a' s' Nothing))
-stripNestedBlocks b                         = b
+                   (StIfLogical a' s' e _))      = BlStatement a s l (StIfLogical a' s' e (StEndif a' s' Nothing))
+stripNestedBlocks b                              = b
 
 -- Flatten out function calls within the expression, returning an
 -- expression that replaces the original expression (probably becoming
