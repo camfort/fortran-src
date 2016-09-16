@@ -1,6 +1,6 @@
 -- | Dataflow analysis to be applied once basic block analysis is complete.
 
-{-# LANGUAGE FlexibleContexts, PatternGuards, ScopedTypeVariables, TupleSections #-}
+{-# LANGUAGE FlexibleContexts, PatternGuards, ScopedTypeVariables, TupleSections, DeriveGeneric, DeriveDataTypeable #-}
 module Language.Fortran.Analysis.DataFlow
   ( dominators, iDominators, DomMap, IDomMap
   , postOrder, revPostOrder, preOrder, revPreOrder, OrderF
@@ -15,16 +15,18 @@ module Language.Fortran.Analysis.DataFlow
   , genLoopNodeMap, LoopNodeMap
   , genInductionVarMap, InductionVarMap
   , genInductionVarMapByASTBlock, InductionVarMapByASTBlock
-  , noPredNodes
+  , noPredNodes, analyseDerivedInductionExprs, InductionExpr(..)
 ) where
 
 import Data.Generics.Uniplate.Data
 import Data.Generics.Uniplate.Operations
+import GHC.Generics
 import Data.Data
 import Data.Function
 import Control.Monad.State.Lazy
 import Control.Monad.Writer
 import Text.PrettyPrint.GenericPretty (pretty, Out)
+import Language.Fortran.Parser.Utils
 import Language.Fortran.Analysis
 import Language.Fortran.Analysis.BBlocks
 import Language.Fortran.AST
@@ -37,6 +39,7 @@ import Data.Graph.Inductive.PatriciaTree (Gr)
 import Data.Graph.Inductive.Query.BFS (bfen)
 import Data.Maybe
 import Data.List (foldl', (\\), union, delete, nub, intersect)
+import qualified Debug.Trace as D
 
 --------------------------------------------------
 
@@ -107,6 +110,20 @@ dataFlowSolver :: Ord t => BBGr a            -- ^ basic block graph
                         -> (InF t -> OutF t) -- ^ compute the out-flow given an in-flow function
                         -> InOutMap t        -- ^ final dataflow for each node
 dataFlowSolver gr initF order inF outF = converge (==) $ iterate step initM
+  where
+    ordNodes = order gr
+    initM    = IM.fromList [ (n, initF n) | n <- ordNodes ]
+    step m   = IM.fromList [ (n, (inF (snd . get m) n, outF (fst . get m) n)) | n <- ordNodes ]
+    get m n  = fromJustMsg "dataFlowSolver" $ IM.lookup n m
+
+-- | Apply the iterative dataflow analysis method.
+dataFlowSolver' :: Ord t => BBGr a            -- ^ basic block graph
+                        -> (Node -> InOut t) -- ^ initialisation for in and out dataflows
+                        -> OrderF a          -- ^ ordering function
+                        -> (OutF t -> InF t) -- ^ compute the in-flow given an out-flow function
+                        -> (InF t -> OutF t) -- ^ compute the out-flow given an in-flow function
+                        -> [InOutMap t]        -- ^ dataflow steps
+dataFlowSolver' gr initF order inF outF = iterate step initM
   where
     ordNodes = order gr
     initM    = IM.fromList [ (n, initF n) | n <- ordNodes ]
@@ -391,6 +408,92 @@ genInductionVarMapByASTBlock bedges gr = loopsToLabs . genInductionVarMap bedges
                       , let Just i = insLabel (getAnnotation b) ]
     loopsToLabs         = IM.fromListWith S.union . concatMap loopToLabs . IM.toList
     loopToLabs (n, ivs) = (map (,ivs) . astLabels) =<< IS.toList (get n)
+
+data InductionExpr
+  = IETop                 -- not enough info
+  | IELinear Name Int Int -- Basic induction var 'Name' * coefficient + offset
+  | IEBottom              -- too difficult
+  deriving (Show, Eq, Ord, Typeable, Generic, Data)
+
+type IEMap = M.Map Name InductionExpr
+
+-- | For each loop, annotate each expression within it that derives
+-- from an induction variable.
+
+analyseDerivedInductionExprs :: forall a. Data a => BackEdgeMap -> BBGr (Analysis a) -> BBGr (Analysis a)
+analyseDerivedInductionExprs bedges gr = gr
+  where
+    bivMap = basicInductionVars bedges gr -- basic indvars indexed by loop header node
+    lnMap  = genLoopNodeMap bedges gr     -- loop nodes indexed by loop header node
+    ieMapFor lh = M.fromList [ (n, IELinear n 1 0)
+                             | n <- S.toList . fromJustMsg "analyseDerivedIE find basic" $ IM.lookup lh bivMap ]
+
+    nodeIVMap :: IM.IntMap (S.Set Name)
+    nodeIVMap = IM.fromListWith S.union [
+                    (node, ivSet) | (headNode, nodeSet) <- IM.toList lnMap
+                                  , let ivSet = fromJustMsg "analyseDerivedIE nodeIVMap" $ IM.lookup headNode bivMap
+                                  , node <- IS.toList nodeSet
+                  ]
+    -- eliminate entries that are not live in this given basic block node
+    -- FIXME: currently only knows about basic ind vars
+    cull :: Node -> IEMap -> IEMap
+    cull node ieMap
+      | Just ivSet <- IM.lookup node nodeIVMap = M.filterWithKey (\ n _ -> n `S.member` ivSet) ieMap
+      | otherwise                              = M.empty
+
+    step :: IEMap -> Block (Analysis a) -> IEMap
+    step ieMap b = case b of
+      BlStatement _ _ _ (StExpressionAssign _ _ lv@(ExpValue _ _ (ValVariable _)) rhs) ->
+        M.insert (varName lv) (derivedInductionExpr ieMap rhs) ieMap
+      _ -> ieMap
+
+    out :: InF IEMap -> OutF IEMap
+    out inF node = foldl' step ieMap (fromJustMsg ("analyseDerivedIE out(" ++ show node ++ ")") $ lab gr node)
+      where
+        ieMap = M.unionWith unionInductionExprs (fst (initF node)) (inF node)
+
+    inn :: OutF IEMap -> InF IEMap
+    inn outF node =  (M.unionsWith unionInductionExprs [ outF p | p <- pre gr node ])
+
+    initF :: Node -> InOut IEMap
+    initF node = case IM.lookup node bivMap of
+                   Just set -> (M.fromList [ (n, IELinear n 1 0) | n <- S.toList set ], M.empty)
+                   Nothing  -> (M.empty, M.empty)
+
+    inOutMaps = dataFlowSolver gr initF revPostOrder inn out
+
+derivedInductionExpr :: Data a => IEMap -> Expression (Analysis a) -> InductionExpr
+derivedInductionExpr ieMap e = case e of
+  v@(ExpValue _ _ (ValVariable _)) -> fromMaybe IETop $ M.lookup (varName v) ieMap
+  ExpValue _ _ (ValInteger str)
+    | Just i <- readInteger str    -> IELinear "" 0 (fromIntegral i)
+  ExpBinary _ _ Addition e1 e2     -> derive e1 `addInductionExprs` derive e2
+  ExpBinary _ _ Subtraction e1 e2  -> derive e1 `addInductionExprs` negInductionExpr (derive e2)
+  _                                -> IETop
+  where
+    derive = derivedInductionExpr ieMap
+
+addInductionExprs :: InductionExpr -> InductionExpr -> InductionExpr
+addInductionExprs (IELinear ln lc lo) (IELinear rn rc ro)
+  | ln == rn  = IELinear ln (lc + rc) (lo + ro)
+  | lc == 0   = IELinear rn rc (lo + ro)
+  | rc == 0   = IELinear ln lc (lo + ro)
+  | otherwise = IEBottom -- maybe for future...
+addInductionExprs ie1 IETop = IETop
+addInductionExprs IETop ie2 = IETop
+addInductionExprs _ _ = IEBottom
+
+negInductionExpr :: InductionExpr -> InductionExpr
+negInductionExpr (IELinear n c o) = IELinear n (-c) (-o)
+negInductionExpr IETop = IETop
+negInductionExpr _ = IEBottom
+
+unionInductionExprs :: InductionExpr -> InductionExpr -> InductionExpr
+unionInductionExprs ie1 IETop = ie1
+unionInductionExprs IETop ie2 = ie2
+unionInductionExprs ie1 ie2
+  | ie1 == ie2 = ie1
+  | otherwise = IEBottom
 
 --------------------------------------------------
 
