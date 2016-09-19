@@ -15,7 +15,7 @@ module Language.Fortran.Analysis.DataFlow
   , genLoopNodeMap, LoopNodeMap
   , genInductionVarMap, InductionVarMap
   , genInductionVarMapByASTBlock, InductionVarMapByASTBlock
-  , noPredNodes, analyseDerivedInductionExprs, InductionExpr(..)
+  , noPredNodes, genDerivedInductionMap, DerivedInductionMap, InductionExpr(..)
 ) where
 
 import Data.Generics.Uniplate.Data
@@ -409,91 +409,111 @@ genInductionVarMapByASTBlock bedges gr = loopsToLabs . genInductionVarMap bedges
     loopsToLabs         = IM.fromListWith S.union . concatMap loopToLabs . IM.toList
     loopToLabs (n, ivs) = (map (,ivs) . astLabels) =<< IS.toList (get n)
 
+-- It's a 'lattice' but will leave it ungeneralised for the moment.
 data InductionExpr
   = IETop                 -- not enough info
   | IELinear Name Int Int -- Basic induction var 'Name' * coefficient + offset
   | IEBottom              -- too difficult
   deriving (Show, Eq, Ord, Typeable, Generic, Data)
 
-type IEMap = M.Map Name InductionExpr
+type DerivedInductionMap = IM.IntMap InductionExpr
 
--- | For each loop, annotate each expression within it that derives
--- from an induction variable.
+data IEFlow = IEFlow { ieFlowVars :: M.Map Name InductionExpr, ieFlowExprs :: DerivedInductionMap }
+  deriving (Show, Eq, Ord, Typeable, Generic, Data)
 
-analyseDerivedInductionExprs :: forall a. Data a => BackEdgeMap -> BBGr (Analysis a) -> BBGr (Analysis a)
-analyseDerivedInductionExprs bedges gr = gr
+ieFlowInsertVar v ie flow = flow { ieFlowVars = M.insert v ie (ieFlowVars flow) }
+ieFlowInsertExpr i ie flow = flow { ieFlowExprs = IM.insert i ie (ieFlowExprs flow) }
+emptyIEFlow = IEFlow M.empty IM.empty
+joinIEFlows flows = IEFlow flowV flowE
+  where
+    flowV = M.unionsWith joinInductionExprs (map ieFlowVars flows)
+    flowE = IM.unionsWith joinInductionExprs (map ieFlowExprs flows)
+
+-- | For every expression in a loop, try to derive its relationship to
+-- a basic induction variable.
+genDerivedInductionMap :: forall a. Data a => BackEdgeMap -> BBGr (Analysis a) -> DerivedInductionMap
+genDerivedInductionMap bedges gr = ieFlowExprs . joinIEFlows . map snd . IM.elems . IM.filterWithKey inLoop $ inOutMaps
   where
     bivMap = basicInductionVars bedges gr -- basic indvars indexed by loop header node
-    lnMap  = genLoopNodeMap bedges gr     -- loop nodes indexed by loop header node
-    ieMapFor lh = M.fromList [ (n, IELinear n 1 0)
-                             | n <- S.toList . fromJustMsg "analyseDerivedIE find basic" $ IM.lookup lh bivMap ]
+    loopNodeSet = IS.unions (loopNodes bedges gr) -- set of nodes within a loop
+    inLoop i _ = i `IS.member` loopNodeSet
 
-    nodeIVMap :: IM.IntMap (S.Set Name)
-    nodeIVMap = IM.fromListWith S.union [
-                    (node, ivSet) | (headNode, nodeSet) <- IM.toList lnMap
-                                  , let ivSet = fromJustMsg "analyseDerivedIE nodeIVMap" $ IM.lookup headNode bivMap
-                                  , node <- IS.toList nodeSet
-                  ]
-    -- eliminate entries that are not live in this given basic block node
-    -- FIXME: currently only knows about basic ind vars
-    cull :: Node -> IEMap -> IEMap
-    cull node ieMap
-      | Just ivSet <- IM.lookup node nodeIVMap = M.filterWithKey (\ n _ -> n `S.member` ivSet) ieMap
-      | otherwise                              = M.empty
-
-    step :: IEMap -> Block (Analysis a) -> IEMap
-    step ieMap b = case b of
-      BlStatement _ _ _ (StExpressionAssign _ _ lv@(ExpValue _ _ (ValVariable _)) rhs) ->
-        M.insert (varName lv) (derivedInductionExpr ieMap rhs) ieMap
-      _ -> ieMap
-
-    out :: InF IEMap -> OutF IEMap
-    out inF node = foldl' step ieMap (fromJustMsg ("analyseDerivedIE out(" ++ show node ++ ")") $ lab gr node)
+    step :: IEFlow -> Block (Analysis a) -> IEFlow
+    step flow b = case b of
+      BlStatement _ _ _ (StExpressionAssign _ _ lv@(ExpValue _ _ (ValVariable _)) rhs)
+        | rhsLabel <- insLabel (getAnnotation rhs)
+        , flow''   <- ieFlowInsertVar (varName lv) (derivedInductionExpr flow' rhs) flow' -> stepExpr flow'' lv
+      _ -> flow'
       where
-        ieMap = M.unionWith unionInductionExprs (fst (initF node)) (inF node)
+        flow' = foldl' stepExpr flow (universeBi b)
 
-    inn :: OutF IEMap -> InF IEMap
-    inn outF node =  (M.unionsWith unionInductionExprs [ outF p | p <- pre gr node ])
+    stepExpr :: IEFlow -> Expression (Analysis a) -> IEFlow
+    stepExpr flow e = ieFlowInsertExpr label ie flow
+      where
+        ie = derivedInductionExpr flow e
+        label = fromJustMsg "stepExpr" $ insLabel (getAnnotation e)
 
-    initF :: Node -> InOut IEMap
+    out :: InF IEFlow -> OutF IEFlow
+    out inF node = foldl' step flow (fromJustMsg ("analyseDerivedIE out(" ++ show node ++ ")") $ lab gr node)
+      where
+        flow = joinIEFlows [fst (initF node), inF node]
+
+    inn :: OutF IEFlow -> InF IEFlow
+    inn outF node = joinIEFlows [ outF p | p <- pre gr node ]
+
+    initF :: Node -> InOut IEFlow
     initF node = case IM.lookup node bivMap of
-                   Just set -> (M.fromList [ (n, IELinear n 1 0) | n <- S.toList set ], M.empty)
-                   Nothing  -> (M.empty, M.empty)
+                   Just set -> (IEFlow (M.fromList [ (n, IELinear n 1 0) | n <- S.toList set ]) IM.empty, emptyIEFlow)
+                   Nothing  -> (emptyIEFlow, emptyIEFlow)
 
     inOutMaps = dataFlowSolver gr initF revPostOrder inn out
 
-derivedInductionExpr :: Data a => IEMap -> Expression (Analysis a) -> InductionExpr
-derivedInductionExpr ieMap e = case e of
-  v@(ExpValue _ _ (ValVariable _)) -> fromMaybe IETop $ M.lookup (varName v) ieMap
+-- Compute the relationship between the given expression and a basic
+-- induction variable, if possible.
+derivedInductionExpr :: Data a => IEFlow -> Expression (Analysis a) -> InductionExpr
+derivedInductionExpr flow e = case e of
+  v@(ExpValue _ _ (ValVariable _))   -> fromMaybe IETop $ M.lookup (varName v) (ieFlowVars flow)
   ExpValue _ _ (ValInteger str)
-    | Just i <- readInteger str    -> IELinear "" 0 (fromIntegral i)
-  ExpBinary _ _ Addition e1 e2     -> derive e1 `addInductionExprs` derive e2
-  ExpBinary _ _ Subtraction e1 e2  -> derive e1 `addInductionExprs` negInductionExpr (derive e2)
-  _                                -> IETop
+    | Just i <- readInteger str      -> IELinear "" 0 (fromIntegral i)
+  ExpBinary _ _ Addition e1 e2       -> derive e1 `addInductionExprs` derive e2
+  ExpBinary _ _ Subtraction e1 e2    -> derive e1 `addInductionExprs` negInductionExpr (derive e2)
+  ExpBinary _ _ Multiplication e1 e2 -> derive e1 `mulInductionExprs` derive e2
+  _                                  -> IETop -- unsure
   where
-    derive = derivedInductionExpr ieMap
+    derive = derivedInductionExpr flow
 
+-- Combine two induction variable relationships through addition.
 addInductionExprs :: InductionExpr -> InductionExpr -> InductionExpr
 addInductionExprs (IELinear ln lc lo) (IELinear rn rc ro)
-  | ln == rn  = IELinear ln (lc + rc) (lo + ro)
-  | lc == 0   = IELinear rn rc (lo + ro)
-  | rc == 0   = IELinear ln lc (lo + ro)
-  | otherwise = IEBottom -- maybe for future...
+  | ln == rn                = IELinear ln (lc + rc) (lo + ro)
+  | lc == 0                 = IELinear rn rc (lo + ro)
+  | rc == 0                 = IELinear ln lc (lo + ro)
+  | otherwise               = IEBottom -- maybe for future...
 addInductionExprs ie1 IETop = IETop
 addInductionExprs IETop ie2 = IETop
-addInductionExprs _ _ = IEBottom
+addInductionExprs _ _       = IEBottom
 
+-- Negate an induction variable relationship.
 negInductionExpr :: InductionExpr -> InductionExpr
 negInductionExpr (IELinear n c o) = IELinear n (-c) (-o)
-negInductionExpr IETop = IETop
-negInductionExpr _ = IEBottom
+negInductionExpr IETop            = IETop
+negInductionExpr _                = IEBottom
 
-unionInductionExprs :: InductionExpr -> InductionExpr -> InductionExpr
-unionInductionExprs ie1 IETop = ie1
-unionInductionExprs IETop ie2 = ie2
-unionInductionExprs ie1 ie2
-  | ie1 == ie2 = ie1
-  | otherwise = IEBottom
+-- Combine two induction variable relationships through multiplication.
+mulInductionExprs :: InductionExpr -> InductionExpr -> InductionExpr
+mulInductionExprs (IELinear "" lc lo) (IELinear rn rc ro) = IELinear rn (rc * lo) (ro * lo)
+mulInductionExprs (IELinear ln lc lo) (IELinear "" rc ro) = IELinear ln (lc * ro) (lo * ro)
+mulInductionExprs _ IETop                                 = IETop
+mulInductionExprs IETop _                                 = IETop
+mulInductionExprs _ _                                     = IEBottom
+
+-- Combine two induction variable relationships using lattice 'join'.
+joinInductionExprs :: InductionExpr -> InductionExpr -> InductionExpr
+joinInductionExprs ie1 IETop = ie1
+joinInductionExprs IETop ie2 = ie2
+joinInductionExprs ie1 ie2
+  | ie1 == ie2               = ie1
+  | otherwise                = IEBottom -- too difficult to combine
 
 --------------------------------------------------
 
