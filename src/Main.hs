@@ -1,4 +1,4 @@
-{-# LANGUAGE FlexibleContexts, FlexibleInstances #-}
+{-# LANGUAGE FlexibleContexts, FlexibleInstances, ScopedTypeVariables #-}
 
 module Main where
 
@@ -13,11 +13,13 @@ import Text.PrettyPrint (render)
 import System.Console.GetOpt
 
 import System.Environment
-import Text.PrettyPrint.GenericPretty (pp)
+import Text.PrettyPrint.GenericPretty (pp, pretty, Out)
 import Data.List (isInfixOf, isSuffixOf, intercalate)
 import Data.Char (toLower)
-import Data.Maybe (fromMaybe)
+import Data.Maybe (fromMaybe, maybeToList)
 import Data.Data
+import Data.Generics.Uniplate.Data
+import Data.Generics.Uniplate.Operations
 
 import Language.Fortran.ParserMonad (FortranVersion(..))
 import qualified Language.Fortran.Lexer.FixedForm as FixedForm (collectFixedTokens, Token(..))
@@ -82,7 +84,7 @@ main = do
       SuperGraph -> putStrLn . runSuperGraph $ parserF contents path
       Reprint    -> putStrLn . render . flip (pprint version) (Just 0) $ parserF contents path
 
-superGraphDataFlow :: Data a => ProgramFile (Analysis a) -> SuperBBGr (Analysis a) -> String
+superGraphDataFlow :: forall a. (Out a, Data a) => ProgramFile (Analysis a) -> SuperBBGr (Analysis a) -> String
 superGraphDataFlow pf sgr = showBBGr (nmap (map (fmap insLabel)) gr) ++ "\n\n" ++ replicate 50 '-' ++ "\n\n" ++ dfStr gr
   where
     gr = superBBGrGraph sgr
@@ -106,10 +108,16 @@ superGraphDataFlow pf sgr = showBBGr (nmap (map (fmap insLabel)) gr) ++ "\n\n" +
                , ("varFlowsTo",   show (genVarFlowsToMap dm flTo))
                , ("ivMap",        show (genInductionVarMap bedges gr))
                , ("noPredNodes",  show (noPredNodes gr))
+               , ("blockMap",     unlines [ "AST-block " ++ show i ++ ":\n" ++ pretty b | (i, b) <- IM.toList bm ])
+               , ("derivedInd",   unlines [ "Expression " ++ show i ++ " (IE: " ++ show ie ++ "):\n" ++ pretty e
+                                          | e <- universeBi bm :: [Expression (Analysis a)]
+                                          , i <- maybeToList (insLabel (getAnnotation e))
+                                          , let ie = IM.lookup i diMap ])
                ] where
                    bedges = genBackEdgeMap (dominators gr) gr
                    flTo   = genFlowsToGraph bm dm gr rDefs
                    rDefs  = rd gr
+                   diMap  = genDerivedInductionMap bedges gr
     lva = liveVariableAnalysis
     bm = genBlockMap pf
     dm = genDefMap bm
