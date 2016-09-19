@@ -195,11 +195,36 @@ spec =
       let dm = genDefMap bm
       let rDefs = reachingDefinitions dm gr
       let flTo = genFlowsToGraph bm dm gr rDefs
+      let domMap = dominators gr
+      let bedges = genBackEdgeMap domMap gr
+      let diMap = genDerivedInductionMap bedges gr
       it "flowsTo" $ do
         (S.fromList . edges . trc $ flTo) `shouldSatisfy`
           -- Find the flows of the assignment statements in the program.
           S.isSubsetOf (findLabelsBlEdges pf [(1,2),(1,3),(3,2)])
 
+    describe "funcflow2" $ do
+      let pf = pParser F90 programFuncFlow2
+      let sgr = genSuperBBGr (genBBlockMap pf)
+      let gr = superBBGrGraph sgr
+      let bm = genBlockMap pf
+      let dm = genDefMap bm
+      let rDefs = reachingDefinitions dm gr
+      let flTo = genFlowsToGraph bm dm gr rDefs
+      let domMap = dominators gr
+      let bedges = genBackEdgeMap domMap gr
+      let diMap = genDerivedInductionMap bedges gr
+      let (iLabel, iName):_ = [ (fromJust (insLabel a), varName e)
+                              | e@(ExpValue a _ (ValVariable _)) <- rhsExprs pf, srcName e == "i" ]
+      let (jLabel, jName):_ = [ (fromJust (insLabel a), varName e)
+                              | e@(ExpValue a _ (ValVariable _)) <- lhsExprs pf, srcName e == "j" ]
+      it "flowsTo" $ do
+        (S.fromList . edges . trc $ flTo) `shouldSatisfy`
+          -- Find the flows of the assignment statements in the program.
+          S.isSubsetOf (findLabelsBlEdges pf [(1,2),(1,3),(3,2)])
+      it "derivedInduction" $ do
+        IM.lookup iLabel diMap `shouldBe` Just (IELinear iName 1 0)
+        IM.lookup jLabel diMap `shouldBe` Just (IELinear iName 6 2)
 
 --------------------------------------------------
 -- Label-finding helper functions to help write tests that are
@@ -357,6 +382,20 @@ programFuncFlow1 = unlines [
     , "        integer :: i, j"
     , " 1      i = 1"
     , " 2      j = f(i)"
+    , "      contains"
+    , "        integer function f(k)"
+    , "          integer :: k"
+    , " 3        f = k + 1"
+    , "        end function f"
+    , "      end program main"
+    ]
+
+programFuncFlow2 = unlines [
+      "      program main"
+    , "        integer :: i, j"
+    , " 1      do i = 1, 10"
+    , " 2         j = 2*f(3*i)"
+    , "        end do"
     , "      contains"
     , "        integer function f(k)"
     , "          integer :: k"
