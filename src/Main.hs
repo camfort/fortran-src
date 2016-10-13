@@ -85,9 +85,12 @@ main = do
       Reprint    -> putStrLn . render . flip (pprint version) (Just 0) $ parserF contents path
 
 superGraphDataFlow :: forall a. (Out a, Data a) => ProgramFile (Analysis a) -> SuperBBGr (Analysis a) -> String
-superGraphDataFlow pf sgr = showBBGr (nmap (map (fmap insLabel)) gr) ++ "\n\n" ++ replicate 50 '-' ++ "\n\n" ++ dfStr gr
+superGraphDataFlow pf sgr = showBBGr (nmap (map (fmap insLabel)) gr) ++ "\n\n" ++ replicate 50 '-' ++ "\n\n" ++
+                            show entries ++ "\n\n" ++ replicate 50 '-' ++ "\n\n" ++
+                            dfStr gr
   where
     gr = superBBGrGraph sgr
+    entries = superBBGrEntries sgr
     dfStr gr = (\ (l, x) -> '\n':l ++ ": " ++ x) =<< [
                  ("callMap",      show cm)
                , ("postOrder",    show (postOrder gr))

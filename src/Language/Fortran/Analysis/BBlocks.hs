@@ -3,7 +3,7 @@
 {-# LANGUAGE FlexibleContexts, PatternGuards, ScopedTypeVariables #-}
 module Language.Fortran.Analysis.BBlocks
   ( analyseBBlocks, genBBlockMap, showBBGr, showAnalysedBBGr, showBBlocks, bbgrToDOT, BBlockMap
-  , genSuperBBGr, SuperBBGr, showSuperBBGr, superBBGrToDOT, superBBGrGraph, superBBGrClusters
+  , genSuperBBGr, SuperBBGr, showSuperBBGr, superBBGrToDOT, superBBGrGraph, superBBGrClusters, superBBGrEntries
   , findLabeledBBlock )
 where
 
@@ -533,11 +533,17 @@ extractExp (Argument _ _ _ exp) = exp
 --------------------------------------------------
 -- Supergraph: all program units in one basic-block graph
 
-data SuperBBGr a = SuperBBGr { graph :: BBGr a, clusters :: IM.IntMap ProgramUnitName }
+data SuperBBGr a = SuperBBGr { graph :: BBGr a
+                             , clusters :: IM.IntMap ProgramUnitName
+                             , entries :: M.Map PUName SuperNode }
 
 -- | Extract graph from SuperBBGr
 superBBGrGraph :: SuperBBGr a -> BBGr a
 superBBGrGraph = graph
+
+-- | Extract entry map from SuperBBGr
+superBBGrEntries :: SuperBBGr a -> M.Map ProgramUnitName SuperNode
+superBBGrEntries = entries
 
 -- | Extract cluster map from SuperBBGr
 superBBGrClusters :: SuperBBGr a -> IM.IntMap ProgramUnitName
@@ -550,7 +556,7 @@ type NLabel a = BB (Analysis a)
 type ELabel = ()
 
 genSuperBBGr :: forall a. Data a => BBlockMap (Analysis a) -> SuperBBGr (Analysis a)
-genSuperBBGr bbm = SuperBBGr { graph = superGraph'', clusters = cmap }
+genSuperBBGr bbm = SuperBBGr { graph = superGraph'', clusters = cmap, entries = entryMap }
   where
     namedNodes   :: [((PUName, Node), NLabel a)]
     namedNodes   = [ ((name, n), bs) | (name, gr) <- M.toList bbm, (n, bs) <- labNodes gr ]
