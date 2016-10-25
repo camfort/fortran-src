@@ -31,6 +31,7 @@ executable fortran-src
     containers >= 0.5,
     text >= 1.2,
     bytestring >= 0.10,
+    binary >= 0.8.3.0,
     fgl
   other-modules:
     Language.Fortran.Analysis
@@ -95,6 +96,7 @@ library
     containers >= 0.5,
     text >= 1.2,
     bytestring >= 0.10,
+    binary >= 0.8.3.0,
     fgl
   hs-source-dirs:      src
   ghc-options: -fno-warn-tabs
@@ -115,6 +117,7 @@ test-suite spec
     containers >= 0.5,
     text >= 1.2,
     bytestring >= 0.10,
+    binary >= 0.8.3.0,
     fgl,
     fortran-src
   hs-source-dirs: test
