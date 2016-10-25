@@ -24,7 +24,7 @@ import Prelude hiding (lookup)
 import Data.Maybe (maybe, fromMaybe)
 import qualified Data.List as L
 import Data.Map (findWithDefault, insert, union, empty, lookup, member, Map, fromList)
-import qualified Data.Map as M
+import qualified Data.Map.Strict as M
 import Control.Monad.State.Strict
 import Control.Monad
 import Data.Generics.Uniplate.Data

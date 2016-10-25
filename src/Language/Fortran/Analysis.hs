@@ -19,7 +19,7 @@ import Data.Graph.Inductive.PatriciaTree (Gr)
 import GHC.Generics (Generic)
 import Text.PrettyPrint.GenericPretty
 import Text.PrettyPrint
-import qualified Data.Map as M
+import qualified Data.Map.Strict as M
 import Data.Maybe
 import Data.Binary
 
