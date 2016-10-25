@@ -8,7 +8,7 @@
 -- analysis.
 
 module Language.Fortran.Analysis.Renaming
-  ( analyseRenames, rename, unrename
+  ( analyseRenames, analyseRenamesWithModuleMap, rename, unrename, ModuleMap
   -- DEPRECATED:
   , extractNameMap, renameAndStrip, underRenaming, NameMap )
 where
@@ -54,6 +54,14 @@ analyseRenames (ProgramFile mi cm_pus bs) = ProgramFile mi cm_pus' bs
   where
     cm_pus'        = zip (map fst cm_pus) pus'
     (Just pus', _) = runRenamer (skimProgramUnits pus >> renameSubPUs (Just pus)) renameState0
+    pus            = map snd cm_pus
+
+-- | Annotate unique names for variable and function declarations and uses. With external module map.
+analyseRenamesWithModuleMap :: Data a => ModuleMap -> ProgramFile (Analysis a) -> ProgramFile (Analysis a)
+analyseRenamesWithModuleMap mmap (ProgramFile mi cm_pus bs) = ProgramFile mi cm_pus' bs
+  where
+    cm_pus'        = zip (map fst cm_pus) pus'
+    (Just pus', _) = runRenamer (skimProgramUnits pus >> renameSubPUs (Just pus)) (renameState0 { moduleMap = mmap })
     pus            = map snd cm_pus
 
 -- | Take the unique name annotations and substitute them into the actual AST.

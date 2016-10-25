@@ -21,6 +21,7 @@ import Text.PrettyPrint.GenericPretty
 import Text.PrettyPrint
 import qualified Data.Map as M
 import Data.Maybe
+import Data.Binary
 
 --------------------------------------------------
 
@@ -45,10 +46,16 @@ type TransFunc f g a = (f (Analysis a) -> f (Analysis a)) -> g (Analysis a) -> g
 -- | The type of "transformBiM"-family functions
 type TransFuncM m f g a = (f (Analysis a) -> m (f (Analysis a))) -> g (Analysis a) -> m (g (Analysis a))
 
+-- Describe a Fortran name as either a program unit or a variable.
 data NameType = NTSubprogram | NTVariable deriving (Show, Eq, Ord, Data, Typeable, Generic)
+instance Binary NameType
 instance Out NameType
+
+-- Module environments are associations between source name and
+-- (unique name, name type) in a specific module.
 type ModEnv = M.Map String (String, NameType)
 
+-- Fortran data types are broken down into 'construct type' and 'base type'.
 data ConstructType =
     CTFunction
   | CTSubroutine

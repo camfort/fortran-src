@@ -11,6 +11,7 @@ module Language.Fortran.AST where
 import Data.Data
 import Data.Typeable
 import Data.Generics.Uniplate.Data
+import Data.Binary
 import GHC.Generics (Generic)
 import Text.PrettyPrint.GenericPretty
 import Language.Fortran.ParserMonad (FortranVersion(..))
@@ -581,6 +582,8 @@ data ProgramUnitName =
   | NamelessBlockData
   | NamelessMain
   deriving (Ord, Eq, Show, Data, Typeable, Generic)
+
+instance Binary ProgramUnitName
 
 class Named a where
   getName :: a -> ProgramUnitName
