@@ -497,8 +497,8 @@ instance Spanned (DimensionDeclarator a)
 instance Spanned (ControlPair a)
 
 instance (Spanned a) => Spanned [a] where
-  getSpan [ ] = error "Trying to find how long an empty list spans for."
-  getSpan x   = getSpan x
+  getSpan [] = error "Trying to find how long an empty list spans for."
+  getSpan [x]   = getSpan x
   getSpan (x:xs) = getTransSpan x (last xs)
   setSpan _ _ = error "Cannot set span to an array"
 
