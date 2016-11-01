@@ -231,10 +231,18 @@ data Statement a  =
   | StType                a SrcSpan (Maybe (AList Attribute a)) String
   | StEndType             a SrcSpan (Maybe String)
   | StSequence            a SrcSpan
+  | StForall              a SrcSpan (ForallHeader a) (Statement a)
   -- Following is a temporary solution to a complicated FORMAT statement
   -- parsing problem.
   | StFormatBogus         a SrcSpan String
   deriving (Eq, Show, Data, Typeable, Generic, Functor)
+
+type ForallHeader a =
+  -- Comprises a list of tuples of
+  --  index-name, start subscript, end subscript, optional stride
+  -- Paired with an optional expression for scaling
+  ( [(Name, Expression a, Expression a, Maybe (Expression a))]
+  , Maybe (Expression a))
 
 data Only = Exclusive | Permissive
   deriving (Eq, Show, Data, Typeable, Generic)
@@ -488,9 +496,9 @@ instance Spanned (Declarator a)
 instance Spanned (DimensionDeclarator a)
 instance Spanned (ControlPair a)
 
-instance Spanned a => Spanned [a] where
+instance (Spanned a) => Spanned [a] where
   getSpan [ ] = error "Trying to find how long an empty list spans for."
-  getSpan [x] =  getSpan x
+  getSpan x   = getSpan x
   getSpan (x:xs) = getTransSpan x (last xs)
   setSpan _ _ = error "Cannot set span to an array"
 
@@ -533,11 +541,26 @@ instance {-# OVERLAPPABLE #-} (Spanned a, Spanned b, Spanned c) => Spanned (a, b
   getSpan (x,y,z) = getTransSpan x z
   setSpan _ = undefined
 
-getTransSpan :: (Spanned a, Spanned b) => a -> b -> SrcSpan
-getTransSpan x y =
-  let SrcSpan l1 l2 = getSpan x
-      SrcSpan l1' l2' = getSpan y in
-        SrcSpan l1 l2'
+class (Spanned a, Spanned b) => SpannedPair a b where
+  getTransSpan :: a -> b -> SrcSpan
+
+instance {-# OVERLAPPABLE #-} (Spanned a, Spanned b) => SpannedPair a b where
+  getTransSpan x y = SrcSpan l1 l2'
+    where SrcSpan l1 _ = getSpan x
+          SrcSpan _ l2' = getSpan y
+
+instance {-# OVERLAPS #-} (Spanned a, Spanned b) => SpannedPair a [b] where
+  getTransSpan x [] = getSpan x
+  getTransSpan x y = SrcSpan l1 l2'
+    where SrcSpan l1 _ = getSpan x
+          SrcSpan _ l2' = getSpan y
+
+instance {-# OVERLAPS #-} (Spanned a, Spanned b) => SpannedPair a [[b]] where
+  getTransSpan x [] = getSpan x
+  getTransSpan x [[]] = getSpan x
+  getTransSpan x y = SrcSpan l1 l2'
+    where SrcSpan l1 _ = getSpan x
+          SrcSpan _ l2' = getSpan y
 
 class Labeled f where
   getLabel :: f a -> Maybe (Expression a)
