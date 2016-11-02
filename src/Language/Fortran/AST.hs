@@ -557,7 +557,7 @@ instance {-# OVERLAPS #-} (Spanned a, Spanned b) => SpannedPair a [b] where
 
 instance {-# OVERLAPS #-} (Spanned a, Spanned b) => SpannedPair a [[b]] where
   getTransSpan x [] = getSpan x
-  getTransSpan x [[]] = getSpan x
+  getTransSpan x y | all null y = getSpan x
   getTransSpan x y = SrcSpan l1 l2'
     where SrcSpan l1 _ = getSpan x
           SrcSpan _ l2' = getSpan y
