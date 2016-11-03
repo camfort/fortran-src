@@ -492,6 +492,7 @@ DATA_ITEM_LEVEL1 :: { Expression A0 }
 DATA_ITEM_LEVEL1
 : SIGNED_NUMERIC_LITERAL  { $1 }
 --| COMPLEX_LITERAL         { $1 }
+| VARIABLE                { $1 }
 | '(' SIGNED_NUMERIC_LITERAL ',' SIGNED_NUMERIC_LITERAL ')' { ExpValue () (getTransSpan $1 $5) (ValComplex $2 $4)}
 | LOGICAL_LITERAL         { $1 }
 | STRING                  { $1 }
