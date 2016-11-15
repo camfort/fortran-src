@@ -181,16 +181,26 @@ allLhsVars b = [ varName v | v@(ExpValue _ _ (ValVariable {})) <- lhsExprs b ] +
 
 -- | Set of expressions used -- not defined -- by an AST-block.
 blockRhsExprs :: Data a => Block a -> [Expression a]
-blockRhsExprs (BlStatement _ _ _ (StExpressionAssign _ _ lhs rhs))
-  | ExpSubscript _ _ _ subs <- lhs = universeBi rhs ++ universeBi subs
-  | otherwise                      = universeBi rhs
+blockRhsExprs (BlStatement _ _ _ s) = statementRhsExprs s
 blockRhsExprs (BlDo _ _ _ _ _ (Just (DoSpecification _ _ (StExpressionAssign _ _ lhs rhs) e1 e2)) _ _)
   | ExpSubscript _ _ _ subs <- lhs = universeBi (rhs, e1, e2) ++ universeBi subs
   | otherwise                      = universeBi (rhs, e1, e2)
-blockRhsExprs (BlStatement _ _ _ (StDeclaration {})) = []
 blockRhsExprs (BlDoWhile _ _ e1 _ e2 _ _)   = universeBi (e1, e2)
 blockRhsExprs (BlIf _ _ e1 _ e2 _ _)        = universeBi (e1, e2)
-blockRhsExprs b                         = universeBi b
+blockRhsExprs b                             = universeBi b
+
+-- | Set of expression used -- not defined -- by a statement
+statementRhsExprs :: Data a => Statement a -> [Expression a]
+statementRhsExprs (StExpressionAssign _ _ lhs rhs)
+ | ExpSubscript _ _ _ subs <- lhs = universeBi rhs ++ universeBi subs
+ | otherwise                      = universeBi rhs
+statementRhsExprs (StDeclaration {}) = []
+statementRhsExprs (StIfLogical _ _ _ s) = statementRhsExprs s
+statementRhsExprs (StDo _ _ _ l s) = (universeBi l) ++ doSpecRhsExprs s
+  where doSpecRhsExprs (Just (DoSpecification _ _ s e1 e2)) =
+           (e1 : (universeBi e2)) ++ statementRhsExprs s
+        doSpecRhsExprs Nothing = []
+statementRhsExprs s = universeBi s
 
 -- | Set of names used -- not defined -- by an AST-block.
 blockVarUses :: Data a => Block (Analysis a) -> [Name]
