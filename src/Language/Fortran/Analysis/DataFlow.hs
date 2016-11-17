@@ -34,11 +34,11 @@ import qualified Data.Map as M
 import qualified Data.IntMap as IM
 import qualified Data.Set as S
 import qualified Data.IntSet as IS
-import Data.Graph.Inductive hiding (trc)
+import Data.Graph.Inductive hiding (trc, dom)
 import Data.Graph.Inductive.PatriciaTree (Gr)
 import Data.Graph.Inductive.Query.BFS (bfen)
 import Data.Maybe
-import Data.List (foldl', (\\), union, delete, nub, intersect)
+import Data.List (foldl', foldl1', (\\), union, delete, nub, intersect)
 import qualified Debug.Trace as D
 
 --------------------------------------------------
@@ -47,11 +47,20 @@ import qualified Debug.Trace as D
 type DomMap = IM.IntMap IS.IntSet
 
 -- | Compute dominators of each bblock in the graph. Node A dominates
--- node B when all paths from the start node (0) must pass through
--- node A in order to reach node B. That will be represented as the
--- relation (B, [A, ...]) in the DomMap.
+-- node B when all paths from the start node of that program unit must
+-- pass through node A in order to reach node B. That will be
+-- represented as the relation (B, [A, ...]) in the DomMap.
 dominators :: BBGr a -> DomMap
-dominators = IM.fromList . map (fmap IS.fromList) . flip dom 0
+dominators gr = IM.map snd $ dataFlowSolver gr init revPostOrder inn out
+  where
+    nodeSet   = IS.fromList $ nodes gr
+    init n    = (nodeSet, nodeSet)
+
+    inn outF n
+      | preNodes@(_:_) <- pre gr n = foldl1' IS.intersection . map outF $ preNodes
+      | otherwise                  = IS.empty
+
+    out inF n                      = IS.insert n $ inF n
 
 -- | IDomMap : node -> immediate dominator of node
 type IDomMap = IM.IntMap Int

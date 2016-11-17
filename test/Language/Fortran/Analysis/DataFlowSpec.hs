@@ -226,6 +226,10 @@ spec =
         IM.lookup iLabel diMap `shouldBe` Just (IELinear iName 1 0)
         IM.lookup jLabel diMap `shouldBe` Just (IELinear iName 6 2)
 
+    describe "other" $ do
+      it "dominators on disconnected graph" $ do
+        dominators (nmap (const []) (mkUGraph [0,1,3,4,5,6,7,8,9] [(0,3) ,(3,1) ,(5,6) ,(6,7) ,(7,4) ,(7,8) ,(8,7) ,(8,9) ,(9,8)] :: Gr () ())) `shouldBe` IM.fromList [(0,IS.fromList [0]),(1,IS.fromList [0,1,3]),(3,IS.fromList [0,3]),(4,IS.fromList [4,5,6,7]),(5,IS.fromList [5]),(6,IS.fromList [5,6]),(7,IS.fromList [5,6,7]),(8,IS.fromList [5,6,7,8]),(9,IS.fromList [5,6,7,8,9])]
+
 --------------------------------------------------
 -- Label-finding helper functions to help write tests that are
 -- insensitive to minor changes to the AST.
