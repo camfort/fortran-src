@@ -668,7 +668,7 @@ bbgrToDOT' clusters gr = execWriter $ do
                                   tell $ "fontname=\"Courier New\"\nfontsize=24\n"
                   _         -> return ()
     tell $ "bb" ++ show n ++ "[label=\"" ++ show n ++ "\\l" ++ (concatMap showBlock bs) ++ "\"]\n"
-    when (null bs) . tell $ "bb" ++ show n ++ "[shape=circle]"
+    when (null bs) . tell $ "bb" ++ show n ++ "[shape=circle]\n"
     tell $ "bb" ++ show n ++ " -> {"
     forM (suc gr n) $ \ m -> tell (" bb" ++ show m)
     tell "}\n"
