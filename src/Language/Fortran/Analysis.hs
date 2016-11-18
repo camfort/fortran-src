@@ -62,16 +62,18 @@ data ConstructType =
   | CTVariable
   | CTArray
   | CTParameter
-  deriving (Data, Show, Eq, Generic)
+  deriving (Ord, Eq, Show, Data, Typeable, Generic)
 
 instance Out ConstructType
+instance Binary ConstructType
 
 data IDType = IDType
   { idVType :: Maybe BaseType
   , idCType :: Maybe ConstructType }
-  deriving (Data, Show, Eq, Generic)
+  deriving (Ord, Eq, Show, Data, Typeable, Generic)
 
 instance Out IDType
+instance Binary IDType
 
 data Analysis a = Analysis
   { prevAnnotation :: a -- ^ original annotation

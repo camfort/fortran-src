@@ -9,11 +9,11 @@ where
 
 import Prelude hiding (lookup)
 import Control.Monad.State.Lazy
-import Data.Map (lookup, Map)
+import Data.Map (lookup, Map, empty)
 import Data.Data
 
-import Language.Fortran.Analysis.Types
 import Language.Fortran.Analysis
+import Language.Fortran.Analysis.Types
 import Language.Fortran.Analysis.Renaming
 import Language.Fortran.AST (ProgramFile)
 
@@ -22,10 +22,10 @@ data TransformationState a = TransformationState
 
 type Transform a = State (TransformationState a)
 
-runTransform :: Data a => Transform a () -> ProgramFile a -> ProgramFile a
-runTransform trans pf = stripAnalysis . transProgramFile . execState trans $ initState
+runTransform :: Data a => TypeEnv -> ModuleMap -> Transform a () -> ProgramFile a -> ProgramFile a
+runTransform env mmap trans pf = stripAnalysis . transProgramFile . execState trans $ initState
   where
-    (pf', _) = analyseTypes . analyseRenames . initAnalysis $ pf
+    (pf', _) = analyseTypesWithEnv env . analyseRenamesWithModuleMap mmap . initAnalysis $ pf
     initState = TransformationState
       { transProgramFile = pf' }
 

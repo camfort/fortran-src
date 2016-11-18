@@ -4,6 +4,8 @@ module Language.Fortran.Parser.Fortran77 ( expressionParser
                                , statementParser
                                , fortran77Parser
                                , extended77Parser
+                               , fortran77ParserWithModFiles
+                               , extended77ParserWithModFiles
                                ) where
 
 import Prelude hiding (EQ,LT,GT) -- Same constructors exist in the AST
@@ -12,9 +14,10 @@ import Control.Monad.State
 import Data.Maybe (isNothing, fromJust)
 import qualified Data.ByteString.Char8 as B
 import Language.Fortran.Util.Position
+import Language.Fortran.Util.ModFile
 import Language.Fortran.ParserMonad
 import Language.Fortran.Lexer.FixedForm
-import Language.Fortran.Transformer (transform, Transformation(..))
+import Language.Fortran.Transformer
 import Language.Fortran.AST
 
 import Debug.Trace
@@ -846,8 +849,11 @@ transformations77 =
   , DisambiguateFunction
   ]
 fortran77Parser :: B.ByteString -> String -> ProgramFile A0
-fortran77Parser sourceCode filename =
-    transform transformations77 $ parse parseState
+fortran77Parser = fortran77ParserWithModFiles emptyModFiles
+
+fortran77ParserWithModFiles :: ModFiles -> B.ByteString -> String -> ProgramFile A0
+fortran77ParserWithModFiles mods sourceCode filename =
+    transformWithModFiles mods transformations77 $ parse parseState
   where
     parseState = initParseState sourceCode Fortran77Extended filename
 
@@ -858,8 +864,11 @@ transformations77Extended =
   , DisambiguateFunction
   ]
 extended77Parser :: B.ByteString -> String -> ProgramFile A0
-extended77Parser sourceCode filename =
-    transform transformations77Extended $ parse parseState
+extended77Parser = extended77ParserWithModFiles emptyModFiles
+
+extended77ParserWithModFiles :: ModFiles -> B.ByteString -> String -> ProgramFile A0
+extended77ParserWithModFiles mods sourceCode filename =
+    transformWithModFiles mods transformations77Extended $ parse parseState
   where
     parseState = initParseState sourceCode Fortran77Extended filename
 
