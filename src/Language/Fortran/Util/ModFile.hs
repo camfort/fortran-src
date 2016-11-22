@@ -27,7 +27,7 @@ renamer. The other data is up to you.
 
 One typical usage might look like:
 
-> let modFile1 = buildModuleMap programFile emptyModFile
+> let modFile1 = genModFile programFile
 > let modFile2 = alterModFileData (const (Just ...)) "mydata" modFile1
 > let bytes    = encodeModFile modFile1
 > ...
@@ -44,7 +44,7 @@ One typical usage might look like:
 module Language.Fortran.Util.ModFile
   ( modFileSuffix, ModFile, ModFiles, emptyModFile, emptyModFiles
   , lookupModFileData, alterModFileData -- , alterModFileDataF
-  , buildModuleMap, encodeModFile, decodeModFile
+  , genModFile, regenModFile, encodeModFile, decodeModFile
   , combinedModuleMap, combinedTypeEnv )
 where
 
@@ -92,14 +92,20 @@ emptyModFiles = []
 emptyModFile :: ModFile
 emptyModFile = ModFile M.empty M.empty M.empty
 
--- | Extracts the module map from an analysed and renamed ProgramFile,
--- then inserts it into the ModFile.
-buildModuleMap :: forall a. Data a => F.ProgramFile (FA.Analysis a) -> ModFile -> ModFile
-buildModuleMap pf mf = mf
+-- | Extracts the module map and type analysis from an analysed and
+-- renamed ProgramFile, then inserts it into the ModFile.
+regenModFile :: forall a. Data a => F.ProgramFile (FA.Analysis a) -> ModFile -> ModFile
+regenModFile pf mf = mf
   { mfModuleMap = M.fromList [ (n, env) | pu@(F.PUModule {}) <- universeBi pf :: [F.ProgramUnit (FA.Analysis a)]
                                         , let a = F.getAnnotation pu
                                         , let n = F.getName pu
-                                        , env <- maybeToList (FA.moduleEnv a) ] }
+                                        , env <- maybeToList (FA.moduleEnv a) ]
+  , mfTypeEnv   = FAT.extractTypeEnv pf }
+
+-- | Generate a fresh ModFile from the module map and type analysis of
+-- a given analysed and renamed ProgramFile.
+genModFile :: forall a. Data a => F.ProgramFile (FA.Analysis a) -> ModFile
+genModFile = flip regenModFile emptyModFile
 
 -- | Looks up the raw "other data" that may be stored in a ModFile by
 -- applications that make use of fortran-src.
