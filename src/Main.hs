@@ -30,6 +30,8 @@ import Language.Fortran.Parser.Fortran77 (fortran77Parser, extended77Parser)
 import Language.Fortran.Parser.Fortran90 (fortran90Parser)
 import Language.Fortran.Parser.Any
 
+import Language.Fortran.Util.ModFile
+
 import Language.Fortran.PrettyPrint
 import Language.Fortran.Analysis
 import Language.Fortran.AST
@@ -52,37 +54,46 @@ main :: IO ()
 main = do
   args <- getArgs
   (opts, parsedArgs) <- compileArgs args
-  if length parsedArgs /= 1
-  then fail $ usageInfo programName options
-  else do
-    let path = head parsedArgs
-    contents <- flexReadFile path
-    let version = fromMaybe (deduceVersion path) (fortranVersion opts)
-    let Just parserF = lookup version parserVersions
-    let outfmt = outputFormat opts
+  case (parsedArgs, action opts) of
+    ([path], DumpModFile) -> do
+      let path = head parsedArgs
+      contents <- B.readFile path
+      case decodeModFile contents of
+        Left msg -> putStrLn $ "Error: " ++ msg
+        Right mf -> putStrLn $ "ModuleMap:\n" ++ show (combinedModuleMap [mf]) ++
+                               "\n\nTypeEnv:\n" ++ show (combinedTypeEnv [mf])
 
-    let runInfer pf = analyseTypes . analyseRenames . initAnalysis $ pf
-    let runRenamer = stripAnalysis . rename . analyseRenames . initAnalysis
-    let runBBlocks pf = showBBlocks pf' ++ "\n\n" ++ showDataFlow pf'
-          where pf' = analyseBBlocks . analyseRenames . initAnalysis $ pf
-    let runSuperGraph pf | outfmt == DOT = superBBGrToDOT sgr
-                         | otherwise     = superGraphDataFlow pf' sgr
-          where pf' = analyseBBlocks . analyseRenames . initAnalysis $ pf
-                bbm = genBBlockMap pf'
-                sgr = genSuperBBGr bbm
+    ([path], actionOpt) -> do
+      let path = head parsedArgs
+      contents <- flexReadFile path
+      let version = fromMaybe (deduceVersion path) (fortranVersion opts)
+      let Just parserF = lookup version parserVersions
+      let outfmt = outputFormat opts
 
-    case action opts of
-      Lex | version `elem` [ Fortran66, Fortran77, Fortran77Extended ] ->
-        print $ FixedForm.collectFixedTokens version contents
-      Lex | version `elem` [Fortran90, Fortran2003, Fortran2008] ->
-        print $ FreeForm.collectFreeTokens version contents
-      Lex        -> ioError $ userError $ usageInfo programName options
-      Parse      -> pp $ parserF contents path
-      Typecheck  -> printTypes . extractTypeEnv . fst . runInfer $ parserF contents path
-      Rename     -> pp . runRenamer $ parserF contents path
-      BBlocks    -> putStrLn . runBBlocks $ parserF contents path
-      SuperGraph -> putStrLn . runSuperGraph $ parserF contents path
-      Reprint    -> putStrLn . render . flip (pprint version) (Just 0) $ parserF contents path
+      let runInfer pf = analyseTypes . analyseRenames . initAnalysis $ pf
+      let runRenamer = stripAnalysis . rename . analyseRenames . initAnalysis
+      let runBBlocks pf = showBBlocks pf' ++ "\n\n" ++ showDataFlow pf'
+            where pf' = analyseBBlocks . analyseRenames . initAnalysis $ pf
+      let runSuperGraph pf | outfmt == DOT = superBBGrToDOT sgr
+                           | otherwise     = superGraphDataFlow pf' sgr
+            where pf' = analyseBBlocks . analyseRenames . initAnalysis $ pf
+                  bbm = genBBlockMap pf'
+                  sgr = genSuperBBGr bbm
+
+      case actionOpt of
+        Lex | version `elem` [ Fortran66, Fortran77, Fortran77Extended ] ->
+          print $ FixedForm.collectFixedTokens version contents
+        Lex | version `elem` [Fortran90, Fortran2003, Fortran2008] ->
+          print $ FreeForm.collectFreeTokens version contents
+        Lex        -> ioError $ userError $ usageInfo programName options
+        Parse      -> pp $ parserF contents path
+        Typecheck  -> printTypes . extractTypeEnv . fst . runInfer $ parserF contents path
+        Rename     -> pp . runRenamer $ parserF contents path
+        BBlocks    -> putStrLn . runBBlocks $ parserF contents path
+        SuperGraph -> putStrLn . runSuperGraph $ parserF contents path
+        Reprint    -> putStrLn . render . flip (pprint version) (Just 0) $ parserF contents path
+
+    _ -> fail $ usageInfo programName options
 
 superGraphDataFlow :: forall a. (Out a, Data a) => ProgramFile (Analysis a) -> SuperBBGr (Analysis a) -> String
 superGraphDataFlow pf sgr = showBBGr (nmap (map (fmap insLabel)) gr) ++ "\n\n" ++ replicate 50 '-' ++ "\n\n" ++
@@ -132,7 +143,7 @@ printTypes tenv = do
   forM_ (M.toList tenv) $ \ (name, IDType { idVType = vt, idCType = ct }) ->
     printf "%s\t\t%s %s\n" name (drop 4 $ maybe "  -" show vt) (drop 2 $ maybe "   " show ct)
 
-data Action = Lex | Parse | Typecheck | Rename | BBlocks | SuperGraph | Reprint
+data Action = Lex | Parse | Typecheck | Rename | BBlocks | SuperGraph | Reprint | DumpModFile deriving Eq
 
 instance Read Action where
   readsPrec _ value =
@@ -186,6 +197,10 @@ options =
       ["dot"]
       (NoArg $ \ opts -> opts { outputFormat = DOT })
       "output graphs in GraphViz DOT format"
+  , Option []
+      ["dump-mod-file"]
+      (NoArg $ \ opts -> opts { action = DumpModFile })
+      "dump the information contained within mod files"
   ]
 
 compileArgs :: [ String ] -> IO (Options, [ String ])
