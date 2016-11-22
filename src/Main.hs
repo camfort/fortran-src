@@ -78,7 +78,7 @@ main = do
         print $ FreeForm.collectFreeTokens version contents
       Lex        -> ioError $ userError $ usageInfo programName options
       Parse      -> pp $ parserF contents path
-      Typecheck  -> printTypes . snd . runInfer $ parserF contents path
+      Typecheck  -> printTypes . extractTypeEnv . fst . runInfer $ parserF contents path
       Rename     -> pp . runRenamer $ parserF contents path
       BBlocks    -> putStrLn . runBBlocks $ parserF contents path
       SuperGraph -> putStrLn . runSuperGraph $ parserF contents path
