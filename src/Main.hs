@@ -61,7 +61,8 @@ main = do
       case decodeModFile contents of
         Left msg -> putStrLn $ "Error: " ++ msg
         Right mf -> putStrLn $ "ModuleMap:\n" ++ show (combinedModuleMap [mf]) ++
-                               "\n\nTypeEnv:\n" ++ show (combinedTypeEnv [mf])
+                               "\n\nTypeEnv:\n" ++ show (combinedTypeEnv [mf]) ++
+                               "\n\nOther Data Labels: " ++ show (getLabelsModFileData mf)
 
     ([path], actionOpt) -> do
       let path = head parsedArgs

@@ -43,7 +43,7 @@ One typical usage might look like:
 
 module Language.Fortran.Util.ModFile
   ( modFileSuffix, ModFile, ModFiles, emptyModFile, emptyModFiles
-  , lookupModFileData, alterModFileData -- , alterModFileDataF
+  , lookupModFileData, getLabelsModFileData, alterModFileData -- , alterModFileDataF
   , genModFile, regenModFile, encodeModFile, decodeModFile
   , combinedModuleMap, combinedTypeEnv )
 where
@@ -111,6 +111,11 @@ genModFile = flip regenModFile emptyModFile
 -- applications that make use of fortran-src.
 lookupModFileData :: String -> ModFile -> Maybe B.ByteString
 lookupModFileData k = M.lookup k . mfOtherData
+
+-- | Get a list of the labels present in the "other data" of a
+-- ModFile. More of a meta-programming / debugging feature.
+getLabelsModFileData :: ModFile -> [String]
+getLabelsModFileData = M.keys . mfOtherData
 
 -- | Allows modification/insertion/deletion of "other data" that may
 -- be stored in a ModFile by applications that make use of
