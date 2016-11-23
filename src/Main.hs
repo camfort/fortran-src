@@ -61,7 +61,7 @@ main = do
       case decodeModFile contents of
         Left msg -> putStrLn $ "Error: " ++ msg
         Right mf -> putStrLn $ "ModuleMap:\n" ++ show (combinedModuleMap [mf]) ++
-                               "\n\nTypeEnv:\n" ++ show (combinedTypeEnv [mf]) ++
+                               "\n\nTypeEnv:\n" ++ showTypes (combinedTypeEnv [mf]) ++
                                "\n\nOther Data Labels: " ++ show (getLabelsModFileData mf)
 
     ([path], actionOpt) -> do
@@ -139,10 +139,11 @@ superGraphDataFlow pf sgr = showBBGr (nmap (map (fmap insLabel)) gr) ++ "\n\n" +
     rd = reachingDefinitions dm
     cm = genCallMap pf
 
-printTypes :: TypeEnv -> IO ()
-printTypes tenv = do
-  forM_ (M.toList tenv) $ \ (name, IDType { idVType = vt, idCType = ct }) ->
+showTypes :: TypeEnv -> String
+showTypes tenv = flip concatMap (M.toList tenv) $ \ (name, IDType { idVType = vt, idCType = ct }) ->
     printf "%s\t\t%s %s\n" name (drop 4 $ maybe "  -" show vt) (drop 2 $ maybe "   " show ct)
+printTypes :: TypeEnv -> IO ()
+printTypes = putStrLn . showTypes
 
 data Action = Lex | Parse | Typecheck | Rename | BBlocks | SuperGraph | Reprint | DumpModFile deriving Eq
 
