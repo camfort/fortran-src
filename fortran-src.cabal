@@ -32,6 +32,8 @@ executable fortran-src
     text >= 1.2,
     bytestring >= 0.10,
     binary >= 0.8.3.0,
+    filepath,
+    directory >= 1.2,
     fgl
   other-modules:
     Language.Fortran.Analysis
@@ -99,6 +101,8 @@ library
     text >= 1.2,
     bytestring >= 0.10,
     binary >= 0.8.3.0,
+    filepath,
+    directory >= 1.2,
     fgl
   hs-source-dirs:      src
   ghc-options: -fno-warn-tabs
@@ -121,6 +125,8 @@ test-suite spec
     bytestring >= 0.10,
     binary >= 0.8.3.0,
     fgl,
+    filepath,
+    directory >= 1.2,
     fortran-src
   hs-source-dirs: test
   main-is: Spec.hs
