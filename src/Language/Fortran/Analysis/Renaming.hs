@@ -184,8 +184,20 @@ programUnit (PUMain a s n blocks m_contains) = do
 
 programUnit pu = return pu
 
-declarator :: Data a => RenamerFunc (Declarator (Analysis a))
-declarator = renameGenericDecls
+declarator :: forall a. Data a => RenamerFunc (Declarator (Analysis a))
+declarator (DeclVariable a s e1 me2 me3) = do
+  e1' <- renameExpDecl e1
+  me2' <- traverse renameExp me2
+  me3' <- traverse renameExp me3
+  return $ DeclVariable a s e1' me2' me3'
+declarator (DeclArray a s e1 ddAList me2 me3) = do
+  e1' <- renameExpDecl e1
+  let trans :: RenamerFunc (Expression (Analysis a)) -> RenamerFunc (AList DimensionDeclarator (Analysis a))
+      trans = transformBiM
+  ddAList' <- trans renameExp ddAList
+  me2' <- traverse renameExp me2
+  me3' <- traverse renameExp me3
+  return $ DeclArray a s e1' ddAList' me2' me3'
 
 expression :: Data a => RenamerFunc (Expression (Analysis a))
 expression = renameExp
