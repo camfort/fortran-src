@@ -46,7 +46,7 @@ module Language.Fortran.Util.ModFile
   ( modFileSuffix, ModFile, ModFiles, emptyModFile, emptyModFiles
   , lookupModFileData, getLabelsModFileData, alterModFileData -- , alterModFileDataF
   , genModFile, regenModFile, encodeModFile, decodeModFile
-  , DeclMap, combinedDeclMap, combinedModuleMap, combinedTypeEnv )
+  , DeclMap, DeclContext(..), combinedDeclMap, combinedModuleMap, combinedTypeEnv )
 where
 
 import qualified Debug.Trace as D
@@ -74,8 +74,13 @@ import qualified Language.Fortran.Analysis.Types as FAT
 modFileSuffix :: String
 modFileSuffix = ".fsmod"
 
+data DeclContext = DCMain | DCBlockData | DCModule | DCFunction | DCSubroutine
+  deriving (Ord, Eq, Show, Data, Typeable, Generic)
+
+instance Binary DeclContext
+
 -- | Map of unique variable name to the unique name of the program unit where it was defined.
-type DeclMap = M.Map F.Name F.ProgramUnitName
+type DeclMap = M.Map F.Name (F.ProgramUnitName, DeclContext)
 
 -- | The data stored in the "mod files"
 data ModFile = ModFile { mfModuleMap :: FAR.ModuleMap
@@ -166,17 +171,18 @@ combinedDeclMap = M.unions . map mfDeclMap
 extractDeclMap :: forall a. Data a => F.ProgramFile (FA.Analysis a) -> DeclMap
 extractDeclMap pf = M.fromList . concatMap (blockDecls . nameAndBlocks) $ universeBi pf
   where
-    blockDecls :: (F.ProgramUnitName, [F.Block (FA.Analysis a)]) -> [(F.Name, F.ProgramUnitName)]
+    blockDecls :: ((F.ProgramUnitName, DeclContext), [F.Block (FA.Analysis a)]) ->
+                  [(F.Name, (F.ProgramUnitName, DeclContext))]
     blockDecls (pun, bs) = map ((,pun) . declVarName) (universeBi bs)
 
     declVarName :: F.Declarator (FA.Analysis a) -> F.Name
     declVarName (F.DeclVariable _ _ e _ _) = FA.varName e
     declVarName (F.DeclArray _ _ e _ _ _)  = FA.varName e
 
-    nameAndBlocks :: F.ProgramUnit (FA.Analysis a) -> (F.ProgramUnitName, [F.Block (FA.Analysis a)])
-    nameAndBlocks pu = (FA.puName pu, case pu of
-      F.PUMain       _ _ _ b _         -> b
-      F.PUModule     _ _ _ b _         -> b
-      F.PUSubroutine _ _ _ _ _ b _     -> b
-      F.PUFunction   _ _ _ _ _ _ _ b _ -> b
-      F.PUBlockData  _ _ _ b           -> b)
+    nameAndBlocks :: F.ProgramUnit (FA.Analysis a) -> ((F.ProgramUnitName, DeclContext), [F.Block (FA.Analysis a)])
+    nameAndBlocks pu = case pu of
+      F.PUMain       _ _ _ b _         -> ((FA.puName pu, DCMain), b)
+      F.PUModule     _ _ _ b _         -> ((FA.puName pu, DCModule), b)
+      F.PUSubroutine _ _ _ _ _ b _     -> ((FA.puName pu, DCSubroutine), b)
+      F.PUFunction   _ _ _ _ _ _ _ b _ -> ((FA.puName pu, DCFunction), b)
+      F.PUBlockData  _ _ _ b           -> ((FA.puName pu, DCBlockData), b)
