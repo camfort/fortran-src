@@ -16,6 +16,7 @@
 
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE PatternGuards #-}
+{-# LANGUAGE TupleSections #-}
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE DeriveDataTypeable #-}
 
@@ -45,7 +46,7 @@ module Language.Fortran.Util.ModFile
   ( modFileSuffix, ModFile, ModFiles, emptyModFile, emptyModFiles
   , lookupModFileData, getLabelsModFileData, alterModFileData -- , alterModFileDataF
   , genModFile, regenModFile, encodeModFile, decodeModFile
-  , combinedModuleMap, combinedTypeEnv )
+  , DeclMap, combinedDeclMap, combinedModuleMap, combinedTypeEnv )
 where
 
 import qualified Debug.Trace as D
@@ -73,9 +74,13 @@ import qualified Language.Fortran.Analysis.Types as FAT
 modFileSuffix :: String
 modFileSuffix = ".fsmod"
 
+-- | Map of unique variable name to the unique name of the program unit where it was defined.
+type DeclMap = M.Map F.Name F.ProgramUnitName
+
 -- | The data stored in the "mod files"
 data ModFile = ModFile { mfModuleMap :: FAR.ModuleMap
                        , mfTypeEnv   :: FAT.TypeEnv
+                       , mfDeclMap   :: DeclMap
                        , mfOtherData :: M.Map String B.ByteString }
   deriving (Ord, Eq, Show, Data, Typeable, Generic)
 
@@ -90,20 +95,22 @@ emptyModFiles = []
 
 -- | Starting point.
 emptyModFile :: ModFile
-emptyModFile = ModFile M.empty M.empty M.empty
+emptyModFile = ModFile M.empty M.empty M.empty M.empty
 
--- | Extracts the module map and type analysis from an analysed and
--- renamed ProgramFile, then inserts it into the ModFile.
+-- | Extracts the module map, declaration map and type analysis from
+-- an analysed and renamed ProgramFile, then inserts it into the
+-- ModFile.
 regenModFile :: forall a. Data a => F.ProgramFile (FA.Analysis a) -> ModFile -> ModFile
 regenModFile pf mf = mf
   { mfModuleMap = M.fromList [ (n, env) | pu@(F.PUModule {}) <- universeBi pf :: [F.ProgramUnit (FA.Analysis a)]
                                         , let a = F.getAnnotation pu
                                         , let n = F.getName pu
                                         , env <- maybeToList (FA.moduleEnv a) ]
+  , mfDeclMap   = extractDeclMap pf
   , mfTypeEnv   = FAT.extractTypeEnv pf }
 
--- | Generate a fresh ModFile from the module map and type analysis of
--- a given analysed and renamed ProgramFile.
+-- | Generate a fresh ModFile from the module map, declaration map and
+-- type analysis of a given analysed and renamed ProgramFile.
 genModFile :: forall a. Data a => F.ProgramFile (FA.Analysis a) -> ModFile
 genModFile = flip regenModFile emptyModFile
 
@@ -147,3 +154,29 @@ combinedModuleMap = M.unions . map mfModuleMap
 -- for parsing a Fortran file in a large context of other modules.
 combinedTypeEnv :: ModFiles -> FAT.TypeEnv
 combinedTypeEnv = M.unions . map mfTypeEnv
+
+-- | Extract the combined declaration map from a set of
+-- ModFiles. Useful for parsing a Fortran file in a large context of
+-- other modules.
+combinedDeclMap :: ModFiles -> DeclMap
+combinedDeclMap = M.unions . map mfDeclMap
+
+--------------------------------------------------
+
+extractDeclMap :: forall a. Data a => F.ProgramFile (FA.Analysis a) -> DeclMap
+extractDeclMap pf = M.fromList . concatMap (blockDecls . nameAndBlocks) $ universeBi pf
+  where
+    blockDecls :: (F.ProgramUnitName, [F.Block (FA.Analysis a)]) -> [(F.Name, F.ProgramUnitName)]
+    blockDecls (pun, bs) = map ((,pun) . declVarName) (universeBi bs)
+
+    declVarName :: F.Declarator (FA.Analysis a) -> F.Name
+    declVarName (F.DeclVariable _ _ e _ _) = FA.varName e
+    declVarName (F.DeclArray _ _ e _ _ _)  = FA.varName e
+
+    nameAndBlocks :: F.ProgramUnit (FA.Analysis a) -> (F.ProgramUnitName, [F.Block (FA.Analysis a)])
+    nameAndBlocks pu = (FA.puName pu, case pu of
+      F.PUMain       _ _ _ b _         -> b
+      F.PUModule     _ _ _ b _         -> b
+      F.PUSubroutine _ _ _ _ _ b _     -> b
+      F.PUFunction   _ _ _ _ _ _ _ b _ -> b
+      F.PUBlockData  _ _ _ b           -> b)

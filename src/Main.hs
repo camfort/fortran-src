@@ -63,8 +63,9 @@ main = do
       contents <- B.readFile path
       case decodeModFile contents of
         Left msg -> putStrLn $ "Error: " ++ msg
-        Right mf -> putStrLn $ "ModuleMap:\n" ++ show (combinedModuleMap [mf]) ++
+        Right mf -> putStrLn $ "ModuleMap:\n" ++ showModuleMap (combinedModuleMap [mf]) ++
                                "\n\nTypeEnv:\n" ++ showTypes (combinedTypeEnv [mf]) ++
+                               "\n\nDeclMap:\n" ++ showGenericMap (combinedDeclMap [mf]) ++
                                "\n\nOther Data Labels: " ++ show (getLabelsModFileData mf)
 
     ([path], actionOpt) -> do
@@ -176,6 +177,11 @@ superGraphDataFlow pf sgr = showBBGr (nmap (map (fmap insLabel)) gr) ++ "\n\n" +
     rd = reachingDefinitions dm
     cm = genCallMap pf
 
+showGenericMap :: (Show a, Show b) => M.Map a b -> String
+showGenericMap = unlines . map (\ (k, v) -> show k ++ " : " ++ show v) . M.toList
+
+showModuleMap :: ModuleMap -> String
+showModuleMap = concatMap (\ (n, m) -> show n ++ ":\n" ++ (unlines . map ("  "++) . lines . showGenericMap $ m)) . M.toList
 showTypes :: TypeEnv -> String
 showTypes tenv = flip concatMap (M.toList tenv) $ \ (name, IDType { idVType = vt, idCType = ct }) ->
     printf "%s\t\t%s %s\n" name (drop 4 $ maybe "  -" show vt) (drop 2 $ maybe "   " show ct)
