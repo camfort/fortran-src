@@ -46,7 +46,8 @@ module Language.Fortran.Util.ModFile
   ( modFileSuffix, ModFile, ModFiles, emptyModFile, emptyModFiles
   , lookupModFileData, getLabelsModFileData, alterModFileData -- , alterModFileDataF
   , genModFile, regenModFile, encodeModFile, decodeModFile
-  , DeclMap, DeclContext(..), combinedDeclMap, combinedModuleMap, combinedTypeEnv )
+  , DeclMap, DeclContext(..), extractDeclMap
+  , combinedDeclMap, combinedModuleMap, combinedTypeEnv )
 where
 
 import qualified Debug.Trace as D
