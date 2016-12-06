@@ -237,12 +237,12 @@ data Statement a  =
   | StFormatBogus         a SrcSpan String
   deriving (Eq, Show, Data, Typeable, Generic, Functor)
 
-type ForallHeader a =
-  -- Comprises a list of tuples of
-  --  index-name, start subscript, end subscript, optional stride
-  -- Paired with an optional expression for scaling
-  ( [(Name, Expression a, Expression a, Maybe (Expression a))]
-  , Maybe (Expression a))
+data ForallHeader a = ForallHeader
+    -- List of tuples: index-name, start subscript, end subscript, optional stride
+    [(Name, Expression a, Expression a, Maybe (Expression a))]
+    -- An optional expression for scaling
+    (Maybe (Expression a))
+  deriving (Eq, Show, Data, Typeable, Generic, Functor)
 
 data Only = Exclusive | Permissive
   deriving (Eq, Show, Data, Typeable, Generic)
@@ -661,6 +661,7 @@ instance Out a => Out (DimensionDeclarator a)
 instance Out a => Out (ControlPair a)
 instance Out UnaryOp
 instance Out BinaryOp
+instance Out a => Out (ForallHeader a)
 
 -- Classifiers on statement and blocks ASTs
 

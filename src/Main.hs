@@ -28,6 +28,7 @@ import qualified Language.Fortran.Lexer.FreeForm as FreeForm (collectFreeTokens,
 import Language.Fortran.Parser.Fortran66 (fortran66Parser)
 import Language.Fortran.Parser.Fortran77 (fortran77Parser, extended77Parser)
 import Language.Fortran.Parser.Fortran90 (fortran90Parser)
+import Language.Fortran.Parser.Fortran95Experimental (fortran95Parser)
 import Language.Fortran.Parser.Any
 
 import Language.Fortran.PrettyPrint

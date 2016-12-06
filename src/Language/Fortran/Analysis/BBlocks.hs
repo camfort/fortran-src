@@ -26,6 +26,7 @@ import Data.Graph.Inductive.PatriciaTree (Gr)
 import Data.List (foldl', intercalate)
 import Data.Maybe
 import Language.Fortran.Util.Position (SrcSpan(..), initPosition)
+import Debug.Trace
 
 --------------------------------------------------
 
@@ -231,6 +232,8 @@ isFinalBlockCtrlXfer bs@(_:_)
 isFinalBlockCtrlXfer _                                    = False
 
 lookupBBlock lm (ExpValue _ _ (ValInteger l)) = (-1) `fromMaybe` M.lookup l lm
+-- This occurs if a variable is being used for a label, e.g., from a Fortran 77 ASSIGN statement
+lookupBBlock lm (ExpValue _ _ (ValVariable l)) = (-1) `fromMaybe` M.lookup l lm
 
 -- Seek out empty bblocks with a single entrance and a single exit
 -- edge, and remove them, re-establishing the edges without them.

@@ -201,6 +201,9 @@ tokens :-
 <0,scI> "continue"                                { addSpan TContinue }
 <0,scI> "stop"                                    { addSpan TStop }
 <0,scI> "pause"                                   { addSpan TPause }
+<0> "forall"                                      { addSpan TForall }
+<0> "end"\ *"forall"                              { addSpan TEndForall }
+
 
 -- Where construct
 <0,scI> "where"                                   { addSpan TWhere }
@@ -1063,7 +1066,9 @@ data Token =
   | TEndSelect          SrcSpan
   | TDefault            SrcSpan
   | TCycle              SrcSpan
-  | TExit              SrcSpan
+  | TExit               SrcSpan
+  | TForall             SrcSpan
+  | TEndForall          SrcSpan
   -- Where construct
   | TWhere              SrcSpan
   | TElsewhere          SrcSpan
