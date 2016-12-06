@@ -1,10 +1,13 @@
 module Language.Fortran.Parser.Any where
 
 import Language.Fortran.AST
+import Language.Fortran.Util.ModFile
 import Language.Fortran.ParserMonad (FortranVersion(..))
-import Language.Fortran.Parser.Fortran66 (fortran66Parser)
-import Language.Fortran.Parser.Fortran77 (fortran77Parser, extended77Parser)
-import Language.Fortran.Parser.Fortran90 (fortran90Parser)
+
+import Language.Fortran.Parser.Fortran66 ( fortran66Parser, fortran66ParserWithModFiles )
+import Language.Fortran.Parser.Fortran77 ( fortran77Parser, fortran77ParserWithModFiles
+                                         , extended77Parser, extended77ParserWithModFiles )
+import Language.Fortran.Parser.Fortran90 ( fortran90Parser, fortran90ParserWithModFiles )
 import Language.Fortran.Parser.Fortran95Experimental (fortran95Parser)
 
 import qualified Data.ByteString.Char8 as B
@@ -36,7 +39,24 @@ parserVersions =
   , (Fortran90, fortran90Parser)
   , (Fortran95, fortran95Parser) ]
 
+type ParserWithModFiles = ModFiles -> B.ByteString -> String -> ProgramFile A0
+parserWithModFilesVersions :: [(FortranVersion, ParserWithModFiles)]
+parserWithModFilesVersions =
+  [ (Fortran66, fortran66ParserWithModFiles)
+  , (Fortran77, fortran77ParserWithModFiles)
+  , (Fortran77Extended, extended77ParserWithModFiles)
+  , (Fortran90, fortran90ParserWithModFiles) ]
+
+-- | Deduce the type of parser from the filename and parse the
+-- contents of the file.
 fortranParser :: B.ByteString -> String -> ProgramFile ()
 fortranParser contents filename = do
    let Just parserF = lookup (deduceVersion filename) parserVersions
    parserF contents filename
+
+-- | Deduce the type of parser from the filename and parse the
+-- contents of the file, within the context of given "mod files".
+fortranParserWithModFiles :: ModFiles -> B.ByteString -> String -> ProgramFile ()
+fortranParserWithModFiles mods contents filename = do
+   let Just parserF = lookup (deduceVersion filename) parserWithModFilesVersions
+   parserF mods contents filename

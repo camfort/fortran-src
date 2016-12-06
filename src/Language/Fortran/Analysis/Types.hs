@@ -1,11 +1,12 @@
 {-# LANGUAGE ScopedTypeVariables #-}
-module Language.Fortran.Analysis.Types ( analyseTypes, TypeEnv ) where
+module Language.Fortran.Analysis.Types ( analyseTypes, analyseTypesWithEnv, extractTypeEnv, TypeEnv ) where
 
 import Language.Fortran.AST
 
 import Prelude hiding (lookup)
 import Data.Map (findWithDefault, insert, empty, lookup, Map)
 import qualified Data.Map as M
+import Data.Maybe (maybeToList)
 import Control.Monad.State.Strict
 import Data.Generics.Uniplate.Data
 import Data.Generics.Uniplate.Operations
@@ -32,7 +33,13 @@ type InferFunc t = t -> Infer ()
 -- | Annotate AST nodes with type information and also return a type
 -- environment mapping names to type information.
 analyseTypes :: Data a => ProgramFile (Analysis a) -> (ProgramFile (Analysis a), TypeEnv)
-analyseTypes pf = fmap environ . runInfer $ do
+analyseTypes = analyseTypesWithEnv M.empty
+
+-- | Annotate AST nodes with type information and also return a type
+-- environment mapping names to type information; provided with a
+-- starting type environment.
+analyseTypesWithEnv :: Data a => TypeEnv -> ProgramFile (Analysis a) -> (ProgramFile (Analysis a), TypeEnv)
+analyseTypesWithEnv env pf = fmap environ . runInfer env $ do
   -- Gather information.
   mapM_ programUnit (allProgramUnits pf)
   mapM_ declarator (allDeclarators pf)
@@ -50,6 +57,16 @@ analyseTypes pf = fmap environ . runInfer $ do
       _                           -> return ()
 
   annotateTypes pf              -- Annotate AST nodes with their types.
+
+extractTypeEnv :: forall a. Data a => ProgramFile (Analysis a) -> TypeEnv
+extractTypeEnv pf = M.union puEnv expEnv
+  where
+    puEnv = M.fromList [ (n, ty) | pu <- universeBi pf :: [ProgramUnit (Analysis a)]
+                                 , Named n <- [puName pu]
+                                 , ty <- maybeToList (idType (getAnnotation pu)) ]
+    expEnv = M.fromList [ (n, ty) | e <- universeBi pf :: [Expression (Analysis a)]
+                                  , let n = varName e
+                                  , ty <- maybeToList (idType (getAnnotation e)) ]
 
 type TransType f g a = (f (Analysis a) -> Infer (f (Analysis a))) -> g (Analysis a) -> Infer (g (Analysis a))
 annotateTypes :: Data a => ProgramFile (Analysis a) -> Infer (ProgramFile (Analysis a))
@@ -133,7 +150,7 @@ annotateProgramUnit pu                        = return pu
 -- Monadic helper combinators.
 
 inferState0 = InferState { environ = M.empty, entryPoints = M.empty }
-runInfer = flip runState inferState0
+runInfer env = flip runState (inferState0 { environ = env })
 
 -- Record the type of the given name.
 recordType :: BaseType -> ConstructType -> Name -> Infer ()

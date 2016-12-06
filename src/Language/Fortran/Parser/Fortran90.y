@@ -2,6 +2,7 @@
 {
 module Language.Fortran.Parser.Fortran90 ( statementParser
                                          , fortran90Parser
+                                         , fortran90ParserWithModFiles
                                          ) where
 
 import Prelude hiding (EQ,LT,GT) -- Same constructors exist in the AST
@@ -15,10 +16,11 @@ import Data.Data (toConstr)
 #endif
 
 import Language.Fortran.Util.Position
+import Language.Fortran.Util.ModFile
 import Language.Fortran.ParserMonad
 import Language.Fortran.Lexer.FreeForm
 import Language.Fortran.AST
-import Language.Fortran.Transformer (transform, Transformation(..))
+import Language.Fortran.Transformer
 
 import Debug.Trace
 
@@ -1059,8 +1061,11 @@ transformations90 =
   ]
 
 fortran90Parser :: B.ByteString -> String -> ProgramFile A0
-fortran90Parser sourceCode filename =
-    transform transformations90 $ parse parseState
+fortran90Parser = fortran90ParserWithModFiles emptyModFiles
+
+fortran90ParserWithModFiles :: ModFiles -> B.ByteString -> String -> ProgramFile A0
+fortran90ParserWithModFiles mods sourceCode filename =
+    transformWithModFiles mods transformations90 $ parse parseState
   where
     parseState = initParseState sourceCode Fortran90 filename
 

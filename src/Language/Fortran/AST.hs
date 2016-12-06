@@ -65,7 +65,9 @@ data BaseType =
   | TypeLogical
   | TypeCharacter
   | TypeCustom String
-  deriving (Eq, Show, Data, Typeable, Generic)
+  deriving (Ord, Eq, Show, Data, Typeable, Generic)
+
+instance Binary BaseType
 
 data TypeSpec a = TypeSpec a SrcSpan BaseType (Maybe (Selector a))
   deriving (Eq, Show, Data, Typeable, Generic, Functor)

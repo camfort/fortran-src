@@ -13,11 +13,14 @@ import Text.PrettyPrint (render)
 import System.Console.GetOpt
 
 import System.Environment
+import System.Directory
+import System.FilePath
 import Text.PrettyPrint.GenericPretty (pp, pretty, Out)
-import Data.List (isInfixOf, isSuffixOf, intercalate)
+import Data.List (isInfixOf, isSuffixOf, intercalate, (\\))
 import Data.Char (toLower)
 import Data.Maybe (fromMaybe, maybeToList)
 import Data.Data
+import Data.Binary
 import Data.Generics.Uniplate.Data
 import Data.Generics.Uniplate.Operations
 
@@ -30,6 +33,8 @@ import Language.Fortran.Parser.Fortran77 (fortran77Parser, extended77Parser)
 import Language.Fortran.Parser.Fortran90 (fortran90Parser)
 import Language.Fortran.Parser.Fortran95Experimental (fortran95Parser)
 import Language.Fortran.Parser.Any
+
+import Language.Fortran.Util.ModFile
 
 import Language.Fortran.PrettyPrint
 import Language.Fortran.Analysis
@@ -53,37 +58,82 @@ main :: IO ()
 main = do
   args <- getArgs
   (opts, parsedArgs) <- compileArgs args
-  if length parsedArgs /= 1
-  then fail $ usageInfo programName options
-  else do
-    let path = head parsedArgs
-    contents <- flexReadFile path
-    let version = fromMaybe (deduceVersion path) (fortranVersion opts)
-    let Just parserF = lookup version parserVersions
-    let outfmt = outputFormat opts
+  case (parsedArgs, action opts) of
+    ([path], DumpModFile) -> do
+      let path = head parsedArgs
+      contents <- B.readFile path
+      case decodeModFile contents of
+        Left msg -> putStrLn $ "Error: " ++ msg
+        Right mf -> putStrLn $ "ModuleMap:\n" ++ showModuleMap (combinedModuleMap [mf]) ++
+                               "\n\nTypeEnv:\n" ++ showTypes (combinedTypeEnv [mf]) ++
+                               "\n\nDeclMap:\n" ++ showGenericMap (combinedDeclMap [mf]) ++
+                               "\n\nOther Data Labels: " ++ show (getLabelsModFileData mf)
 
-    let runInfer pf = analyseTypes . analyseRenames . initAnalysis $ pf
-    let runRenamer = stripAnalysis . rename . analyseRenames . initAnalysis
-    let runBBlocks pf = showBBlocks pf' ++ "\n\n" ++ showDataFlow pf'
-          where pf' = analyseBBlocks . analyseRenames . initAnalysis $ pf
-    let runSuperGraph pf | outfmt == DOT = superBBGrToDOT sgr
-                         | otherwise     = superGraphDataFlow pf' sgr
-          where pf' = analyseBBlocks . analyseRenames . initAnalysis $ pf
-                bbm = genBBlockMap pf'
-                sgr = genSuperBBGr bbm
+    ([path], actionOpt) -> do
+      let path = head parsedArgs
+      contents <- flexReadFile path
+      let version = fromMaybe (deduceVersion path) (fortranVersion opts)
+      let Just parserF = lookup version parserWithModFilesVersions
+      let outfmt = outputFormat opts
+      mods <- decodeModFiles $ includeDirs opts
+      let mmap = combinedModuleMap mods
+      let tenv = combinedTypeEnv mods
 
-    case action opts of
-      Lex | version `elem` [ Fortran66, Fortran77, Fortran77Extended ] ->
-        print $ FixedForm.collectFixedTokens version contents
-      Lex | version `elem` [Fortran90, Fortran2003, Fortran2008] ->
-        print $ FreeForm.collectFreeTokens version contents
-      Lex        -> ioError $ userError $ usageInfo programName options
-      Parse      -> pp $ parserF contents path
-      Typecheck  -> printTypes . snd . runInfer $ parserF contents path
-      Rename     -> pp . runRenamer $ parserF contents path
-      BBlocks    -> putStrLn . runBBlocks $ parserF contents path
-      SuperGraph -> putStrLn . runSuperGraph $ parserF contents path
-      Reprint    -> putStrLn . render . flip (pprint version) (Just 0) $ parserF contents path
+      let runInfer pf = analyseTypesWithEnv tenv . analyseRenamesWithModuleMap mmap . initAnalysis $ pf
+      let runRenamer = stripAnalysis . rename . analyseRenamesWithModuleMap mmap . initAnalysis
+      let runBBlocks pf = showBBlocks pf' ++ "\n\n" ++ showDataFlow pf'
+            where pf' = analyseBBlocks . analyseRenamesWithModuleMap mmap . initAnalysis $ pf
+      let runSuperGraph pf | outfmt == DOT = superBBGrToDOT sgr
+                           | otherwise     = superGraphDataFlow pf' sgr
+            where pf' = analyseBBlocks . analyseRenamesWithModuleMap mmap . initAnalysis $ pf
+                  bbm = genBBlockMap pf'
+                  sgr = genSuperBBGr bbm
+
+      case actionOpt of
+        Lex | version `elem` [ Fortran66, Fortran77, Fortran77Extended ] ->
+          print $ FixedForm.collectFixedTokens version contents
+        Lex | version `elem` [Fortran90, Fortran2003, Fortran2008] ->
+          print $ FreeForm.collectFreeTokens version contents
+        Lex        -> ioError $ userError $ usageInfo programName options
+        Parse      -> pp $ parserF mods contents path
+        Typecheck  -> printTypes . extractTypeEnv . fst . runInfer $ parserF mods contents path
+        Rename     -> pp . runRenamer $ parserF mods contents path
+        BBlocks    -> putStrLn . runBBlocks $ parserF mods contents path
+        SuperGraph -> putStrLn . runSuperGraph $ parserF mods contents path
+        Reprint    -> putStrLn . render . flip (pprint version) (Just 0) $ parserF mods contents path
+
+    _ -> fail $ usageInfo programName options
+
+-- List files in dir
+rGetDirContents :: String -> IO [String]
+rGetDirContents d = do
+    ds <- getDirectoryContents d
+    fmap concat . mapM f $ ds \\ [".", ".."] -- remove '.' and '..' entries
+      where
+        f x = do
+          g <- doesDirectoryExist (d ++ "/" ++ x)
+          if g then do
+            x' <- rGetDirContents (d ++ "/" ++ x)
+            return $ map (\ y -> x ++ "/" ++ y) x'
+          else return [x]
+
+decodeModFiles :: [String] -> IO ModFiles
+decodeModFiles = foldM (\ modFiles d -> do
+      -- Figure out the camfort mod files and parse them.
+      modFileNames <- filter isModFile `fmap` rGetDirContents d
+      addedModFiles <- forM modFileNames $ \ modFileName -> do
+        eResult <- decodeFileOrFail (d </> modFileName)
+        case eResult of
+          Left (offset, msg) -> do
+            putStrLn $ modFileName ++ ": Error at offset " ++ show offset ++ ": " ++ msg
+            return emptyModFile
+          Right modFile -> do
+            putStrLn $ modFileName ++ ": successfully parsed precompiled file."
+            return modFile
+      return $ addedModFiles ++ modFiles
+    ) emptyModFiles
+
+isModFile = (== modFileSuffix) . takeExtension
 
 superGraphDataFlow :: forall a. (Out a, Data a) => ProgramFile (Analysis a) -> SuperBBGr (Analysis a) -> String
 superGraphDataFlow pf sgr = showBBGr (nmap (map (fmap insLabel)) gr) ++ "\n\n" ++ replicate 50 '-' ++ "\n\n" ++
@@ -128,12 +178,18 @@ superGraphDataFlow pf sgr = showBBGr (nmap (map (fmap insLabel)) gr) ++ "\n\n" +
     rd = reachingDefinitions dm
     cm = genCallMap pf
 
-printTypes :: TypeEnv -> IO ()
-printTypes tenv = do
-  forM_ (M.toList tenv) $ \ (name, IDType { idVType = vt, idCType = ct }) ->
-    printf "%s\t\t%s %s\n" name (drop 4 $ maybe "  -" show vt) (drop 2 $ maybe "   " show ct)
+showGenericMap :: (Show a, Show b) => M.Map a b -> String
+showGenericMap = unlines . map (\ (k, v) -> show k ++ " : " ++ show v) . M.toList
 
-data Action = Lex | Parse | Typecheck | Rename | BBlocks | SuperGraph | Reprint
+showModuleMap :: ModuleMap -> String
+showModuleMap = concatMap (\ (n, m) -> show n ++ ":\n" ++ (unlines . map ("  "++) . lines . showGenericMap $ m)) . M.toList
+showTypes :: TypeEnv -> String
+showTypes tenv = flip concatMap (M.toList tenv) $ \ (name, IDType { idVType = vt, idCType = ct }) ->
+    printf "%s\t\t%s %s\n" name (drop 4 $ maybe "  -" show vt) (drop 2 $ maybe "   " show ct)
+printTypes :: TypeEnv -> IO ()
+printTypes = putStrLn . showTypes
+
+data Action = Lex | Parse | Typecheck | Rename | BBlocks | SuperGraph | Reprint | DumpModFile deriving Eq
 
 instance Read Action where
   readsPrec _ value =
@@ -149,9 +205,10 @@ data OutputFormat = Default | DOT deriving Eq
 data Options = Options
   { fortranVersion  :: Maybe FortranVersion
   , action          :: Action
-  , outputFormat    :: OutputFormat }
+  , outputFormat    :: OutputFormat
+  , includeDirs     :: [String] }
 
-initOptions = Options Nothing Parse Default
+initOptions = Options Nothing Parse Default []
 
 options :: [OptDescr (Options -> Options)]
 options =
@@ -187,6 +244,14 @@ options =
       ["dot"]
       (NoArg $ \ opts -> opts { outputFormat = DOT })
       "output graphs in GraphViz DOT format"
+  , Option []
+      ["dump-mod-file"]
+      (NoArg $ \ opts -> opts { action = DumpModFile })
+      "dump the information contained within mod files"
+  , Option ['I']
+      ["include-dir"]
+      (ReqArg (\ d opts -> opts { includeDirs = d:includeDirs opts }) "DIR")
+      "directory to search for precompiled 'mod files'"
   ]
 
 compileArgs :: [ String ] -> IO (Options, [ String ])

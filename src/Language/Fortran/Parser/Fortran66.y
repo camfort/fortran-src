@@ -1,8 +1,10 @@
 -- -*- Mode: Haskell -*-
 {
-module Language.Fortran.Parser.Fortran66(expressionParser,
-                               statementParser,
-                               fortran66Parser) where
+module Language.Fortran.Parser.Fortran66 ( expressionParser
+                                         , statementParser
+                                         , fortran66Parser
+                                         , fortran66ParserWithModFiles )
+where
 
 import Prelude hiding (EQ,LT,GT) -- Same constructors exist in the AST
 
@@ -10,9 +12,10 @@ import Control.Monad.State
 import Data.Maybe (isNothing, fromJust)
 import qualified Data.ByteString.Char8 as B
 import Language.Fortran.Util.Position
+import Language.Fortran.Util.ModFile
 import Language.Fortran.ParserMonad
 import Language.Fortran.Lexer.FixedForm
-import Language.Fortran.Transformer (transform, Transformation(..))
+import Language.Fortran.Transformer
 import Language.Fortran.AST
 
 }
@@ -506,8 +509,11 @@ transformations66 =
   ]
 
 fortran66Parser :: B.ByteString -> String -> ProgramFile A0
-fortran66Parser sourceCode filename =
-    transform transformations66 $ parse parseState
+fortran66Parser = fortran66ParserWithModFiles emptyModFiles
+
+fortran66ParserWithModFiles :: ModFiles -> B.ByteString -> String -> ProgramFile A0
+fortran66ParserWithModFiles mods sourceCode filename =
+    transformWithModFiles mods transformations66 $ parse parseState
   where
     parse = evalParse programParser
     parseState = initParseState sourceCode Fortran66 filename
