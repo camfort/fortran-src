@@ -110,7 +110,7 @@ PROGRAM
 
 PROGRAM_INNER :: { ProgramFile A0 }
 PROGRAM_INNER
-: PROGRAM_UNITS BLOCKS { ProgramFile (MetaInfo { miVersion = Fortran66 })  (reverse $1) (reverse $2) }
+: PROGRAM_UNITS BLOCKS { ProgramFile (MetaInfo { miVersion = Fortran66, miFilename = "" })  (reverse $1) (reverse $2) }
 
 PROGRAM_UNITS :: { [ ([ Block A0 ], ProgramUnit A0) ] }
 PROGRAM_UNITS
@@ -513,7 +513,7 @@ fortran66Parser = fortran66ParserWithModFiles emptyModFiles
 
 fortran66ParserWithModFiles :: ModFiles -> B.ByteString -> String -> ProgramFile A0
 fortran66ParserWithModFiles mods sourceCode filename =
-    transformWithModFiles mods transformations66 $ parse parseState
+    pfSetFilename filename . transformWithModFiles mods transformations66 $ parse parseState
   where
     parse = evalParse programParser
     parseState = initParseState sourceCode Fortran66 filename

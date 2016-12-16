@@ -206,8 +206,8 @@ PROGRAM :: { ProgramFile A0 }
 | PROGRAM_INNER { $1 }
 
 PROGRAM_INNER :: { ProgramFile A0 }
-: PROGRAM_UNITS { ProgramFile (MetaInfo { miVersion = Fortran90 }) (reverse $1) [ ] }
-| PROGRAM_UNITS COMMENT_BLOCKS { ProgramFile (MetaInfo { miVersion = Fortran90 }) (reverse $1) (reverse $2) }
+: PROGRAM_UNITS { ProgramFile (MetaInfo { miVersion = Fortran90, miFilename = "" }) (reverse $1) [ ] }
+| PROGRAM_UNITS COMMENT_BLOCKS { ProgramFile (MetaInfo { miVersion = Fortran90, miFilename = "" }) (reverse $1) (reverse $2) }
 
 PROGRAM_UNITS :: { [ ([ Block A0 ], ProgramUnit A0) ] }
 : PROGRAM_UNITS PROGRAM_UNIT MAYBE_NEWLINE { ([ ], $2) : $1 }
@@ -1065,7 +1065,7 @@ fortran90Parser = fortran90ParserWithModFiles emptyModFiles
 
 fortran90ParserWithModFiles :: ModFiles -> B.ByteString -> String -> ProgramFile A0
 fortran90ParserWithModFiles mods sourceCode filename =
-    transformWithModFiles mods transformations90 $ parse parseState
+    pfSetFilename filename . transformWithModFiles mods transformations90 $ parse parseState
   where
     parseState = initParseState sourceCode Fortran90 filename
 

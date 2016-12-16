@@ -144,8 +144,8 @@ PROGRAM
 
 PROGRAM_INNER :: { ProgramFile A0 }
 PROGRAM_INNER
-: PROGRAM_UNITS { ProgramFile (MetaInfo { miVersion = Fortran77 }) (reverse $1) [ ] }
-| PROGRAM_UNITS COMMENT_BLOCKS { ProgramFile (MetaInfo { miVersion = Fortran77 }) (reverse $1) (reverse $2) }
+: PROGRAM_UNITS { ProgramFile (MetaInfo { miVersion = Fortran77, miFilename = "" }) (reverse $1) [ ] }
+| PROGRAM_UNITS COMMENT_BLOCKS { ProgramFile (MetaInfo { miVersion = Fortran77, miFilename = "" }) (reverse $1) (reverse $2) }
 
 PROGRAM_UNITS :: { [ ([ Block A0 ], ProgramUnit A0) ] }
 PROGRAM_UNITS
@@ -853,7 +853,7 @@ fortran77Parser = fortran77ParserWithModFiles emptyModFiles
 
 fortran77ParserWithModFiles :: ModFiles -> B.ByteString -> String -> ProgramFile A0
 fortran77ParserWithModFiles mods sourceCode filename =
-    transformWithModFiles mods transformations77 $ parse parseState
+    pfSetFilename filename . transformWithModFiles mods transformations77 $ parse parseState
   where
     parseState = initParseState sourceCode Fortran77Extended filename
 
@@ -868,7 +868,7 @@ extended77Parser = extended77ParserWithModFiles emptyModFiles
 
 extended77ParserWithModFiles :: ModFiles -> B.ByteString -> String -> ProgramFile A0
 extended77ParserWithModFiles mods sourceCode filename =
-    transformWithModFiles mods transformations77Extended $ parse parseState
+    pfSetFilename filename . transformWithModFiles mods transformations77Extended $ parse parseState
   where
     parseState = initParseState sourceCode Fortran77Extended filename
 

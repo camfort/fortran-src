@@ -64,7 +64,8 @@ main = do
       contents <- B.readFile path
       case decodeModFile contents of
         Left msg -> putStrLn $ "Error: " ++ msg
-        Right mf -> putStrLn $ "ModuleMap:\n" ++ showModuleMap (combinedModuleMap [mf]) ++
+        Right mf -> putStrLn $ "Filename: " ++ moduleFilename mf ++
+                               "\n\nModuleMap:\n" ++ showModuleMap (combinedModuleMap [mf]) ++
                                "\n\nTypeEnv:\n" ++ showTypes (combinedTypeEnv [mf]) ++
                                "\n\nDeclMap:\n" ++ showGenericMap (combinedDeclMap [mf]) ++
                                "\n\nOther Data Labels: " ++ show (getLabelsModFileData mf)

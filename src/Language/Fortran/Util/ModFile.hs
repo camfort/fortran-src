@@ -47,7 +47,7 @@ module Language.Fortran.Util.ModFile
   , lookupModFileData, getLabelsModFileData, alterModFileData -- , alterModFileDataF
   , genModFile, regenModFile, encodeModFile, decodeModFile
   , DeclMap, DeclContext(..), extractDeclMap
-  , combinedDeclMap, combinedModuleMap, combinedTypeEnv )
+  , moduleFilename, combinedDeclMap, combinedModuleMap, combinedTypeEnv )
 where
 
 import qualified Debug.Trace as D
@@ -84,9 +84,10 @@ instance Binary DeclContext
 type DeclMap = M.Map F.Name (F.ProgramUnitName, DeclContext)
 
 -- | The data stored in the "mod files"
-data ModFile = ModFile { mfModuleMap :: FAR.ModuleMap
-                       , mfTypeEnv   :: FAT.TypeEnv
+data ModFile = ModFile { mfFilename  :: String
+                       , mfModuleMap :: FAR.ModuleMap
                        , mfDeclMap   :: DeclMap
+                       , mfTypeEnv   :: FAT.TypeEnv
                        , mfOtherData :: M.Map String B.ByteString }
   deriving (Ord, Eq, Show, Data, Typeable, Generic)
 
@@ -101,7 +102,7 @@ emptyModFiles = []
 
 -- | Starting point.
 emptyModFile :: ModFile
-emptyModFile = ModFile M.empty M.empty M.empty M.empty
+emptyModFile = ModFile "" M.empty M.empty M.empty M.empty
 
 -- | Extracts the module map, declaration map and type analysis from
 -- an analysed and renamed ProgramFile, then inserts it into the
@@ -113,7 +114,8 @@ regenModFile pf mf = mf
                                         , let n = F.getName pu
                                         , env <- maybeToList (FA.moduleEnv a) ]
   , mfDeclMap   = extractDeclMap pf
-  , mfTypeEnv   = FAT.extractTypeEnv pf }
+  , mfTypeEnv   = FAT.extractTypeEnv pf
+  , mfFilename  = F.pfGetFilename pf }
 
 -- | Generate a fresh ModFile from the module map, declaration map and
 -- type analysis of a given analysed and renamed ProgramFile.
@@ -166,6 +168,11 @@ combinedTypeEnv = M.unions . map mfTypeEnv
 -- other modules.
 combinedDeclMap :: ModFiles -> DeclMap
 combinedDeclMap = M.unions . map mfDeclMap
+
+-- | Get the associated Fortran filename that was used to compile the
+-- ModFile.
+moduleFilename :: ModFile -> String
+moduleFilename = mfFilename
 
 --------------------------------------------------
 
