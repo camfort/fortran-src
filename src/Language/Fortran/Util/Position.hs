@@ -10,6 +10,7 @@ import Data.Data
 import Data.Typeable
 import Text.PrettyPrint.GenericPretty
 import Text.PrettyPrint
+import Data.Binary
 
 import GHC.Generics
 
@@ -23,7 +24,9 @@ data Position = Position
   { posAbsoluteOffset   :: {-# UNPACK #-} !Int
   , posColumn           :: {-# UNPACK #-} !Int
   , posLine             :: {-# UNPACK #-} !Int
-  } deriving (Eq, Ord, Data, Typeable)
+  } deriving (Eq, Ord, Data, Typeable, Generic)
+
+instance Binary Position
 
 instance Show Position where
   show (Position _ c l) = show l ++ ':' : show c
@@ -39,6 +42,8 @@ lineCol :: Position -> (Int, Int)
 lineCol p  = (fromIntegral $ posLine p, fromIntegral $ posColumn p)
 
 data SrcSpan = SrcSpan Position Position deriving (Eq, Ord, Typeable, Data, Generic)
+
+instance Binary SrcSpan
 
 instance Show SrcSpan where
   show (SrcSpan s1 s2)= '(' : show s1 ++ ")-(" ++ show s2 ++ ")"
