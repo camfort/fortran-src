@@ -18,8 +18,8 @@ import Data.Maybe
 
 u = initSrcSpan
 
-mi77 = MetaInfo { miVersion = Fortran77 }
-mi90 = MetaInfo { miVersion = Fortran90 }
+mi77 = MetaInfo { miVersion = Fortran77, miFilename = "<unknown>" }
+mi90 = MetaInfo { miVersion = Fortran90, miFilename = "<unknown>" }
 
 valTrue = ExpValue () u $ ValLogical ".true."
 valFalse = ExpValue () u $ ValLogical ".false."
