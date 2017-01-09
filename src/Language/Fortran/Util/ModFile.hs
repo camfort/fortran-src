@@ -47,7 +47,8 @@ module Language.Fortran.Util.ModFile
   , lookupModFileData, getLabelsModFileData, alterModFileData -- , alterModFileDataF
   , genModFile, regenModFile, encodeModFile, decodeModFile
   , DeclMap, DeclContext(..), extractModuleMap, extractDeclMap
-  , moduleFilename, combinedDeclMap, combinedModuleMap, combinedTypeEnv )
+  , moduleFilename, combinedDeclMap, combinedModuleMap, combinedTypeEnv
+  , genUniqNameToFilenameMap )
 where
 
 import qualified Debug.Trace as D
@@ -174,6 +175,18 @@ combinedDeclMap = M.unions . map mfDeclMap
 -- ModFile.
 moduleFilename :: ModFile -> String
 moduleFilename = mfFilename
+
+--------------------------------------------------
+
+-- | Create a map that links all unique variable/function names in the
+-- ModFiles to their corresponding filename.
+genUniqNameToFilenameMap :: ModFiles -> M.Map F.Name String
+genUniqNameToFilenameMap = M.unions . map perMF
+  where
+    perMF mf = M.fromList [ (n, fname) | modEnv <- M.elems (mfModuleMap mf)
+                                       , (n, _) <- M.elems modEnv ]
+      where
+        fname = mfFilename mf
 
 --------------------------------------------------
 
