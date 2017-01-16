@@ -120,6 +120,13 @@ data ProgramUnit a =
       [Block a] -- Body
   deriving (Eq, Show, Data, Typeable, Generic, Functor)
 
+programUnitBody :: ProgramUnit a -> [Block a]
+programUnitBody (PUMain _ _ _ bs _)              = bs
+programUnitBody (PUModule _ _ _ bs _)            = bs
+programUnitBody (PUSubroutine _ _ _ _ _ bs _)    = bs
+programUnitBody (PUFunction _ _ _ _ _ _ _ bs _ ) = bs
+programUnitBody (PUBlockData _ _ _ bs)           = bs
+
 data Block a =
     BlStatement a SrcSpan
                 (Maybe (Expression a))       -- Label
