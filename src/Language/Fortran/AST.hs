@@ -124,8 +124,15 @@ programUnitBody :: ProgramUnit a -> [Block a]
 programUnitBody (PUMain _ _ _ bs _)              = bs
 programUnitBody (PUModule _ _ _ bs _)            = bs
 programUnitBody (PUSubroutine _ _ _ _ _ bs _)    = bs
-programUnitBody (PUFunction _ _ _ _ _ _ _ bs _ ) = bs
+programUnitBody (PUFunction _ _ _ _ _ _ _ bs _)  = bs
 programUnitBody (PUBlockData _ _ _ bs)           = bs
+
+programUnitSubprograms :: ProgramUnit a -> Maybe [ProgramUnit a]
+programUnitSubprograms (PUMain _ _ _ _ s)             = s
+programUnitSubprograms (PUModule _ _ _ _ s)           = s
+programUnitSubprograms (PUSubroutine _ _ _ _ _ _ s)   = s
+programUnitSubprograms (PUFunction _ _ _ _ _ _ _ _ s) = s
+programUnitSubprograms (PUBlockData _ _ _ _)          = Nothing
 
 data Block a =
     BlStatement a SrcSpan
