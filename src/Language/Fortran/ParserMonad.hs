@@ -89,7 +89,7 @@ class LastToken a b | a -> b where
 -- Parser Monad definition
 -------------------------------------------------------------------------------
 
-data Parse b c a = Parse { unParse :: ParseState b -> ParseResult b c a }
+newtype Parse b c a = Parse { unParse :: ParseState b -> ParseResult b c a }
 
 instance (Loc b, LastToken b c, Show c) => Monad (Parse b c) where
   return a = Parse $ \s -> ParseOk a s
