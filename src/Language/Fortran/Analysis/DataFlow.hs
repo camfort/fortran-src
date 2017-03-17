@@ -31,7 +31,7 @@ import Language.Fortran.Analysis
 import Language.Fortran.Analysis.BBlocks
 import Language.Fortran.AST
 import qualified Data.Map as M
-import qualified Data.IntMap as IM
+import qualified Data.IntMap.Lazy as IM
 import qualified Data.Set as S
 import qualified Data.IntSet as IS
 import Data.Graph.Inductive hiding (trc, dom)
@@ -189,9 +189,16 @@ bblockKill = S.fromList . concatMap blockKill
 
 -- | Iterate "GEN" set through a single basic block.
 bblockGen :: Data a => [Block (Analysis a)] -> S.Set Name
-bblockGen bs = S.fromList . fst . foldl' f ([], []) $ zip (map blockGen bs) (map blockKill bs)
+bblockGen bs = S.fromList . fst . foldl' (\x y -> f x (blockGen y, blockKill y)) ([], []) $ bs
   where
     f (bbgen, bbkill) (gen, kill) = ((gen \\ bbkill) `union` bbgen, kill `union` bbkill)
+
+-- | Iterate "GEN" set through a single basic block.
+-- attempt to make this faster using sets internally (no obvious speedup though)
+bblockGenFast :: Data a => [Block (Analysis a)] -> S.Set Name
+bblockGenFast bs = fst . foldl' (\x y -> f x (S.fromList $ blockGen y, S.fromList $ blockKill y)) (S.empty, S.empty) $ bs
+  where
+    f (bbgen, bbkill) (gen, kill) = ((gen S.\\ bbkill) `S.union` bbgen, kill `S.union` bbkill)
 
 -- | "KILL" set for a single AST-block.
 blockKill :: Data a => Block (Analysis a) -> [Name]
