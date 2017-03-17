@@ -760,13 +760,17 @@ showOp Subtraction = " - "
 showOp Division = " / "
 showOp op = " ." ++ show op ++ ". "
 
-showType (TypeSpec _ _ TypeInteger Nothing)         = "integer"
-showType (TypeSpec _ _ TypeReal Nothing)            = "real"
-showType (TypeSpec _ _ TypeDoublePrecision Nothing) = "double"
-showType (TypeSpec _ _ TypeComplex Nothing)         = "complex"
-showType (TypeSpec _ _ TypeDoubleComplex Nothing)   = "doublecomplex"
-showType (TypeSpec _ _ TypeLogical Nothing)         = "logical"
-showType (TypeSpec _ _ TypeCharacter Nothing)       = "character"
+showType (TypeSpec _ _ t (Just s)) = showBaseType t ++ "(selector)" -- ++ show s
+showType (TypeSpec _ _ t Nothing)  = showBaseType t
+
+showBaseType TypeInteger         = "integer"
+showBaseType TypeReal            = "real"
+showBaseType TypeDoublePrecision = "double"
+showBaseType TypeComplex         = "complex"
+showBaseType TypeDoubleComplex   = "doublecomplex"
+showBaseType TypeLogical         = "logical"
+showBaseType TypeCharacter       = "character"
+showBaseType (TypeCustom s)      = s
 
 showDecl (DeclArray _ _ e adims length initial) =
   showExpr e ++
