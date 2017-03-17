@@ -123,7 +123,7 @@ dataFlowSolver gr initF order inF outF = converge (==) $ iterate step initM
     ordNodes = order gr
     initM    = IM.fromList [ (n, initF n) | n <- ordNodes ]
     step m   = IM.fromList [ (n, (inF (snd . get m) n, outF (fst . get m) n)) | n <- ordNodes ]
-    get m n  = fromJustMsg "dataFlowSolver" $ IM.lookup n m
+    get m n  = fromJustMsg ("dataFlowSolver: get " ++ show (n)) $ IM.lookup n m
 
 -- | Apply the iterative dataflow analysis method.
 dataFlowSolver' :: Ord t => BBGr a            -- ^ basic block graph
@@ -137,7 +137,7 @@ dataFlowSolver' gr initF order inF outF = iterate step initM
     ordNodes = order gr
     initM    = IM.fromList [ (n, initF n) | n <- ordNodes ]
     step m   = IM.fromList [ (n, (inF (snd . get m) n, outF (fst . get m) n)) | n <- ordNodes ]
-    get m n  = fromJustMsg "dataFlowSolver" $ IM.lookup n m
+    get m n  = fromJustMsg ("dataFlowSolver': get " ++ show (n)) $ IM.lookup n m
 
 --------------------------------------------------
 
