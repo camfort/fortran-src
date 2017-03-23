@@ -241,7 +241,7 @@ reachingDefinitions dm gr = dataFlowSolver gr (const (IS.empty, IS.empty)) revPo
 
 -- Compute the "GEN" and "KILL" sets for a given basic block.
 rdBblockGenKill :: Data a => DefMap -> [Block (Analysis a)] -> (IS.IntSet, IS.IntSet)
-rdBblockGenKill dm bs = foldl' f (IS.empty, IS.empty) $ zip (map gen bs) (map kill bs)
+rdBblockGenKill dm bs = foldl' (\a b -> f a (gen b, kill b)) (IS.empty, IS.empty) bs
   where
     gen b | null (allLhsVars b) = IS.empty
           | otherwise           = IS.singleton . fromJustMsg "rdBblockGenKill" . insLabel . getAnnotation $ b

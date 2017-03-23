@@ -23,7 +23,7 @@ spec =
     describe "anal1" $ do
       it "lhsExprs" $ do
         let pf = stripAnalysis $ pParser programAnal1
-        lhsExprs pf `shouldBe'` programAnal1LhsExprs
+        lhsExprs pf `shouldMatchList'` programAnal1LhsExprs
 
 programAnal1LhsExprs =
   [ ExpSubscript () u (ExpValue () u (ValVariable "a")) (AList () u [ ixSinGen 1 ])

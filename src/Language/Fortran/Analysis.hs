@@ -145,13 +145,18 @@ stripAnalysis = fmap prevAnnotation
 
 -- | Return list of expressions used as the left-hand-side of
 -- assignment statements (including for-loops and function-calls by reference).
-lhsExprs :: (Data a, Data (b a)) => b a -> [Expression a]
-lhsExprs x = concatMap lhsOfStmt (universeBi x) ++ concatMap lhsOfExp (universeBi x)
+lhsExprs :: forall a b . (Data a, Data (b a)) => b a -> [Expression a]
+lhsExprs x = concatMap lhsOfStmt (universeBi x)
   where
-    lhsOfStmt (StExpressionAssign _ _ e _) = [e]
-    lhsOfStmt (StCall _ _ _ (Just aexps)) = fstLvl aexps
-    lhsOfStmt _ = []
+    lhsOfStmt :: Statement a -> [Expression a]
+    lhsOfStmt (StExpressionAssign _ _ e e') = e : onExprs e'
+    lhsOfStmt (StCall _ _ _ (Just aexps)) = filter isLExpr argExps ++ concatMap onExprs argExps
+       where argExps = map extractExp . aStrip $ aexps
+    lhsOfStmt s =  onExprs s
 
+    onExprs :: (Data a, Data (c a)) => c a -> [Expression a]
+    onExprs = concatMap lhsOfExp . universeBi
+    lhsOfExp :: Expression a -> [Expression a]
     lhsOfExp (ExpFunctionCall _ _ _ (Just aexps)) = fstLvl aexps
     lhsOfExp _ = []
 
@@ -178,8 +183,11 @@ allVars b = [ varName v | v@(ExpValue _ _ (ValVariable _)) <- uniBi b ]
 -- | Set of names found in the parts of an AST that are the target of
 -- an assignment statement.
 allLhsVars :: (Data a, Data (b (Analysis a))) => b (Analysis a) -> [Name]
-allLhsVars b = [ varName v | v@(ExpValue _ _ (ValVariable {})) <- lhsExprs b ] ++
-               [ varName v | ExpSubscript _ _ v@(ExpValue _ _ (ValVariable {})) _ <- lhsExprs b ]
+allLhsVars b = mapMaybe match (lhsExprs b)
+  where
+    match v@(ExpValue _ _ (ValVariable {})) = Just (varName v)
+    match (ExpSubscript _ _ v@(ExpValue _ _ (ValVariable {})) _) = Just (varName v)
+    match _ = Nothing
 
 -- | Set of expressions used -- not defined -- by an AST-block.
 blockRhsExprs :: Data a => Block a -> [Expression a]

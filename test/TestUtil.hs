@@ -53,6 +53,8 @@ ixRanGen i j = IxRange () u (Just $ intGen i) (Just $ intGen j) Nothing
 
 shouldBe' a b = resetSrcSpan a `shouldBe` resetSrcSpan b
 
+shouldMatchList' a b = resetSrcSpan a `shouldMatchList` resetSrcSpan b
+
 -- To be used in testing it reverts the SrcSpans in AST to dummy initial
 -- SrcSpan value.
 resetSrcSpan :: Data a => a -> a
