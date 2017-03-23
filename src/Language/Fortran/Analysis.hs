@@ -1,11 +1,12 @@
 {-# LANGUAGE ScopedTypeVariables, DeriveDataTypeable, StandaloneDeriving, DeriveGeneric #-}
+{-# LANGUAGE FlexibleContexts #-}
 
 -- |
 -- Common data structures and functions supporting analysis of the AST.
 module Language.Fortran.Analysis
   ( initAnalysis, stripAnalysis, Analysis(..), varName, srcName, genVar, puName, puSrcName, blockRhsExprs, rhsExprs
   , ModEnv, NameType(..), IDType(..), ConstructType(..), BaseType(..)
-  , lhsExprs, isLExpr, allVars, allLhsVars, blockVarUses, blockVarDefs
+  , lhsExprs, isLExpr, allVars, allLhsVars, allLhsVarsRobust, blockVarUses, blockVarDefs
   , BB, BBGr
   , TransFunc, TransFuncM )
 where
@@ -182,8 +183,44 @@ allVars b = [ varName v | v@(ExpValue _ _ (ValVariable _)) <- uniBi b ]
 
 -- | Set of names found in the parts of an AST that are the target of
 -- an assignment statement.
-allLhsVars :: (Data a, Data (b (Analysis a))) => b (Analysis a) -> [Name]
-allLhsVars b = mapMaybe match (lhsExprs b)
+-- [Fast version]
+allLhsVars :: forall a b . (Data a, Data (b (Analysis a))) => b (Analysis a) -> [Name]
+allLhsVars = concatMap lhsOfStmt . universeBi
+  where
+    lhsOfStmt :: Statement (Analysis a) -> [Name]
+    lhsOfStmt (StExpressionAssign _ _ e e') = match' e : onExprs e'
+    lhsOfStmt (StCall _ _ _ (Just aexps)) = concatMap (match'' . extractExp) (aStrip aexps)
+    lhsOfStmt s = onExprs s
+
+    onExprs :: (Data (c (Analysis a))) => c (Analysis a) -> [Name]
+    onExprs = concatMap lhsOfExp . universeBi
+
+    lhsOfExp :: Expression (Analysis a) -> [Name]
+    lhsOfExp (ExpFunctionCall _ _ _ (Just aexps)) = concatMap (match . extractExp) (aStrip aexps)
+    lhsOfExp _ = []
+ 
+    extractExp (Argument _ _ _ exp) = exp
+
+    -- Match and give the varname for LHS of statement
+    match' v@(ExpValue _ _ (ValVariable {})) = varName v
+    match' (ExpSubscript _ _ v@(ExpValue _ _ (ValVariable {})) _) = varName v
+    match' e = error $ "An unexpected LHS to an expression assign: " ++ show (fmap (const ()) e)
+
+    -- Match and give the varname of LHSes which occur in subroutine calls
+    match'' v@(ExpValue _ _ (ValVariable {})) = [varName v]
+    match'' (ExpSubscript _ _ v@(ExpValue _ _ (ValVariable {})) _) = [varName v]
+    match'' e = onExprs e
+
+   -- Match and give the varname of LHSes which occur in function calls
+    match v@(ExpValue _ _ (ValVariable {})) = [varName v]
+    match (ExpSubscript _ _ v@(ExpValue _ _ (ValVariable {})) _) = [varName v]
+    match e = []
+
+-- | Set of names found in the parts of an AST that are the target of
+-- an assignment statement.
+-- Slower than `allLhsVars` but more robust
+allLhsVarsRobust :: (Data a, Data (b (Analysis a))) => b (Analysis a) -> [Name]
+allLhsVarsRobust b = mapMaybe match (lhsExprs b)
   where
     match v@(ExpValue _ _ (ValVariable {})) = Just (varName v)
     match (ExpSubscript _ _ v@(ExpValue _ _ (ValVariable {})) _) = Just (varName v)
