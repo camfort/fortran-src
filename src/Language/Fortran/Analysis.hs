@@ -204,16 +204,19 @@ allLhsVars = concatMap lhsOfStmt . universeBi
     -- Match and give the varname for LHS of statement
     match' v@(ExpValue _ _ (ValVariable {})) = varName v
     match' (ExpSubscript _ _ v@(ExpValue _ _ (ValVariable {})) _) = varName v
+    match' (ExpDataRef _ _ v _) = match' v
     match' e = error $ "An unexpected LHS to an expression assign: " ++ show (fmap (const ()) e)
 
     -- Match and give the varname of LHSes which occur in subroutine calls
     match'' v@(ExpValue _ _ (ValVariable {})) = [varName v]
     match'' (ExpSubscript _ _ v@(ExpValue _ _ (ValVariable {})) _) = [varName v]
+    match'' (ExpDataRef _ _ v _) = match'' v
     match'' e = onExprs e
 
    -- Match and give the varname of LHSes which occur in function calls
     match v@(ExpValue _ _ (ValVariable {})) = [varName v]
     match (ExpSubscript _ _ v@(ExpValue _ _ (ValVariable {})) _) = [varName v]
+    match (ExpDataRef _ _ e _) = match e
     match e = []
 
 -- | Set of names found in the parts of an AST that are the target of
