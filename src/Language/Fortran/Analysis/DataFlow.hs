@@ -189,14 +189,14 @@ bblockKill = S.fromList . concatMap blockKill
 
 -- | Iterate "GEN" set through a single basic block.
 bblockGen :: Data a => [Block (Analysis a)] -> S.Set Name
-bblockGen bs = S.fromList . fst . foldl' (\x y -> f x (blockGen y, blockKill y)) ([], []) $ bs
+bblockGen bs = S.fromList . fst . foldl' f ([], []) $ zip (map blockGen bs) (map blockKill bs)
   where
     f (bbgen, bbkill) (gen, kill) = ((gen \\ bbkill) `union` bbgen, kill `union` bbkill)
 
 -- | Iterate "GEN" set through a single basic block.
 -- attempt to make this faster using sets internally (no obvious speedup though)
 bblockGenFast :: Data a => [Block (Analysis a)] -> S.Set Name
-bblockGenFast bs = fst . foldl' (\x y -> f x (S.fromList $ blockGen y, S.fromList $ blockKill y)) (S.empty, S.empty) $ bs
+bblockGenFast bs = fst . foldl' f (S.empty, S.empty) $ zip (map (S.fromList . blockGen) bs) (map (S.fromList . blockKill) bs)
   where
     f (bbgen, bbkill) (gen, kill) = ((gen S.\\ bbkill) `S.union` bbgen, kill `S.union` bbkill)
 
@@ -241,7 +241,7 @@ reachingDefinitions dm gr = dataFlowSolver gr (const (IS.empty, IS.empty)) revPo
 
 -- Compute the "GEN" and "KILL" sets for a given basic block.
 rdBblockGenKill :: Data a => DefMap -> [Block (Analysis a)] -> (IS.IntSet, IS.IntSet)
-rdBblockGenKill dm bs = foldl' (\a b -> f a (gen b, kill b)) (IS.empty, IS.empty) bs
+rdBblockGenKill dm bs = foldl' f (IS.empty, IS.empty) $ zip (map gen bs) (map kill bs)
   where
     gen b | null (allLhsVars b) = IS.empty
           | otherwise           = IS.singleton . fromJustMsg "rdBblockGenKill" . insLabel . getAnnotation $ b
