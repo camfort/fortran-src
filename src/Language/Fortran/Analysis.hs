@@ -1,12 +1,12 @@
 {-# LANGUAGE ScopedTypeVariables, DeriveDataTypeable, StandaloneDeriving, DeriveGeneric #-}
-{-# LANGUAGE FlexibleContexts #-}
 
 -- |
 -- Common data structures and functions supporting analysis of the AST.
 module Language.Fortran.Analysis
   ( initAnalysis, stripAnalysis, Analysis(..), varName, srcName, genVar, puName, puSrcName, blockRhsExprs, rhsExprs
   , ModEnv, NameType(..), IDType(..), ConstructType(..), BaseType(..)
-  , lhsExprs, isLExpr, allVars, allLhsVars, allLhsVarsRobust, blockVarUses, blockVarDefs
+  , lhsExprs, isLExpr, allVars, analyseAllLhsVars, analyseAllLhsVars1, allLhsVars, allLhsVarsRobust
+  , blockVarUses, blockVarDefs
   , BB, BBGr
   , TransFunc, TransFuncM )
 where
@@ -84,6 +84,7 @@ data Analysis a = Analysis
   , insLabel       :: Maybe Int -- ^ unique number for each block during dataflow analysis
   , moduleEnv      :: Maybe ModEnv
   , idType         :: Maybe IDType
+  , allLhsVarsAnn  :: [Name]
   }
   deriving (Data, Show, Eq, Generic)
 
@@ -101,7 +102,8 @@ analysis0 a = Analysis { prevAnnotation = a
                        , bBlocks        = Nothing
                        , insLabel       = Nothing
                        , moduleEnv      = Nothing
-                       , idType         = Nothing }
+                       , idType         = Nothing
+                       , allLhsVarsAnn  = [] }
 
 -- | Obtain either uniqueName or source name from an ExpValue variable.
 varName :: Expression (Analysis a) -> String
@@ -181,11 +183,28 @@ allVars b = [ varName v | v@(ExpValue _ _ (ValVariable _)) <- uniBi b ]
   where
     uniBi x = universeBi x :: [Expression (Analysis a)]
 
+-- | Initiate (lazy) computation of all LHS variables for each node of
+-- the AST so that it may be accessed later.
+analyseAllLhsVars :: forall a . Data a => ProgramFile (Analysis a) -> ProgramFile (Analysis a)
+analyseAllLhsVars = (transformBi :: TransFunc Block ProgramFile a) analyseAllLhsVars1 .
+                    (transformBi :: TransFunc Statement ProgramFile a) analyseAllLhsVars1 .
+                    (transformBi :: TransFunc DoSpecification ProgramFile a) analyseAllLhsVars1
+
+analyseAllLhsVars1 :: (Annotated f, Data (f (Analysis a)), Data a) => f (Analysis a) -> f (Analysis a)
+analyseAllLhsVars1 x = modifyAnnotation (\ a -> a { allLhsVarsAnn = computeAllLhsVars x }) x
+
 -- | Set of names found in the parts of an AST that are the target of
 -- an assignment statement.
+-- allLhsVars :: (Annotated b, Data a, Data (b (Analysis a))) => b (Analysis a) -> [Name]
+allLhsVars :: Data a => Block (Analysis a) -> [Name]
+allLhsVars x = allLhsVarsAnn . getAnnotation $ x
+
+allLhsVarsDoSpec :: Data a => DoSpecification (Analysis a) -> [Name]
+allLhsVarsDoSpec x = computeAllLhsVars x
+
 -- [Fast version]
-allLhsVars :: forall a b . (Data a, Data (b (Analysis a))) => b (Analysis a) -> [Name]
-allLhsVars = concatMap lhsOfStmt . universeBi
+computeAllLhsVars :: forall a b . (Data a, Data (b (Analysis a))) => b (Analysis a) -> [Name]
+computeAllLhsVars = concatMap lhsOfStmt . universeBi
   where
     lhsOfStmt :: Statement (Analysis a) -> [Name]
     lhsOfStmt (StExpressionAssign _ _ e e') = match' e : onExprs e'
@@ -198,7 +217,7 @@ allLhsVars = concatMap lhsOfStmt . universeBi
     lhsOfExp :: Expression (Analysis a) -> [Name]
     lhsOfExp (ExpFunctionCall _ _ _ (Just aexps)) = concatMap (match . extractExp) (aStrip aexps)
     lhsOfExp _ = []
- 
+
     extractExp (Argument _ _ _ exp) = exp
 
     -- Match and give the varname for LHS of statement
@@ -267,8 +286,8 @@ blockVarUses b                         = allVars b
 
 -- | Set of names defined by an AST-block.
 blockVarDefs :: Data a => Block (Analysis a) -> [Name]
-blockVarDefs (BlStatement _ _ _ st) = allLhsVars st
-blockVarDefs (BlDo _ _ _ _ _ (Just doSpec) _ _)  = allLhsVars doSpec
+blockVarDefs b@(BlStatement _ _ _ st) = allLhsVars b
+blockVarDefs (BlDo _ _ _ _ _ (Just doSpec) _ _)  = allLhsVarsDoSpec doSpec
 blockVarDefs _                      = []
 
 -- Local variables:
