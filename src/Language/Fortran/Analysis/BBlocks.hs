@@ -32,7 +32,7 @@ import Debug.Trace
 
 -- | Insert basic block graphs into each program unit's analysis
 analyseBBlocks :: Data a => ProgramFile (Analysis a) -> ProgramFile (Analysis a)
-analyseBBlocks pf = evalState (analyse pf) 1
+analyseBBlocks pf = evalState (analyse (analyseAllLhsVars pf)) 1
   where
     analyse = labelExprsInBBGr <=< labelBlocksInBBGr <=< return . trans toBBlocksPerPU <=< labelExprs <=< labelBlocks
     trans :: Data a => TransFunc ProgramUnit ProgramFile a
@@ -78,8 +78,8 @@ labelBlocksInBBGr pf = transform (nmapM' (mapM eachBlock)) pf
       | a@Analysis { insLabel = Nothing } <- getAnnotation b = do
           n <- get
           put $ n + 1
-          return . labelWithinBlocks $ setAnnotation (a { insLabel = Just n }) b
-      | otherwise = return b
+          return . analyseAllLhsVars1 . labelWithinBlocks $ setAnnotation (a { insLabel = Just n }) b
+      | otherwise = return . analyseAllLhsVars1 $ b
     transform :: Data a => (BBGr a -> State Int (BBGr a)) ->
                            ProgramFile a -> State Int (ProgramFile a)
     transform = transformBiM
@@ -190,7 +190,7 @@ genInOutAssignments pu exit
       PUFunction a s _ _ _ Nothing _ _ _               -> (a, s, [])
       PUSubroutine a s _ _ Nothing _ _                 -> (a, s, [])
       _                                                -> (error "genInOutAssignments", error "genInOutAssignments", [])
-    genAssign v i = BlStatement a0 s Nothing (StExpressionAssign a0 s vl vr)
+    genAssign v i = analyseAllLhsVars1 $ BlStatement a0 s Nothing (StExpressionAssign a0 s vl vr)
       where
         (vl, vr) = if exit then (v', v) else (v, v')
         v'       = case v of
@@ -379,11 +379,11 @@ perBlock b@(BlStatement a s l (StCall a' s' cn@(ExpValue _ _ (ValVariable {})) (
         where a = getAnnotation e; s = getSpan e
   forM_ (zip exps [1..]) $ \ (e, i) -> do
     e' <- processFunctionCalls e
-    addToBBlock $ BlStatement a s Nothing (StExpressionAssign a' s' (formal e' i) e')
+    addToBBlock . analyseAllLhsVars1 $ BlStatement a s Nothing (StExpressionAssign a' s' (formal e' i) e')
   (_, dummyCallN) <- closeBBlock
 
   -- create "dummy call" bblock with no parameters in the StCall AST-node.
-  addToBBlock $ BlStatement a s Nothing (StCall a' s' cn Nothing)
+  addToBBlock . analyseAllLhsVars1 $ BlStatement a s Nothing (StCall a' s' cn Nothing)
   (_, returnedN) <- closeBBlock
 
   -- re-assign the variables using the values of the formal parameters, if possible
@@ -391,7 +391,7 @@ perBlock b@(BlStatement a s l (StCall a' s' cn@(ExpValue _ _ (ValVariable {})) (
   forM_ (zip exps [1..]) $ \ (e, i) ->
     -- this is only possible for l-expressions
     if isLExpr e then
-      addToBBlock $ BlStatement a s Nothing (StExpressionAssign a' s' e (formal e i))
+      addToBBlock . analyseAllLhsVars1 $ BlStatement a s Nothing (StExpressionAssign a' s' e (formal e i))
     else return ()
   (_, nextN) <- closeBBlock
 
@@ -488,7 +488,7 @@ processFunctionCalls :: Data a => Expression (Analysis a) -> BBlocker (Analysis 
 processFunctionCalls = transformBiM processFunctionCall -- work bottom-up
 
 -- Flatten out a single function call.
-processFunctionCall :: Expression (Analysis a) -> BBlocker (Analysis a) (Expression (Analysis a))
+processFunctionCall :: Data a => Expression (Analysis a) -> BBlocker (Analysis a) (Expression (Analysis a))
 -- precondition: there are no more nested function calls within the actual arguments
 processFunctionCall (ExpFunctionCall a s fn@(ExpValue a' s' (ValVariable _)) aargs) = do
   let a0 = head . initAnalysis $ [prevAnnotation a]
@@ -504,11 +504,11 @@ processFunctionCall (ExpFunctionCall a s fn@(ExpValue a' s' (ValVariable _)) aar
       formal e i                              = setName n $ ExpValue a0 s (ValVariable n)
         where a = getAnnotation e; s = getSpan e; n = name i
   forM_ (zip exps [1..]) $ \ (e, i) -> do
-    addToBBlock $ BlStatement a0 s Nothing (StExpressionAssign a' s' (formal e i) e)
+    addToBBlock . analyseAllLhsVars1 $ BlStatement a0 s Nothing (StExpressionAssign a' s' (formal e i) e)
   (_, dummyCallN) <- closeBBlock
 
   -- create "dummy call" bblock with no parameters in the StCall AST-node.
-  addToBBlock $ BlStatement a s Nothing (StCall a' s' (genVar a' s' (varName fn)) Nothing)
+  addToBBlock . analyseAllLhsVars1 $ BlStatement a s Nothing (StCall a' s' (genVar a' s' (varName fn)) Nothing)
   (_, returnedN) <- closeBBlock
 
   -- re-assign the variables using the values of the formal parameters, if possible
@@ -516,13 +516,13 @@ processFunctionCall (ExpFunctionCall a s fn@(ExpValue a' s' (ValVariable _)) aar
   forM_ (zip exps [1..]) $ \ (e, i) ->
     -- this is only possible for l-expressions
     if isLExpr e then
-      addToBBlock $ BlStatement a0 s Nothing (StExpressionAssign a' s' e (formal e i))
+      addToBBlock . analyseAllLhsVars1 $ BlStatement a0 s Nothing (StExpressionAssign a' s' e (formal e i))
     else return ()
   tempName <- genTemp (varName fn)
   let temp = setName tempName $ ExpValue a0 s (ValVariable tempName)
   let retV = setName (name 0) $ ExpValue a0 s (ValVariable (name 0))
 
-  addToBBlock $ BlStatement a0 s Nothing (StExpressionAssign a0 s' temp retV)
+  addToBBlock . analyseAllLhsVars1 $ BlStatement a0 s Nothing (StExpressionAssign a0 s' temp retV)
   (_, nextN) <- closeBBlock
 
   -- connect the bblocks
