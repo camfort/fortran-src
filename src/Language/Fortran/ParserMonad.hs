@@ -70,17 +70,48 @@ data ParseError a b = ParseError
   , errFilename   :: String
   , errMsg        :: String }
 
+
 instance Show b => Show (ParseError a b) where
-  show err =
-    let lastTokenMsg =
-          (case errLastToken err of
-            Just a -> "Last parsed token: " ++ show a ++ "."
-            Nothing -> "Not token had been lexed.") in
-    show (errPos err) ++ ": " ++ errMsg err ++ lastTokenMsg
+  show err = show (errPos err) ++ ": " ++ errMsg err ++ lastTokenMsg
+    where
+      lastTokenMsg = tokenMsg (errLastToken err)
+
+tokenMsg (Just a) = "Last parsed token: " ++ show a ++ "."
+tokenMsg Nothing = "No token had been lexed."
+
+instance Functor (ParseResult b c) where
+    fmap f (ParseOk a s) = ParseOk (f a) s
+    fmap f (ParseFailed err) = ParseFailed err
 
 instance (Typeable a, Typeable b, Show a, Show b) => Exception (ParseError a b)
 
 data ParseResult b c a = ParseOk a (ParseState b) | ParseFailed (ParseError b c)
+
+-- Provides a way to aggregate errors that come
+-- from parses with different token types
+data ParseErrorSimple = ParseErrorSimple
+  { errorPos      :: Position
+  , errorFilename :: String
+  , errorMsg      :: String }
+
+fromParseResultUnsafe :: (Show c) => ParseResult b c a -> a
+fromParseResultUnsafe (ParseOk a _) = a
+fromParseResultUnsafe (ParseFailed err) = throwIOerror $ show err
+
+fromLeft :: Show b => Either a b -> a
+fromLeft (Left x) = x
+fromLeft (Right x) = throwIOerror $ show x
+
+fromParseResult :: (Show c) => ParseResult b c a -> Either a ParseErrorSimple
+fromParseResult (ParseOk a _)   = Left a
+fromParseResult (ParseFailed err) =
+    Right $ ParseErrorSimple
+      { errorPos = errPos err
+      , errorFilename = errFilename err
+      , errorMsg = errMsg err ++ "\n" ++ (tokenMsg $ errLastToken err)  }
+
+instance Show ParseErrorSimple where
+  show err = errorFilename err ++ ", " ++ show (errorPos err) ++ ": " ++ errorMsg err
 
 class LastToken a b | a -> b where
   getLastToken :: (Show b) => a -> Maybe b
@@ -197,17 +228,20 @@ throwIOerror s = throw $
           , ioe_errno       = Nothing
           , ioe_filename    = Nothing }
 
-runParse :: (Loc b, LastToken b c, Show c) => Parse b c a -> ParseState b -> (a, ParseState b)
-runParse lexer initState =
+runParse :: (Loc b, LastToken b c, Show c) => Parse b c a -> ParseState b -> ParseResult b c a
+runParse lexer initState = unParse lexer initState
+
+runParseUnsafe :: (Loc b, LastToken b c, Show c) => Parse b c a -> ParseState b -> (a, ParseState b)
+runParseUnsafe lexer initState =
   case unParse lexer initState of
     ParseOk a s -> (a, s)
     ParseFailed e -> throwIOerror $ show e
 
 evalParse :: (Loc b, LastToken b c, Show c) => Parse b c a -> ParseState b -> a
-evalParse m s = fst (runParse m s)
+evalParse m s = fst (runParseUnsafe m s)
 
 execParse :: (Loc b, LastToken b c, Show c) => Parse b c a -> ParseState b -> ParseState b
-execParse m s = snd (runParse m s)
+execParse m s = snd (runParseUnsafe m s)
 
 class Tok a where
   eofToken :: a -> Bool
@@ -218,7 +252,7 @@ collectTokens lexer initState =
   where
     _collectTokens :: (Loc b, Tok a, LastToken b a, Show a) => ParseState b -> Parse b a [a]
     _collectTokens state = do
-      let (_token, _state) = runParse lexer state
+      let (_token, _state) = runParseUnsafe lexer state
       if eofToken _token
       then return [_token]
       else do

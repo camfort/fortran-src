@@ -15,10 +15,11 @@ import Data.Data (toConstr)
 #endif
 
 import Language.Fortran.Util.Position
+import Language.Fortran.Util.ModFile
 import Language.Fortran.ParserMonad
 import Language.Fortran.Lexer.FreeForm
 import Language.Fortran.AST
-import Language.Fortran.Transformer (transform, Transformation(..))
+import Language.Fortran.Transformer
 
 import Debug.Trace
 
@@ -1109,7 +1110,7 @@ unitNameCheck (TId _ name1) name2
   | otherwise = fail "Unit name does not match the corresponding END statement."
 unitNameCheck _ _ = return ()
 
-parse = evalParse programParser
+parse = runParse programParser
 
 transformations95 =
   [ GroupLabeledDo
@@ -1119,10 +1120,19 @@ transformations95 =
   , DisambiguateFunction
   ]
 
-fortran95Parser :: B.ByteString -> String -> ProgramFile A0
+fortran95Parser ::
+     B.ByteString -> String -> ParseResult AlexInput Token (ProgramFile A0)
 fortran95Parser sourceCode filename =
-    pfSetFilename filename . transform transformations95 $ parse parseState
+    fmap (pfSetFilename filename . transform transformations95) $ parse parseState
   where
+    parseState = initParseState sourceCode Fortran95 filename
+
+fortran95ParserWithModFiles ::
+     ModFiles -> B.ByteString -> String -> ParseResult AlexInput Token (ProgramFile A0)
+fortran95ParserWithModFiles mods sourceCode filename =
+    fmap (pfSetFilename filename . transform) $ parse parseState
+  where
+    transform = transformWithModFiles mods transformations95
     parseState = initParseState sourceCode Fortran95 filename
 
 parseError :: Token -> LexAction a

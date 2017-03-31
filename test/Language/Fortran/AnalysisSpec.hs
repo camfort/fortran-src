@@ -5,7 +5,7 @@ import TestUtil
 
 import Language.Fortran.Parser.Fortran77
 import Language.Fortran.Lexer.FixedForm (initParseState)
-import Language.Fortran.ParserMonad (FortranVersion(..), evalParse)
+import Language.Fortran.ParserMonad (FortranVersion(..), evalParse, fromParseResultUnsafe)
 import Language.Fortran.AST
 import Language.Fortran.Analysis
 import Data.Graph.Inductive
@@ -15,7 +15,9 @@ import Data.Maybe
 import qualified Data.ByteString.Char8 as B
 
 pParser :: String -> ProgramFile (Analysis ())
-pParser source = initAnalysis $ extended77Parser (B.pack source) "<unknown>"
+pParser source = initAnalysis
+               . fromParseResultUnsafe
+               $ extended77Parser (B.pack source) "<unknown>"
 
 spec :: Spec
 spec =

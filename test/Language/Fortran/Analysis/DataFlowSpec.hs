@@ -7,7 +7,7 @@ import TestUtil
 import Language.Fortran.Parser.Fortran77
 import qualified Language.Fortran.Parser.Fortran90 as F90
 import Language.Fortran.Lexer.FixedForm (initParseState)
-import Language.Fortran.ParserMonad (FortranVersion(..), evalParse)
+import Language.Fortran.ParserMonad (FortranVersion(..), evalParse, fromParseResultUnsafe)
 import Language.Fortran.AST
 import Language.Fortran.Analysis
 import Language.Fortran.Analysis.Renaming hiding (extractNameMap, underRenaming)
@@ -31,9 +31,9 @@ data F90 = F90
 class Parser t where
     parser :: t -> String -> String -> ProgramFile A0
 instance Parser F77 where
-    parser F77 src file = extended77Parser (B.pack src) file
+    parser F77 src file = fromParseResultUnsafe $ extended77Parser (B.pack src) file
 instance Parser F90 where
-    parser F90 src file = F90.fortran90Parser (B.pack src) file
+    parser F90 src file = fromParseResultUnsafe $ F90.fortran90Parser (B.pack src) file
 
 pParser :: Parser t => t -> String -> ProgramFile (Analysis ())
 pParser version source = rename . analyseBBlocks . analyseRenames . initAnalysis

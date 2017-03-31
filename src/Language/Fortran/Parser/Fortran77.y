@@ -841,20 +841,23 @@ makeReal i1 dot i2 exp =
       expStr  = case exp of { Just (_, s) -> s ; _ -> "" } in
     ExpValue () span2 (ValReal $ i1Str ++ dotStr ++ i2Str ++ expStr)
 
-parse = evalParse programParser
+parse = runParse programParser
 
 transformations77 =
   [ GroupLabeledDo
   , GroupIf
   , DisambiguateFunction
   ]
-fortran77Parser :: B.ByteString -> String -> ProgramFile A0
+fortran77Parser ::
+    B.ByteString -> String -> ParseResult AlexInput Token (ProgramFile A0)
 fortran77Parser = fortran77ParserWithModFiles emptyModFiles
 
-fortran77ParserWithModFiles :: ModFiles -> B.ByteString -> String -> ProgramFile A0
+fortran77ParserWithModFiles ::
+    ModFiles -> B.ByteString -> String -> ParseResult AlexInput Token (ProgramFile A0)
 fortran77ParserWithModFiles mods sourceCode filename =
-    pfSetFilename filename . transformWithModFiles mods transformations77 $ parse parseState
+    fmap (pfSetFilename filename . transform) $ parse parseState
   where
+    transform  = transformWithModFiles mods transformations77
     parseState = initParseState sourceCode Fortran77Extended filename
 
 transformations77Extended =
@@ -863,13 +866,16 @@ transformations77Extended =
   , GroupIf
   , DisambiguateFunction
   ]
-extended77Parser :: B.ByteString -> String -> ProgramFile A0
+extended77Parser ::
+    B.ByteString -> String -> ParseResult AlexInput Token (ProgramFile A0)
 extended77Parser = extended77ParserWithModFiles emptyModFiles
 
-extended77ParserWithModFiles :: ModFiles -> B.ByteString -> String -> ProgramFile A0
+extended77ParserWithModFiles ::
+    ModFiles -> B.ByteString -> String -> ParseResult AlexInput Token (ProgramFile A0)
 extended77ParserWithModFiles mods sourceCode filename =
-    pfSetFilename filename . transformWithModFiles mods transformations77Extended $ parse parseState
+    fmap (pfSetFilename filename . transform) $ parse parseState
   where
+    transform = transformWithModFiles mods transformations77Extended
     parseState = initParseState sourceCode Fortran77Extended filename
 
 parseError :: Token -> LexAction a

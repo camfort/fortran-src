@@ -18,13 +18,13 @@ import System.FilePath
 import Text.PrettyPrint.GenericPretty (pp, pretty, Out)
 import Data.List (isInfixOf, isSuffixOf, intercalate, (\\))
 import Data.Char (toLower)
-import Data.Maybe (fromMaybe, maybeToList)
+import Data.Maybe (fromMaybe, fromJust, maybeToList)
 import Data.Data
 import Data.Binary
 import Data.Generics.Uniplate.Data
 import Data.Generics.Uniplate.Operations
 
-import Language.Fortran.ParserMonad (FortranVersion(..))
+import Language.Fortran.ParserMonad (FortranVersion(..), fromLeft)
 import qualified Language.Fortran.Lexer.FixedForm as FixedForm (collectFixedTokens, Token(..))
 import qualified Language.Fortran.Lexer.FreeForm as FreeForm (collectFreeTokens, Token(..))
 
@@ -74,7 +74,8 @@ main = do
       let path = head parsedArgs
       contents <- flexReadFile path
       let version = fromMaybe (deduceVersion path) (fortranVersion opts)
-      let Just parserF = lookup version parserWithModFilesVersions
+      let (Just parserF0) = lookup version parserWithModFilesVersions
+      let parserF = \m b s -> fromLeft (parserF0 m b s)
       let outfmt = outputFormat opts
       mods <- decodeModFiles $ includeDirs opts
       let mmap = combinedModuleMap mods

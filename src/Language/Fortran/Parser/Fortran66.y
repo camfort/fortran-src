@@ -508,14 +508,16 @@ transformations66 =
   , DisambiguateFunction
   ]
 
-fortran66Parser :: B.ByteString -> String -> ProgramFile A0
+fortran66Parser ::
+     B.ByteString -> String -> ParseResult AlexInput Token (ProgramFile A0)
 fortran66Parser = fortran66ParserWithModFiles emptyModFiles
 
-fortran66ParserWithModFiles :: ModFiles -> B.ByteString -> String -> ProgramFile A0
+fortran66ParserWithModFiles ::
+    ModFiles -> B.ByteString -> String -> ParseResult AlexInput Token (ProgramFile A0)
 fortran66ParserWithModFiles mods sourceCode filename =
-    pfSetFilename filename . transformWithModFiles mods transformations66 $ parse parseState
+    fmap (pfSetFilename filename . transformWithModFiles mods transformations66) $ parse parseState
   where
-    parse = evalParse programParser
+    parse = runParse programParser
     parseState = initParseState sourceCode Fortran66 filename
 
 parseError :: Token -> LexAction a

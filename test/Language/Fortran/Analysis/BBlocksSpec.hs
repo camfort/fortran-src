@@ -5,7 +5,7 @@ import TestUtil
 
 import Language.Fortran.Parser.Fortran77
 import Language.Fortran.Lexer.FixedForm (initParseState)
-import Language.Fortran.ParserMonad (FortranVersion(..), evalParse)
+import Language.Fortran.ParserMonad (FortranVersion(..), evalParse, fromParseResultUnsafe)
 import Language.Fortran.AST
 import Language.Fortran.Analysis
 import Language.Fortran.Analysis.BBlocks
@@ -18,7 +18,8 @@ import Data.Maybe
 import qualified Data.ByteString.Char8 as B
 
 pParser :: String -> ProgramFile (Analysis ())
-pParser source = rename . analyseBBlocks . analyseRenames . initAnalysis $ extended77Parser (B.pack source) "<unknown>"
+pParser source = rename . analyseBBlocks . analyseRenames . initAnalysis . fromParseResultUnsafe
+               $ extended77Parser (B.pack source) "<unknown>"
 
 spec :: Spec
 spec =

@@ -1050,7 +1050,7 @@ unitNameCheck (TId _ name1) name2
   | otherwise = fail "Unit name does not match the corresponding END statement."
 unitNameCheck _ _ = return ()
 
-parse = evalParse programParser
+parse = runParse programParser
 
 transformations90 =
   [ GroupLabeledDo
@@ -1060,12 +1060,14 @@ transformations90 =
   , DisambiguateFunction
   ]
 
-fortran90Parser :: B.ByteString -> String -> ProgramFile A0
+fortran90Parser ::
+    B.ByteString -> String -> ParseResult AlexInput Token (ProgramFile A0)
 fortran90Parser = fortran90ParserWithModFiles emptyModFiles
 
-fortran90ParserWithModFiles :: ModFiles -> B.ByteString -> String -> ProgramFile A0
+fortran90ParserWithModFiles ::
+    ModFiles -> B.ByteString -> String -> ParseResult AlexInput Token (ProgramFile A0)
 fortran90ParserWithModFiles mods sourceCode filename =
-    pfSetFilename filename . transformWithModFiles mods transformations90 $ parse parseState
+    fmap (pfSetFilename filename . transformWithModFiles mods transformations90) $ parse parseState
   where
     parseState = initParseState sourceCode Fortran90 filename
 

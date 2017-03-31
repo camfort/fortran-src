@@ -7,6 +7,7 @@ import Data.Map ((!), elems)
 import qualified Data.Map as M
 import Data.List
 
+import Language.Fortran.ParserMonad
 import Language.Fortran.AST
 import Language.Fortran.Util.Position
 import qualified Language.Fortran.Parser.Fortran90 as F90
@@ -28,7 +29,7 @@ countUnrenamed e = length [ () | ExpValue (Analysis { uniqueName = Nothing }) _ 
   where uniE_PF :: ProgramFile (Analysis ()) -> [Expression (Analysis ())]
         uniE_PF = universeBi
 
-fortran90Parser src file = F90.fortran90Parser (B.pack src) file
+fortran90Parser src file = fromParseResultUnsafe $ F90.fortran90Parser (B.pack src) file
 
 spec :: Spec
 spec = do

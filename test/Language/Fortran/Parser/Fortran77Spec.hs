@@ -5,7 +5,7 @@ import TestUtil
 
 import Language.Fortran.Parser.Fortran77
 import Language.Fortran.Lexer.FixedForm (initParseState)
-import Language.Fortran.ParserMonad (FortranVersion(..), evalParse)
+import Language.Fortran.ParserMonad (FortranVersion(..), evalParse, fromParseResultUnsafe)
 import Language.Fortran.AST
 import qualified Data.ByteString.Char8 as B
 
@@ -22,7 +22,7 @@ sParser sourceCode =
   evalParse statementParser $ initParseState (B.pack sourceCode) Fortran77 "<unknown>"
 
 pParser :: String -> ProgramFile ()
-pParser source = fortran77Parser (B.pack source) "<unknown>"
+pParser source = fromParseResultUnsafe $ fortran77Parser (B.pack source) "<unknown>"
 
 spec :: Spec
 spec =

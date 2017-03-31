@@ -2,7 +2,7 @@ module Language.Fortran.Parser.Any where
 
 import Language.Fortran.AST
 import Language.Fortran.Util.ModFile
-import Language.Fortran.ParserMonad (FortranVersion(..))
+import Language.Fortran.ParserMonad (FortranVersion(..), ParseErrorSimple(..), fromParseResult)
 
 import Language.Fortran.Parser.Fortran66 ( fortran66Parser, fortran66ParserWithModFiles )
 import Language.Fortran.Parser.Fortran77 ( fortran77Parser, fortran77ParserWithModFiles
@@ -30,33 +30,35 @@ deduceVersion path
   where
     isExtensionOf = flip isSuffixOf $ map toLower path
 
-type Parser = B.ByteString -> String -> ProgramFile A0
+type Parser = B.ByteString -> String -> Either (ProgramFile A0) ParseErrorSimple
 parserVersions :: [(FortranVersion, Parser)]
 parserVersions =
-  [ (Fortran66, fortran66Parser)
-  , (Fortran77, fortran77Parser)
-  , (Fortran77Extended, extended77Parser)
-  , (Fortran90, fortran90Parser)
-  , (Fortran95, fortran95Parser) ]
+  [ (Fortran66, fromParseResult `after` fortran66Parser)
+  , (Fortran77, fromParseResult `after` fortran77Parser)
+  , (Fortran77Extended, fromParseResult `after` extended77Parser)
+  , (Fortran90, fromParseResult `after` fortran90Parser)
+  , (Fortran95, fromParseResult `after` fortran95Parser) ]
 
-type ParserWithModFiles = ModFiles -> B.ByteString -> String -> ProgramFile A0
+type ParserWithModFiles = ModFiles -> B.ByteString -> String -> Either (ProgramFile A0) ParseErrorSimple
 parserWithModFilesVersions :: [(FortranVersion, ParserWithModFiles)]
 parserWithModFilesVersions =
-  [ (Fortran66, fortran66ParserWithModFiles)
-  , (Fortran77, fortran77ParserWithModFiles)
-  , (Fortran77Extended, extended77ParserWithModFiles)
-  , (Fortran90, fortran90ParserWithModFiles) ]
+  [ (Fortran66, \m s -> fromParseResult . fortran66ParserWithModFiles m s)
+  , (Fortran77, \m s -> fromParseResult . fortran77ParserWithModFiles m s)
+  , (Fortran77Extended, \m s -> fromParseResult . extended77ParserWithModFiles m s)
+  , (Fortran90, \m s -> fromParseResult . fortran90ParserWithModFiles m s) ]
+
+after g f x = g . (f x)
 
 -- | Deduce the type of parser from the filename and parse the
 -- contents of the file.
-fortranParser :: B.ByteString -> String -> ProgramFile ()
+fortranParser :: Parser
 fortranParser contents filename = do
    let Just parserF = lookup (deduceVersion filename) parserVersions
    parserF contents filename
 
 -- | Deduce the type of parser from the filename and parse the
 -- contents of the file, within the context of given "mod files".
-fortranParserWithModFiles :: ModFiles -> B.ByteString -> String -> ProgramFile ()
+fortranParserWithModFiles :: ParserWithModFiles
 fortranParserWithModFiles mods contents filename = do
    let Just parserF = lookup (deduceVersion filename) parserWithModFilesVersions
    parserF mods contents filename
