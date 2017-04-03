@@ -30,7 +30,7 @@ deduceVersion path
   where
     isExtensionOf = flip isSuffixOf $ map toLower path
 
-type Parser = B.ByteString -> String -> Either (ProgramFile A0) ParseErrorSimple
+type Parser = B.ByteString -> String -> Either ParseErrorSimple (ProgramFile A0)
 parserVersions :: [(FortranVersion, Parser)]
 parserVersions =
   [ (Fortran66, fromParseResult `after` fortran66Parser)
@@ -39,7 +39,7 @@ parserVersions =
   , (Fortran90, fromParseResult `after` fortran90Parser)
   , (Fortran95, fromParseResult `after` fortran95Parser) ]
 
-type ParserWithModFiles = ModFiles -> B.ByteString -> String -> Either (ProgramFile A0) ParseErrorSimple
+type ParserWithModFiles = ModFiles -> B.ByteString -> String -> Either ParseErrorSimple (ProgramFile A0)
 parserWithModFilesVersions :: [(FortranVersion, ParserWithModFiles)]
 parserWithModFilesVersions =
   [ (Fortran66, \m s -> fromParseResult . fortran66ParserWithModFiles m s)

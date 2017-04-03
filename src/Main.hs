@@ -24,7 +24,7 @@ import Data.Binary
 import Data.Generics.Uniplate.Data
 import Data.Generics.Uniplate.Operations
 
-import Language.Fortran.ParserMonad (FortranVersion(..), fromLeft)
+import Language.Fortran.ParserMonad (FortranVersion(..), fromRight)
 import qualified Language.Fortran.Lexer.FixedForm as FixedForm (collectFixedTokens, Token(..))
 import qualified Language.Fortran.Lexer.FreeForm as FreeForm (collectFreeTokens, Token(..))
 
@@ -75,7 +75,7 @@ main = do
       contents <- flexReadFile path
       let version = fromMaybe (deduceVersion path) (fortranVersion opts)
       let (Just parserF0) = lookup version parserWithModFilesVersions
-      let parserF = \m b s -> fromLeft (parserF0 m b s)
+      let parserF = \m b s -> fromRight (parserF0 m b s)
       let outfmt = outputFormat opts
       mods <- decodeModFiles $ includeDirs opts
       let mmap = combinedModuleMap mods

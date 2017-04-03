@@ -98,14 +98,14 @@ fromParseResultUnsafe :: (Show c) => ParseResult b c a -> a
 fromParseResultUnsafe (ParseOk a _) = a
 fromParseResultUnsafe (ParseFailed err) = throwIOerror $ show err
 
-fromLeft :: Show b => Either a b -> a
-fromLeft (Left x) = x
-fromLeft (Right x) = throwIOerror $ show x
+fromRight :: Show a => Either a b -> b
+fromRight (Left x)  = throwIOerror . show $ x
+fromRight (Right x) = x
 
-fromParseResult :: (Show c) => ParseResult b c a -> Either a ParseErrorSimple
-fromParseResult (ParseOk a _)   = Left a
+fromParseResult :: (Show c) => ParseResult b c a -> Either ParseErrorSimple a
+fromParseResult (ParseOk a _)     = Right a
 fromParseResult (ParseFailed err) =
-    Right $ ParseErrorSimple
+    Left $ ParseErrorSimple
       { errorPos = errPos err
       , errorFilename = errFilename err
       , errorMsg = errMsg err ++ "\n" ++ (tokenMsg $ errLastToken err)  }
