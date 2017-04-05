@@ -47,6 +47,29 @@ spec =
         let reached = IS.fromList $ rdfs [-1] gr
         let nodeSet = IS.fromList $ nodes gr
         reached `shouldBe` nodeSet
+    describe "if arith" $ do
+      it "nodes and edges length" $ do
+        let pf = pParser programArithIf
+        let gr = fromJust . M.lookup (Named "arithif") $ genBBlockMap pf
+        let ns = nodes gr
+        let es = edges gr
+        (length ns, length es) `shouldBe` (6, 7)
+      it "branching nodes" $ do
+        let pf = pParser programArithIf
+        let gr = fromJust . M.lookup (Named "arithif") $ genBBlockMap pf
+        (IS.size (findSuccsBB gr [10]), IS.size (findSuccsBB gr [20]), IS.size (findSuccsBB gr [30])) `shouldBe` (1, 1, 1)
+      it "all reachable" $ do
+        let pf = pParser programArithIf
+        let gr = fromJust . M.lookup (Named "arithif") $ genBBlockMap pf
+        let reached = IS.fromList $ dfs [0] gr
+        let nodeSet = IS.fromList $ nodes gr
+        reached `shouldBe` nodeSet
+      it "all terminate" $ do
+        let pf = pParser programArithIf
+        let gr = fromJust . M.lookup (Named "arithif") $ genBBlockMap pf
+        let reached = IS.fromList $ rdfs [-1] gr
+        let nodeSet = IS.fromList $ nodes gr
+        reached `shouldBe` nodeSet
 
 --------------------------------------------------
 -- Label-finding helper functions to help write tests that are
@@ -93,6 +116,17 @@ programLoop4 = unlines [
     , " 40   write (*,*) r"
     , "      end"
   ]
+
+programArithIf = unlines [
+    "      program arithif"
+  , "      integer n"
+  , "      n = 0"
+  , "      if (n) 10, 20, 30"
+  , " 10   write (*,*) 10"
+  , " 20   write (*,*) 20"
+  , " 30   write (*,*) 30"
+  , "      end"]
+
 
 -- Local variables:
 -- mode: haskell

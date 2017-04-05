@@ -221,6 +221,8 @@ examineFinalBlock lm bs@(_:_)
   | BlStatement _ _ _ (StGotoAssigned _ _ _ ks)   <- last bs = map (lookupBBlock lm) (aStrip ks)
   | BlStatement _ _ _ (StGotoComputed _ _ ks _)   <- last bs = map (lookupBBlock lm) (aStrip ks)
   | BlStatement _ _ _ (StReturn _ _ _)            <- last bs = [-1]
+  | BlStatement _ _ _ (StIfArithmetic _ _ _ k1 k2 k3) <- last bs =
+      [lookupBBlock lm k1, lookupBBlock lm k2, lookupBBlock lm k3]
 examineFinalBlock _ _                                        = [-1]
 
 -- True iff the final block in the list is an explicit control transfer.
@@ -229,6 +231,7 @@ isFinalBlockCtrlXfer bs@(_:_)
   | BlStatement _ _ _ (StGotoAssigned {})      <- last bs = True
   | BlStatement _ _ _ (StGotoComputed {})      <- last bs = True
   | BlStatement _ _ _ (StReturn {})            <- last bs = True
+  | BlStatement _ _ _ (StIfArithmetic {})      <- last bs = True
 isFinalBlockCtrlXfer _                                    = False
 
 lookupBBlock lm (ExpValue _ _ (ValInteger l)) = (-1) `fromMaybe` M.lookup l lm
@@ -346,7 +349,9 @@ perBlock b@(BlStatement a ss _ (StIfLogical _ _ exp stm)) = do
   nxtN <- genBBlock
   createEdges [(ifN, thenN, ()), (ifN, nxtN, ()), (thenN, nxtN, ())]
 
-perBlock b@(BlStatement _ _ _ (StIfArithmetic {})) = error "BBlocks: StIfArithmetic unsupported"
+perBlock b@(BlStatement _ _ _ (StIfArithmetic {})) =
+  -- Treat an arithmetic if similarly to a goto
+  processLabel b >> addToBBlock b >> closeBBlock_
 perBlock b@(BlDo _ _ mlab _ _ (Just spec) bs _) = do
   let DoSpecification _ _ (StExpressionAssign _ _ _ e1) e2 me3 = spec
   e1'  <- processFunctionCalls e1
