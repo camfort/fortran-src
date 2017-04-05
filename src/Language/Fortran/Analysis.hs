@@ -5,7 +5,7 @@
 module Language.Fortran.Analysis
   ( initAnalysis, stripAnalysis, Analysis(..), varName, srcName, genVar, puName, puSrcName, blockRhsExprs, rhsExprs
   , ModEnv, NameType(..), IDType(..), ConstructType(..), BaseType(..)
-  , lhsExprs, isLExpr, allVars, analyseAllLhsVars, analyseAllLhsVars1, allLhsVars, allLhsVarsRobust
+  , lhsExprs, isLExpr, allVars, analyseAllLhsVars, analyseAllLhsVars1, allLhsVars
   , blockVarUses, blockVarDefs
   , BB, BBGr
   , TransFunc, TransFuncM )
@@ -202,7 +202,8 @@ allLhsVars x = allLhsVarsAnn . getAnnotation $ x
 allLhsVarsDoSpec :: Data a => DoSpecification (Analysis a) -> [Name]
 allLhsVarsDoSpec x = computeAllLhsVars x
 
--- [Fast version]
+-- | Set of names found in the parts of an AST that are the target of
+-- an assignment statement.
 computeAllLhsVars :: forall a b . (Data a, Data (b (Analysis a))) => b (Analysis a) -> [Name]
 computeAllLhsVars = concatMap lhsOfStmt . universeBi
   where
@@ -237,16 +238,6 @@ computeAllLhsVars = concatMap lhsOfStmt . universeBi
     match (ExpSubscript _ _ v@(ExpValue _ _ (ValVariable {})) _) = [varName v]
     match (ExpDataRef _ _ e _) = match e
     match e = []
-
--- | Set of names found in the parts of an AST that are the target of
--- an assignment statement.
--- Slower than `allLhsVars` but more robust
-allLhsVarsRobust :: (Data a, Data (b (Analysis a))) => b (Analysis a) -> [Name]
-allLhsVarsRobust b = mapMaybe match (lhsExprs b)
-  where
-    match v@(ExpValue _ _ (ValVariable {})) = Just (varName v)
-    match (ExpSubscript _ _ v@(ExpValue _ _ (ValVariable {})) _) = Just (varName v)
-    match _ = Nothing
 
 -- | Set of expressions used -- not defined -- by an AST-block.
 blockRhsExprs :: Data a => Block a -> [Expression a]
