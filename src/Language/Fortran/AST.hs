@@ -118,6 +118,7 @@ data ProgramUnit a =
       a SrcSpan
       (Maybe Name)
       [Block a] -- Body
+  | PUComment a SrcSpan (Comment a)
   deriving (Eq, Show, Data, Typeable, Generic, Functor)
 
 programUnitBody :: ProgramUnit a -> [Block a]
@@ -126,13 +127,15 @@ programUnitBody (PUModule _ _ _ bs _)            = bs
 programUnitBody (PUSubroutine _ _ _ _ _ bs _)    = bs
 programUnitBody (PUFunction _ _ _ _ _ _ _ bs _)  = bs
 programUnitBody (PUBlockData _ _ _ bs)           = bs
+programUnitBody (PUComment {})                   = []
 
 programUnitSubprograms :: ProgramUnit a -> Maybe [ProgramUnit a]
 programUnitSubprograms (PUMain _ _ _ _ s)             = s
 programUnitSubprograms (PUModule _ _ _ _ s)           = s
 programUnitSubprograms (PUSubroutine _ _ _ _ _ _ s)   = s
 programUnitSubprograms (PUFunction _ _ _ _ _ _ _ _ s) = s
-programUnitSubprograms (PUBlockData _ _ _ _)          = Nothing
+programUnitSubprograms (PUBlockData {})               = Nothing
+programUnitSubprograms (PUComment {})                 = Nothing
 
 newtype Comment a = Comment String
   deriving (Eq, Show, Data, Typeable, Generic, Functor)
@@ -626,6 +629,7 @@ instance Conditioned Statement where
 data ProgramUnitName =
     Named String
   | NamelessBlockData
+  | NamelessComment
   | NamelessMain
   deriving (Ord, Eq, Show, Data, Typeable, Generic)
 
@@ -643,6 +647,7 @@ instance Named (ProgramUnit a) where
   getName (PUFunction _ _ _ _ n _ _ _ _) = Named n
   getName (PUBlockData _ _ Nothing _)  = NamelessBlockData
   getName (PUBlockData _ _ (Just n) _) = Named n
+  getName (PUComment {}) = NamelessComment
   setName (Named n) (PUMain a s _ b pus) = PUMain a s (Just n) b pus
   setName _         (PUMain a s _ b pus) = PUMain a s Nothing b pus
   setName (Named n) (PUModule a s _ b pus) = PUModule a s n b pus

@@ -207,13 +207,10 @@ PROGRAM :: { ProgramFile A0 }
 
 PROGRAM_INNER :: { ProgramFile A0 }
 : PROGRAM_UNITS { ProgramFile (MetaInfo { miVersion = Fortran95, miFilename = "" }) (reverse $1) [ ] }
-| PROGRAM_UNITS COMMENT_BLOCKS { ProgramFile (MetaInfo { miVersion = Fortran95, miFilename = "" }) (reverse $1) (reverse $2) }
 
 PROGRAM_UNITS :: { [ ([ Block A0 ], ProgramUnit A0) ] }
 : PROGRAM_UNITS PROGRAM_UNIT MAYBE_NEWLINE { ([ ], $2) : $1 }
-| PROGRAM_UNITS COMMENT_BLOCKS PROGRAM_UNIT MAYBE_NEWLINE { (reverse $2, $3) : $1 }
 | PROGRAM_UNIT MAYBE_NEWLINE { [ ([ ], $1) ] }
-| COMMENT_BLOCKS PROGRAM_UNIT MAYBE_NEWLINE { [ (reverse $1, $2) ] }
 
 PROGRAM_UNIT :: { ProgramUnit A0 }
 : program NAME NEWLINE BLOCKS MAYBE_SUBPROGRAM_UNITS PROGRAM_END
@@ -235,8 +232,6 @@ MAYBE_SUBPROGRAM_UNITS :: { Maybe [ ProgramUnit A0 ] }
 
 SUBPROGRAM_UNITS :: { [ ProgramUnit A0 ] }
 : SUBPROGRAM_UNITS SUBPROGRAM_UNIT NEWLINE { $2 : $1 }
--- Ignore the comments before subprogram units (for now).
-| SUBPROGRAM_UNITS COMMENT_BLOCK { $1 }
 | {- EMPTY -} { [ ] }
 
 SUBPROGRAM_UNIT :: { ProgramUnit A0 }
@@ -258,6 +253,7 @@ SUBPROGRAM_UNIT :: { ProgramUnit A0 }
 | recursive subroutine NAME MAYBE_ARGUMENTS MAYBE_COMMENT NEWLINE BLOCKS MAYBE_SUBPROGRAM_UNITS SUBROUTINE_END
   {% do { unitNameCheck $9 $3;
           return $ PUSubroutine () (getTransSpan $1 $9) True $3 $4 (reverse $7) $8 } }
+| comment { let (TComment s c) = $1 in PUComment () s (Comment c) }
 
 MAYBE_ARGUMENTS :: { Maybe (AList Expression A0) }
 : '(' MAYBE_VARIABLES ')' { $2 }
@@ -312,9 +308,6 @@ MODULE_PROCEDURE :: { Block A0 }
   { let { al = fromReverseList $2;
           st = StModuleProcedure () (getTransSpan $1 al) (fromReverseList $2) }
     in BlStatement () (getTransSpan $1 $3) Nothing st }
-
-COMMENT_BLOCKS :: { [ Block A0 ] }
-: COMMENT_BLOCKS COMMENT_BLOCK { $2 : $1 } | COMMENT_BLOCK { [ $1 ] }
 
 COMMENT_BLOCK :: { Block A0 }
 : comment NEWLINE { let (TComment s c) = $1 in BlComment () s (Comment c) }
