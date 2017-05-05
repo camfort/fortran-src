@@ -134,6 +134,9 @@ programUnitSubprograms (PUSubroutine _ _ _ _ _ _ s)   = s
 programUnitSubprograms (PUFunction _ _ _ _ _ _ _ _ s) = s
 programUnitSubprograms (PUBlockData _ _ _ _)          = Nothing
 
+newtype Comment a = Comment String
+  deriving (Eq, Show, Data, Typeable, Generic, Functor)
+
 data Block a =
     BlStatement a SrcSpan
                 (Maybe (Expression a))       -- Label
@@ -174,7 +177,7 @@ data Block a =
                 [ ProgramUnit a ]            -- Routine decls. in the interface
                 [ Block a ]                  -- Module procedures
 
-  | BlComment a SrcSpan String
+  | BlComment a SrcSpan (Comment a)
   deriving (Eq, Show, Data, Typeable, Generic, Functor)
 
 data Statement a  =
@@ -663,6 +666,7 @@ instance Out a => Out (Attribute a)
 instance Out Intent
 instance Out a => Out (ImpList a)
 instance Out a => Out (ImpElement a)
+instance Out a => Out (Comment a)
 instance Out a => Out (Block a)
 instance Out a => Out (CommonGroup a)
 instance Out a => Out (DataGroup a)

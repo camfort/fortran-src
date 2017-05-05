@@ -317,7 +317,7 @@ COMMENT_BLOCKS :: { [ Block A0 ] }
 : COMMENT_BLOCKS COMMENT_BLOCK { $2 : $1 } | COMMENT_BLOCK { [ $1 ] }
 
 COMMENT_BLOCK :: { Block A0 }
-: comment NEWLINE { let (TComment s c) = $1 in BlComment () s c }
+: comment NEWLINE { let (TComment s c) = $1 in BlComment () s (Comment c) }
 
 MAYBE_NEWLINE :: { Maybe Token } : NEWLINE { Just $1 } | {- EMPTY -} { Nothing }
 

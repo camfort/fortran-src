@@ -150,7 +150,7 @@ BLOCK :: { Block A0 }
 BLOCK
 : LABEL_IN_6COLUMN STATEMENT NEWLINE { BlStatement () (getTransSpan $1 $2) (Just $1) $2 }
 | STATEMENT NEWLINE { BlStatement () (getSpan $1) Nothing $1 }
-| comment NEWLINE { let (TComment s c) = $1 in BlComment () s c }
+| comment NEWLINE { let (TComment s c) = $1 in BlComment () s (Comment c) }
 
 MAYBE_NEWLINE :: { Maybe Token } : NEWLINE { Just $1 } | {- EMPTY -} { Nothing }
 
