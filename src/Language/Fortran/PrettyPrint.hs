@@ -166,6 +166,10 @@ instance IndentablePretty (ProgramUnit a) where
                     then incIndentation i
                     else incIndentation fixedForm
 
+    pprint v (PUComment _ _ (Comment comment)) i
+      | v >= Fortran90 = indent i (char '!' <> text comment <> newline)
+      | otherwise = char 'c' <> text comment <> newline
+
 endGen :: Pretty a => FortranVersion -> Doc -> a -> Indentation -> Doc
 endGen v constructName name i = indent i $ "end" <+> middle <> newline
   where
@@ -276,7 +280,7 @@ instance IndentablePretty (Block a) where
             then indent i (pprint' v label <+> stDoc)
             else pprint' v mLabel `overlay` indent i stDoc
 
-    pprint v (BlComment _ _ comment) i
+    pprint v (BlComment _ _ (Comment comment)) i
       | v >= Fortran90 = indent i (char '!' <> text comment <> newline)
       | otherwise = char 'c' <> text comment <> newline
 

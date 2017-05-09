@@ -214,3 +214,4 @@ extractDeclMap pf = M.fromList . concatMap (blockDecls . nameAndBlocks) $ univer
       F.PUSubroutine _ _ _ _ _ b _     -> (DCSubroutine $ FA.puName pu, b)
       F.PUFunction   _ _ _ _ _ _ _ b _ -> (DCFunction $ FA.puName pu, b)
       F.PUBlockData  _ _ _ b           -> (DCBlockData, b)
+      F.PUComment    {}                -> (DCBlockData, []) -- no decls inside of comments, so ignore it

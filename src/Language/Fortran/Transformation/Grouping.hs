@@ -18,15 +18,16 @@ genericGroup groupingFunction =
   where
     go pu =
       case pu of
-        PUMain a s n bs subPUs ->
+        PUMain a s n bs subPUs                  ->
           PUMain a s n (groupingFunction bs) (map go <$> subPUs)
-        PUModule a s n bs subPUs ->
+        PUModule a s n bs subPUs                ->
           PUModule a s n (groupingFunction bs) (map go <$> subPUs)
-        PUSubroutine a s r n as bs subPUs ->
+        PUSubroutine a s r n as bs subPUs       ->
           PUSubroutine a s r n as (groupingFunction bs) (map go <$> subPUs)
         PUFunction a s r rec n as res bs subPUs ->
           PUFunction a s r rec n as res (groupingFunction bs) (map go <$> subPUs)
-        bd@PUBlockData{} -> bd -- Block data cannot have any if statements.
+        bd@PUBlockData {}                       -> bd -- Block data cannot have any if statements.
+        c@PUComment {}                          -> c
 
 --------------------------------------------------------------------------------
 -- Grouping if statement blocks into if blocks in entire parse tree

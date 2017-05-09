@@ -145,14 +145,11 @@ PROGRAM
 PROGRAM_INNER :: { ProgramFile A0 }
 PROGRAM_INNER
 : PROGRAM_UNITS { ProgramFile (MetaInfo { miVersion = Fortran77, miFilename = "" }) (reverse $1) [ ] }
-| PROGRAM_UNITS COMMENT_BLOCKS { ProgramFile (MetaInfo { miVersion = Fortran77, miFilename = "" }) (reverse $1) (reverse $2) }
 
 PROGRAM_UNITS :: { [ ([ Block A0 ], ProgramUnit A0) ] }
 PROGRAM_UNITS
 : PROGRAM_UNITS PROGRAM_UNIT MAYBE_NEWLINE { ([ ], $2) : $1 }
-| PROGRAM_UNITS COMMENT_BLOCKS PROGRAM_UNIT MAYBE_NEWLINE { (reverse $2, $3) : $1 }
 | PROGRAM_UNIT MAYBE_NEWLINE { [ ([ ], $1) ] }
-| COMMENT_BLOCKS PROGRAM_UNIT MAYBE_NEWLINE { [ (reverse $1, $2) ] }
 
 PROGRAM_UNIT :: { ProgramUnit A0 }
 PROGRAM_UNIT
@@ -165,6 +162,7 @@ PROGRAM_UNIT
   { PUSubroutine () (getTransSpan $1 $6) False $2 $3 (reverse $5) Nothing }
 | blockData NEWLINE BLOCKS end { PUBlockData () (getTransSpan $1 $4) Nothing (reverse $3) }
 | blockData NAME NEWLINE BLOCKS end { PUBlockData () (getTransSpan $1 $5) (Just $2) (reverse $4) }
+| comment { let (TComment s c) = $1 in PUComment () s (Comment c) }
 
 MAYBE_ARGUMENTS :: { Maybe (AList Expression A0) }
 : '(' MAYBE_VARIABLES ')' { $2 }
@@ -183,14 +181,9 @@ BLOCK
 | STATEMENT NEWLINE { BlStatement () (getSpan $1) Nothing $1 }
 | COMMENT_BLOCK { $1 }
 
-COMMENT_BLOCKS :: { [ Block A0 ] }
-COMMENT_BLOCKS
-: COMMENT_BLOCKS COMMENT_BLOCK { $2 : $1 }
-| COMMENT_BLOCK { [ $1 ] }
-
 COMMENT_BLOCK :: { Block A0 }
 COMMENT_BLOCK
-: comment NEWLINE { let (TComment s c) = $1 in BlComment () s c }
+: comment NEWLINE { let (TComment s c) = $1 in BlComment () s (Comment c) }
 
 MAYBE_NEWLINE :: { Maybe Token } : NEWLINE { Just $1 } | {- EMPTY -} { Nothing }
 

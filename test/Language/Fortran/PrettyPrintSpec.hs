@@ -269,7 +269,7 @@ spec =
 
     describe "Blocks" $ do
       describe "Comment" $ do
-        let blComment = BlComment () u " si vis pacem para bellum"
+        let blComment = BlComment () u (Comment " si vis pacem para bellum")
 
         it "prints 90 style comment" $
           pprint Fortran90 blComment Nothing `shouldBe` "! si vis pacem para bellum\n"
@@ -459,7 +459,7 @@ spec =
       it "prints simple program file" $ do
         let body = [ BlStatement () u Nothing (StContinue () u) ]
         let pu = PUModule () u "my_mod" body Nothing
-        let com = BlComment () u "hello!"
+        let com = BlComment () u (Comment "hello!")
         let pf = ProgramFile mi77 [([com], pu), ([com], pu)] [com, com]
         let expect = unlines [ "!hello!"
                              , "module my_mod"
