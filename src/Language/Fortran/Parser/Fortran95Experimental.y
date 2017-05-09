@@ -2,6 +2,7 @@
 {
 module Language.Fortran.Parser.Fortran95Experimental ( statementParser
                                          , fortran95Parser
+                                         , fortran95ParserWithModFiles
                                          ) where
 
 import Prelude hiding (EQ,LT,GT) -- Same constructors exist in the AST
