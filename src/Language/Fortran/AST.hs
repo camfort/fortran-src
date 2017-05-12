@@ -81,11 +81,11 @@ data MetaInfo = MetaInfo { miVersion :: FortranVersion, miFilename :: String }
   deriving (Eq, Show, Data, Typeable, Generic)
 
 -- Program structure definition
-data ProgramFile a = ProgramFile MetaInfo [ ([ Block a ], ProgramUnit a) ] [ Block a ]
+data ProgramFile a = ProgramFile MetaInfo [ ProgramUnit a ]
   deriving (Eq, Show, Data, Typeable, Generic, Functor)
 
-pfSetFilename fn (ProgramFile mi cm_pus bs) = ProgramFile (mi { miFilename = fn }) cm_pus bs
-pfGetFilename (ProgramFile mi _ _) = miFilename mi
+pfSetFilename fn (ProgramFile mi pus) = ProgramFile (mi { miFilename = fn }) pus
+pfGetFilename (ProgramFile mi _) = miFilename mi
 
 data ProgramUnit a =
     PUMain

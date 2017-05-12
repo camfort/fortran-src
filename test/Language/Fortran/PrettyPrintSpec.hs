@@ -459,8 +459,8 @@ spec =
       it "prints simple program file" $ do
         let body = [ BlStatement () u Nothing (StContinue () u) ]
         let pu = PUModule () u "my_mod" body Nothing
-        let com = BlComment () u (Comment "hello!")
-        let pf = ProgramFile mi77 [([com], pu), ([com], pu)] [com, com]
+        let com = PUComment () u (Comment "hello!")
+        let pf = ProgramFile mi77 [com, pu, com, pu, com, com]
         let expect = unlines [ "!hello!"
                              , "module my_mod"
                              , "  continue"

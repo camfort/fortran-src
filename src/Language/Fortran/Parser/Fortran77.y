@@ -144,12 +144,12 @@ PROGRAM
 
 PROGRAM_INNER :: { ProgramFile A0 }
 PROGRAM_INNER
-: PROGRAM_UNITS { ProgramFile (MetaInfo { miVersion = Fortran77, miFilename = "" }) (reverse $1) [ ] }
+: PROGRAM_UNITS { ProgramFile (MetaInfo { miVersion = Fortran77, miFilename = "" }) (reverse $1) }
 
-PROGRAM_UNITS :: { [ ([ Block A0 ], ProgramUnit A0) ] }
+PROGRAM_UNITS :: { [ ProgramUnit A0 ] }
 PROGRAM_UNITS
-: PROGRAM_UNITS PROGRAM_UNIT MAYBE_NEWLINE { ([ ], $2) : $1 }
-| PROGRAM_UNIT MAYBE_NEWLINE { [ ([ ], $1) ] }
+: PROGRAM_UNITS PROGRAM_UNIT MAYBE_NEWLINE { $2 : $1 }
+| PROGRAM_UNIT MAYBE_NEWLINE { [ $1 ] }
 
 PROGRAM_UNIT :: { ProgramUnit A0 }
 PROGRAM_UNIT

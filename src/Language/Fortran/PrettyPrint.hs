@@ -62,11 +62,10 @@ instance IndentablePretty a => IndentablePretty (Maybe a) where
     pprint _ Nothing _ = empty
 
 instance IndentablePretty (ProgramFile a) where
-    pprint v (ProgramFile _ commentUnitPairs trailingComments) i =
-      foldl' (\b a -> b <> pprintPair a) empty commentUnitPairs <>
-      pprint v trailingComments i
+    pprint v (ProgramFile _ programUnits) i =
+      foldl' (\b a -> b <> pprintUnit a) empty programUnits
       where
-        pprintPair (comments, pu) = pprint v comments i <> pprint v pu i
+        pprintUnit pu = pprint v pu i
 
 instance IndentablePretty [ProgramUnit a] where
     pprint v pus i = foldl' (\b a -> b <?> newline <> pprint v a i) empty pus

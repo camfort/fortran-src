@@ -55,20 +55,20 @@ spec = do
       mapping ! "c" `shouldBe` IDType (Just TypeInteger) (Just CTFunction)
       mapping ! "d" `shouldBe` IDType Nothing (Just CTFunction)
 
-ex1 = ProgramFile mi77 [ ([ ], ex1pu1) ] [ ]
+ex1 = ProgramFile mi77 [ ex1pu1 ]
 ex1pu1 = PUFunction () u (Just $ TypeSpec () u TypeInteger Nothing) False "f1" Nothing Nothing [] Nothing
 
-ex2 = ProgramFile mi77 [ ([ ], ex2pu1), ([] , ex1pu1) ] [ ]
+ex2 = ProgramFile mi77 [ ex2pu1, ex1pu1 ]
 ex2pu1 = PUSubroutine () u False "s1" Nothing [] Nothing
 
-ex3 = ProgramFile mi77 [ ([ ], ex3pu1) ] [ ]
+ex3 = ProgramFile mi77 [ ex3pu1 ]
 ex3pu1 = PUSubroutine () u False "s1" Nothing ex3pu1bs Nothing
 ex3pu1bs =
   [ BlStatement () u Nothing (StEntry () u (ExpValue () u (ValVariable "e1")) Nothing Nothing)
   , BlStatement () u Nothing (StEntry () u (ExpValue () u (ValVariable "e2")) Nothing Nothing)
   , BlStatement () u Nothing (StEntry () u (ExpValue () u (ValVariable "e3")) Nothing Nothing) ]
 
-ex4 = ProgramFile mi77 [ ([ ], ex4pu1) ] [ ]
+ex4 = ProgramFile mi77 [ ex4pu1 ]
 ex4pu1 = PUMain () u Nothing ex4pu1bs Nothing
 ex4pu1bs =
   [ BlStatement () u Nothing (StDeclaration () u (TypeSpec () u TypeInteger Nothing) Nothing
@@ -81,7 +81,7 @@ ex4pu1bs =
   , BlStatement () u Nothing (StDeclaration () u (TypeSpec () u TypeLogical Nothing) Nothing
       (AList () u [ DeclVariable () u (varGen "log") Nothing Nothing ])) ]
 
-ex5 = ProgramFile mi77 [ ([ ], ex5pu1) ] [ ]
+ex5 = ProgramFile mi77 [ ex5pu1 ]
 ex5pu1 = PUBlockData () u (Just "bd") ex5pu1bs
 ex5pu1bs =
   [ BlStatement () u Nothing (StDimension () u (AList () u
@@ -98,7 +98,7 @@ ex5pu1bs =
 - d(x) = 1
 - end
 -}
-ex6 = ProgramFile mi77 [ ([ ], ex6pu1)] [ ]
+ex6 = ProgramFile mi77 [ ex6pu1 ]
 ex6pu1 = PUMain () u (Just "main") ex6pu1bs Nothing
 ex6pu1bs =
   [ BlStatement () u Nothing (StDeclaration () u (TypeSpec () u TypeInteger Nothing) Nothing (AList () u
@@ -116,7 +116,7 @@ ex6pu1bs =
   , BlStatement () u Nothing (StExpressionAssign () u
       (ExpSubscript () u (varGen "d") (fromList () [ ixSinGen 1 ])) (intGen 1)) ]
 
-ex11 = ProgramFile mi77 [ ([ ], ex11pu1) ] [ ]
+ex11 = ProgramFile mi77 [ ex11pu1 ]
 ex11pu1 = PUFunction () u (Just (TypeSpec () u TypeInteger Nothing)) False "f1" Nothing (Just (varGen "r1")) ex11pu1bs Nothing
 ex11pu1bs =
   [ BlStatement () u Nothing (StEntry () u (ExpValue () u (ValVariable "e1")) Nothing Nothing)

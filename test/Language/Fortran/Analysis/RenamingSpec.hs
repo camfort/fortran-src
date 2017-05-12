@@ -112,10 +112,10 @@ spec = do
 
 --------------------------------------------------
 
-ex1 = ProgramFile mi77 [ ([ ], ex1pu1) ] [ ]
+ex1 = ProgramFile mi77 [ ex1pu1 ]
 ex1pu1 = PUFunction () u (Just $ TypeSpec () u TypeInteger Nothing) False "f1" Nothing Nothing [] Nothing
 
-ex2 = ProgramFile mi77 [ ([ ], ex2pu1)] [ ]
+ex2 = ProgramFile mi77 [ ex2pu1 ]
 ex2pu1 = PUMain () u (Just "main") ex2pu1bs Nothing
 ex2pu1bs =
   [ BlStatement () u Nothing (StDeclaration () u (TypeSpec () u TypeInteger Nothing) Nothing (AList () u
@@ -134,7 +134,7 @@ ex2pu1bs =
   , BlStatement () u Nothing (StExpressionAssign () u
       (ExpSubscript () u (varGen "d") (AList () u [ ixSinGen 1 ])) (intGen 1)) ]
 
-ex3 = ProgramFile mi77 [ ([ ], ex3pu1), ([ ], ex3pu2)] [ ]
+ex3 = ProgramFile mi77 [ ex3pu1, ex3pu2 ]
 ex3pu1 = PUMain () u (Just "main") ex3pu1bs Nothing
 ex3pu1bs =
   [ BlStatement () u Nothing (StDeclaration () u (TypeSpec () u TypeInteger Nothing) Nothing (AList () u
@@ -156,7 +156,7 @@ ex3pu1bs =
       (varGen "d") (ExpBinary () u Addition (varGen "d") (intGen 1))) ]
 ex3pu2 = PUFunction () u (Just $ TypeSpec () u TypeInteger Nothing) False "f1" (Just $ AList () u [ varGen "d", varGen "b"]) Nothing (ex3pu1bs ++ [ BlStatement () u Nothing (StExpressionAssign () u (varGen "f1") (varGen "d")) ]) Nothing
 
-ex4 = ProgramFile mi77 [ ([ ], ex4pu1), ([ ], ex4pu2)] [ ]
+ex4 = ProgramFile mi77 [ ex4pu1, ex4pu2 ]
 ex4pu1 = PUMain () u (Just "main") ex4pu1bs Nothing
 ex4pu1bs =
   [ BlStatement () u Nothing (StDeclaration () u (TypeSpec () u TypeInteger Nothing) Nothing (AList () u
@@ -168,7 +168,7 @@ ex4pu1bs =
                             (Just $ AList () u [ Argument () u Nothing $ intGen 1 ]))) ]
 ex4pu2 = PUFunction () u (Just $ TypeSpec () u TypeInteger Nothing) False "f1" (Just $ AList () u [ varGen "x"]) Nothing [ BlStatement () u Nothing (StExpressionAssign () u (varGen "f1") (varGen "x")) ] Nothing
 
-ex5 = ProgramFile mi77 [ ([], ex5pu1), ([], ex5pu2) ] []
+ex5 = ProgramFile mi77 [ ex5pu1, ex5pu2 ]
 ex5pu1 = PUMain () u (Just "main") ex5pu1bs Nothing
 ex5pu1bs = []
 ex5pu2 = PUModule () u "ex5mod" ex5pu2bs (Just [ex5pu2pu1])
@@ -176,7 +176,7 @@ ex5pu2bs = []
 ex5pu2pu1 = PUFunction () u (Just $ TypeSpec () u TypeInteger Nothing) False "f1" (Just $ AList () u [ varGen "x"]) Nothing [ BlStatement () u Nothing (StExpressionAssign () u (varGen "f1") (varGen "x")) ] Nothing
 
 
-ex6 = ProgramFile mi77 [ ([], ex6pu1), ([], ex6pu2) ] []
+ex6 = ProgramFile mi77 [ ex6pu1, ex6pu2 ]
 ex6pu1 = PUMain () u (Just "main") ex6pu1bs Nothing
 ex6pu1bs = []
 ex6pu2 = PUModule () u "ex6mod" ex6pu2bs (Just [ex6pu2pu1])
@@ -234,14 +234,14 @@ ex9 = resetSrcSpan . flip fortran90Parser "" $ unlines [
   , "end module m1"
   ]
 
-ex10 = ProgramFile mi77 [ ([ ], ex10pu1) ] [ ]
+ex10 = ProgramFile mi77 [ ex10pu1 ]
 ex10pu1 = PUSubroutine () u False "s1" Nothing ex10pu1bs Nothing
 ex10pu1bs =
   [ BlStatement () u Nothing (StEntry () u (ExpValue () u (ValVariable "e1")) Nothing Nothing)
   , BlStatement () u Nothing (StEntry () u (ExpValue () u (ValVariable "e2")) Nothing Nothing)
   , BlStatement () u Nothing (StEntry () u (ExpValue () u (ValVariable "e3")) Nothing Nothing) ]
 
-ex11 = ProgramFile mi77 [ ([ ], ex11pu1) ] [ ]
+ex11 = ProgramFile mi77 [ ex11pu1 ]
 ex11pu1 = PUFunction () u (Just (TypeSpec () u TypeInteger Nothing)) False "f1" Nothing (Just (varGen "r1")) ex11pu1bs Nothing
 ex11pu1bs =
   [ BlStatement () u Nothing (StEntry () u (ExpValue () u (ValVariable "e1")) Nothing Nothing)

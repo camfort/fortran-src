@@ -50,19 +50,15 @@ type RenamerFunc t = t -> Renamer t
 
 -- | Annotate unique names for variable and function declarations and uses.
 analyseRenames :: Data a => ProgramFile (Analysis a) -> ProgramFile (Analysis a)
-analyseRenames (ProgramFile mi cm_pus bs) = ProgramFile mi cm_pus' bs
+analyseRenames (ProgramFile mi pus) = ProgramFile mi pus'
   where
-    cm_pus'        = zip (map fst cm_pus) pus'
     (Just pus', _) = runRenamer (skimProgramUnits pus >> renameSubPUs (Just pus)) renameState0
-    pus            = map snd cm_pus
 
 -- | Annotate unique names for variable and function declarations and uses. With external module map.
 analyseRenamesWithModuleMap :: Data a => ModuleMap -> ProgramFile (Analysis a) -> ProgramFile (Analysis a)
-analyseRenamesWithModuleMap mmap (ProgramFile mi cm_pus bs) = ProgramFile mi cm_pus' bs
+analyseRenamesWithModuleMap mmap (ProgramFile mi pus) = ProgramFile mi pus'
   where
-    cm_pus'        = zip (map fst cm_pus) pus'
     (Just pus', _) = runRenamer (skimProgramUnits pus >> renameSubPUs (Just pus)) (renameState0 { moduleMap = mmap })
-    pus            = map snd cm_pus
 
 -- | Take the unique name annotations and substitute them into the actual AST.
 rename :: Data a => ProgramFile (Analysis a) -> ProgramFile (Analysis a)

@@ -110,14 +110,14 @@ PROGRAM
 
 PROGRAM_INNER :: { ProgramFile A0 }
 PROGRAM_INNER
-: PROGRAM_UNITS BLOCKS { ProgramFile (MetaInfo { miVersion = Fortran66, miFilename = "" })  (reverse $1) (reverse $2) }
+: PROGRAM_UNITS BLOCKS { ProgramFile (MetaInfo { miVersion = Fortran66, miFilename = "" })  (reverse $1 ++ convCmts (reverse $2)) }
 
-PROGRAM_UNITS :: { [ ([ Block A0 ], ProgramUnit A0) ] }
+PROGRAM_UNITS :: { [ ProgramUnit A0 ] }
 PROGRAM_UNITS
-: PROGRAM_UNITS MAIN_PROGRAM_UNIT { ([ ], $2) : $1 }
-| PROGRAM_UNITS BLOCKS OTHER_PROGRAM_UNIT { (reverse $2, $3) : $1 }
-| MAIN_PROGRAM_UNIT { [ ([ ], $1) ] }
-| BLOCKS OTHER_PROGRAM_UNIT { [ (reverse $1, $2) ] }
+: PROGRAM_UNITS MAIN_PROGRAM_UNIT { $2 : $1 }
+| PROGRAM_UNITS BLOCKS OTHER_PROGRAM_UNIT { convCmts (reverse $2) ++ ($3 : $1) }
+| MAIN_PROGRAM_UNIT { [ $1 ] }
+| BLOCKS OTHER_PROGRAM_UNIT { convCmts (reverse $1) ++ [ $2 ] }
 
 MAIN_PROGRAM_UNIT :: { ProgramUnit A0 }
 MAIN_PROGRAM_UNIT
@@ -531,5 +531,8 @@ parseError _ = do
       ++ '\n' : show tokens
 #endif
 
+convCmts = map convCmt
+convCmt (BlComment a s c) = PUComment a s c
+convCmt _ = error "convCmt applied to something that is not a comment"
 
 }
