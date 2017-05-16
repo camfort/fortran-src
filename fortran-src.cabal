@@ -42,6 +42,7 @@ executable fortran-src
     Language.Fortran.Analysis.BBlocks
     Language.Fortran.Analysis.DataFlow
     Language.Fortran.AST
+    Language.Fortran.Intrinsics
     Language.Fortran.Lexer.FixedForm
     Language.Fortran.Lexer.FreeForm
     Language.Fortran.ParserMonad
@@ -71,6 +72,7 @@ library
     Language.Fortran.Analysis.BBlocks
     Language.Fortran.Analysis.DataFlow
     Language.Fortran.AST
+    Language.Fortran.Intrinsics
     Language.Fortran.Lexer.FixedForm
     Language.Fortran.Lexer.FreeForm
     Language.Fortran.ParserMonad

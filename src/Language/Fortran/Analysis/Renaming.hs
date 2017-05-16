@@ -1,4 +1,4 @@
-{-# LANGUAGE ScopedTypeVariables, PatternGuards #-}
+{-# LANGUAGE ScopedTypeVariables, PatternGuards, TupleSections #-}
 
 -- |
 -- Analyse variables/function names and produce unique names that can
@@ -17,8 +17,10 @@ import Debug.Trace
 
 import Language.Fortran.AST hiding (fromList)
 import Language.Fortran.Util.Position
+import Language.Fortran.Intrinsics
 import Language.Fortran.Analysis
 import Language.Fortran.Analysis.Types
+import Language.Fortran.ParserMonad (FortranVersion(..))
 
 import Prelude hiding (lookup)
 import Data.Maybe (maybe, fromMaybe)
@@ -38,10 +40,12 @@ type ModuleMap     = Map ProgramUnitName ModEnv
 type NameMap       = Map String String -- DEPRECATED
 
 type Renamer a     = State RenameState a -- the monad.
-data RenameState   = RenameState { scopeStack :: [String]
-                                 , uniqNums   :: [Int]
-                                 , environ    :: [ModEnv]
-                                 , moduleMap  :: ModuleMap }
+data RenameState   = RenameState { langVersion :: FortranVersion
+                                 , intrinsics  :: IntrinsicsTable
+                                 , scopeStack  :: [String]
+                                 , uniqNums    :: [Int]
+                                 , environ     :: [ModEnv]
+                                 , moduleMap   :: ModuleMap }
   deriving (Show, Eq)
 type RenamerFunc t = t -> Renamer t
 
@@ -52,13 +56,15 @@ type RenamerFunc t = t -> Renamer t
 analyseRenames :: Data a => ProgramFile (Analysis a) -> ProgramFile (Analysis a)
 analyseRenames (ProgramFile mi pus) = ProgramFile mi pus'
   where
-    (Just pus', _) = runRenamer (skimProgramUnits pus >> renameSubPUs (Just pus)) renameState0
+    (Just pus', _) = runRenamer (skimProgramUnits pus >> renameSubPUs (Just pus))
+                                (renameState0 (miVersion mi))
 
 -- | Annotate unique names for variable and function declarations and uses. With external module map.
 analyseRenamesWithModuleMap :: Data a => ModuleMap -> ProgramFile (Analysis a) -> ProgramFile (Analysis a)
 analyseRenamesWithModuleMap mmap (ProgramFile mi pus) = ProgramFile mi pus'
   where
-    (Just pus', _) = runRenamer (skimProgramUnits pus >> renameSubPUs (Just pus)) (renameState0 { moduleMap = mmap })
+    (Just pus', _) = runRenamer (skimProgramUnits pus >> renameSubPUs (Just pus))
+                                (renameState0 (miVersion mi)) { moduleMap = mmap }
 
 -- | Take the unique name annotations and substitute them into the actual AST.
 rename :: Data a => ProgramFile (Analysis a) -> ProgramFile (Analysis a)
@@ -203,10 +209,13 @@ expression = renameExp
 -- transformations.
 
 -- Initial monad state.
-renameState0 = RenameState { scopeStack = []
-                           , uniqNums = [1..]
-                           , environ = [empty]
-                           , moduleMap = empty }
+renameState0 v = RenameState { langVersion = v
+                             , intrinsics  = getVersionIntrinsics v
+                             , scopeStack  = []
+                             , uniqNums    = [1..]
+                             , environ     = [empty]
+                             , moduleMap   = empty }
+
 -- Run the monad.
 runRenamer m = runState m
 
@@ -290,13 +299,23 @@ getFromEnv :: String -> Renamer (Maybe String)
 getFromEnv v = ((fst `fmap`) . lookup v) `fmap` getEnv
 
 -- Get a mapping from the combined nested environment, if it exists.
+-- If not, check if it is an intrinsic name.
 getFromEnvs :: String -> Renamer (Maybe String)
-getFromEnvs v = ((fst `fmap`) . lookup v) `fmap` getEnvs
+getFromEnvs = fmap (fmap fst) . getFromEnvsWithType
 
 -- Get a mapping, plus name type, from the combined nested
 -- environment, if it exists.
 getFromEnvsWithType :: String -> Renamer (Maybe (String, NameType))
-getFromEnvsWithType v = lookup v `fmap` getEnvs
+getFromEnvsWithType v = do
+  envs <- getEnvs
+  case lookup v envs of
+    Just (v', nt) -> return $ Just (v', nt)
+    Nothing      -> do
+      itab <- gets intrinsics
+      case getIntrinsicReturnType v itab of
+        Nothing -> return Nothing
+        Just _  -> (Just . (,NTIntrinsic)) `fmap` addUnique v NTIntrinsic
+
 
 -- To conform with Fortran specification about subprogram names:
 -- search for subprogram names in all containing scopes first, then

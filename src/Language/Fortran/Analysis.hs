@@ -48,7 +48,7 @@ type TransFunc f g a = (f (Analysis a) -> f (Analysis a)) -> g (Analysis a) -> g
 type TransFuncM m f g a = (f (Analysis a) -> m (f (Analysis a))) -> g (Analysis a) -> m (g (Analysis a))
 
 -- Describe a Fortran name as either a program unit or a variable.
-data NameType = NTSubprogram | NTVariable deriving (Show, Eq, Ord, Data, Typeable, Generic)
+data NameType = NTSubprogram | NTVariable | NTIntrinsic deriving (Show, Eq, Ord, Data, Typeable, Generic)
 instance Binary NameType
 instance Out NameType
 
@@ -63,6 +63,7 @@ data ConstructType =
   | CTVariable
   | CTArray
   | CTParameter
+  | CTIntrinsic
   deriving (Ord, Eq, Show, Data, Typeable, Generic)
 
 instance Out ConstructType

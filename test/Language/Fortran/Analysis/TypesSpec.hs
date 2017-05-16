@@ -11,11 +11,16 @@ import Language.Fortran.AST
 import Language.Fortran.Analysis.Types
 import Language.Fortran.Analysis.Renaming hiding (extractNameMap, underRenaming)
 import Language.Fortran.Analysis
+import qualified Language.Fortran.Parser.Fortran90 as F90
+import Language.Fortran.ParserMonad
+import qualified Data.ByteString.Char8 as B
 
 import Debug.Trace
 
 inferTable :: Data a => ProgramFile a -> TypeEnv
 inferTable = underRenaming (snd . analyseTypes)
+
+fortran90Parser src file = fromParseResultUnsafe $ F90.fortran90Parser (B.pack src) file
 
 spec :: Spec
 spec = do
@@ -54,6 +59,13 @@ spec = do
       mapping ! "b" `shouldBe` IDType (Just TypeInteger) (Just CTArray)
       mapping ! "c" `shouldBe` IDType (Just TypeInteger) (Just CTFunction)
       mapping ! "d" `shouldBe` IDType Nothing (Just CTFunction)
+
+    describe "Intrinsics type analysis" $ do
+      it "disambiguates intrinsics from functions and variables" $ do
+        let mapping = inferTable intrinsics1
+        idCType (mapping ! "abs") `shouldBe` Just CTIntrinsic
+        idCType (mapping ! "dabs") `shouldBe` Just CTFunction
+        idCType (mapping ! "cabs") `shouldBe` Just CTArray
 
 ex1 = ProgramFile mi77 [ ex1pu1 ]
 ex1pu1 = PUFunction () u (Just $ TypeSpec () u TypeInteger Nothing) False "f1" Nothing Nothing [] Nothing
@@ -122,6 +134,26 @@ ex11pu1bs =
   [ BlStatement () u Nothing (StEntry () u (ExpValue () u (ValVariable "e1")) Nothing Nothing)
   , BlStatement () u Nothing (StEntry () u (ExpValue () u (ValVariable "e2")) Nothing Nothing)
   , BlStatement () u Nothing (StEntry () u (ExpValue () u (ValVariable "e3")) Nothing (Just (varGen "r2"))) ]
+
+
+intrinsics1 = resetSrcSpan . flip fortran90Parser "" $ unlines [
+    "module intrinsics"
+  , "contains"
+  , "  subroutine main()"
+  , "    real :: x"
+  , "    integer :: y = 1"
+  , "    real :: cabs(3)"
+  , "    x = dabs(y)"
+  , "    x = cabs(y)"
+  , "    x = abs(y)"
+  , "    print *, x"
+  , "  end subroutine main"
+  , "  real function dabs(a)"
+  , "    integer :: a"
+  , "    dabs = a"
+  , "  end function dabs"
+  , "end module intrinsics"
+  ]
 
 -- Local variables:
 -- mode: haskell

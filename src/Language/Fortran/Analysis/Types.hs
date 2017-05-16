@@ -12,6 +12,8 @@ import Data.Generics.Uniplate.Data
 import Data.Generics.Uniplate.Operations
 import Data.Data
 import Language.Fortran.Analysis
+import Language.Fortran.Intrinsics
+import Language.Fortran.ParserMonad (FortranVersion(..))
 
 import Debug.Trace
 
@@ -24,7 +26,10 @@ type TypeEnv = M.Map Name IDType
 
 -- Monad for type inference work
 type Infer a = State InferState a
-data InferState = InferState { environ :: TypeEnv, entryPoints :: M.Map Name (Name, Maybe Name) }
+data InferState = InferState { langVersion :: FortranVersion
+                             , intrinsics  :: IntrinsicsTable
+                             , environ     :: TypeEnv
+                             , entryPoints :: M.Map Name (Name, Maybe Name) }
   deriving Show
 type InferFunc t = t -> Infer ()
 
@@ -39,8 +44,9 @@ analyseTypes = analyseTypesWithEnv M.empty
 -- environment mapping names to type information; provided with a
 -- starting type environment.
 analyseTypesWithEnv :: Data a => TypeEnv -> ProgramFile (Analysis a) -> (ProgramFile (Analysis a), TypeEnv)
-analyseTypesWithEnv env pf = fmap environ . runInfer env $ do
+analyseTypesWithEnv env pf@(ProgramFile mi _) = fmap environ . runInfer (miVersion mi) env $ do
   -- Gather information.
+  mapM_ intrinsicsExp (allExpressions pf)
   mapM_ programUnit (allProgramUnits pf)
   mapM_ declarator (allDeclarators pf)
   mapM_ statement (allStatements pf)
@@ -72,6 +78,20 @@ type TransType f g a = (f (Analysis a) -> Infer (f (Analysis a))) -> g (Analysis
 annotateTypes :: Data a => ProgramFile (Analysis a) -> Infer (ProgramFile (Analysis a))
 annotateTypes pf = (transformBiM :: Data a => TransType Expression ProgramFile a) annotateExpression pf >>=
                    (transformBiM :: Data a => TransType ProgramUnit ProgramFile a) annotateProgramUnit
+
+intrinsicsExp :: Data a => InferFunc (Expression (Analysis a))
+intrinsicsExp (ExpSubscript _ _ nexp _)    = intrinsicsHelper nexp
+intrinsicsExp (ExpFunctionCall _ _ nexp _) = intrinsicsHelper nexp
+intrinsicsExp _                            = return ()
+
+intrinsicsHelper nexp = do
+  itab <- gets intrinsics
+  case getIntrinsicReturnType (srcName nexp) itab of
+    Just itype -> do
+      let n = varName nexp
+      recordCType CTIntrinsic n
+      -- recordBaseType _  n -- FIXME: going to skip base types for the moment
+    _             -> return ()
 
 programUnit :: Data a => InferFunc (ProgramUnit (Analysis a))
 programUnit pu@(PUFunction _ _ mRetType _ _ _ mRetVar blocks _)
@@ -149,8 +169,9 @@ annotateProgramUnit pu                        = return pu
 --------------------------------------------------
 -- Monadic helper combinators.
 
-inferState0 = InferState { environ = M.empty, entryPoints = M.empty }
-runInfer env = flip runState (inferState0 { environ = env })
+inferState0 v = InferState { environ = M.empty, entryPoints = M.empty, langVersion = v, intrinsics = getVersionIntrinsics v }
+runInfer :: FortranVersion -> TypeEnv -> State InferState a -> (a, InferState)
+runInfer v env = flip runState ((inferState0 v) { environ = env })
 
 -- Record the type of the given name.
 recordType :: BaseType -> ConstructType -> Name -> Infer ()
@@ -202,6 +223,9 @@ allDeclarators = universeBi
 
 allStatements :: (Data a, Data (f (Analysis a))) => UniFunc f Statement a
 allStatements = universeBi
+
+allExpressions :: (Data a, Data (f (Analysis a))) => UniFunc f Expression a
+allExpressions = universeBi
 
 isAttrDimension (AttrDimension {}) = True
 isAttrDimension _                  = False
