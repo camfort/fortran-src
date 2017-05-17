@@ -120,4 +120,7 @@ fortran90intrinisics = fortran77intrinsics `M.union` M.fromList
   , ("dcosh"   , ITDouble)
   , ("tanh"    , ITReal)
   , ("dtanh"   , ITDouble)
+  , ("modulo"  , ITParam 1)
+  , ("ceiling" , ITParam 1)
+  , ("floor"   , ITParam 1)
   ]
