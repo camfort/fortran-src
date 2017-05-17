@@ -364,13 +364,13 @@ perBlock b@(BlStatement _ _ _ (StReturn {})) =
   processLabel b >> addToBBlock b >> closeBBlock_
 perBlock b@(BlStatement _ _ _ (StGotoUnconditional {})) =
   processLabel b >> addToBBlock b >> closeBBlock_
-perBlock b@(BlStatement a s l (StCall a' s' cn@(ExpValue _ _ (ValVariable {})) Nothing)) = do
+perBlock b@(BlStatement a s l (StCall a' s' cn@(ExpValue _ _ _) Nothing)) = do
   (prevN, callN) <- closeBBlock
   -- put StCall in a bblock by itself
   addToBBlock b
   (_, nextN) <- closeBBlock
   createEdges [ (prevN, callN, ()), (callN, nextN, ()) ]
-perBlock b@(BlStatement a s l (StCall a' s' cn@(ExpValue _ _ (ValVariable {})) (Just aargs))) = do
+perBlock b@(BlStatement a s l (StCall a' s' cn@(ExpValue _ _ _) (Just aargs))) = do
   let exps = map extractExp . aStrip $ aargs
   (prevN, formalN) <- closeBBlock
 
@@ -495,7 +495,7 @@ processFunctionCalls = transformBiM processFunctionCall -- work bottom-up
 -- Flatten out a single function call.
 processFunctionCall :: Data a => Expression (Analysis a) -> BBlocker (Analysis a) (Expression (Analysis a))
 -- precondition: there are no more nested function calls within the actual arguments
-processFunctionCall (ExpFunctionCall a s fn@(ExpValue a' s' (ValVariable _)) aargs) = do
+processFunctionCall (ExpFunctionCall a s fn@(ExpValue a' s' _) aargs) = do
   let a0 = head . initAnalysis $ [prevAnnotation a]
   (prevN, formalN) <- closeBBlock
 
@@ -588,7 +588,7 @@ genSuperBBGr bbm = SuperBBGr { graph = superGraph'', clusters = cmap, entries = 
     -- Assumption: all StCalls appear by themselves in a bblock.
     stCalls      :: [(SuperNode, String)]
     stCalls      = [ (getSuperNode n, sub) | (n, [BlStatement _ _ _ (StCall _ _ e Nothing)]) <- namedNodes
-                                           , v@(ExpValue _ _ (ValVariable _))                <- [e]
+                                           , v@(ExpValue _ _ _)                              <- [e]
                                            , let sub = varName v
                                            , Named sub `M.member` entryMap && Named sub `M.member` exitMap ]
     stCallCtxts  :: [([SuperEdge], SuperNode, String, [SuperEdge])]
@@ -737,6 +737,7 @@ showLab Nothing = replicate 6 ' '
 showLab (Just (ExpValue _ _ (ValInteger l))) = ' ':l ++ replicate (5 - length l) ' '
 
 showValue (ValVariable v)       = v
+showValue (ValIntrinsic v)      = v
 showValue (ValInteger v)        = v
 showValue (ValReal v)           = v
 showValue (ValComplex e1 e2)    = "( " ++ showExpr e1 ++ " , " ++ showExpr e2 ++ " )"

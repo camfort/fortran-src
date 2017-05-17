@@ -73,8 +73,9 @@ rename pf = trPU fPU (trE fE pf)
     trE :: Data a => (Expression a -> Expression a) -> ProgramFile a -> ProgramFile a
     trE = transformBi
     fE :: Data a => Expression (Analysis a) -> Expression (Analysis a)
-    fE (ExpValue a s (ValVariable v)) = ExpValue a s . ValVariable $ fromMaybe v (uniqueName a)
-    fE x                              = x
+    fE (ExpValue a s (ValVariable v))  = ExpValue a s . ValVariable $ fromMaybe v (uniqueName a)
+    fE (ExpValue a s (ValIntrinsic v)) = ExpValue a s . ValIntrinsic $ fromMaybe v (uniqueName a)
+    fE x                               = x
 
     trPU :: Data a => (ProgramUnit a -> ProgramUnit a) -> ProgramFile a -> ProgramFile a
     trPU = transformBi
@@ -92,8 +93,9 @@ unrename pf = trPU fPU . trE fE $ pf
     trE :: Data a => (Expression (Analysis a) -> Expression (Analysis a)) -> ProgramFile (Analysis a) -> ProgramFile (Analysis a)
     trE = transformBi
     fE :: Data a => Expression (Analysis a) -> Expression (Analysis a)
-    fE e@(ExpValue a s (ValVariable _)) = ExpValue a s (ValVariable (srcName e))
-    fE e                                = e
+    fE e@(ExpValue a s (ValVariable _))  = ExpValue a s (ValVariable (srcName e))
+    fE e@(ExpValue a s (ValIntrinsic _)) = ExpValue a s (ValIntrinsic (srcName e))
+    fE e                                 = e
 
     trPU :: Data a => (ProgramUnit (Analysis a) -> ProgramUnit (Analysis a)) -> ProgramFile (Analysis a) -> ProgramFile (Analysis a)
     trPU = transformBi
@@ -111,7 +113,7 @@ unrename pf = trPU fPU . trE fE $ pf
 extractNameMap :: Data a => ProgramFile (Analysis a) -> NameMap
 extractNameMap pf = eMap `union` puMap
   where
-    eMap  = fromList [ (un, n) | ExpValue (Analysis { uniqueName = Just un }) _ (ValVariable n) <- uniE pf ]
+    eMap  = fromList [ (un, srcName e) | e@(ExpValue (Analysis { uniqueName = Just un }) _ _) <- uniE pf ]
     puMap = fromList [ (un, n) | pu <- uniPU pf, Named un <- [puName pu], Named n <- [getName pu], n /= un ]
     uniE :: Data a => ProgramFile a -> [Expression a]
     uniE = universeBi
@@ -393,8 +395,10 @@ renameGenericDecls = trans renameExpDecl
 -- declaration that possibly requires the creation of a new unique
 -- mapping.
 renameExpDecl :: Data a => RenamerFunc (Expression (Analysis a))
-renameExpDecl e@(ExpValue _ _ (ValVariable v)) = flip setUniqueName (setSourceName v e) `fmap` maybeAddUnique v NTVariable
-renameExpDecl e                                = return e
+renameExpDecl e@(ExpValue _ _ (ValVariable v))  = flip setUniqueName (setSourceName v e) `fmap` maybeAddUnique v NTVariable
+-- Intrinsics get unique names for each use.
+renameExpDecl e@(ExpValue _ _ (ValIntrinsic v)) = flip setUniqueName (setSourceName v e) `fmap` addUnique v NTVariable
+renameExpDecl e                                 = return e
 
 -- Find all declarators within a value and then dive within those
 -- declarators to rename any ExpValue variables, assuming they might
@@ -429,6 +433,7 @@ renameEntryPointResultDecl b = return b
 -- reference to a previous declaration, possibly in an outer scope.
 renameExp :: Data a => RenamerFunc (Expression (Analysis a))
 renameExp e@(ExpValue _ _ (ValVariable v)) = maybe e (flip setUniqueName (setSourceName v e)) `fmap` getFromEnvs v
+-- FIXME: do Intrinsics need handling here?
 renameExp e                                = return e
 
 -- Rename all ExpValue variables found within the block, assuming that

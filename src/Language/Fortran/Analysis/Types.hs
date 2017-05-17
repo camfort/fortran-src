@@ -159,8 +159,9 @@ statement (StDimension _ _ declAList) = do
 statement _ = return ()
 
 annotateExpression :: Data a => Expression (Analysis a) -> Infer (Expression (Analysis a))
-annotateExpression e@(ExpValue _ _ (ValVariable _)) = maybe e (flip setIDType e) `fmap` getRecordedType (varName e)
-annotateExpression e                                = return e
+annotateExpression e@(ExpValue _ _ (ValVariable _))  = maybe e (flip setIDType e) `fmap` getRecordedType (varName e)
+annotateExpression e@(ExpValue _ _ (ValIntrinsic _)) = maybe e (flip setIDType e) `fmap` getRecordedType (varName e)
+annotateExpression e                                 = return e
 
 annotateProgramUnit :: Data a => ProgramUnit (Analysis a) -> Infer (ProgramUnit (Analysis a))
 annotateProgramUnit pu | Named n <- puName pu = maybe pu (flip setIDType pu) `fmap` getRecordedType n
