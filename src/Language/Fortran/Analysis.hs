@@ -126,7 +126,10 @@ srcName _ = error "Use of srcName on non-variable."
 
 -- | Generate an ExpValue variable with its source name == to its uniqueName.
 genVar :: Analysis a -> SrcSpan -> String -> Expression (Analysis a)
-genVar a s n = ExpValue (a { uniqueName = Just n, sourceName = Just n }) s (ValVariable n)
+genVar a s n = ExpValue (a { uniqueName = Just n, sourceName = Just n }) s v
+  where
+    v | Just CTIntrinsic <- idCType =<< idType a = ValIntrinsic n
+      | otherwise                                = ValVariable n
 
 -- | Obtain either ProgramUnit uniqueName or whatever is in the AST.
 puName :: ProgramUnit (Analysis a) -> ProgramUnitName
