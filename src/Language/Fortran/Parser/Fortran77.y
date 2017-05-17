@@ -839,6 +839,7 @@ parse = runParse programParser
 transformations77 =
   [ GroupLabeledDo
   , GroupIf
+  , DisambiguateIntrinsic
   , DisambiguateFunction
   ]
 fortran77Parser ::
@@ -857,6 +858,7 @@ transformations77Extended =
   [ GroupLabeledDo
   , GroupDo
   , GroupIf
+  , DisambiguateIntrinsic
   , DisambiguateFunction
   ]
 extended77Parser ::

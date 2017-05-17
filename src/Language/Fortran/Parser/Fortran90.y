@@ -1050,6 +1050,7 @@ transformations90 =
   , GroupDo
   , GroupIf
   , GroupCase
+  , DisambiguateIntrinsic
   , DisambiguateFunction
   ]
 

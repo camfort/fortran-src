@@ -12,6 +12,7 @@ import Language.Fortran.Analysis.Types
 import Language.Fortran.Analysis.Renaming
 import Language.Fortran.Transformation.TransformMonad (Transform, runTransform)
 import Language.Fortran.Transformation.Disambiguation.Function
+import Language.Fortran.Transformation.Disambiguation.Intrinsic
 import Language.Fortran.Transformation.Grouping
 import Language.Fortran.AST (ProgramFile, ProgramUnitName)
 
@@ -21,6 +22,7 @@ data Transformation =
   | GroupDo
   | GroupLabeledDo
   | DisambiguateFunction
+  | DisambiguateIntrinsic
   deriving (Eq)
 
 transformationMapping :: Data a => [ (Transformation, Transform a ()) ]
@@ -30,6 +32,7 @@ transformationMapping =
   , (GroupDo, groupDo)
   , (GroupLabeledDo, groupLabeledDo)
   , (DisambiguateFunction, disambiguateFunction)
+  , (DisambiguateIntrinsic, disambiguateIntrinsic)
   ]
 
 transformWithModFiles :: Data a => ModFiles -> [ Transformation ] -> ProgramFile a -> ProgramFile a

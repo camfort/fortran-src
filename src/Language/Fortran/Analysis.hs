@@ -111,12 +111,17 @@ varName :: Expression (Analysis a) -> String
 varName (ExpValue (Analysis { uniqueName = Just n }) _ (ValVariable {})) = n
 varName (ExpValue (Analysis { sourceName = Just n }) _ (ValVariable {})) = n
 varName (ExpValue _ _ (ValVariable n))                                   = n
+varName (ExpValue (Analysis { uniqueName = Just n }) _ (ValIntrinsic {})) = n
+varName (ExpValue (Analysis { sourceName = Just n }) _ (ValIntrinsic {})) = n
+varName (ExpValue _ _ (ValIntrinsic n))                                   = n
 varName _ = error "Use of varName on non-variable."
 
 -- | Obtain the source name from an ExpValue variable.
 srcName :: Expression (Analysis a) -> String
 srcName (ExpValue (Analysis { sourceName = Just n }) _ (ValVariable {})) = n
 srcName (ExpValue _ _ (ValVariable n))                                   = n
+srcName (ExpValue (Analysis { sourceName = Just n }) _ (ValIntrinsic {})) = n
+srcName (ExpValue _ _ (ValIntrinsic n))                                   = n
 srcName _ = error "Use of srcName on non-variable."
 
 -- | Generate an ExpValue variable with its source name == to its uniqueName.

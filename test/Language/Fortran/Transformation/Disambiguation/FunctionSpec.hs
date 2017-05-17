@@ -11,7 +11,7 @@ import Language.Fortran.Transformer
 import Language.Fortran.Transformation.TransformMonad
 
 disambiguateFunction :: ProgramFile () -> ProgramFile ()
-disambiguateFunction = transform [ DisambiguateFunction ]
+disambiguateFunction = transform [ DisambiguateIntrinsic, DisambiguateFunction ]
 
 spec :: Spec
 spec = do
@@ -24,6 +24,11 @@ spec = do
     it "disambiguates function calls in example 2" $ do
       let pf = disambiguateFunction $ resetSrcSpan ex2
       pf `shouldBe'` expectedEx2
+
+  describe "Function call / Intrinsic disambiguation" $
+    it "disambiguates function calls / intrinsics in example 3" $ do
+      let pf = disambiguateFunction $ resetSrcSpan ex3
+      pf `shouldBe'` expectedEx3
 
 {-
 - program Main
@@ -115,6 +120,37 @@ expectedEx2pu1bs =
           (ExpFunctionCall () u
             (ExpValue () u $ ValVariable "f")
             (Just $ AList () u [ Argument () u Nothing (intGen 1) ])))) ]
+
+
+ex3 = ProgramFile mi77 [ ex3pu1, ex3pu2 ]
+ex3pu1 = PUMain () u Nothing ex3pu1bs Nothing
+ex3pu2 = PUFunction () u Nothing False "y" (Just $ AList () u [ varGen "i", varGen "j" ]) Nothing [ ] Nothing
+ex3pu1bs =
+  [ BlStatement () u Nothing
+      (StFunction () u
+        (ExpValue () u (ValVariable "f"))
+        (AList () u [ varGen "x" ])
+        (intGen 1))
+  , BlStatement () u Nothing
+      (StExpressionAssign () u (varGen "i")
+        (ExpSubscript () u (varGen "abs")
+          (AList () u [
+            (IxSingle () u Nothing (ExpSubscript () u (varGen "f") (AList () u [ ixSinGen 1 ])))]))) ]
+
+expectedEx3 = ProgramFile mi77 [ expectedEx3pu1, ex3pu2 ]
+expectedEx3pu1 = PUMain () u Nothing expectedEx3pu1bs Nothing
+expectedEx3pu1bs =
+  [ BlStatement () u Nothing
+      (StFunction () u
+        (ExpValue () u (ValVariable "f"))
+        (AList () u [ varGen "x" ])
+        (intGen 1))
+  , BlStatement () u Nothing
+      (StExpressionAssign () u (varGen "i")
+        (ExpFunctionCall () u (ExpValue () u $ ValIntrinsic "abs")
+          (Just $ AList () u [ Argument () u Nothing
+            (ExpFunctionCall () u (ExpValue () u $ ValVariable "f")
+                                  (Just $ AList () u [ Argument () u Nothing (intGen 1) ])) ]))) ]
 
 -- Local variables:
 -- mode: haskell

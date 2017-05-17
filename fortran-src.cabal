@@ -54,6 +54,7 @@ executable fortran-src
     Language.Fortran.Parser.Utils
     Language.Fortran.PrettyPrint
     Language.Fortran.Transformation.Disambiguation.Function
+    Language.Fortran.Transformation.Disambiguation.Intrinsic
     Language.Fortran.Transformation.Grouping
     Language.Fortran.Transformation.TransformMonad
     Language.Fortran.Transformer
@@ -84,6 +85,7 @@ library
     Language.Fortran.Parser.Utils
     Language.Fortran.PrettyPrint
     Language.Fortran.Transformation.Disambiguation.Function
+    Language.Fortran.Transformation.Disambiguation.Intrinsic
     Language.Fortran.Transformation.Grouping
     Language.Fortran.Transformation.TransformMonad
     Language.Fortran.Transformer

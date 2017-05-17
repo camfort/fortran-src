@@ -1111,6 +1111,7 @@ transformations95 =
   , GroupDo
   , GroupIf
   , GroupCase
+  , DisambiguateIntrinsic
   , DisambiguateFunction
   ]
 

@@ -364,6 +364,7 @@ data Value a =
   | ValString            String
   | ValHollerith         String
   | ValVariable          Name
+  | ValIntrinsic         Name
   | ValLogical           String
   | ValOperator          String
   | ValAssignment

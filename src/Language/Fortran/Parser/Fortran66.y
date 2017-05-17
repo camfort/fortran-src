@@ -505,6 +505,7 @@ makeReal i1 dot i2 exp =
 
 transformations66 =
   [ GroupLabeledDo
+  , DisambiguateIntrinsic
   , DisambiguateFunction
   ]
 
