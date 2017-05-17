@@ -397,7 +397,7 @@ renameGenericDecls = trans renameExpDecl
 renameExpDecl :: Data a => RenamerFunc (Expression (Analysis a))
 renameExpDecl e@(ExpValue _ _ (ValVariable v))  = flip setUniqueName (setSourceName v e) `fmap` maybeAddUnique v NTVariable
 -- Intrinsics get unique names for each use.
-renameExpDecl e@(ExpValue _ _ (ValIntrinsic v)) = flip setUniqueName (setSourceName v e) `fmap` addUnique v NTVariable
+renameExpDecl e@(ExpValue _ _ (ValIntrinsic v)) = flip setUniqueName (setSourceName v e) `fmap` addUnique v NTIntrinsic
 renameExpDecl e                                 = return e
 
 -- Find all declarators within a value and then dive within those
@@ -432,9 +432,10 @@ renameEntryPointResultDecl b = return b
 -- Rename an ExpValue variable, assuming that it is to be treated as a
 -- reference to a previous declaration, possibly in an outer scope.
 renameExp :: Data a => RenamerFunc (Expression (Analysis a))
-renameExp e@(ExpValue _ _ (ValVariable v)) = maybe e (flip setUniqueName (setSourceName v e)) `fmap` getFromEnvs v
--- FIXME: do Intrinsics need handling here?
-renameExp e                                = return e
+renameExp e@(ExpValue _ _ (ValVariable v))  = maybe e (flip setUniqueName (setSourceName v e)) `fmap` getFromEnvs v
+-- Intrinsics get unique names for each use.
+renameExp e@(ExpValue _ _ (ValIntrinsic v)) = flip setUniqueName (setSourceName v e) `fmap` addUnique v NTIntrinsic
+renameExp e                                 = return e
 
 -- Rename all ExpValue variables found within the block, assuming that
 -- they are to be treated as references to previous declarations,
