@@ -250,7 +250,7 @@ initialEnv blocks = do
   -- NameMap because it would be possible for the same program object
   -- to have two different names used by different parts of the
   -- program).
-  let uses = takeWhile isUseStatement blocks
+  let uses = filter isUseStatement blocks
   fmap M.unions . forM uses $ \ use -> case use of
     (BlStatement _ _ _ (StUse _ _ (ExpValue _ _ (ValVariable m)) _ Nothing)) -> do
       mMap <- gets moduleMap
@@ -307,12 +307,13 @@ getFromEnvs = fmap (fmap fst) . getFromEnvsWithType
 
 -- Get a mapping, plus name type, from the combined nested
 -- environment, if it exists.
+-- If not, check if it is an intrinsic name.
 getFromEnvsWithType :: String -> Renamer (Maybe (String, NameType))
 getFromEnvsWithType v = do
   envs <- getEnvs
   case lookup v envs of
     Just (v', nt) -> return $ Just (v', nt)
-    Nothing      -> do
+    Nothing       -> do
       itab <- gets intrinsics
       case getIntrinsicReturnType v itab of
         Nothing -> return Nothing
