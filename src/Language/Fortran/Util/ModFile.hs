@@ -190,28 +190,44 @@ genUniqNameToFilenameMap = M.unions . map perMF
 
 --------------------------------------------------
 
+-- | Extract all module maps (name -> environment) by collecting all
+-- of the stored module maps within the PUModule annotation.
 extractModuleMap :: forall a. Data a => F.ProgramFile (FA.Analysis a) -> FAR.ModuleMap
 extractModuleMap pf = M.fromList [ (n, env) | pu@(F.PUModule {}) <- universeBi pf :: [F.ProgramUnit (FA.Analysis a)]
                                             , let a = F.getAnnotation pu
                                             , let n = F.getName pu
                                             , env <- maybeToList (FA.moduleEnv a) ]
-                                        
+
+-- | Extract map of declared variables with their associated program
+-- unit and source span.
 extractDeclMap :: forall a. Data a => F.ProgramFile (FA.Analysis a) -> DeclMap
 extractDeclMap pf = M.fromList . concatMap (blockDecls . nameAndBlocks) $ universeBi pf
   where
-    blockDecls :: (DeclContext, [F.Block (FA.Analysis a)]) -> [(F.Name, (DeclContext, P.SrcSpan))]
-    blockDecls (dc, bs) = flip map (universeBi bs) $ \ d ->
-                            let (v, ss) = declVarName d in (v, (dc, ss))
+    -- Extract variable names, source spans from declarations (and
+    -- from function return variable if present)
+    blockDecls :: (DeclContext, Maybe (F.Name, P.SrcSpan), [F.Block (FA.Analysis a)]) -> [(F.Name, (DeclContext, P.SrcSpan))]
+    blockDecls (dc, mret, bs)
+      | Nothing        <- mret = map decls (universeBi bs)
+      | Just (ret, ss) <- mret = (ret, (dc, ss)):map decls (universeBi bs)
+      where
+        decls d = let (v, ss) = declVarName d in (v, (dc, ss))
 
+    -- Extract variable name and source span from declaration
     declVarName :: F.Declarator (FA.Analysis a) -> (F.Name, P.SrcSpan)
     declVarName (F.DeclVariable _ _ e _ _) = (FA.varName e, P.getSpan e)
     declVarName (F.DeclArray _ _ e _ _ _)  = (FA.varName e, P.getSpan e)
 
-    nameAndBlocks :: F.ProgramUnit (FA.Analysis a) -> (DeclContext, [F.Block (FA.Analysis a)])
+    -- Extract context identifier, a function return value (+ source
+    -- span) if present, and a list of contained blocks
+    nameAndBlocks :: F.ProgramUnit (FA.Analysis a) -> (DeclContext, Maybe (F.Name, P.SrcSpan), [F.Block (FA.Analysis a)])
     nameAndBlocks pu = case pu of
-      F.PUMain       _ _ _ b _         -> (DCMain, b)
-      F.PUModule     _ _ _ b _         -> (DCModule $ FA.puName pu, b)
-      F.PUSubroutine _ _ _ _ _ b _     -> (DCSubroutine $ FA.puName pu, b)
-      F.PUFunction   _ _ _ _ _ _ _ b _ -> (DCFunction $ FA.puName pu, b)
-      F.PUBlockData  _ _ _ b           -> (DCBlockData, b)
-      F.PUComment    {}                -> (DCBlockData, []) -- no decls inside of comments, so ignore it
+      F.PUMain       _ _ _ b _            -> (DCMain, Nothing, b)
+      F.PUModule     _ _ _ b _            -> (DCModule $ FA.puName pu, Nothing, b)
+      F.PUSubroutine _ _ _ _ _ b _        -> (DCSubroutine $ FA.puName pu, Nothing, b)
+      F.PUFunction   _ _ _ _ _ _ mret b _
+        | Nothing   <- mret
+        , F.Named n <- FA.puName pu       -> (DCFunction $ FA.puName pu, Just (n, P.getSpan pu), b)
+        | Just ret <- mret                -> (DCFunction $ FA.puName pu, Just (FA.varName ret, P.getSpan ret), b)
+        | otherwise                       -> error $ "nameAndBlocks: un-named function with no return value! " ++ show (FA.puName pu) ++ " at source-span " ++ show (P.getSpan pu)
+      F.PUBlockData  _ _ _ b              -> (DCBlockData, Nothing, b)
+      F.PUComment    {}                   -> (DCBlockData, Nothing, []) -- no decls inside of comments, so ignore it
