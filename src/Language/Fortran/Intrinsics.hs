@@ -123,4 +123,13 @@ fortran90intrinisics = fortran77intrinsics `M.union` M.fromList
   , ("modulo"  , ITParam 1)
   , ("ceiling" , ITParam 1)
   , ("floor"   , ITParam 1)
+  , ("iand"    , ITInteger)
+  , ("ior"     , ITInteger)
+  , ("ieor"    , ITInteger)
+  , ("iany"    , ITInteger)
+  , ("iall"    , ITInteger)
+  , ("ibclr"   , ITInteger)
+  , ("ibits"   , ITInteger)
+  , ("ibset"   , ITInteger)
+  , ("not"     , ITInteger)
   ]
