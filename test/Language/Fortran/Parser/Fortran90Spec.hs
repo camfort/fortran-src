@@ -73,6 +73,16 @@ spec =
         let st = StExpressionAssign () u lhs (intGen 1)
         sParser "x(1) % y = 1" `shouldBe'` st
 
+      it "parses pause statements" $ do
+        let stPause = StPause () u Nothing
+        let stStr = "PAUSE"
+        sParser stStr `shouldBe'` stPause
+        
+      it "parses pause statements with expression" $ do
+        let stPause = StPause () u (Just (strGen "MESSAGE"))
+        let stStr = "PAUSE \"MESSAGE\""
+        sParser stStr `shouldBe'` stPause
+
       it "parses declaration with attributes" $ do
         let typeSpec = TypeSpec () u TypeReal Nothing
         let attrs = AList () u [ AttrExternal () u
