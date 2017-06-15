@@ -125,7 +125,6 @@ import Debug.Trace
   to                          { TTo _ }
   continue                    { TContinue _ }
   stop                        { TStop _ }
-  pause                       { TPause _ }
   do                          { TDo _ }
   enddo                       { TEndDo _ }
   while                       { TWhile _ }
@@ -479,8 +478,6 @@ EXECUTABLE_STATEMENT :: { Statement A0 }
 | continue { StContinue () (getSpan $1) }
 | stop { StStop () (getSpan $1) Nothing }
 | stop EXPRESSION { StStop () (getTransSpan $1 $2) (Just $2) }
-| pause { StPause () (getSpan $1) Nothing }
-| pause EXPRESSION { StPause () (getTransSpan $1 $2) (Just $2) }
 | selectcase '(' EXPRESSION ')'
   { StSelectCase () (getTransSpan $1 $4) Nothing $3 }
 | id ':' selectcase '(' EXPRESSION ')'
