@@ -1128,14 +1128,17 @@ fortran95ParserWithModFiles mods sourceCode filename =
     parseState = initParseState sourceCode Fortran95 filename
 
 parseError :: Token -> LexAction a
-parseError _ = do
+parseError token = do
     parseState <- get
 #ifdef DEBUG
     tokens <- reverse <$> aiPreviousTokensInLine <$> getAlex
 #endif
     fail $ psFilename parseState ++ ": parsing failed. "
+      ++ specifics token
 #ifdef DEBUG
       ++ '\n' : show tokens
 #endif
+  where specifics (TPause _) = "\nPAUSE statements are not supported in Fortran 95 or later. "
+        specifics _ = ""
 
 }
