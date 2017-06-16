@@ -4,6 +4,7 @@ import Prelude hiding (GT)
 
 import TestUtil
 import Test.Hspec
+import Control.Exception (evaluate)
 
 import Language.Fortran.AST
 import Language.Fortran.ParserMonad
@@ -72,6 +73,14 @@ spec =
         let lhs = ExpDataRef () u subs (varGen "y")
         let st = StExpressionAssign () u lhs (intGen 1)
         sParser "x(1) % y = 1" `shouldBe'` st
+
+      it "parses pause statements" $ do
+        let stStr = "PAUSE"
+        evaluate (sParser stStr) `shouldThrow` anyIOException
+        
+      it "parses pause statements with expression" $ do
+        let stStr = "PAUSE \"MESSAGE\""
+        evaluate (sParser stStr) `shouldThrow` anyIOException
 
       it "parses declaration with attributes" $ do
         let typeSpec = TypeSpec () u TypeReal Nothing
