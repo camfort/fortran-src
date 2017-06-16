@@ -74,11 +74,11 @@ spec =
         let st = StExpressionAssign () u lhs (intGen 1)
         sParser "x(1) % y = 1" `shouldBe'` st
 
-      it "parses pause statements" $ do
+      it "doesn't parse pause statements" $ do
         let stStr = "PAUSE"
         evaluate (sParser stStr) `shouldThrow` anyIOException
         
-      it "parses pause statements with expression" $ do
+      it "doesn't parse pause statements with expression" $ do
         let stStr = "PAUSE \"MESSAGE\""
         evaluate (sParser stStr) `shouldThrow` anyIOException
 
