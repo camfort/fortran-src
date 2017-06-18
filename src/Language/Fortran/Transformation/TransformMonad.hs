@@ -9,7 +9,6 @@ where
 
 import Prelude hiding (lookup)
 import Control.Monad.State.Lazy
-import Data.Map (lookup, Map, empty)
 import Data.Data
 
 import Language.Fortran.Analysis

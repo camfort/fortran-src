@@ -5,7 +5,6 @@
 
 module Language.Fortran.PrettyPrint where
 
-import Data.Char
 import Data.Maybe (isJust, isNothing)
 import Data.List (foldl')
 
@@ -13,7 +12,6 @@ import Prelude hiding (EQ,LT,GT)
 
 import Language.Fortran.AST
 import Language.Fortran.ParserMonad
-import Language.Fortran.Util.Position
 import Language.Fortran.Util.FirstParameter
 
 import Text.PrettyPrint

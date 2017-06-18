@@ -19,16 +19,12 @@ module Language.Fortran.Analysis.DataFlow
 ) where
 
 import Data.Generics.Uniplate.Data
-import Data.Generics.Uniplate.Operations
 import GHC.Generics
 import Data.Data
-import Data.Function
 import Control.Monad.State.Lazy
-import Control.Monad.Writer
-import Text.PrettyPrint.GenericPretty (pretty, Out)
+import Text.PrettyPrint.GenericPretty (Out)
 import Language.Fortran.Parser.Utils
 import Language.Fortran.Analysis
-import Language.Fortran.Analysis.BBlocks
 import Language.Fortran.AST
 import qualified Data.Map as M
 import qualified Data.IntMap.Lazy as IM
@@ -38,8 +34,7 @@ import Data.Graph.Inductive hiding (trc, dom)
 import Data.Graph.Inductive.PatriciaTree (Gr)
 import Data.Graph.Inductive.Query.BFS (bfen)
 import Data.Maybe
-import Data.List (foldl', foldl1', (\\), union, delete, nub, intersect)
-import qualified Debug.Trace as D
+import Data.List (foldl', foldl1', (\\), union, intersect)
 
 --------------------------------------------------
 

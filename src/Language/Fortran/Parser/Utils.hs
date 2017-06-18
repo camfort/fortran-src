@@ -1,6 +1,5 @@
 {-| Simple module to provide functions that read Fortran literals -}
 module Language.Fortran.Parser.Utils (readReal, readInteger) where
-import Data.List
 import Data.Char
 import Numeric
 

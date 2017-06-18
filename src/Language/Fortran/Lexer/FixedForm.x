@@ -10,27 +10,21 @@
 module Language.Fortran.Lexer.FixedForm where
 
 import Data.Word (Word8)
-import Data.Char (toLower, isDigit, ord)
-import Data.List (isPrefixOf, isSuffixOf, any)
+import Data.Char (toLower, ord)
+import Data.List (isPrefixOf, any)
 import Data.Maybe (fromJust, isNothing)
 import Data.Data
-import Data.Typeable
 import qualified Data.Bits
 import qualified Data.ByteString.Char8 as B
 
-import Control.Exception
 import Control.Monad.State
-import Control.Monad (liftM2)
 
-import GHC.Exts
 import GHC.Generics
 
 import Language.Fortran.ParserMonad
 
 import Language.Fortran.Util.FirstParameter
 import Language.Fortran.Util.Position
-
-import Debug.Trace
 
 }
 

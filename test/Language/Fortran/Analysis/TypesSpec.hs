@@ -5,7 +5,6 @@ import TestUtil
 
 import Data.Map ((!))
 
-import Language.Fortran.Analysis
 import Data.Data
 import Language.Fortran.AST
 import Language.Fortran.Analysis.Types

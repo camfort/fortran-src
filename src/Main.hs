@@ -4,7 +4,6 @@ module Main where
 
 import Prelude hiding (readFile)
 import qualified Data.ByteString.Char8 as B
-import Data.Text (unpack)
 import Data.Text.Encoding (encodeUtf8, decodeUtf8With)
 import Data.Text.Encoding.Error (replace)
 
@@ -16,22 +15,17 @@ import System.Environment
 import System.Directory
 import System.FilePath
 import Text.PrettyPrint.GenericPretty (pp, pretty, Out)
-import Data.List (isInfixOf, isSuffixOf, intercalate, (\\))
+import Data.List (isInfixOf, intercalate, (\\))
 import Data.Char (toLower)
-import Data.Maybe (fromMaybe, fromJust, maybeToList)
+import Data.Maybe (fromMaybe, maybeToList)
 import Data.Data
 import Data.Binary
 import Data.Generics.Uniplate.Data
-import Data.Generics.Uniplate.Operations
 
 import Language.Fortran.ParserMonad (FortranVersion(..), fromRight)
 import qualified Language.Fortran.Lexer.FixedForm as FixedForm (collectFixedTokens, Token(..))
 import qualified Language.Fortran.Lexer.FreeForm as FreeForm (collectFreeTokens, Token(..))
 
-import Language.Fortran.Parser.Fortran66 (fortran66Parser)
-import Language.Fortran.Parser.Fortran77 (fortran77Parser, extended77Parser)
-import Language.Fortran.Parser.Fortran90 (fortran90Parser)
-import Language.Fortran.Parser.Fortran95Experimental (fortran95Parser)
 import Language.Fortran.Parser.Any
 
 import Language.Fortran.Util.ModFile
@@ -43,9 +37,7 @@ import Language.Fortran.Analysis.Types
 import Language.Fortran.Analysis.BBlocks
 import Language.Fortran.Analysis.DataFlow
 import Language.Fortran.Analysis.Renaming
-import Language.Fortran.Analysis (initAnalysis)
 import Data.Graph.Inductive hiding (trc)
-import Data.Graph.Inductive.PatriciaTree (Gr)
 
 import qualified Data.IntMap as IM
 import qualified Data.Map as M

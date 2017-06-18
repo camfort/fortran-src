@@ -13,7 +13,6 @@ import Control.Exception
 
 import Control.Monad.State
 import Control.Monad.Except
-import Control.Applicative
 
 import Data.Typeable
 import Data.Data

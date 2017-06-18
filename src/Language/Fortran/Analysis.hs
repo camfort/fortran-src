@@ -13,7 +13,6 @@ where
 
 import Language.Fortran.Util.Position (SrcSpan)
 import Data.Generics.Uniplate.Data
-import Data.Generics.Uniplate.Operations
 import Data.Data
 import Language.Fortran.AST
 import Data.Graph.Inductive.PatriciaTree (Gr)

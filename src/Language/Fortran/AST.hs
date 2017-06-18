@@ -9,8 +9,6 @@
 module Language.Fortran.AST where
 
 import Data.Data
-import Data.Typeable
-import Data.Generics.Uniplate.Data
 import Data.Binary
 import GHC.Generics (Generic)
 import Text.PrettyPrint.GenericPretty
@@ -20,7 +18,6 @@ import Language.Fortran.Util.Position
 import Language.Fortran.Util.FirstParameter
 import Language.Fortran.Util.SecondParameter
 
-import Debug.Trace
 
 type A0 = ()
 

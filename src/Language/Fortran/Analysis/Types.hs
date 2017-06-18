@@ -4,18 +4,16 @@ module Language.Fortran.Analysis.Types ( analyseTypes, analyseTypesWithEnv, extr
 import Language.Fortran.AST
 
 import Prelude hiding (lookup)
-import Data.Map (findWithDefault, insert, empty, lookup, Map)
+import Data.Map (insert)
 import qualified Data.Map as M
 import Data.Maybe (maybeToList)
 import Control.Monad.State.Strict
 import Data.Generics.Uniplate.Data
-import Data.Generics.Uniplate.Operations
 import Data.Data
 import Language.Fortran.Analysis
 import Language.Fortran.Intrinsics
 import Language.Fortran.ParserMonad (FortranVersion(..))
 
-import Debug.Trace
 
 --------------------------------------------------
 

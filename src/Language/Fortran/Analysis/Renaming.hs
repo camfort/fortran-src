@@ -16,23 +16,18 @@ where
 import Debug.Trace
 
 import Language.Fortran.AST hiding (fromList)
-import Language.Fortran.Util.Position
 import Language.Fortran.Intrinsics
 import Language.Fortran.Analysis
-import Language.Fortran.Analysis.Types
 import Language.Fortran.ParserMonad (FortranVersion(..))
 
 import Prelude hiding (lookup)
 import Data.Maybe (maybe, fromMaybe)
 import qualified Data.List as L
-import Data.Map (findWithDefault, insert, union, empty, lookup, member, Map, fromList)
+import Data.Map (insert, union, empty, lookup, Map, fromList)
 import qualified Data.Map.Strict as M
 import Control.Monad.State.Strict
-import Control.Monad
 import Data.Generics.Uniplate.Data
-import Data.Generics.Uniplate.Operations
 import Data.Data
-import Data.Tuple
 
 --------------------------------------------------
 

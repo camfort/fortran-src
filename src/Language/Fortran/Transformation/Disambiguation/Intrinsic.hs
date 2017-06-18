@@ -5,17 +5,12 @@ module Language.Fortran.Transformation.Disambiguation.Intrinsic (disambiguateInt
 
 import Prelude hiding (lookup)
 import Data.Generics.Uniplate.Data
-import Data.Map ((!), lookup, Map)
-import Data.Maybe (isJust, fromJust)
 import Data.Data
 
-import Language.Fortran.Util.Position (getSpan)
 import Language.Fortran.Analysis
-import Language.Fortran.Analysis.Types
 import Language.Fortran.AST
 import Language.Fortran.Transformation.TransformMonad
 
-import Debug.Trace
 
 disambiguateIntrinsic :: Data a => Transform a ()
 disambiguateIntrinsic = modifyProgramFile (trans expression)

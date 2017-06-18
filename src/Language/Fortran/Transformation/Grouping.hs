@@ -8,7 +8,6 @@ import Language.Fortran.AST
 import Language.Fortran.Analysis
 import Language.Fortran.Transformation.TransformMonad
 
-import Debug.Trace
 
 genericGroup :: ([ Block (Analysis a) ] -> [ Block (Analysis a) ]) -> Transform a ()
 genericGroup groupingFunction =

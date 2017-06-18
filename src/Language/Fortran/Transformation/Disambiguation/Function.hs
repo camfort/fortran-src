@@ -5,17 +5,12 @@ module Language.Fortran.Transformation.Disambiguation.Function (disambiguateFunc
 
 import Prelude hiding (lookup)
 import Data.Generics.Uniplate.Data
-import Data.Map ((!), lookup, Map)
-import Data.Maybe (isJust, fromJust)
 import Data.Data
 
-import Language.Fortran.Util.Position (getSpan)
 import Language.Fortran.Analysis
-import Language.Fortran.Analysis.Types
 import Language.Fortran.AST
 import Language.Fortran.Transformation.TransformMonad
 
-import Debug.Trace
 
 disambiguateFunction :: Data a => Transform a ()
 disambiguateFunction = do

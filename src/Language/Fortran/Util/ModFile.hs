@@ -51,16 +51,11 @@ module Language.Fortran.Util.ModFile
   , genUniqNameToFilenameMap )
 where
 
-import qualified Debug.Trace as D
-
 import Data.Data
-import Data.List
-import Data.Char
 import Data.Maybe
 import Data.Generics.Uniplate.Operations
 import qualified Data.Map.Strict as M
 import Data.Binary
-import Data.Typeable
 import GHC.Generics (Generic)
 import qualified Data.ByteString.Char8 as B
 import qualified Data.ByteString.Lazy.Char8 as LB

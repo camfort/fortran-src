@@ -11,24 +11,20 @@
 module Language.Fortran.Lexer.FreeForm where
 
 import Data.Data
-import Data.Typeable
-import Data.Maybe (isJust, isNothing, fromJust, fromMaybe)
+import Data.Maybe (fromMaybe)
 import Data.Char (toLower)
 import Data.Word (Word8)
 import qualified Data.ByteString.Char8 as B
-import qualified Data.ByteString.Unsafe as BU
 
 import Control.Monad (join)
 import Control.Monad.State (get)
 
 import GHC.Generics
-import GHC.Base (unsafeChr)
 
 import Language.Fortran.ParserMonad
 import Language.Fortran.Util.Position
 import Language.Fortran.Util.FirstParameter
 
-import Debug.Trace
 
 }
 

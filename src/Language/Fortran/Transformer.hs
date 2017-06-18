@@ -1,20 +1,16 @@
 module Language.Fortran.Transformer ( transform, transformWithModFiles
                                     , Transformation(..) ) where
 
-import Control.Monad
 import Data.Maybe (fromJust)
-import Data.Map (Map, empty)
+import Data.Map (empty)
 import Data.Data
 
 import Language.Fortran.Util.ModFile
-import Language.Fortran.Analysis
-import Language.Fortran.Analysis.Types
-import Language.Fortran.Analysis.Renaming
 import Language.Fortran.Transformation.TransformMonad (Transform, runTransform)
 import Language.Fortran.Transformation.Disambiguation.Function
 import Language.Fortran.Transformation.Disambiguation.Intrinsic
 import Language.Fortran.Transformation.Grouping
-import Language.Fortran.AST (ProgramFile, ProgramUnitName)
+import Language.Fortran.AST (ProgramFile)
 
 data Transformation =
     GroupIf

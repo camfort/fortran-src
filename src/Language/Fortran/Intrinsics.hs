@@ -7,19 +7,10 @@ where
 
 import qualified Data.Map.Strict as M
 import Data.Data
-import Data.Typeable
-import Data.Generics.Uniplate.Data
 import Data.List
 import GHC.Generics (Generic)
-import Text.PrettyPrint.GenericPretty
 import Language.Fortran.ParserMonad (FortranVersion(..))
 
-import Language.Fortran.Analysis
-import Language.Fortran.Util.Position
-import Language.Fortran.Util.FirstParameter
-import Language.Fortran.Util.SecondParameter
-
-import Debug.Trace
 
 data IntrinsicType = ITReal | ITInteger | ITComplex | ITDouble | ITLogical | ITParam Int
   deriving (Show, Eq, Ord, Typeable, Generic)

@@ -8,9 +8,7 @@ module Language.Fortran.Analysis.BBlocks
 where
 
 import Data.Generics.Uniplate.Data
-import Data.Generics.Uniplate.Operations
 import Data.Data
-import Data.Function hiding ((&))
 import Control.Monad
 import Control.Monad.State.Lazy
 import Control.Monad.Writer
@@ -18,15 +16,12 @@ import Text.PrettyPrint.GenericPretty (pretty, Out)
 import Language.Fortran.Analysis
 import Language.Fortran.AST
 import Language.Fortran.Util.Position
-import qualified Data.IntSet as IS
 import qualified Data.Map as M
 import qualified Data.IntMap as IM
 import Data.Graph.Inductive
 import Data.Graph.Inductive.PatriciaTree (Gr)
-import Data.List (foldl', intercalate)
+import Data.List (intercalate)
 import Data.Maybe
-import Language.Fortran.Util.Position (SrcSpan(..), initPosition)
-import Debug.Trace
 
 --------------------------------------------------
 

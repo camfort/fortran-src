@@ -5,16 +5,11 @@
 
 module Language.Fortran.Util.Position where
 
-import qualified Data.ByteString.Char8 as B
 import Data.Data
-import Data.Typeable
 import Text.PrettyPrint.GenericPretty
 import Text.PrettyPrint
 import Data.Binary
 
-import GHC.Generics
-
-import Language.Fortran.Util.FirstParameter
 import Language.Fortran.Util.SecondParameter
 
 class Loc a where
