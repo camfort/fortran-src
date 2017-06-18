@@ -8,8 +8,7 @@ script:
 - echo $TRAVIS_TAG
 - "GHC_OPTIONS=\"--ghc-options=\"$(ruby -e 'print (ENV[%q|TRAVIS_TAG|] =~ /v/ ? %q|-O3| : %q|-O0|)')\"\""
 - echo $GHC_OPTIONS
-- stack test $GHC_OPTIONS
-- stack haddock
+- stack haddock --test -j 4 $GHC_OPTIONS
 deploy:
 - provider: releases
   api_key:
