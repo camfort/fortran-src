@@ -74,6 +74,10 @@ spec =
         let st = StExpressionAssign () u lhs (intGen 1)
         sParser "x(1) % y = 1" `shouldBe'` st
 
+      it "doesn't parse assign statements" $ do
+        let stStr = "ASSIGN 1 \"LABEL\""
+        evaluate (sParser stStr) `shouldThrow` anyIOException
+
       it "doesn't parse pause statements" $ do
         let stStr = "PAUSE"
         evaluate (sParser stStr) `shouldThrow` anyIOException
@@ -402,14 +406,11 @@ spec =
         let st = StGotoComputed () u list (intGen 20)
         sParser "goto (10, 20, 30) 20" `shouldBe'` st
 
-      it "parses assigned goto" $ do
-        let list = fromList () [ intGen 10, intGen 20, intGen 30 ]
-        let st = StGotoAssigned () u (varGen "i") list
-        sParser "goto i, (10, 20, 30)" `shouldBe'` st
+      it "doesn't parse assigned goto" $ do
+        evaluate (sParser "goto i, (10, 20, 30)") `shouldThrow` anyIOException
 
-      it "parses label assignment" $ do
-        let st = StLabelAssign () u (intGen 20) (varGen "l")
-        sParser "assign 20 to l" `shouldBe'` st
+      it "doesn't parse label assignment" $ do
+        evaluate (sParser "assign 20 to l") `shouldThrow` anyIOException
 
     describe "IO" $ do
       it "parses vanilla print" $ do

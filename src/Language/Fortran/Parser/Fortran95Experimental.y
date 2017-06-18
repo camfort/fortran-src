@@ -121,7 +121,6 @@ import Debug.Trace
   nullify                     { TNullify _ }
   none                        { TNone _ }
   goto                        { TGoto _ }
-  assign                      { TAssign _ }
   to                          { TTo _ }
   continue                    { TContinue _ }
   stop                        { TStop _ }
@@ -467,14 +466,11 @@ EXECUTABLE_STATEMENT :: { Statement A0 }
 | cycle VARIABLE { StCycle () (getTransSpan $1 $2) (Just $2) }
 | exit { StExit () (getSpan $1) Nothing }
 | exit VARIABLE { StExit () (getTransSpan $1 $2) (Just $2) }
+-- GO TO label
 | goto INTEGER_LITERAL { StGotoUnconditional () (getTransSpan $1 $2) $2 }
-| goto VARIABLE { StGotoUnconditional () (getTransSpan $1 $2) $2 }
-| goto VARIABLE MAYBE_COMMA '(' INTEGERS ')'
-  { StGotoAssigned () (getTransSpan $1 $6) $2 (fromReverseList $5) }
+-- GO TO label-list [,] scalar-int-expression
 | goto '(' INTEGERS ')' MAYBE_COMMA EXPRESSION
   { StGotoComputed () (getTransSpan $1 $6) (fromReverseList $3) $6 }
-| assign INTEGER_LITERAL to VARIABLE
-  { StLabelAssign () (getTransSpan $1 $4) $2 $4 }
 | continue { StContinue () (getSpan $1) }
 | stop { StStop () (getSpan $1) Nothing }
 | stop EXPRESSION { StStop () (getTransSpan $1 $2) (Just $2) }
@@ -1139,6 +1135,7 @@ parseError token = do
       ++ '\n' : show tokens
 #endif
   where specifics (TPause _) = "\nPAUSE statements are not supported in Fortran 95 or later. "
+        specifics (TAssign _) = "\nASSIGN statements are not supported in Fortran 95 or later. "
         specifics _ = ""
 
 }
