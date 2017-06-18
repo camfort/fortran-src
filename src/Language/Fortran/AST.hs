@@ -9,6 +9,8 @@
 module Language.Fortran.AST where
 
 import Data.Data
+import Data.Generics.Uniplate.Data ()
+import Data.Typeable ()
 import Data.Binary
 import GHC.Generics (Generic)
 import Text.PrettyPrint.GenericPretty
