@@ -8,7 +8,6 @@ import Language.Fortran.Parser.Fortran66 ( fortran66Parser, fortran66ParserWithM
 import Language.Fortran.Parser.Fortran77 ( fortran77Parser, fortran77ParserWithModFiles
                                          , extended77Parser, extended77ParserWithModFiles )
 import Language.Fortran.Parser.Fortran90 ( fortran90Parser, fortran90ParserWithModFiles )
-import Language.Fortran.Parser.Fortran95Experimental (fortran95Parser, fortran95ParserWithModFiles )
 
 import qualified Data.ByteString.Char8 as B
 import Data.Char (toLower)
@@ -21,7 +20,6 @@ deduceVersion path
   | isExtensionOf ".fpp"    = Fortran77
   | isExtensionOf ".ftn"    = Fortran77
   | isExtensionOf ".f90"    = Fortran90
-  | isExtensionOf ".f95"    = Fortran95
   | isExtensionOf ".f03"    = Fortran2003
   | isExtensionOf ".f2003"  = Fortran2003
   | isExtensionOf ".f08"    = Fortran2008
@@ -36,8 +34,7 @@ parserVersions =
   [ (Fortran66, fromParseResult `after` fortran66Parser)
   , (Fortran77, fromParseResult `after` fortran77Parser)
   , (Fortran77Extended, fromParseResult `after` extended77Parser)
-  , (Fortran90, fromParseResult `after` fortran90Parser)
-  , (Fortran95, fromParseResult `after` fortran95Parser) ]
+  , (Fortran90, fromParseResult `after` fortran90Parser) ]
 
 type ParserWithModFiles = ModFiles -> B.ByteString -> String -> Either ParseErrorSimple (ProgramFile A0)
 parserWithModFilesVersions :: [(FortranVersion, ParserWithModFiles)]
@@ -45,8 +42,7 @@ parserWithModFilesVersions =
   [ (Fortran66, \m s -> fromParseResult . fortran66ParserWithModFiles m s)
   , (Fortran77, \m s -> fromParseResult . fortran77ParserWithModFiles m s)
   , (Fortran77Extended, \m s -> fromParseResult . extended77ParserWithModFiles m s)
-  , (Fortran90, \m s -> fromParseResult . fortran90ParserWithModFiles m s)
-  , (Fortran95, \m s -> fromParseResult . fortran95ParserWithModFiles m s) ]
+  , (Fortran90, \m s -> fromParseResult . fortran90ParserWithModFiles m s) ]
 
 after g f x = g . (f x)
 
