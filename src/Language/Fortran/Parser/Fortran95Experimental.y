@@ -234,12 +234,9 @@ SUBPROGRAM_UNITS :: { [ ProgramUnit A0 ] }
 | {- EMPTY -} { [ ] }
 
 SUBPROGRAM_UNIT :: { ProgramUnit A0 }
-: TYPE_SPEC function NAME MAYBE_ARGUMENTS MAYBE_COMMENT RESULT NEWLINE BLOCKS MAYBE_SUBPROGRAM_UNITS FUNCTION_END
-  {% do { unitNameCheck $10 $3;
-          return $ PUFunction () (getTransSpan $1 $10) (Just $1) False $3 $4 $6 (reverse $8) $9 } }
-| TYPE_SPEC recursive function NAME MAYBE_ARGUMENTS MAYBE_COMMENT RESULT NEWLINE BLOCKS MAYBE_SUBPROGRAM_UNITS FUNCTION_END
+: TYPE_SPEC MAYBE_RECURSIVE function NAME MAYBE_ARGUMENTS MAYBE_COMMENT RESULT NEWLINE BLOCKS MAYBE_SUBPROGRAM_UNITS FUNCTION_END
   {% do { unitNameCheck $11 $4;
-          return $ PUFunction () (getTransSpan $1 $11) (Just $1) True $4 $5 $7 (reverse $9) $10 } }
+          return $ PUFunction () (getTransSpan $1 $11) (Just $1) $2 $4 $5 $7 (reverse $9) $10 } }
 | recursive TYPE_SPEC function NAME MAYBE_ARGUMENTS RESULT MAYBE_COMMENT NEWLINE BLOCKS MAYBE_SUBPROGRAM_UNITS FUNCTION_END
   {% do { unitNameCheck $11 $4;
           return $ PUFunction () (getTransSpan $1 $11) (Just $2) True $4 $5 $6 (reverse $9) $10 } }
@@ -253,6 +250,10 @@ SUBPROGRAM_UNIT :: { ProgramUnit A0 }
   {% do { unitNameCheck $9 $3;
           return $ PUSubroutine () (getTransSpan $1 $9) True $3 $4 (reverse $7) $8 } }
 | comment { let (TComment s c) = $1 in PUComment () s (Comment c) }
+
+MAYBE_RECURSIVE :: { Bool }
+: recursive { True }
+| {- EMPTY -} { False }
 
 MAYBE_ARGUMENTS :: { Maybe (AList Expression A0) }
 : '(' MAYBE_VARIABLES ')' { $2 }
