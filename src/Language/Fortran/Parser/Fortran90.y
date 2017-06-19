@@ -1,6 +1,7 @@
 -- -*- Mode: Haskell -*-
 {
 module Language.Fortran.Parser.Fortran90 ( statementParser
+                                         , functionParser
                                          , fortran90Parser
                                          , fortran90ParserWithModFiles
                                          ) where
@@ -27,6 +28,7 @@ import Debug.Trace
 }
 
 %name programParser PROGRAM
+%name functionParser SUBPROGRAM_UNIT
 %name statementParser STATEMENT
 %monad { LexAction }
 %lexer { lexer } { TEOF _ }
@@ -237,22 +239,25 @@ SUBPROGRAM_UNITS :: { [ ProgramUnit A0 ] }
 SUBPROGRAM_UNIT :: { ProgramUnit A0 }
 : TYPE_SPEC function NAME MAYBE_ARGUMENTS MAYBE_COMMENT RESULT NEWLINE BLOCKS MAYBE_SUBPROGRAM_UNITS FUNCTION_END
   {% do { unitNameCheck $10 $3;
-          return $ PUFunction () (getTransSpan $1 $10) (Just $1) False $3 $4 $6 (reverse $8) $9 } }
+          return $ PUFunction () (getTransSpan $1 $10) (Just $1) (None () initSrcSpan False) $3 $4 $6 (reverse $8) $9 } }
 | TYPE_SPEC recursive function NAME MAYBE_ARGUMENTS MAYBE_COMMENT RESULT NEWLINE BLOCKS MAYBE_SUBPROGRAM_UNITS FUNCTION_END
   {% do { unitNameCheck $11 $4;
-          return $ PUFunction () (getTransSpan $1 $11) (Just $1) True $4 $5 $7 (reverse $9) $10 } }
+          return $ PUFunction () (getTransSpan $1 $11) (Just $1) (None () (getSpan $2) True) $4 $5 $7 (reverse $9) $10 } }
 | recursive TYPE_SPEC function NAME MAYBE_ARGUMENTS RESULT MAYBE_COMMENT NEWLINE BLOCKS MAYBE_SUBPROGRAM_UNITS FUNCTION_END
   {% do { unitNameCheck $11 $4;
-          return $ PUFunction () (getTransSpan $1 $11) (Just $2) True $4 $5 $6 (reverse $9) $10 } }
+          return $ PUFunction () (getTransSpan $1 $11) (Just $2) (None () (getSpan $1) True) $4 $5 $6 (reverse $9) $10 } }
 | function NAME MAYBE_ARGUMENTS RESULT MAYBE_COMMENT NEWLINE BLOCKS MAYBE_SUBPROGRAM_UNITS FUNCTION_END
   {% do { unitNameCheck $9 $2;
-          return $ PUFunction () (getTransSpan $1 $9) Nothing False $2 $3 $4 (reverse $7) $8 } }
+          return $ PUFunction () (getTransSpan $1 $9) Nothing (None () initSrcSpan False) $2 $3 $4 (reverse $7) $8 } }
+| recursive function NAME MAYBE_ARGUMENTS RESULT MAYBE_COMMENT NEWLINE BLOCKS MAYBE_SUBPROGRAM_UNITS FUNCTION_END
+  {% do { unitNameCheck $10 $3;
+          return $ PUFunction () (getTransSpan $1 $10) Nothing (None () initSrcSpan True) $3 $4 $5 (reverse $8) $9 } }
 | subroutine NAME MAYBE_ARGUMENTS MAYBE_COMMENT NEWLINE BLOCKS MAYBE_SUBPROGRAM_UNITS SUBROUTINE_END
   {% do { unitNameCheck $8 $2;
-          return $ PUSubroutine () (getTransSpan $1 $8) False $2 $3 (reverse $6) $7 } }
+          return $ PUSubroutine () (getTransSpan $1 $8) (None () initSrcSpan False) $2 $3 (reverse $6) $7 } }
 | recursive subroutine NAME MAYBE_ARGUMENTS MAYBE_COMMENT NEWLINE BLOCKS MAYBE_SUBPROGRAM_UNITS SUBROUTINE_END
   {% do { unitNameCheck $9 $3;
-          return $ PUSubroutine () (getTransSpan $1 $9) True $3 $4 (reverse $7) $8 } }
+          return $ PUSubroutine () (getTransSpan $1 $9) (None () initSrcSpan True) $3 $4 (reverse $7) $8 } }
 | comment { let (TComment s c) = $1 in PUComment () s (Comment c) }
 
 MAYBE_ARGUMENTS :: { Maybe (AList Expression A0) }

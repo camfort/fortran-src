@@ -13,7 +13,8 @@ import Language.Fortran.Transformation.Grouping
 import Language.Fortran.AST (ProgramFile)
 
 data Transformation =
-    GroupIf
+    GroupForall
+  | GroupIf
   | GroupCase
   | GroupDo
   | GroupLabeledDo
@@ -23,7 +24,8 @@ data Transformation =
 
 transformationMapping :: Data a => [ (Transformation, Transform a ()) ]
 transformationMapping =
-  [ (GroupIf, groupIf)
+  [ (GroupForall, groupForall)
+  , (GroupIf, groupIf)
   , (GroupCase, groupCase)
   , (GroupDo, groupDo)
   , (GroupLabeledDo, groupLabeledDo)

@@ -1,16 +1,19 @@
 -- -*- Mode: Haskell -*-
 {
-module Language.Fortran.Parser.Fortran95Experimental ( statementParser
+module Language.Fortran.Parser.Fortran95Experimental ( functionParser
+                                         , statementParser
                                          , fortran95Parser
                                          , fortran95ParserWithModFiles
                                          ) where
 
 import Prelude hiding (EQ,LT,GT) -- Same constructors exist in the AST
-import Control.Monad.State (get)
-import Data.Maybe (fromMaybe)
+import Control.Monad.State
+import Data.Maybe (fromMaybe, isJust)
+import Data.List (nub)
+import Data.Either (either, lefts, rights)
+import Control.Applicative
 import qualified Data.ByteString.Char8 as B
 
-import Control.Monad.State
 #ifdef DEBUG
 import Data.Data (toConstr)
 #endif
@@ -28,6 +31,7 @@ import Debug.Trace
 
 %name programParser PROGRAM
 %name statementParser STATEMENT
+%name functionParser SUBPROGRAM_UNIT 
 %monad { LexAction }
 %lexer { lexer } { TEOF _ }
 %tokentype { Token }
@@ -77,6 +81,8 @@ import Debug.Trace
   function                    { TFunction _ }
   endFunction                 { TEndFunction _ }
   result                      { TResult _ }
+  pure                        { TPure _ }
+  elemental                   { TElemental _ }
   recursive                   { TRecursive _ }
   subroutine                  { TSubroutine _ }
   endSubroutine               { TEndSubroutine _ }
@@ -234,25 +240,59 @@ SUBPROGRAM_UNITS :: { [ ProgramUnit A0 ] }
 | {- EMPTY -} { [ ] }
 
 SUBPROGRAM_UNIT :: { ProgramUnit A0 }
-: TYPE_SPEC function NAME MAYBE_ARGUMENTS MAYBE_COMMENT RESULT NEWLINE BLOCKS MAYBE_SUBPROGRAM_UNITS FUNCTION_END
+: FUNCTION_SPEC function NAME MAYBE_ARGUMENTS MAYBE_COMMENT RESULT NEWLINE BLOCKS MAYBE_SUBPROGRAM_UNITS FUNCTION_END
   {% do { unitNameCheck $10 $3;
-          return $ PUFunction () (getTransSpan $1 $10) (Just $1) False $3 $4 $6 (reverse $8) $9 } }
-| TYPE_SPEC recursive function NAME MAYBE_ARGUMENTS MAYBE_COMMENT RESULT NEWLINE BLOCKS MAYBE_SUBPROGRAM_UNITS FUNCTION_END
-  {% do { unitNameCheck $11 $4;
-          return $ PUFunction () (getTransSpan $1 $11) (Just $1) True $4 $5 $7 (reverse $9) $10 } }
-| recursive TYPE_SPEC function NAME MAYBE_ARGUMENTS RESULT MAYBE_COMMENT NEWLINE BLOCKS MAYBE_SUBPROGRAM_UNITS FUNCTION_END
-  {% do { unitNameCheck $11 $4;
-          return $ PUFunction () (getTransSpan $1 $11) (Just $2) True $4 $5 $6 (reverse $9) $10 } }
-| function NAME MAYBE_ARGUMENTS RESULT MAYBE_COMMENT NEWLINE BLOCKS MAYBE_SUBPROGRAM_UNITS FUNCTION_END
-  {% do { unitNameCheck $9 $2;
-          return $ PUFunction () (getTransSpan $1 $9) Nothing False $2 $3 $4 (reverse $7) $8 } }
-| subroutine NAME MAYBE_ARGUMENTS MAYBE_COMMENT NEWLINE BLOCKS MAYBE_SUBPROGRAM_UNITS SUBROUTINE_END
-  {% do { unitNameCheck $8 $2;
-          return $ PUSubroutine () (getTransSpan $1 $8) False $2 $3 (reverse $6) $7 } }
-| recursive subroutine NAME MAYBE_ARGUMENTS MAYBE_COMMENT NEWLINE BLOCKS MAYBE_SUBPROGRAM_UNITS SUBROUTINE_END
+          let (fSpec, typeSpec) = $1 in
+          return $ PUFunction () (getTransSpan $2 $10) typeSpec fSpec $3 $4 $6 (reverse $8) $9 } }
+| FUNCTION_SPEC subroutine NAME MAYBE_ARGUMENTS MAYBE_COMMENT NEWLINE BLOCKS MAYBE_SUBPROGRAM_UNITS SUBROUTINE_END
   {% do { unitNameCheck $9 $3;
-          return $ PUSubroutine () (getTransSpan $1 $9) True $3 $4 (reverse $7) $8 } }
+          let (fSpec, _) = $1 in
+          return $ PUSubroutine () (getTransSpan $2 $9) fSpec $3 $4 (reverse $7) $8 } }
 | comment { let (TComment s c) = $1 in PUComment () s (Comment c) }
+| recursive RECURSIVE_SUBPROGRAM_UNIT { setSpan (getTransSpan $1 $2) $2 }
+
+RECURSIVE_SUBPROGRAM_UNIT :: { ProgramUnit A0 }
+: FUNCTION_SPEC function NAME MAYBE_ARGUMENTS MAYBE_COMMENT RESULT NEWLINE BLOCKS MAYBE_SUBPROGRAM_UNITS FUNCTION_END
+  {% do
+    unitNameCheck $10 $3
+    fSpec <- either fail return $ fst $1 `buildPUFunctionOpt`  None () (getSpan $ fst $1) True
+    let typeSpec = snd $1
+    return $ PUFunction () (getTransSpan $2 $10) typeSpec fSpec $3 $4 $6 (reverse $8) $9
+  }
+| FUNCTION_SPEC subroutine NAME MAYBE_ARGUMENTS MAYBE_COMMENT NEWLINE BLOCKS MAYBE_SUBPROGRAM_UNITS SUBROUTINE_END
+  {% do
+    unitNameCheck $9 $3
+    fSpec <- either fail return $ fst $1 `buildPUFunctionOpt` None () (getSpan $ fst $1) True
+    return $ PUSubroutine () (getTransSpan $2 $9) fSpec $3 $4 (reverse $7) $8
+  }
+
+
+FUNCTION_SPEC :: { (PUFunctionOpt A0, Maybe (TypeSpec A0)) }
+: PFUNCTION_SPECS {% do
+  let funcSpecs = lefts $1
+  let typeSpecs = rights $1
+  if length typeSpecs > 1
+  then fail "Specified a type spec multiple times in a function spec."
+  else if length (nub funcSpecs) /= length funcSpecs then fail "Specified a function spec multiple times."
+  else do
+    let typeSpec = case typeSpecs of
+                                  [] -> Nothing
+                                  (x:_) -> Just x
+    funcSpec <- either fail return $ buildPUFunctionOpts funcSpecs
+    return (funcSpec, typeSpec)
+  }
+
+PFUNCTION_SPECS :: { [Either (PUFunctionOpt A0) (TypeSpec A0)] }
+: {- EMPTY -} { [] }
+| PFUNCTION_SPEC PFUNCTION_SPECS { $1 : $2 }
+
+-- crucically, recursive cannot appear first, which is dealt with in SUBPROGRAM_UNIT
+| PFUNCTION_SPEC recursive PFUNCTION_SPECS { $1 : Left (None () (getSpan $2) True) : $3 }
+
+PFUNCTION_SPEC :: { Either (PUFunctionOpt A0) (TypeSpec A0) }
+: pure      { Left $ Pure () (getSpan $1) False }
+| elemental { Left $ Elemental () (getSpan $1) }
+| TYPE_SPEC { Right $ $1 }
 
 MAYBE_ARGUMENTS :: { Maybe (AList Expression A0) }
 : '(' MAYBE_VARIABLES ')' { $2 }
@@ -523,7 +563,8 @@ EXECUTABLE_STATEMENT :: { Statement A0 }
     in StCall () (getTransSpan $1 $5) $2 (Just alist) }
 | return { StReturn () (getSpan $1) Nothing }
 | return EXPRESSION { StReturn () (getTransSpan $1 $2) (Just $2) }
-| FORALL_STMNT { $1 }
+| FORALL { $1 }
+| END_FORALL { $1 }
 
 ARGUMENTS :: { [ Argument A0 ] }
 : ARGUMENTS ',' ARGUMENT { $3 : $1 }
@@ -985,38 +1026,35 @@ IMPLIED_DO :: { Expression A0 }
           expList = AList () (getTransSpan $2 exps) ($2 : $4 : reverse $6) }
     in ExpImpliedDo () (getTransSpan $1 $9) expList $8 }
 
-{-
-FORALL_CONSTRUCT :: { Statement A0 }
-FORALL_CONSTRUCT =
-  FORALL_CONSTRUCT_STMT
-  FORALL_BODY_CONSTRUCTS
-  END_FORALL_STMT { StForall () (getTransSpan $1 $3) }
-
-FORALL_BODY_CONSTRUCT :: { Statement A0 }
-     FORALL_ASSIGNMENT_STMT { $1 }
-   | WHERE_STMT             { $1 }
-   | WHERE
--}
-
-FORALL_STMNT :: { Statement A0 }
-FORALL_STMNT :
-    forall FORALL_HEADER FORALL_ASSIGNMENT_STMT
-      { StForall () (getTransSpan $1 $3) $2 $3 }
+FORALL :: { Statement A0 }
+: id ':' forall FORALL_HEADER {
+  let (TId s1 id) = $1 in
+  let (h,s2) = $4 in
+  StForall () (getTransSpan s1 s2) (Just id) h
+}
+| forall FORALL_HEADER {
+  let (h,s) = $2 in
+  StForall () (getTransSpan $1 s) Nothing h
+}
+| forall FORALL_HEADER FORALL_ASSIGNMENT_STMT {
+  let (h,_) = $2 in
+  StForallStatement () (getTransSpan $1 $3) h $3
+}
 
 FORALL_HEADER
-  :: { ForallHeader A0 }
+  :: { (ForallHeader A0, SrcSpan) }
 FORALL_HEADER :
   -- Standard simple forall header
-    '(' FORALL_TRIPLET_SPEC ')'   { ForallHeader [$2] Nothing }
+    '(' FORALL_TRIPLET_SPEC ')'   { (ForallHeader [$2] Nothing, getTransSpan $1 $3) }
   -- forall header with scale expression
   | '(' '(' FORALL_TRIPLET_SPEC ')' ',' EXPRESSION ')'
-                                  { ForallHeader [$3] (Just $6) }
+                                  { (ForallHeader [$3] (Just $6), getTransSpan $1 $7) }
   -- multi forall header
   | '(' FORALL_TRIPLET_SPEC_LIST_PLUS_STRIDE ')'
-                                  { ForallHeader $2 Nothing }
+                                  { (ForallHeader $2 Nothing, getTransSpan $1 $3) }
   -- multi forall header with scale
   | '(' FORALL_TRIPLET_SPEC_LIST_PLUS_STRIDE ',' EXPRESSION ')'
-                                  { ForallHeader $2 (Just $4) }
+                                  { (ForallHeader $2 (Just $4), getTransSpan $1 $5) }
 
 FORALL_TRIPLET_SPEC_LIST_PLUS_STRIDE
   :: { [(Name, Expression A0, Expression A0, Maybe (Expression A0))] }
@@ -1029,7 +1067,6 @@ FORALL_TRIPLET_SPEC
 : NAME '=' EXPRESSION ':' EXPRESSION { ($1, $3, $5, Nothing) }
 | NAME '=' EXPRESSION ':' EXPRESSION ',' EXPRESSION { ($1, $3, $5, Just $7) }
 
-
 FORALL_ASSIGNMENT_STMT :: { Statement A0 }
 FORALL_ASSIGNMENT_STMT :
     EXPRESSION_ASSIGNMENT_STATEMENT { $1 }
@@ -1039,10 +1076,10 @@ POINTER_ASSIGNMENT_STMT :: { Statement A0 }
 POINTER_ASSIGNMENT_STMT :
  DATA_REF '=>' EXPRESSION { StPointerAssign () (getTransSpan $1 $3) $1 $3 }
 
-END_FORALL_STMT :: { Token }
-END_FORALL_STMT :
-   endforall    { $1 }
- | endforall id { $2 }
+END_FORALL :: { Statement A0 }
+END_FORALL :
+   endforall    { StEndForall () (getSpan $1) Nothing }
+ | endforall id { let (TId s id) = $2 in StEndForall () (getTransSpan $1 s) (Just id)}
 
 EXPRESSION_LIST :: { [ Expression A0 ] }
 : EXPRESSION_LIST ',' EXPRESSION { $3 : $1 }
@@ -1111,7 +1148,7 @@ transformations95 =
 fortran95Parser ::
      B.ByteString -> String -> ParseResult AlexInput Token (ProgramFile A0)
 fortran95Parser sourceCode filename =
-    fmap (pfSetFilename filename . transform transformations95) $ parse parseState
+    (pfSetFilename filename . transform transformations95) <$> parse parseState
   where
     parseState = initParseState sourceCode Fortran95 filename
 

@@ -1,6 +1,6 @@
 module Language.Fortran.Parser.Fortran95ExperimentalSpec (spec) where
 
-import Prelude hiding (GT)
+import Prelude hiding (GT, EQ, NE)
 
 import TestUtil
 import Test.Hspec
@@ -10,6 +10,8 @@ import Language.Fortran.AST
 import Language.Fortran.ParserMonad
 import Language.Fortran.Lexer.FreeForm
 import Language.Fortran.Parser.Fortran95Experimental
+import qualified Data.List as List
+import Data.Foldable(forM_)
 import qualified Data.ByteString.Char8 as B
 
 eParser :: String -> Expression ()
@@ -24,9 +26,122 @@ sParser :: String -> Statement ()
 sParser sourceCode =
   evalParse statementParser $ initParseState (B.pack sourceCode) Fortran95 "<unknown>"
 
+fParser :: String -> ProgramUnit ()
+fParser sourceCode =
+  evalParse functionParser $ initParseState (B.pack sourceCode) Fortran95 "<unknown>"
+
+{- Useful for parser debugging; Lexes the given source code.
+fTok :: String -> [Token]
+fTok sourceCode = collectFreeTokens Fortran95 $ B.pack sourceCode
+-}
+
+{-
+ - Given a list of values, find every combination of those values:
+ - combination [1,2] = [[], [1], [2], [1,2], [2,1]]
+ -}
+combination :: [a] -> [[a]]
+combination = foldr ((++) . List.permutations) [] . List.subsequences
+
 spec :: Spec
 spec =
   describe "Fortran 95 Parser" $ do
+    describe "Function" $ do
+      let puFunction = PUFunction () u
+      let fType = Nothing
+      let fOpt = None () u False
+      let fName = "f"
+      let fArgs = Nothing
+      let fRes = Nothing
+      let fBody = []
+      let fSub = Nothing
+
+      describe "End" $ do
+        it "parses simple functions ending with \"end function [function name]\"" $ do
+          let expected = puFunction fType fOpt fName fArgs fRes fBody fSub
+          let fStr = init $ unlines ["function f()"
+                               , "end function f" ]
+          fParser fStr `shouldBe'` expected
+
+        it "parses simple functions ending with \"end\"" $ do
+          let expected = puFunction fType fOpt fName fArgs fRes fBody fSub
+          let fStr = init $ unlines ["function f()"
+                               , "end" ]
+          fParser fStr `shouldBe'` expected
+
+        it "parses simple functions ending with \"end function\"" $ do
+          let expected = puFunction fType fOpt fName fArgs fRes fBody fSub
+          let fStr = init $ unlines ["function f()"
+                               , "end function" ]
+          fParser fStr `shouldBe'` expected
+
+
+        it "parses functions with return type specs" $ do
+          let fType = Just $ TypeSpec () u TypeInteger Nothing
+          let expected = puFunction fType fOpt fName fArgs fRes fBody fSub
+          let fStr = init $ unlines ["integer function f()"
+                               , "end function f" ]
+          fParser fStr `shouldBe'` expected
+
+      describe "parses function options (recursive, pure, elemental)" $ do
+        let options_list = map unzip $ combination
+                                        [ ("recursive ", None () u True)
+                                        , ("pure ", Pure () u False)
+                                        , ("elemental ", Elemental () u) ]
+
+        forM_ options_list (\(strs, opts) -> do
+          let str = foldr (++) "" strs
+          let fStr = str ++ (init $ unlines ["function f()", "end"])
+          let opt = buildPUFunctionOpts opts
+          let expected = puFunction fType 
+          case opt of
+            Left _ -> it ("Shouldn't parse: " ++ show fStr ++ ": " ++ show opt) $ evaluate (fParser fStr) `shouldThrow` anyIOException
+            Right fOpt ->
+              it ("Should parse: " ++ show fStr ++ ": " ++ show opt) $ do
+                let expected = puFunction fType fOpt fName fArgs fRes fBody fSub
+                fParser fStr `shouldBe'` expected
+          )
+
+      it "parses functions with a list of arguments" $ do
+        let fArgs = Just $ AList () u [ varGen "x", varGen "y", varGen "z" ]                                                     
+        let expected = puFunction fType fOpt fName fArgs fRes fBody fSub
+        let fStr = init $ unlines ["function f(x, y, z)"
+                             , "end function f" ]
+        fParser fStr `shouldBe'` expected
+
+      it "parses functions with a result variable" $ do
+        let fRes = Just $ varGen "i"
+        let expected = puFunction fType fOpt fName fArgs fRes fBody fSub
+        let fStr = init $ unlines ["function f() result(i)"
+                             , "end function f" ]
+        fParser fStr `shouldBe'` expected
+
+      it "parses functions with function bodies" $ do
+        let decrementRHS = ExpBinary () u Subtraction (varGen "i") (intGen 1)
+        let f1 = StPrint () u starVal (Just $ AList () u [ varGen "i" ])                                                      
+        let f2 = StExpressionAssign () u (varGen "i") decrementRHS
+        let fBody = [ BlStatement () u Nothing f1 , BlStatement () u Nothing f2 ]
+        let expected = puFunction fType fOpt fName fArgs fRes fBody fSub
+        let fStr = init $ unlines ["function f()"
+                             , "  print *, i"                                                                          
+                             , "  i = (i - 1)"                                                                         
+                             , "end function f" ]
+        fParser fStr `shouldBe'` expected
+
+      it "parses complex functions" $ do
+        let fType = Just $ TypeSpec () u TypeInteger Nothing
+        let fArgs = Just $ AList () u [ varGen "x", varGen "y", varGen "z" ]                                                     
+        let fRes = Just $ varGen "i"                                                                                      
+        let decrementRHS = ExpBinary () u Subtraction (varGen "i") (intGen 1)
+        let f1 = StPrint () u starVal (Just $ AList () u [ varGen "i" ])                                                      
+        let f2 = StExpressionAssign () u (varGen "i") decrementRHS
+        let fBody = [ BlStatement () u Nothing f1 , BlStatement () u Nothing f2 ]
+        let expected = puFunction fType fOpt fName fArgs fRes fBody fSub
+        let fStr = init $ unlines [ "integer function f(x, y, z) result(i)"                                                 
+                             , "  print *, i"                                                                          
+                             , "  i = (i - 1)"                                                                         
+                             , "end function f" ]                                                                      
+        fParser fStr `shouldBe'` expected
+
     describe "Expression" $ do
       it "parses logial literals with kind" $ do
         let expected = ExpValue () u (ValLogical ".true._kind")
@@ -174,6 +289,39 @@ spec =
         let ass2 = DeclVariable () u (varGen "y") Nothing (Just $ intGen 20)
         let expected = StParameter () u (fromList () [ ass1, ass2 ])
         sParser "parameter (x = 10, y = 20)" `shouldBe'` expected
+
+      describe "FORALL blocks" $ do
+        let stride = Just $ ExpBinary () u NE (varGen "i") (intGen 2)
+        let tripletSpecList = [("i", intGen 1, varGen "n", stride)]
+
+        it "parses basic FORALL blocks" $ do
+          let stStr = "FORALL (I=1:N, I /= 2)"
+          let expected = StForall () u Nothing (ForallHeader tripletSpecList Nothing) 
+          sParser stStr `shouldBe'` expected
+
+      describe "FORALL statements" $ do
+        let stride = Just $ ExpBinary () u NE (varGen "i") (intGen 2)
+        let tripletSpecList = [("i", intGen 1, varGen "n", stride)]
+        let varI = IxSingle () u Nothing (varGen "i")
+        let expSub1 = ExpSubscript () u (varGen "a") (AList () u [varI, varI])
+        let expSub2 = ExpSubscript () u (varGen "x") (AList () u [varI])
+        let eAssign = StExpressionAssign () u expSub1 expSub2
+
+        it "parses basic FORALL statements" $ do
+          let stStr = "FORALL (I=1:N, I /= 2)" -- A(I,I) = X(I)"
+          let expected = StForall () u Nothing (ForallHeader tripletSpecList Nothing)-- eAssign
+          sParser stStr `shouldBe'` expected
+
+      describe "ENDFORALL statements" $ do
+        it "parses FORALL end statements" $ do
+          let stStr = "ENDFORALL"
+          let expected = StEndForall () u Nothing
+          sParser stStr `shouldBe'` expected
+
+        it "parses FORALL end statements with label" $ do
+          let stStr = "ENDFORALL A"
+          let expected = StEndForall () u $ Just "a"
+          sParser stStr `shouldBe'` expected
 
       describe "Implicit" $ do
         it "parses implicit none" $ do

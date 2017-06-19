@@ -92,6 +92,7 @@ library
 test-suite spec
   type: exitcode-stdio-1.0
   build-depends:
+    deepseq,
     base >= 4.6 && < 5,
     hspec >= 2.2 && < 3,
     mtl >= 2.2 && < 3,
