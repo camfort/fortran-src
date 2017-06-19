@@ -108,7 +108,7 @@ data ProgramUnit a =
   | PUFunction
       a SrcSpan
       (Maybe (TypeSpec a)) -- Return type
-      Bool -- Recursive or not
+      PUFunctionOpt -- Function Options
       Name
       (Maybe (AList Expression a)) -- Arguments
       (Maybe (Expression a)) -- Result
@@ -120,6 +120,8 @@ data ProgramUnit a =
       [Block a] -- Body
   | PUComment a SrcSpan (Comment a)
   deriving (Eq, Show, Data, Typeable, Generic, Functor)
+
+data PUFunctionOpt = None Bool | Pure Bool | Elemental
 
 programUnitBody :: ProgramUnit a -> [Block a]
 programUnitBody (PUMain _ _ _ bs _)              = bs
