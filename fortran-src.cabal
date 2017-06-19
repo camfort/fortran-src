@@ -51,7 +51,6 @@ executable fortran-src
     Language.Fortran.Parser.Fortran66
     Language.Fortran.Parser.Fortran77
     Language.Fortran.Parser.Fortran90
-    Language.Fortran.Parser.Fortran95Experimental
     Language.Fortran.Parser.Utils
     Language.Fortran.PrettyPrint
     Language.Fortran.Transformation.Disambiguation.Function
@@ -82,7 +81,6 @@ library
     Language.Fortran.Parser.Fortran66
     Language.Fortran.Parser.Fortran77
     Language.Fortran.Parser.Fortran90
-    Language.Fortran.Parser.Fortran95Experimental
     Language.Fortran.Parser.Utils
     Language.Fortran.PrettyPrint
     Language.Fortran.Transformation.Disambiguation.Function

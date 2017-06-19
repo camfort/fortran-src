@@ -27,7 +27,6 @@ data FortranVersion = Fortran66
                     | Fortran77
                     | Fortran77Extended
                     | Fortran90
-                    | Fortran95
                     | Fortran2003
                     | Fortran2008
                     deriving (Ord, Eq, Data, Typeable, Generic)
@@ -37,7 +36,6 @@ instance Show FortranVersion where
   show Fortran77 = "Fortran 77"
   show Fortran77Extended = "Fortran 77 Extended"
   show Fortran90 = "Fortran 90"
-  show Fortran95 = "Fortran 95"
   show Fortran2003 = "Fortran 2003"
   show Fortran2008 = "Fortran 2008"
 
