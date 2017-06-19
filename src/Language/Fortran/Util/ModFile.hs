@@ -74,7 +74,8 @@ modFileSuffix = ".fsmod"
 
 -- | Context of a declaration: the ProgramUnit where it was declared.
 data DeclContext = DCMain | DCBlockData | DCModule F.ProgramUnitName
-                 | DCFunction F.ProgramUnitName | DCSubroutine F.ProgramUnitName
+                 | DCFunction (F.ProgramUnitName, F.ProgramUnitName)    -- ^ (uniqName, srcName)
+                 | DCSubroutine (F.ProgramUnitName, F.ProgramUnitName)  -- ^ (uniqName, srcName)
   deriving (Ord, Eq, Show, Data, Typeable, Generic)
 
 instance Binary DeclContext
@@ -218,11 +219,11 @@ extractDeclMap pf = M.fromList . concatMap (blockDecls . nameAndBlocks) $ univer
     nameAndBlocks pu = case pu of
       F.PUMain       _ _ _ b _            -> (DCMain, Nothing, b)
       F.PUModule     _ _ _ b _            -> (DCModule $ FA.puName pu, Nothing, b)
-      F.PUSubroutine _ _ _ _ _ b _        -> (DCSubroutine $ FA.puName pu, Nothing, b)
+      F.PUSubroutine _ _ _ _ _ b _        -> (DCSubroutine (FA.puName pu, FA.puSrcName pu), Nothing, b)
       F.PUFunction   _ _ _ _ _ _ mret b _
         | Nothing   <- mret
-        , F.Named n <- FA.puName pu       -> (DCFunction $ FA.puName pu, Just (n, P.getSpan pu), b)
-        | Just ret <- mret                -> (DCFunction $ FA.puName pu, Just (FA.varName ret, P.getSpan ret), b)
+        , F.Named n <- FA.puName pu       -> (DCFunction (FA.puName pu, FA.puSrcName pu), Just (n, P.getSpan pu), b)
+        | Just ret <- mret                -> (DCFunction (FA.puName pu, FA.puSrcName pu), Just (FA.varName ret, P.getSpan ret), b)
         | otherwise                       -> error $ "nameAndBlocks: un-named function with no return value! " ++ show (FA.puName pu) ++ " at source-span " ++ show (P.getSpan pu)
       F.PUBlockData  _ _ _ b              -> (DCBlockData, Nothing, b)
       F.PUComment    {}                   -> (DCBlockData, Nothing, []) -- no decls inside of comments, so ignore it
