@@ -130,14 +130,20 @@ instance IndentablePretty (ProgramUnit a) where
                     then incIndentation i
                     else incIndentation fixedForm
 
-    pprint v (PUFunction _ _ mRetType isRec name mArgs mRes body mSubs) i
-      | isRec, v < Fortran90 = tooOld v "Recursive function" Fortran90
+    pprint v (PUFunction _ _ mRetType fSpec name mArgs mRes body mSubs) i
+      | (Elemental _) <- fSpec, v < Fortran95 = tooOld v "Elemental function" Fortran90
+      | (Pure _ _) <- fSpec, v < Fortran95 = tooOld v "Pure function" Fortran90
+      | functionIsRecursive fSpec, v < Fortran90 = tooOld v "Recursive function" Fortran90
       | isJust mRes, v < Fortran90 = tooOld v "Function result" Fortran90
       | isJust mSubs, v < Fortran90 = tooOld v "Function subprogram" Fortran90
       | otherwise =
         indent curI
           (pprint' v mRetType <+>
-          (if isRec then "recursive" else empty) <+>
+          (case fSpec of
+            (Elemental _) -> "elemental"
+            (Pure _ _) -> "pure"
+            otherwise -> empty) <+>
+          (if functionIsRecursive fSpec then "recursive" else empty) <+>
           "function" <+> text name <>
           lparen <?> pprint' v mArgs <?> rparen <+>
           "result" <?> lparen <?> pprint' v mRes <?> rparen <> newline) <>

@@ -100,7 +100,7 @@ data ProgramUnit a =
       (Maybe [ProgramUnit a]) -- Subprograms
   | PUSubroutine
       a SrcSpan
-      Bool -- Recursive or not
+      IsRecursive -- Recursive or not
       Name
       (Maybe (AList Expression a)) -- Arguments
       [Block a] -- Body
@@ -108,7 +108,7 @@ data ProgramUnit a =
   | PUFunction
       a SrcSpan
       (Maybe (TypeSpec a)) -- Return type
-      PUFunctionOpt -- Function Options
+      (PUFunctionOpt a) -- Function Options
       Name
       (Maybe (AList Expression a)) -- Arguments
       (Maybe (Expression a)) -- Result
@@ -121,7 +121,27 @@ data ProgramUnit a =
   | PUComment a SrcSpan (Comment a)
   deriving (Eq, Show, Data, Typeable, Generic, Functor)
 
-data PUFunctionOpt = None Bool | Pure Bool | Elemental
+type IsRecursive = Bool
+data PUFunctionOpt a = None a IsRecursive | Pure a IsRecursive | Elemental a
+  deriving (Eq, Show, Data, Typeable, Generic, Functor)
+
+buildPUFunctionOpt :: (PUFunctionOpt ()) -> (PUFunctionOpt ()) -> Either String (PUFunctionOpt ())
+buildPUFunctionOpt a b =
+  case (a, b) of
+    ((None () False), b) -> Right b
+    (a, (None () False)) -> Right a
+    ((Elemental ()), b) -> if functionIsRecursive b
+      then Left "Function cannot be both elemental and recursive. "
+      else Right (Elemental ())
+    (_, (Elemental ())) -> buildPUFunctionOpt b a
+    ((Pure () r), _) -> Right (Pure () r)
+    (_, (Pure () r)) -> Right (Pure () r)
+    ((None () r), (None () r')) -> Right (None () (r || r'))
+
+functionIsRecursive :: (PUFunctionOpt a) -> Bool
+functionIsRecursive (Elemental _) = False
+functionIsRecursive (Pure _ r) = r
+functionIsRecursive (None _ r) = r
 
 programUnitBody :: ProgramUnit a -> [Block a]
 programUnitBody (PUMain _ _ _ bs _)              = bs
@@ -665,6 +685,7 @@ instance Out FortranVersion
 instance Out MetaInfo
 instance Out a => Out (ProgramFile a)
 instance Out a => Out (ProgramUnit a)
+instance Out a => Out (PUFunctionOpt a)
 instance (Out a, Out (t a)) => Out (AList t a)
 instance Out a => Out (Statement a)
 instance Out Only

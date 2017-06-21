@@ -128,9 +128,9 @@ MAIN_PROGRAM_UNIT
 OTHER_PROGRAM_UNIT :: { ProgramUnit A0 }
 OTHER_PROGRAM_UNIT
 : TYPE_SPEC function NAME MAYBE_ARGUMENTS NEWLINE BLOCKS end MAYBE_NEWLINE
-  { PUFunction () (getTransSpan $1 $7) (Just $1) False $3 $4 Nothing (reverse $6) Nothing }
+  { PUFunction () (getTransSpan $1 $7) (Just $1) (None () False) $3 $4 Nothing (reverse $6) Nothing }
 | function NAME MAYBE_ARGUMENTS NEWLINE BLOCKS end MAYBE_NEWLINE
-  { PUFunction () (getTransSpan $1 $6) Nothing False $2 $3 Nothing (reverse $5) Nothing  }
+  { PUFunction () (getTransSpan $1 $6) Nothing (None () False) $2 $3 Nothing (reverse $5) Nothing  }
 | subroutine NAME MAYBE_ARGUMENTS NEWLINE BLOCKS end MAYBE_NEWLINE
   { PUSubroutine () (getTransSpan $1 $6) False $2 $3 (reverse $5) Nothing }
 | blockData NEWLINE BLOCKS end MAYBE_NEWLINE { PUBlockData () (getTransSpan $1 $4) Nothing (reverse $3) }

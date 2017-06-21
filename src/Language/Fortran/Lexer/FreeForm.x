@@ -109,7 +109,11 @@ tokens :-
 <scN> "function" / { typeSpecP }                  { addSpan TFunction }
 <0> "end"\ *"function"                            { addSpan TEndFunction }
 <scN> "result" / { resultP }                      { addSpan TResult }
+<0> "pure"                                        { toSC 0 >> addSpan TPure }
+<0> "elemental"                                   { toSC 0 >> addSpan TElemental }
 <0> "recursive"                                   { toSC 0 >> addSpan TRecursive }
+<scN> "pure" / { typeSpecP }                      { toSC 0 >> addSpan TPure }
+<scN> "elemental" / { typeSpecP }                 { toSC 0 >> addSpan TElemental }
 <scN> "recursive" / { typeSpecP }                 { toSC 0 >> addSpan TRecursive }
 <0> "subroutine"                                  { addSpan TSubroutine }
 <0> "end"\ *"subroutine"                          { addSpan TEndSubroutine }
@@ -997,6 +1001,8 @@ data Token =
   | TFunction           SrcSpan
   | TEndFunction        SrcSpan
   | TResult             SrcSpan
+  | TPure          SrcSpan
+  | TElemental          SrcSpan
   | TRecursive          SrcSpan
   | TSubroutine         SrcSpan
   | TEndSubroutine      SrcSpan

@@ -8,6 +8,8 @@ module Language.Fortran.Parser.Fortran95Experimental ( statementParser
 import Prelude hiding (EQ,LT,GT) -- Same constructors exist in the AST
 import Control.Monad.State (get)
 import Data.Maybe (fromMaybe)
+import Data.List (nub)
+import Data.Either (either)
 import qualified Data.ByteString.Char8 as B
 
 import Control.Monad.State
@@ -77,6 +79,8 @@ import Debug.Trace
   function                    { TFunction _ }
   endFunction                 { TEndFunction _ }
   result                      { TResult _ }
+  pure                        { TPure _ }
+  elemental                   { TElemental _ }
   recursive                   { TRecursive _ }
   subroutine                  { TSubroutine _ }
   endSubroutine               { TEndSubroutine _ }
@@ -234,15 +238,15 @@ SUBPROGRAM_UNITS :: { [ ProgramUnit A0 ] }
 | {- EMPTY -} { [ ] }
 
 SUBPROGRAM_UNIT :: { ProgramUnit A0 }
-: TYPE_SPEC MAYBE_RECURSIVE function NAME MAYBE_ARGUMENTS MAYBE_COMMENT RESULT NEWLINE BLOCKS MAYBE_SUBPROGRAM_UNITS FUNCTION_END
+: TYPE_SPEC FUNCTION_SPEC function NAME MAYBE_ARGUMENTS MAYBE_COMMENT RESULT NEWLINE BLOCKS MAYBE_SUBPROGRAM_UNITS FUNCTION_END
   {% do { unitNameCheck $11 $4;
           return $ PUFunction () (getTransSpan $1 $11) (Just $1) $2 $4 $5 $7 (reverse $9) $10 } }
 | recursive TYPE_SPEC function NAME MAYBE_ARGUMENTS RESULT MAYBE_COMMENT NEWLINE BLOCKS MAYBE_SUBPROGRAM_UNITS FUNCTION_END
   {% do { unitNameCheck $11 $4;
-          return $ PUFunction () (getTransSpan $1 $11) (Just $2) True $4 $5 $6 (reverse $9) $10 } }
+          return $ PUFunction () (getTransSpan $1 $11) (Just $2) (None () True) $4 $5 $6 (reverse $9) $10 } }
 | function NAME MAYBE_ARGUMENTS RESULT MAYBE_COMMENT NEWLINE BLOCKS MAYBE_SUBPROGRAM_UNITS FUNCTION_END
   {% do { unitNameCheck $9 $2;
-          return $ PUFunction () (getTransSpan $1 $9) Nothing False $2 $3 $4 (reverse $7) $8 } }
+          return $ PUFunction () (getTransSpan $1 $9) Nothing (None () False) $2 $3 $4 (reverse $7) $8 } }
 | subroutine NAME MAYBE_ARGUMENTS MAYBE_COMMENT NEWLINE BLOCKS MAYBE_SUBPROGRAM_UNITS SUBROUTINE_END
   {% do { unitNameCheck $8 $2;
           return $ PUSubroutine () (getTransSpan $1 $8) False $2 $3 (reverse $6) $7 } }
@@ -251,9 +255,25 @@ SUBPROGRAM_UNIT :: { ProgramUnit A0 }
           return $ PUSubroutine () (getTransSpan $1 $9) True $3 $4 (reverse $7) $8 } }
 | comment { let (TComment s c) = $1 in PUComment () s (Comment c) }
 
-MAYBE_RECURSIVE :: { Bool }
-: recursive { True }
-| {- EMPTY -} { False }
+FUNCTION_SPEC :: { PUFunctionOpt () }
+: PFUNCTION_SPECS {% do
+    if nub $1 /= $1
+    then fail "Function properties specified multiple times."
+    else
+      let result = foldr (\a b -> either (Left) (buildPUFunctionOpt a) $ b) (Right (None () False)) $1 :: Either String (PUFunctionOpt ()) in
+      case result of
+        Left str -> fail str
+        Right fOpt -> return fOpt
+  }
+
+PFUNCTION_SPECS :: { [PUFunctionOpt ()] }
+: {- EMPTY -} { [] }
+| PFUNCTION_SPECS PFUNCTION_SPEC { $2 : $1 }
+
+PFUNCTION_SPEC :: { PUFunctionOpt () }
+: recursive { None () True }
+| pure { Pure () False }
+| elemental { Elemental () }
 
 MAYBE_ARGUMENTS :: { Maybe (AList Expression A0) }
 : '(' MAYBE_VARIABLES ')' { $2 }
