@@ -1,6 +1,7 @@
 -- -*- Mode: Haskell -*-
 {
 module Language.Fortran.Parser.Fortran90 ( statementParser
+                                         , functionParser
                                          , fortran90Parser
                                          , fortran90ParserWithModFiles
                                          ) where
@@ -27,6 +28,7 @@ import Debug.Trace
 }
 
 %name programParser PROGRAM
+%name functionParser SUBPROGRAM_UNIT
 %name statementParser STATEMENT
 %monad { LexAction }
 %lexer { lexer } { TEOF _ }

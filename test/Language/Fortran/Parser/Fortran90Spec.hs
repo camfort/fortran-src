@@ -23,9 +23,31 @@ sParser :: String -> Statement ()
 sParser sourceCode =
   evalParse statementParser $ initParseState (B.pack sourceCode) Fortran90 "<unknown>"
 
+fParser :: String -> ProgramUnit ()
+fParser sourceCode =
+  evalParse functionParser $ initParseState (B.pack sourceCode) Fortran95 "<unknown>"
+
 spec :: Spec
 spec =
   describe "Fortran 90 Parser" $ do
+    describe "Function" $ do
+      it "parses basic functions" $ do
+        let stType = Just $ TypeSpec () u TypeInteger Nothing
+        let stOpt = None () False
+        let stArgs = Just $ AList () u [ varGen "x", varGen "y", varGen "z" ]                                                     
+        let stRes = Just $ varGen "i"                                                                                      
+        let decrementRHS = ExpBinary () u Subtraction (varGen "i") (intGen 1)
+        let st1 = StPrint () u starVal (Just $ AList () u [ varGen "i" ])                                                      
+        let st2 = StExpressionAssign () u (varGen "i") decrementRHS
+        let stBody = [ BlStatement () u Nothing st1 , BlStatement () u Nothing st2 ]
+        let stSub = Nothing
+        let expected = PUFunction () u stType stOpt "f" stArgs stRes stBody stSub
+        let stStr = init $ unlines [ "integer function f(x, y, z) result(i)"                                                 
+                             , "  print *, i"                                                                          
+                             , "  i = (i - 1)"                                                                         
+                             , "end function f" ]                                                                      
+        fParser stStr `shouldBe'` expected
+
     describe "Expression" $ do
       it "parses logial literals with kind" $ do
         let expected = ExpValue () u (ValLogical ".true._kind")

@@ -1,6 +1,7 @@
 -- -*- Mode: Haskell -*-
 {
-module Language.Fortran.Parser.Fortran95Experimental ( statementParser
+module Language.Fortran.Parser.Fortran95Experimental ( functionParser
+                                         , statementParser
                                          , fortran95Parser
                                          , fortran95ParserWithModFiles
                                          ) where
@@ -30,6 +31,7 @@ import Debug.Trace
 
 %name programParser PROGRAM
 %name statementParser STATEMENT
+%name functionParser SUBPROGRAM_UNIT 
 %monad { LexAction }
 %lexer { lexer } { TEOF _ }
 %tokentype { Token }
