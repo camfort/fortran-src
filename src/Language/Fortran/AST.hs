@@ -138,6 +138,11 @@ buildPUFunctionOpt a b =
     (_, (Pure () r)) -> Right (Pure () r)
     ((None () r), (None () r')) -> Right (None () (r || r'))
 
+buildPUFunctionOpts :: [PUFunctionOpt ()] -> Either String (PUFunctionOpt())
+buildPUFunctionOpts =
+  foldr merge . Right $ None () False
+  where merge a = either Left $ buildPUFunctionOpt a
+
 functionIsRecursive :: (PUFunctionOpt a) -> Bool
 functionIsRecursive (Elemental _) = False
 functionIsRecursive (Pure _ r) = r

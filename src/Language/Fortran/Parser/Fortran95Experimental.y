@@ -261,11 +261,7 @@ FUNCTION_SPEC :: { PUFunctionOpt () }
 : PFUNCTION_SPECS {% do
     if nub $1 /= $1
     then fail "Function properties specified multiple times."
-    else
-      let result = foldr (\a b -> either (Left) (buildPUFunctionOpt a) $ b) (Right (None () False)) $1 :: Either String (PUFunctionOpt ()) in
-      case result of
-        Left str -> fail str
-        Right fOpt -> return fOpt
+    else either fail return $ buildPUFunctionOpts $1
   }
 
 PFUNCTION_SPECS :: { [PUFunctionOpt ()] }
