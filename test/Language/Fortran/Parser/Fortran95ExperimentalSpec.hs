@@ -10,6 +10,8 @@ import Language.Fortran.AST
 import Language.Fortran.ParserMonad
 import Language.Fortran.Lexer.FreeForm
 import Language.Fortran.Parser.Fortran95Experimental
+import qualified Data.List as List
+import Data.Foldable(forM_)
 import qualified Data.ByteString.Char8 as B
 
 eParser :: String -> Expression ()
@@ -32,6 +34,13 @@ fParser sourceCode =
 fTok :: String -> [Token]
 fTok sourceCode = collectFreeTokens Fortran95 $ B.pack sourceCode
  -}
+
+{-
+ - Given a list of values, find every combination of those values:
+ - combination [1,2] = [[], [1], [2], [1,2], [2,1]]
+ -}
+combination :: [a] -> [[a]]
+combination = foldr ((++) . List.permutations) [] . List.subsequences
 
 spec :: Spec
 spec =
@@ -72,6 +81,24 @@ spec =
           let fStr = init $ unlines ["integer function f()"
                                , "end function f" ]
           fParser fStr `shouldBe'` expected
+
+      it "parses function options (recursive, pure, elemental)" $ do
+        let options_list = map unzip $ combination
+                                        [ ("recursive ", None () True)
+                                        , ("pure ", Pure () False)
+                                        , ("elemental ", Elemental ()) ]
+
+        forM_ options_list (\(strs, opts) -> do
+          let str = foldr (++) "" strs
+          let fStr = str ++ "function f()\nend"
+          let opt = buildPUFunctionOpts opts
+          let expected = puFunction fType 
+          case opt of
+            Left _ -> evaluate (fParser fStr) `shouldThrow` anyIOException
+            Right fOpt ->
+              let expected = puFunction fType fOpt fName fArgs fRes fBody fSub in
+              fParser fStr `shouldBe'` expected
+          )
 
       it "parses functions with a list of arguments" $ do
         let fArgs = Just $ AList () u [ varGen "x", varGen "y", varGen "z" ]                                                     
