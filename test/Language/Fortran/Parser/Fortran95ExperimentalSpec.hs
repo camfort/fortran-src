@@ -82,7 +82,7 @@ spec =
                                , "end function f" ]
           fParser fStr `shouldBe'` expected
 
-      it "parses function options (recursive, pure, elemental)" $ do
+      describe "parses function options (recursive, pure, elemental)" $ do
         let options_list = map unzip $ combination
                                         [ ("recursive ", None () True)
                                         , ("pure ", Pure () False)
@@ -90,14 +90,15 @@ spec =
 
         forM_ options_list (\(strs, opts) -> do
           let str = foldr (++) "" strs
-          let fStr = str ++ "function f()\nend"
+          let fStr = str ++ (init $ unlines ["function f()", "end"])
           let opt = buildPUFunctionOpts opts
           let expected = puFunction fType 
-          case opt of
-            Left _ -> evaluate (fParser fStr) `shouldThrow` anyIOException
-            Right fOpt ->
-              let expected = puFunction fType fOpt fName fArgs fRes fBody fSub in
-              fParser fStr `shouldBe'` expected
+          it (show fStr) $ do
+            case opt of
+              Left _ -> evaluate (fParser fStr) `shouldThrow` anyIOException
+              Right fOpt ->
+                let expected = puFunction fType fOpt fName fArgs fRes fBody fSub in
+                fParser fStr `shouldBe'` expected
           )
 
       it "parses functions with a list of arguments" $ do
