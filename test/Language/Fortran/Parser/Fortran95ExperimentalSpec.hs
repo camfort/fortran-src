@@ -33,7 +33,7 @@ fParser sourceCode =
 {- Useful for parser debugging; Lexes the given source code.
 fTok :: String -> [Token]
 fTok sourceCode = collectFreeTokens Fortran95 $ B.pack sourceCode
- -}
+-}
 
 {-
  - Given a list of values, find every combination of those values:
@@ -93,11 +93,11 @@ spec =
           let fStr = str ++ (init $ unlines ["function f()", "end"])
           let opt = buildPUFunctionOpts opts
           let expected = puFunction fType 
-          it (show fStr) $ do
-            case opt of
-              Left _ -> evaluate (fParser fStr) `shouldThrow` anyIOException
-              Right fOpt ->
-                let expected = puFunction fType fOpt fName fArgs fRes fBody fSub in
+          case opt of
+            Left _ -> it ("Shouldn't parse: " ++ show fStr ++ ": " ++ show opt) $ evaluate (fParser fStr) `shouldThrow` anyIOException
+            Right fOpt ->
+              it ("Should parse: " ++ show fStr ++ ": " ++ show opt) $ do
+                let expected = puFunction fType fOpt fName fArgs fRes fBody fSub
                 fParser fStr `shouldBe'` expected
           )
 
