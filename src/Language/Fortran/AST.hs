@@ -134,9 +134,10 @@ buildPUFunctionOpt a b =
       then Left "Function cannot be both elemental and recursive. "
       else Right (Elemental ())
     (_, (Elemental ())) -> buildPUFunctionOpt b a
-    ((Pure () r), _) -> Right (Pure () r)
-    (_, (Pure () r)) -> Right (Pure () r)
+    ((Pure () r), b) -> Right (Pure () (r || functionIsRecursive b))
+    (b, (Pure () r)) -> Right (Pure () (r || functionIsRecursive b))
     ((None () r), (None () r')) -> Right (None () (r || r'))
+-- Should parse: "elemental pure recursive function f()\nend": Right (Elemental ()) FAILED [4]
 
 buildPUFunctionOpts :: [PUFunctionOpt ()] -> Either String (PUFunctionOpt())
 buildPUFunctionOpts =
