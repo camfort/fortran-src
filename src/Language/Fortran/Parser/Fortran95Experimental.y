@@ -7,13 +7,13 @@ module Language.Fortran.Parser.Fortran95Experimental ( functionParser
                                          ) where
 
 import Prelude hiding (EQ,LT,GT) -- Same constructors exist in the AST
-import Control.Monad.State (get)
-import Data.Maybe (fromMaybe)
+import Control.Monad.State
+import Data.Maybe (fromMaybe, isJust)
 import Data.List (nub)
-import Data.Either (either)
+import Data.Either (either, lefts, rights)
+import Control.Applicative
 import qualified Data.ByteString.Char8 as B
 
-import Control.Monad.State
 #ifdef DEBUG
 import Data.Data (toConstr)
 #endif
@@ -240,38 +240,55 @@ SUBPROGRAM_UNITS :: { [ ProgramUnit A0 ] }
 | {- EMPTY -} { [ ] }
 
 SUBPROGRAM_UNIT :: { ProgramUnit A0 }
-: TYPE_SPEC FUNCTION_SPEC function NAME MAYBE_ARGUMENTS MAYBE_COMMENT RESULT NEWLINE BLOCKS MAYBE_SUBPROGRAM_UNITS FUNCTION_END
-  {% do { unitNameCheck $11 $4;
-          return $ PUFunction () (getTransSpan $1 $11) (Just $1) $2 $4 $5 $7 (reverse $9) $10 } }
-| recursive TYPE_SPEC function NAME MAYBE_ARGUMENTS RESULT MAYBE_COMMENT NEWLINE BLOCKS MAYBE_SUBPROGRAM_UNITS FUNCTION_END
-  {% do { unitNameCheck $11 $4;
-          return $ PUFunction () (getTransSpan $1 $11) (Just $2) (None () True) $4 $5 $6 (reverse $9) $10 } }
-| function NAME MAYBE_ARGUMENTS RESULT MAYBE_COMMENT NEWLINE BLOCKS MAYBE_SUBPROGRAM_UNITS FUNCTION_END
-  {% do { unitNameCheck $9 $2;
-          return $ PUFunction () (getTransSpan $1 $9) Nothing (None () False) $2 $3 $4 (reverse $7) $8 } }
+: FUNCTION_SPEC function NAME MAYBE_ARGUMENTS MAYBE_COMMENT RESULT NEWLINE BLOCKS MAYBE_SUBPROGRAM_UNITS FUNCTION_END
+  {% do { unitNameCheck $10 $3;
+          let (fSpec, typeSpec) = $1 in
+          return $ PUFunction () (getTransSpan $2 $10) typeSpec fSpec $3 $4 $6 (reverse $8) $9 } }
 | subroutine NAME MAYBE_ARGUMENTS MAYBE_COMMENT NEWLINE BLOCKS MAYBE_SUBPROGRAM_UNITS SUBROUTINE_END
   {% do { unitNameCheck $8 $2;
           return $ PUSubroutine () (getTransSpan $1 $8) False $2 $3 (reverse $6) $7 } }
-| recursive subroutine NAME MAYBE_ARGUMENTS MAYBE_COMMENT NEWLINE BLOCKS MAYBE_SUBPROGRAM_UNITS SUBROUTINE_END
-  {% do { unitNameCheck $9 $3;
-          return $ PUSubroutine () (getTransSpan $1 $9) True $3 $4 (reverse $7) $8 } }
 | comment { let (TComment s c) = $1 in PUComment () s (Comment c) }
+| recursive RECURSIVE_SUBPROGRAM_UNIT { $2 }
 
-FUNCTION_SPEC :: { PUFunctionOpt () }
+RECURSIVE_SUBPROGRAM_UNIT :: { ProgramUnit A0 }
+: FUNCTION_SPEC function NAME MAYBE_ARGUMENTS MAYBE_COMMENT RESULT NEWLINE BLOCKS MAYBE_SUBPROGRAM_UNITS FUNCTION_END
+  {% do
+    unitNameCheck $10 $3
+    fSpec <- either fail return $ fst $1 `buildPUFunctionOpt`  None () True
+    let typeSpec = snd $1
+    return $ PUFunction () (getTransSpan $2 $10) typeSpec fSpec $3 $4 $6 (reverse $8) $9
+  }
+| subroutine NAME MAYBE_ARGUMENTS MAYBE_COMMENT NEWLINE BLOCKS MAYBE_SUBPROGRAM_UNITS SUBROUTINE_END
+  {% do { unitNameCheck $8 $2;
+          return $ PUSubroutine () (getTransSpan $1 $8) True $2 $3 (reverse $6) $7 } }
+
+
+FUNCTION_SPEC :: { (PUFunctionOpt A0, Maybe (TypeSpec A0)) }
 : PFUNCTION_SPECS {% do
-    if nub $1 /= $1
-    then fail "Function properties specified multiple times."
-    else either fail return $ buildPUFunctionOpts $1
+  let funcSpecs = lefts $1
+  let typeSpecs = rights $1
+  if length typeSpecs > 1
+  then fail "Specified a type spec multiple times in a function spec."
+  else if length (nub funcSpecs) /= length funcSpecs then fail "Specified a function spec multiple times."
+  else do
+    let typeSpec = case typeSpecs of
+                                  [] -> Nothing
+                                  (x:_) -> Just x
+    funcSpec <- either fail return $ buildPUFunctionOpts funcSpecs
+    return (funcSpec, typeSpec)
   }
 
-PFUNCTION_SPECS :: { [PUFunctionOpt ()] }
+PFUNCTION_SPECS :: { [Either (PUFunctionOpt A0) (TypeSpec A0)] }
 : {- EMPTY -} { [] }
-| PFUNCTION_SPECS PFUNCTION_SPEC { $2 : $1 }
+| PFUNCTION_SPEC PFUNCTION_SPECS { $1 : $2 }
 
-PFUNCTION_SPEC :: { PUFunctionOpt () }
-: recursive { None () True }
-| pure { Pure () False }
-| elemental { Elemental () }
+-- crucically, recursive cannot appear first, which is dealt with in SUBPROGRAM_UNIT
+| PFUNCTION_SPEC recursive PFUNCTION_SPECS { $1 : Left (None () True) : $3 }
+
+PFUNCTION_SPEC :: { Either (PUFunctionOpt A0) (TypeSpec A0) }
+: pure      { Left $ Pure () False }
+| elemental { Left $ Elemental () }
+| TYPE_SPEC { Right $ $1 }
 
 MAYBE_ARGUMENTS :: { Maybe (AList Expression A0) }
 : '(' MAYBE_VARIABLES ')' { $2 }
