@@ -48,7 +48,7 @@ spec =
     describe "Function" $ do
       let puFunction = PUFunction () u
       let fType = Nothing
-      let fOpt = None () False
+      let fOpt = None () u False
       let fName = "f"
       let fArgs = Nothing
       let fRes = Nothing
@@ -84,9 +84,9 @@ spec =
 
       describe "parses function options (recursive, pure, elemental)" $ do
         let options_list = map unzip $ combination
-                                        [ ("recursive ", None () True)
-                                        , ("pure ", Pure () False)
-                                        , ("elemental ", Elemental ()) ]
+                                        [ ("recursive ", None () u True)
+                                        , ("pure ", Pure () u False)
+                                        , ("elemental ", Elemental () u) ]
 
         forM_ options_list (\(strs, opts) -> do
           let str = foldr (++) "" strs

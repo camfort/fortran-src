@@ -448,7 +448,7 @@ spec =
         it "prints function with args with result without sub programs" $ do
           let args = AList () u [ varGen "x", varGen "y", varGen "z" ]
           let res = Just $ varGen "i"
-          let fun = PUFunction () u tSpec (None () False) "f" (Just args) res body Nothing
+          let fun = PUFunction () u tSpec (None () u False) "f" (Just args) res body Nothing
           let expect = unlines [ "  integer function f(x, y, z) result(i)"
                                , "    print *, i"
                                , "    i = (i - 1)"

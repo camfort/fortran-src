@@ -122,32 +122,35 @@ data ProgramUnit a =
   deriving (Eq, Show, Data, Typeable, Generic, Functor)
 
 type IsRecursive = Bool
-data PUFunctionOpt a = None a IsRecursive | Pure a IsRecursive | Elemental a
+data PUFunctionOpt a =
+    None a SrcSpan IsRecursive
+  | Pure a SrcSpan IsRecursive
+  | Elemental a SrcSpan
   deriving (Eq, Show, Data, Typeable, Generic, Functor)
 
 buildPUFunctionOpt :: (PUFunctionOpt ()) -> (PUFunctionOpt ()) -> Either String (PUFunctionOpt ())
 buildPUFunctionOpt a b =
   case (a, b) of
-    ((None () False), b) -> Right b
-    (a, (None () False)) -> Right a
-    ((Elemental ()), b) -> if functionIsRecursive b
-      then Left "Function cannot be both elemental and recursive. "
-      else Right (Elemental ())
-    (_, (Elemental ())) -> buildPUFunctionOpt b a
-    ((Pure () r), b) -> Right (Pure () (r || functionIsRecursive b))
-    (b, (Pure () r)) -> Right (Pure () (r || functionIsRecursive b))
-    ((None () r), (None () r')) -> Right (None () (r || r'))
+    ((None () _ False ), _)         -> Right $ setSpan (getTransSpan a b) b
+    (_, (None () _ False))          -> Right $ setSpan (getTransSpan a b) a
+    ((Elemental () _), _)           -> if functionIsRecursive b
+                                         then Left "Function cannot be both elemental and recursive. "
+                                         else Right . Elemental () $ getTransSpan a b
+    (_, (Elemental () _))           -> buildPUFunctionOpt b a
+    ((Pure () _ r), b)              -> Right $ Pure () (getTransSpan a b) (r || functionIsRecursive b)
+    (a, (Pure () _ r))              -> Right $ Pure () (getTransSpan a b) (r || functionIsRecursive a)
+    ((None () _ r), (None () _ r')) -> Right $ None () (getTransSpan a b) (r || r')
 -- Should parse: "elemental pure recursive function f()\nend": Right (Elemental ()) FAILED [4]
 
 buildPUFunctionOpts :: [PUFunctionOpt ()] -> Either String (PUFunctionOpt())
 buildPUFunctionOpts =
-  foldr merge . Right $ None () False
+  foldr merge . Right $ None () initSrcSpan False
   where merge a = either Left $ buildPUFunctionOpt a
 
 functionIsRecursive :: (PUFunctionOpt a) -> Bool
-functionIsRecursive (Elemental _) = False
-functionIsRecursive (Pure _ r) = r
-functionIsRecursive (None _ r) = r
+functionIsRecursive (Elemental _ _) = False
+functionIsRecursive (Pure _ _ r)    = r
+functionIsRecursive (None _ _ r)    = r
 
 programUnitBody :: ProgramUnit a -> [Block a]
 programUnitBody (PUMain _ _ _ bs _)              = bs
@@ -464,6 +467,7 @@ class Annotated f where
 
 instance FirstParameter (AList t a) a
 instance FirstParameter (ProgramUnit a) a
+instance FirstParameter (PUFunctionOpt a) a
 instance FirstParameter (Block a) a
 instance FirstParameter (Statement a) a
 instance FirstParameter (Argument a) a
@@ -486,6 +490,7 @@ instance FirstParameter (ControlPair a) a
 
 instance SecondParameter (AList t a) SrcSpan
 instance SecondParameter (ProgramUnit a) SrcSpan
+instance SecondParameter (PUFunctionOpt a) SrcSpan
 instance SecondParameter (Block a) SrcSpan
 instance SecondParameter (Statement a) SrcSpan
 instance SecondParameter (Argument a) SrcSpan
@@ -530,6 +535,7 @@ instance Annotated ControlPair
 
 instance Spanned (AList t a)
 instance Spanned (ProgramUnit a)
+instance Spanned (PUFunctionOpt a)
 instance Spanned (Statement a)
 instance Spanned (Argument a)
 instance Spanned (Use a)

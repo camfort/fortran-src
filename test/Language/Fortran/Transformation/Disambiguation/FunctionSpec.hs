@@ -90,7 +90,7 @@ expectedEx1pu1bs =
 -}
 ex2 = ProgramFile mi77 [ ex2pu1, ex2pu2 ]
 ex2pu1 = PUMain () u Nothing ex2pu1bs Nothing
-ex2pu2 = PUFunction () u Nothing (None () False) "y" (Just $ AList () u [ varGen "i", varGen "j" ]) Nothing [ ] Nothing
+ex2pu2 = PUFunction () u Nothing (None () u False) "y" (Just $ AList () u [ varGen "i", varGen "j" ]) Nothing [ ] Nothing
 ex2pu1bs =
   [ BlStatement () u Nothing
       (StFunction () u
@@ -124,7 +124,7 @@ expectedEx2pu1bs =
 
 ex3 = ProgramFile mi77 [ ex3pu1, ex3pu2 ]
 ex3pu1 = PUMain () u Nothing ex3pu1bs Nothing
-ex3pu2 = PUFunction () u Nothing (None () False) "y" (Just $ AList () u [ varGen "i", varGen "j" ]) Nothing [ ] Nothing
+ex3pu2 = PUFunction () u Nothing (None () u False) "y" (Just $ AList () u [ varGen "i", varGen "j" ]) Nothing [ ] Nothing
 ex3pu1bs =
   [ BlStatement () u Nothing
       (StFunction () u

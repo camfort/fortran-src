@@ -33,7 +33,7 @@ spec =
     describe "Function" $ do
       it "parses basic functions" $ do
         let stType = Just $ TypeSpec () u TypeInteger Nothing
-        let stOpt = None () False
+        let stOpt = None () u False
         let stArgs = Just $ AList () u [ varGen "x", varGen "y", varGen "z" ]                                                     
         let stRes = Just $ varGen "i"                                                                                      
         let decrementRHS = ExpBinary () u Subtraction (varGen "i") (intGen 1)

@@ -248,13 +248,13 @@ SUBPROGRAM_UNIT :: { ProgramUnit A0 }
   {% do { unitNameCheck $8 $2;
           return $ PUSubroutine () (getTransSpan $1 $8) False $2 $3 (reverse $6) $7 } }
 | comment { let (TComment s c) = $1 in PUComment () s (Comment c) }
-| recursive RECURSIVE_SUBPROGRAM_UNIT { $2 }
+| recursive RECURSIVE_SUBPROGRAM_UNIT { setSpan (getTransSpan $1 $2) $2 }
 
 RECURSIVE_SUBPROGRAM_UNIT :: { ProgramUnit A0 }
 : FUNCTION_SPEC function NAME MAYBE_ARGUMENTS MAYBE_COMMENT RESULT NEWLINE BLOCKS MAYBE_SUBPROGRAM_UNITS FUNCTION_END
   {% do
     unitNameCheck $10 $3
-    fSpec <- either fail return $ fst $1 `buildPUFunctionOpt`  None () True
+    fSpec <- either fail return $ fst $1 `buildPUFunctionOpt`  None () (getSpan $ fst $1) True
     let typeSpec = snd $1
     return $ PUFunction () (getTransSpan $2 $10) typeSpec fSpec $3 $4 $6 (reverse $8) $9
   }
@@ -283,11 +283,11 @@ PFUNCTION_SPECS :: { [Either (PUFunctionOpt A0) (TypeSpec A0)] }
 | PFUNCTION_SPEC PFUNCTION_SPECS { $1 : $2 }
 
 -- crucically, recursive cannot appear first, which is dealt with in SUBPROGRAM_UNIT
-| PFUNCTION_SPEC recursive PFUNCTION_SPECS { $1 : Left (None () True) : $3 }
+| PFUNCTION_SPEC recursive PFUNCTION_SPECS { $1 : Left (None () (getSpan $2) True) : $3 }
 
 PFUNCTION_SPEC :: { Either (PUFunctionOpt A0) (TypeSpec A0) }
-: pure      { Left $ Pure () False }
-| elemental { Left $ Elemental () }
+: pure      { Left $ Pure () (getSpan $1) False }
+| elemental { Left $ Elemental () (getSpan $1) }
 | TYPE_SPEC { Right $ $1 }
 
 MAYBE_ARGUMENTS :: { Maybe (AList Expression A0) }
@@ -1147,7 +1147,7 @@ transformations95 =
 fortran95Parser ::
      B.ByteString -> String -> ParseResult AlexInput Token (ProgramFile A0)
 fortran95Parser sourceCode filename =
-    fmap (pfSetFilename filename . transform transformations95) $ parse parseState
+    (pfSetFilename filename . transform transformations95) <$> parse parseState
   where
     parseState = initParseState sourceCode Fortran95 filename
 
