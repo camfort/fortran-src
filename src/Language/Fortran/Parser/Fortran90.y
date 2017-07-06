@@ -249,6 +249,9 @@ SUBPROGRAM_UNIT :: { ProgramUnit A0 }
 | function NAME MAYBE_ARGUMENTS RESULT MAYBE_COMMENT NEWLINE BLOCKS MAYBE_SUBPROGRAM_UNITS FUNCTION_END
   {% do { unitNameCheck $9 $2;
           return $ PUFunction () (getTransSpan $1 $9) Nothing (None () initSrcSpan False) $2 $3 $4 (reverse $7) $8 } }
+| recursive function NAME MAYBE_ARGUMENTS RESULT MAYBE_COMMENT NEWLINE BLOCKS MAYBE_SUBPROGRAM_UNITS FUNCTION_END
+  {% do { unitNameCheck $10 $3;
+          return $ PUFunction () (getTransSpan $1 $10) Nothing (None () initSrcSpan True) $3 $4 $5 (reverse $8) $9 } }
 | subroutine NAME MAYBE_ARGUMENTS MAYBE_COMMENT NEWLINE BLOCKS MAYBE_SUBPROGRAM_UNITS SUBROUTINE_END
   {% do { unitNameCheck $8 $2;
           return $ PUSubroutine () (getTransSpan $1 $8) False $2 $3 (reverse $6) $7 } }
