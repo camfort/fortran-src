@@ -507,8 +507,11 @@ processFunctionCall (ExpFunctionCall a s fn@(ExpValue a' s' _) aargs) = do
     addToBBlock . analyseAllLhsVars1 $ BlStatement a0 s Nothing (StExpressionAssign a' s' (formal e i) e)
   (_, dummyCallN) <- closeBBlock
 
-  -- create "dummy call" bblock with no parameters in the StCall AST-node.
-  addToBBlock . analyseAllLhsVars1 $ BlStatement a s Nothing (StCall a' s' fn Nothing)
+  let retV = setName (name 0) $ ExpValue a0 s (ValVariable (name 0))
+  let dummyArgs = map (Argument a0 s' Nothing) (retV:map (uncurry formal) (zip exps [1..]))
+
+  -- create "dummy call" bblock with dummy arguments in the StCall AST-node.
+  addToBBlock . analyseAllLhsVars1 $ BlStatement a s Nothing (StCall a' s' fn (Just $ fromList a0 dummyArgs))
   (_, returnedN) <- closeBBlock
 
   -- re-assign the variables using the values of the formal parameters, if possible
@@ -520,7 +523,6 @@ processFunctionCall (ExpFunctionCall a s fn@(ExpValue a' s' _) aargs) = do
     else return ()
   tempName <- genTemp (varName fn)
   let temp = setName tempName $ ExpValue a0 s (ValVariable tempName)
-  let retV = setName (name 0) $ ExpValue a0 s (ValVariable (name 0))
 
   addToBBlock . analyseAllLhsVars1 $ BlStatement a0 s Nothing (StExpressionAssign a0 s' temp retV)
   (_, nextN) <- closeBBlock
@@ -582,8 +584,8 @@ genSuperBBGr bbm = SuperBBGr { graph = superGraph'', clusters = cmap, entries = 
     -- List of Calls and their corresponding SuperNode where they appear.
     -- Assumption: all StCalls appear by themselves in a bblock.
     stCalls      :: [(SuperNode, String)]
-    stCalls      = [ (getSuperNode n, sub) | (n, [BlStatement _ _ _ (StCall _ _ e Nothing)]) <- namedNodes
-                                           , v@(ExpValue _ _ _)                              <- [e]
+    stCalls      = [ (getSuperNode n, sub) | (n, [BlStatement _ _ _ (StCall _ _ e _)]) <- namedNodes
+                                           , v@(ExpValue _ _ _)                        <- [e]
                                            , let sub = varName v
                                            , Named sub `M.member` entryMap && Named sub `M.member` exitMap ]
     stCallCtxts  :: [([SuperEdge], SuperNode, String, [SuperEdge])]
