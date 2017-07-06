@@ -1,4 +1,4 @@
-{-# LANGUAGE ScopedTypeVariables, DeriveDataTypeable, StandaloneDeriving, DeriveGeneric #-}
+{-# LANGUAGE ScopedTypeVariables, DeriveDataTypeable, StandaloneDeriving, DeriveGeneric, TupleSections #-}
 
 -- |
 -- Common data structures and functions supporting analysis of the AST.
@@ -22,6 +22,7 @@ import Text.PrettyPrint
 import qualified Data.Map.Strict as M
 import Data.Maybe
 import Data.Binary
+import Language.Fortran.Intrinsics (getIntrinsicDefsUses, allIntrinsics)
 
 --------------------------------------------------
 
@@ -297,11 +298,6 @@ blockVarDefs _                      = []
 dummyArg :: Name -> Int -> Name
 dummyArg n i = n ++ "[" ++ show i ++ "]"
 
--- is the expression an intrinsic function/subroutine?
-isIntrinsic :: Expression (Analysis a) -> Bool
-isIntrinsic f@(ExpValue _ _ (ValIntrinsic _)) = srcName f `M.member` intrinsicsDefsUsesMap
-isIntrinsic _                                 = False
-
 -- return dummy arg names defined by intrinsic
 intrinsicDefs :: Expression (Analysis a) -> Maybe [Name]
 intrinsicDefs = fmap fst . intrinsicDefsUses
@@ -312,17 +308,8 @@ intrinsicUses = fmap snd . intrinsicDefsUses
 
 -- return dummy arg names (defined, used) by intrinsic
 intrinsicDefsUses :: Expression (Analysis a) -> Maybe ([Name], [Name])
-intrinsicDefsUses f = both (map (dummyArg (varName f))) <$> M.lookup (srcName f) intrinsicsDefsUsesMap
+intrinsicDefsUses f = both (map (dummyArg (varName f))) <$> getIntrinsicDefsUses (srcName f) allIntrinsics
   where both f (x, y) = (f x, f y)
-
---------------------------------------------------
-
--- List of intrinsics and the parameters that they define/use:
-intrinsicsDefsUsesMap :: M.Map Name ([Int], [Int])
-intrinsicsDefsUsesMap = M.fromList [ ("abs", ([0], [1])) ]
-
---------------------------------------------------
-
 
 -- Local variables:
 -- mode: haskell
