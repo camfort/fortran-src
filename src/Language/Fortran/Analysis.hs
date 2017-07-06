@@ -218,6 +218,8 @@ computeAllLhsVars = concatMap lhsOfStmt . universeBi
     lhsOfStmt :: Statement (Analysis a) -> [Name]
     lhsOfStmt (StExpressionAssign _ _ e e') = match' e : onExprs e'
     lhsOfStmt (StCall _ _ _ (Just aexps)) = concatMap (match'' . extractExp) (aStrip aexps)
+    lhsOfStmt (StCall _ _ f@(ExpValue _ _ (ValIntrinsic _)) Nothing)
+      | Just defs <- intrinsicDefs f = defs
     lhsOfStmt s = onExprs s
 
     onExprs :: (Data (c (Analysis a))) => c (Analysis a) -> [Name]
@@ -279,15 +281,48 @@ blockVarUses (BlDo _ _ _ _ _ (Just (DoSpecification _ _ (StExpressionAssign _ _ 
   | ExpSubscript _ _ _ subs <- lhs = allVars rhs ++ allVars e1 ++ maybe [] allVars e2 ++ concatMap allVars (aStrip subs)
   | otherwise                      = allVars rhs ++ allVars e1 ++ maybe [] allVars e2
 blockVarUses (BlStatement _ _ _ (StDeclaration {})) = []
+blockVarUses (BlStatement _ _ _ (StCall _ _ f@(ExpValue _ _ (ValIntrinsic _)) Nothing))
+  | Just uses <- intrinsicUses f = uses
 blockVarUses (BlDoWhile _ _ e1 _ e2 _ _)   = maybe [] allVars e1 ++ allVars e2
 blockVarUses (BlIf _ _ e1 _ e2 _ _)        = maybe [] allVars e1 ++ concatMap (maybe [] allVars) e2
-blockVarUses b                         = allVars b
+blockVarUses b                             = allVars b
 
 -- | Set of names defined by an AST-block.
 blockVarDefs :: Data a => Block (Analysis a) -> [Name]
 blockVarDefs b@(BlStatement _ _ _ st) = allLhsVars b
 blockVarDefs (BlDo _ _ _ _ _ (Just doSpec) _ _)  = allLhsVarsDoSpec doSpec
 blockVarDefs _                      = []
+
+-- form name: n[i]
+dummyArg :: Name -> Int -> Name
+dummyArg n i = n ++ "[" ++ show i ++ "]"
+
+-- is the expression an intrinsic function/subroutine?
+isIntrinsic :: Expression (Analysis a) -> Bool
+isIntrinsic f@(ExpValue _ _ (ValIntrinsic _)) = srcName f `M.member` intrinsicsDefsUsesMap
+isIntrinsic _                                 = False
+
+-- return dummy arg names defined by intrinsic
+intrinsicDefs :: Expression (Analysis a) -> Maybe [Name]
+intrinsicDefs = fmap fst . intrinsicDefsUses
+
+-- return dummy arg names used by intrinsic
+intrinsicUses :: Expression (Analysis a) -> Maybe [Name]
+intrinsicUses = fmap snd . intrinsicDefsUses
+
+-- return dummy arg names (defined, used) by intrinsic
+intrinsicDefsUses :: Expression (Analysis a) -> Maybe ([Name], [Name])
+intrinsicDefsUses f = both (map (dummyArg (varName f))) <$> M.lookup (srcName f) intrinsicsDefsUsesMap
+  where both f (x, y) = (f x, f y)
+
+--------------------------------------------------
+
+-- List of intrinsics and the parameters that they define/use:
+intrinsicsDefsUsesMap :: M.Map Name ([Int], [Int])
+intrinsicsDefsUsesMap = M.fromList [ ("abs", ([0], [1])) ]
+
+--------------------------------------------------
+
 
 -- Local variables:
 -- mode: haskell
