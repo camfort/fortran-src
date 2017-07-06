@@ -508,7 +508,7 @@ processFunctionCall (ExpFunctionCall a s fn@(ExpValue a' s' _) aargs) = do
   (_, dummyCallN) <- closeBBlock
 
   -- create "dummy call" bblock with no parameters in the StCall AST-node.
-  addToBBlock . analyseAllLhsVars1 $ BlStatement a s Nothing (StCall a' s' (genVar a' s' (varName fn)) Nothing)
+  addToBBlock . analyseAllLhsVars1 $ BlStatement a s Nothing (StCall a' s' fn Nothing)
   (_, returnedN) <- closeBBlock
 
   -- re-assign the variables using the values of the formal parameters, if possible
