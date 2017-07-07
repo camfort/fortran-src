@@ -3,7 +3,8 @@
 -- |
 -- Common data structures and functions supporting analysis of the AST.
 module Language.Fortran.Analysis
-  ( initAnalysis, stripAnalysis, Analysis(..), varName, srcName, genVar, puName, puSrcName, blockRhsExprs, rhsExprs
+  ( initAnalysis, stripAnalysis, Analysis(..), varName, srcName, isNamedExpression
+  , genVar, puName, puSrcName, blockRhsExprs, rhsExprs
   , ModEnv, NameType(..), IDType(..), ConstructType(..), BaseType(..)
   , lhsExprs, isLExpr, allVars, analyseAllLhsVars, analyseAllLhsVars1, allLhsVars
   , blockVarUses, blockVarDefs
@@ -105,6 +106,12 @@ analysis0 a = Analysis { prevAnnotation = a
                        , moduleEnv      = Nothing
                        , idType         = Nothing
                        , allLhsVarsAnn  = [] }
+
+-- | True iff the expression can be used with varName or srcName
+isNamedExpression :: Expression a -> Bool
+isNamedExpression (ExpValue _ _ (ValVariable _))  = True
+isNamedExpression (ExpValue _ _ (ValIntrinsic _)) = True
+isNamedExpression _                               = False
 
 -- | Obtain either uniqueName or source name from an ExpValue variable.
 varName :: Expression (Analysis a) -> String

@@ -82,7 +82,7 @@ intrinsicsExp (ExpSubscript _ _ nexp _)    = intrinsicsHelper nexp
 intrinsicsExp (ExpFunctionCall _ _ nexp _) = intrinsicsHelper nexp
 intrinsicsExp _                            = return ()
 
-intrinsicsHelper nexp@(ExpValue _ _ (ValVariable _)) = do
+intrinsicsHelper nexp | isNamedExpression nexp = do
   itab <- gets intrinsics
   case getIntrinsicReturnType (srcName nexp) itab of
     Just itype -> do
