@@ -218,9 +218,9 @@ computeAllLhsVars = concatMap lhsOfStmt . universeBi
   where
     lhsOfStmt :: Statement (Analysis a) -> [Name]
     lhsOfStmt (StExpressionAssign _ _ e e') = match' e : onExprs e'
-    lhsOfStmt (StCall _ _ _ (Just aexps)) = concatMap (match'' . extractExp) (aStrip aexps)
-    lhsOfStmt (StCall _ _ f@(ExpValue _ _ (ValIntrinsic _)) Nothing)
+    lhsOfStmt (StCall _ _ f@(ExpValue _ _ (ValIntrinsic _)) _)
       | Just defs <- intrinsicDefs f = defs
+    lhsOfStmt (StCall _ _ _ (Just aexps)) = concatMap (match'' . extractExp) (aStrip aexps)
     lhsOfStmt s = onExprs s
 
     onExprs :: (Data (c (Analysis a))) => c (Analysis a) -> [Name]
@@ -282,8 +282,9 @@ blockVarUses (BlDo _ _ _ _ _ (Just (DoSpecification _ _ (StExpressionAssign _ _ 
   | ExpSubscript _ _ _ subs <- lhs = allVars rhs ++ allVars e1 ++ maybe [] allVars e2 ++ concatMap allVars (aStrip subs)
   | otherwise                      = allVars rhs ++ allVars e1 ++ maybe [] allVars e2
 blockVarUses (BlStatement _ _ _ (StDeclaration {})) = []
-blockVarUses (BlStatement _ _ _ (StCall _ _ f@(ExpValue _ _ (ValIntrinsic _)) Nothing))
+blockVarUses (BlStatement _ _ _ (StCall _ _ f@(ExpValue _ _ (ValIntrinsic _)) _))
   | Just uses <- intrinsicUses f = uses
+blockVarUses (BlStatement _ _ _ (StCall _ _ _ (Just aexps))) = allVars aexps
 blockVarUses (BlDoWhile _ _ e1 _ e2 _ _)   = maybe [] allVars e1 ++ allVars e2
 blockVarUses (BlIf _ _ e1 _ e2 _ _)        = maybe [] allVars e1 ++ concatMap (maybe [] allVars) e2
 blockVarUses b                             = allVars b
