@@ -1,6 +1,6 @@
 module Language.Fortran.Parser.Fortran95ExperimentalSpec (spec) where
 
-import Prelude hiding (GT)
+import Prelude hiding (GT, EQ, NE)
 
 import TestUtil
 import Test.Hspec
@@ -289,6 +289,17 @@ spec =
         let ass2 = DeclVariable () u (varGen "y") Nothing (Just $ intGen 20)
         let expected = StParameter () u (fromList () [ ass1, ass2 ])
         sParser "parameter (x = 10, y = 20)" `shouldBe'` expected
+
+      it "parses FORALL statements" $ do
+        let stStr = "FORALL (I=1:N, I /= 2) A(I,I) = X(I)"
+        let stride = Just $ ExpBinary () u NE (varGen "i") (intGen 2)
+        let tripletSpecList = [("i", intGen 1, varGen "n", stride)]
+        let varI = IxSingle () u Nothing (varGen "i")
+        let expSub1 = ExpSubscript () u (varGen "a") (AList () u [varI, varI])
+        let expSub2 = ExpSubscript () u (varGen "x") (AList () u [varI])
+        let eAssign = StExpressionAssign () u expSub1 expSub2
+        let expected = StForall () u (ForallHeader tripletSpecList Nothing) eAssign
+        sParser stStr `shouldBe'` expected
 
       describe "Implicit" $ do
         it "parses implicit none" $ do
