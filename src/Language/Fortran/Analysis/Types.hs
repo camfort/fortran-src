@@ -82,7 +82,7 @@ intrinsicsExp (ExpSubscript _ _ nexp _)    = intrinsicsHelper nexp
 intrinsicsExp (ExpFunctionCall _ _ nexp _) = intrinsicsHelper nexp
 intrinsicsExp _                            = return ()
 
-intrinsicsHelper nexp = do
+intrinsicsHelper nexp@(ExpValue _ _ (ValVariable _)) = do
   itab <- gets intrinsics
   case getIntrinsicReturnType (srcName nexp) itab of
     Just itype -> do
@@ -90,6 +90,7 @@ intrinsicsHelper nexp = do
       recordCType CTIntrinsic n
       -- recordBaseType _  n -- FIXME: going to skip base types for the moment
     _             -> return ()
+intrinsicsHelper _ = return ()
 
 programUnit :: Data a => InferFunc (ProgramUnit (Analysis a))
 programUnit pu@(PUFunction _ _ mRetType _ _ _ mRetVar blocks _)
