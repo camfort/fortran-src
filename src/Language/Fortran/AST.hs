@@ -128,6 +128,19 @@ programUnitBody (PUFunction _ _ _ _ _ _ _ bs _)  = bs
 programUnitBody (PUBlockData _ _ _ bs)           = bs
 programUnitBody (PUComment {})                   = []
 
+updateProgramUnitBody :: ProgramUnit a -> [Block a] -> ProgramUnit a
+updateProgramUnitBody (PUMain a s n bs pu)   bs' =
+    PUMain a s n bs' pu
+updateProgramUnitBody (PUModule a s n bs pu) bs' =
+    PUModule a s n bs' pu
+updateProgramUnitBody (PUSubroutine a s f n args bs pu) bs' =
+    PUSubroutine a s f n args bs' pu
+updateProgramUnitBody (PUFunction a s t f n args res bs pu) bs' =
+    PUFunction a s t f n args res bs' pu
+updateProgramUnitBody (PUBlockData a s n bs) bs' =
+    PUBlockData a s n bs'
+updateProgramUnitBody p@(PUComment {}) _ = p
+
 programUnitSubprograms :: ProgramUnit a -> Maybe [ProgramUnit a]
 programUnitSubprograms (PUMain _ _ _ _ s)             = s
 programUnitSubprograms (PUModule _ _ _ _ s)           = s
