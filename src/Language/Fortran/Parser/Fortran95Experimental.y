@@ -559,7 +559,8 @@ EXECUTABLE_STATEMENT :: { Statement A0 }
     in StCall () (getTransSpan $1 $5) $2 (Just alist) }
 | return { StReturn () (getSpan $1) Nothing }
 | return EXPRESSION { StReturn () (getTransSpan $1 $2) (Just $2) }
-| FORALL_STMNT { $1 }
+| FORALL_STMT { $1 }
+| END_FORALL_STMT { $1 }
 
 ARGUMENTS :: { [ Argument A0 ] }
 : ARGUMENTS ',' ARGUMENT { $3 : $1 }
@@ -1021,21 +1022,8 @@ IMPLIED_DO :: { Expression A0 }
           expList = AList () (getTransSpan $2 exps) ($2 : $4 : reverse $6) }
     in ExpImpliedDo () (getTransSpan $1 $9) expList $8 }
 
-{-
-FORALL_CONSTRUCT :: { Statement A0 }
-FORALL_CONSTRUCT =
-  FORALL_CONSTRUCT_STMT
-  FORALL_BODY_CONSTRUCTS
-  END_FORALL_STMT { StForall () (getTransSpan $1 $3) }
-
-FORALL_BODY_CONSTRUCT :: { Statement A0 }
-     FORALL_ASSIGNMENT_STMT { $1 }
-   | WHERE_STMT             { $1 }
-   | WHERE
--}
-
-FORALL_STMNT :: { Statement A0 }
-FORALL_STMNT :
+FORALL_STMT :: { Statement A0 }
+FORALL_STMT :
     forall FORALL_HEADER FORALL_ASSIGNMENT_STMT
       { StForall () (getTransSpan $1 $3) $2 $3 }
 
@@ -1075,10 +1063,10 @@ POINTER_ASSIGNMENT_STMT :: { Statement A0 }
 POINTER_ASSIGNMENT_STMT :
  DATA_REF '=>' EXPRESSION { StPointerAssign () (getTransSpan $1 $3) $1 $3 }
 
-END_FORALL_STMT :: { Token }
+END_FORALL_STMT :: { Statement A0 }
 END_FORALL_STMT :
-   endforall    { $1 }
- | endforall id { $2 }
+   endforall    { StEndForAll () (getSpan $1) Nothing }
+ | endforall id { let (TId s id) = $2 in StEndForAll () (getTransSpan $1 s) (Just id)}
 
 EXPRESSION_LIST :: { [ Expression A0 ] }
 : EXPRESSION_LIST ',' EXPRESSION { $3 : $1 }

@@ -288,6 +288,7 @@ data Statement a  =
   | StEndType             a SrcSpan (Maybe String)
   | StSequence            a SrcSpan
   | StForall              a SrcSpan (ForallHeader a) (Statement a)
+  | StEndForAll           a SrcSpan (Maybe String)
   -- Following is a temporary solution to a complicated FORMAT statement
   -- parsing problem.
   | StFormatBogus         a SrcSpan String
