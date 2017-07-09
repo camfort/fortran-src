@@ -290,16 +290,38 @@ spec =
         let expected = StParameter () u (fromList () [ ass1, ass2 ])
         sParser "parameter (x = 10, y = 20)" `shouldBe'` expected
 
-      it "parses FORALL statements" $ do
-        let stStr = "FORALL (I=1:N, I /= 2) A(I,I) = X(I)"
+      describe "FORALL blocks" $ do
+        let stride = Just $ ExpBinary () u NE (varGen "i") (intGen 2)
+        let tripletSpecList = [("i", intGen 1, varGen "n", stride)]
+
+        it "parses basic FORALL blocks" $ do
+          let stStr = "FORALL (I=1:N, I /= 2)"
+          let expected = StForall () u Nothing (ForallHeader tripletSpecList Nothing) 
+          sParser stStr `shouldBe'` expected
+
+      describe "FORALL statements" $ do
         let stride = Just $ ExpBinary () u NE (varGen "i") (intGen 2)
         let tripletSpecList = [("i", intGen 1, varGen "n", stride)]
         let varI = IxSingle () u Nothing (varGen "i")
         let expSub1 = ExpSubscript () u (varGen "a") (AList () u [varI, varI])
         let expSub2 = ExpSubscript () u (varGen "x") (AList () u [varI])
         let eAssign = StExpressionAssign () u expSub1 expSub2
-        let expected = StForall () u (ForallHeader tripletSpecList Nothing) eAssign
-        sParser stStr `shouldBe'` expected
+
+        it "parses basic FORALL statements" $ do
+          let stStr = "FORALL (I=1:N, I /= 2) A(I,I) = X(I)"
+          let expected = StForallStatement () u (ForallHeader tripletSpecList Nothing) eAssign
+          sParser stStr `shouldBe'` expected
+
+      describe "ENDFORALL statements" $ do
+        it "parses FORALL end statements" $ do
+          let stStr = "ENDFORALL"
+          let expected = StEndForall () u Nothing
+          sParser stStr `shouldBe'` expected
+
+        it "parses FORALL end statements with label" $ do
+          let stStr = "ENDFORALL A"
+          let expected = StEndForall () u $ Just "a"
+          sParser stStr `shouldBe'` expected
 
       describe "Implicit" $ do
         it "parses implicit none" $ do

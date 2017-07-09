@@ -8,9 +8,13 @@ import Language.Fortran.AST
 
 groupIf = transform [ GroupIf ]
 groupDo = transform [ GroupLabeledDo ]
+groupForall = transform [ GroupForall ]
 
 spec :: Spec
 spec = do
+  describe "Block FORALL statements" $ do
+    it "groups unlabelled FORALL blocks" $ do
+      groupForall exampleForall `shouldBe'` expectedForall
   describe "Block IF-THEN and related statements" $ do
     it "groups example1" $
       groupIf example1 `shouldBe'` expectedExample1
@@ -24,6 +28,18 @@ spec = do
 
     it "do group example2 with common end-point" $
       groupDo example2do `shouldBe` expectedExample2do
+
+buildExampleProgram name blocks = ProgramFile mi77 [ PUMain () u (Just name) blocks Nothing ]
+
+exampleComment = BlComment () u $ Comment "comment"
+exampleHeader = ForallHeader [] Nothing
+exampleForall = buildExampleProgram "forall" $
+  [ BlStatement () u Nothing $ StForall () u Nothing exampleHeader
+  , exampleComment
+  , BlStatement () u Nothing $ StEndForall () u Nothing
+  ]
+
+expectedForall = buildExampleProgram "forall" $ [BlForall () u Nothing Nothing exampleHeader [exampleComment] Nothing]
 
 -- if (.true.) then
 -- end if
