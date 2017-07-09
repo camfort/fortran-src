@@ -265,6 +265,7 @@ statementRhsExprs (StExpressionAssign _ _ lhs rhs)
  | otherwise                      = universeBi rhs
 statementRhsExprs (StDeclaration {}) = []
 statementRhsExprs (StIfLogical _ _ _ s) = statementRhsExprs s
+statementRhsExprs (StForallStatement _ _ _ s) = statementRhsExprs s
 statementRhsExprs (StDo _ _ _ l s) = (universeBi l) ++ doSpecRhsExprs s
   where doSpecRhsExprs (Just (DoSpecification _ _ s e1 e2)) =
            (e1 : (universeBi e2)) ++ statementRhsExprs s

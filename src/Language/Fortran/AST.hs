@@ -176,6 +176,13 @@ data Block a =
                 (Maybe (Expression a))       -- Label
                 (Statement a)                -- Statement
 
+  | BlForall    a SrcSpan
+                (Maybe (Expression a))       -- Label
+                (Maybe String)               -- Construct name
+                (ForallHeader a)             -- Header information
+                [ Block a ]                  -- Body
+                (Maybe (Expression a))       -- Label to END DO
+
   | BlIf        a SrcSpan
                 (Maybe (Expression a))       -- Label
                 (Maybe String)               -- Construct name
@@ -287,8 +294,9 @@ data Statement a  =
   | StType                a SrcSpan (Maybe (AList Attribute a)) String
   | StEndType             a SrcSpan (Maybe String)
   | StSequence            a SrcSpan
-  | StForall              a SrcSpan (ForallHeader a) (Statement a)
-  | StEndForAll           a SrcSpan (Maybe String)
+  | StForall              a SrcSpan (Maybe String) (ForallHeader a)
+  | StForallStatement     a SrcSpan (ForallHeader a) (Statement a)
+  | StEndForall           a SrcSpan (Maybe String)
   -- Following is a temporary solution to a complicated FORMAT statement
   -- parsing problem.
   | StFormatBogus         a SrcSpan String

@@ -1023,24 +1023,34 @@ IMPLIED_DO :: { Expression A0 }
     in ExpImpliedDo () (getTransSpan $1 $9) expList $8 }
 
 FORALL_STMT :: { Statement A0 }
-FORALL_STMT :
-    forall FORALL_HEADER FORALL_ASSIGNMENT_STMT
-      { StForall () (getTransSpan $1 $3) $2 $3 }
+: forall FORALL_HEADER FORALL_ASSIGNMENT_STMT {
+  let (h,s) = $2 in
+  StForallStatement () (getTransSpan $1 $3) h $3
+}
+| id ':' forall FORALL_HEADER {
+  let (TId s1 id) = $1 in
+  let (h,s2) = $4 in
+  StForall () (getTransSpan s1 s2) (Just id) h
+}
+| forall FORALL_HEADER {
+  let (h,s) = $2 in
+  StForall () (getTransSpan $1 s) Nothing h
+}
 
 FORALL_HEADER
-  :: { ForallHeader A0 }
+  :: { (ForallHeader A0, SrcSpan) }
 FORALL_HEADER :
   -- Standard simple forall header
-    '(' FORALL_TRIPLET_SPEC ')'   { ForallHeader [$2] Nothing }
+    '(' FORALL_TRIPLET_SPEC ')'   { (ForallHeader [$2] Nothing, getTransSpan $1 $3) }
   -- forall header with scale expression
   | '(' '(' FORALL_TRIPLET_SPEC ')' ',' EXPRESSION ')'
-                                  { ForallHeader [$3] (Just $6) }
+                                  { (ForallHeader [$3] (Just $6), getTransSpan $1 $7) }
   -- multi forall header
   | '(' FORALL_TRIPLET_SPEC_LIST_PLUS_STRIDE ')'
-                                  { ForallHeader $2 Nothing }
+                                  { (ForallHeader $2 Nothing, getTransSpan $1 $3) }
   -- multi forall header with scale
   | '(' FORALL_TRIPLET_SPEC_LIST_PLUS_STRIDE ',' EXPRESSION ')'
-                                  { ForallHeader $2 (Just $4) }
+                                  { (ForallHeader $2 (Just $4), getTransSpan $1 $5) }
 
 FORALL_TRIPLET_SPEC_LIST_PLUS_STRIDE
   :: { [(Name, Expression A0, Expression A0, Maybe (Expression A0))] }
@@ -1065,8 +1075,8 @@ POINTER_ASSIGNMENT_STMT :
 
 END_FORALL_STMT :: { Statement A0 }
 END_FORALL_STMT :
-   endforall    { StEndForAll () (getSpan $1) Nothing }
- | endforall id { let (TId s id) = $2 in StEndForAll () (getTransSpan $1 s) (Just id)}
+   endforall    { StEndForall () (getSpan $1) Nothing }
+ | endforall id { let (TId s id) = $2 in StEndForall () (getTransSpan $1 s) (Just id)}
 
 EXPRESSION_LIST :: { [ Expression A0 ] }
 : EXPRESSION_LIST ',' EXPRESSION { $3 : $1 }
