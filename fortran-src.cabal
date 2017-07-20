@@ -24,18 +24,18 @@ executable fortran-src
   hs-source-dirs: src
   build-depends:
     base >= 4.6 && < 5,
-    mtl >= 2.2,
-    array >= 0.5,
-    uniplate >= 1.6,
-    GenericPretty >= 1.2,
-    pretty >= 1.1,
-    containers >= 0.5,
-    text >= 1.2,
-    bytestring >= 0.10,
-    binary >= 0.8.3.0,
-    filepath,
-    directory >= 1.2,
-    fgl
+    mtl >= 2.2 && < 3,
+    array >= 0.5 && < 0.6,
+    uniplate >= 1.6 && < 2,
+    GenericPretty >= 1.2 && < 2,
+    pretty >= 1.1 && < 2,
+    containers >= 0.5 && < 0.6,
+    text >= 1.2 && < 2,
+    bytestring >= 0.10 && < 0.11,
+    binary >= 0.8.3.0 && < 0.9,
+    filepath >= 1.4 && < 2,
+    directory >= 1.2 && < 2,
+    fgl >= 5 && < 6
   other-modules:
     Language.Fortran.Analysis
     Language.Fortran.Analysis.Renaming
@@ -97,18 +97,18 @@ library
     happy >= 1.19
   build-depends:
     base >= 4.6 && < 5,
-    mtl >= 2.2,
-    array >= 0.5,
-    uniplate >= 1.6,
-    GenericPretty >= 1.2,
-    pretty >= 1.1,
-    containers >= 0.5,
-    text >= 1.2,
-    bytestring >= 0.10,
-    binary >= 0.8.3.0,
-    filepath,
-    directory >= 1.2,
-    fgl
+    mtl >= 2.2 && < 3,
+    array >= 0.5 && < 0.6,
+    uniplate >= 1.6 && < 2,
+    GenericPretty >= 1.2 && < 2,
+    pretty >= 1.1 && < 2,
+    containers >= 0.5 && < 0.6,
+    text >= 1.2 && < 2,
+    bytestring >= 0.10 && < 0.11,
+    binary >= 0.8.3.0 && < 0.9,
+    filepath >= 1.4 && < 2,
+    directory >= 1.2 && < 2,
+    fgl >= 5 && < 6
   hs-source-dirs:      src
   ghc-options: -fno-warn-tabs
   default-language:    Haskell2010
@@ -117,21 +117,19 @@ test-suite spec
   type: exitcode-stdio-1.0
   build-depends:
     base >= 4.6 && < 5,
-    hspec >= 2.2,
-    mtl >= 2.2,
-    array >= 0.5,
-    uniplate >= 1.6,
-    directory >= 1.2,
-    filepath,
-    GenericPretty >= 1.2,
-    pretty >= 1.1,
-    containers >= 0.5,
-    text >= 1.2,
-    bytestring >= 0.10,
-    binary >= 0.8.3.0,
-    fgl,
-    filepath,
-    directory >= 1.2,
+    hspec >= 2.2 && < 3,
+    mtl >= 2.2 && < 3,
+    array >= 0.5 && < 0.6,
+    uniplate >= 1.6 && < 2,
+    directory >= 1.2 && < 2,
+    filepath >= 1.4 && < 2,
+    GenericPretty >= 1.2 && < 2,
+    pretty >= 1.1 && < 2,
+    containers >= 0.5 && < 0.6,
+    text >= 1.2 && < 2,
+    bytestring >= 0.10 && < 0.11,
+    binary >= 0.8.3.0 && < 0.9,
+    fgl >= 5 && < 6,
     fortran-src
   hs-source-dirs: test
   main-is: Spec.hs
