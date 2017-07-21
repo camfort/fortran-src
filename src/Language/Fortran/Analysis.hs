@@ -24,6 +24,7 @@ import qualified Data.Map.Strict as M
 import Data.Maybe
 import Data.Binary
 import Language.Fortran.Intrinsics (getIntrinsicDefsUses, allIntrinsics)
+import Data.Bifunctor (first)
 
 --------------------------------------------------
 
@@ -89,6 +90,19 @@ data Analysis a = Analysis
   , allLhsVarsAnn  :: [Name]
   }
   deriving (Data, Show, Eq, Generic)
+
+instance Functor Analysis where
+  fmap f analysis =
+    Analysis
+    { prevAnnotation = f (prevAnnotation analysis)
+    , uniqueName = uniqueName analysis
+    , sourceName = sourceName analysis
+    , bBlocks = fmap (first . fmap . fmap . fmap $ f) . bBlocks $ analysis
+    , insLabel = insLabel analysis
+    , moduleEnv = moduleEnv analysis
+    , idType = idType analysis
+    , allLhsVarsAnn = allLhsVarsAnn analysis
+    }
 
 instance Out (Analysis a) where
   doc a = parens . text . unwords . map (uncurry (++) . fmap fromJust) . filter (isJust . snd) $
