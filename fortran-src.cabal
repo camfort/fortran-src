@@ -2,7 +2,7 @@
 -- documentation, see http://haskell.org/cabal/users-guide/
 
 name:                fortran-src
-version:             0.1.0.7
+version:             0.2.0.0
 synopsis:            Parser and anlyses for Fortran standards 66, 77, 90.
 description:         Provides lexing, parsing, and basic analyses of Fortran code covering standards: FORTRAN 66, FORTRAN 77, and Fortran 90. Includes data flow and basic block analysis, a renamer, and type analysis. For example usage, see the 'camfort' project, which uses fortran-src as its front end.
 bug-reports:         https://github.com/camfort/fortran-src/issues
