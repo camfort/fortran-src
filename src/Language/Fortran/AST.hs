@@ -350,14 +350,23 @@ data DoSpecification a =
 
 data Expression a =
     ExpValue         a SrcSpan (Value a)
+  -- ^ Use a value as an expression.
   | ExpBinary        a SrcSpan BinaryOp (Expression a) (Expression a)
+  -- ^ A binary operator applied to two expressions.
   | ExpUnary         a SrcSpan UnaryOp (Expression a)
+  -- ^ A unary operator applied to two expressions.
   | ExpSubscript     a SrcSpan (Expression a) (AList Index a)
+  -- ^ Array indexing
   | ExpDataRef       a SrcSpan (Expression a) (Expression a)
+  -- ^ % notation for variables inside data types
   | ExpFunctionCall  a SrcSpan (Expression a) (Maybe (AList Argument a))
+  -- ^ A function expression applied to a list of arguments.
   | ExpImpliedDo     a SrcSpan (AList Expression a) (DoSpecification a)
+  -- ^ Implied do (i.e. one-liner do loops)
   | ExpInitialisation  a SrcSpan (AList Expression a)
+  -- ^ Array initialisation?
   | ExpReturnSpec    a SrcSpan (Expression a)
+  -- ^ Function return value specification
   deriving (Eq, Show, Data, Typeable, Generic, Functor)
 
 data Index a =
@@ -371,15 +380,25 @@ data Index a =
 -- All recursive Values
 data Value a =
     ValInteger           String
+  -- ^ The string representation of an integer literal
   | ValReal              String
+  -- ^ The string representation of a real literal
   | ValComplex           (Expression a) (Expression a)
+  -- ^ The real and imaginary parts of a complex value
   | ValString            String
+  -- ^ A string literal
   | ValHollerith         String
+  -- ^ ?
   | ValVariable          Name
+  -- ^ The name of a variable
   | ValIntrinsic         Name
+  -- ^ The name of a built-in function
   | ValLogical           String
+  -- ^ A boolean value (what values can it take?)
   | ValOperator          String
+  -- ^ User-defined operators in interfaces
   | ValAssignment
+  -- ^ Overloaded assignment in interfaces
   | ValType              String
   | ValStar
   deriving (Eq, Show, Data, Typeable, Generic, Functor)
