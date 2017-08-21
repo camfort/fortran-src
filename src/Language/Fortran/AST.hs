@@ -364,7 +364,7 @@ data Expression a =
   | ExpImpliedDo     a SrcSpan (AList Expression a) (DoSpecification a)
   -- ^ Implied do (i.e. one-liner do loops)
   | ExpInitialisation  a SrcSpan (AList Expression a)
-  -- ^ Array initialisation?
+  -- ^ Array initialisation
   | ExpReturnSpec    a SrcSpan (Expression a)
   -- ^ Function return value specification
   deriving (Eq, Show, Data, Typeable, Generic, Functor)
@@ -388,13 +388,13 @@ data Value a =
   | ValString            String
   -- ^ A string literal
   | ValHollerith         String
-  -- ^ ?
+  -- ^ A Hollerith literal
   | ValVariable          Name
   -- ^ The name of a variable
   | ValIntrinsic         Name
   -- ^ The name of a built-in function
   | ValLogical           String
-  -- ^ A boolean value (what values can it take?)
+  -- ^ A boolean value
   | ValOperator          String
   -- ^ User-defined operators in interfaces
   | ValAssignment
