@@ -553,6 +553,14 @@ instance Spanned (Declarator a)
 instance Spanned (DimensionDeclarator a)
 instance Spanned (ControlPair a)
 
+instance Spanned (ProgramFile a) where
+  getSpan (ProgramFile _ pus) =
+    case pus of
+      [] -> SrcSpan initPosition initPosition
+      pus -> getSpan pus
+
+  setSpan _ _ = error "Cannot set span to a program unit"
+
 instance (Spanned a) => Spanned [a] where
   getSpan [] = error "Trying to find how long an empty list spans for."
   getSpan [x]   = getSpan x
