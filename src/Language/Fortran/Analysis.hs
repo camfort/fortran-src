@@ -3,7 +3,8 @@
 -- |
 -- Common data structures and functions supporting analysis of the AST.
 module Language.Fortran.Analysis
-  ( initAnalysis, stripAnalysis, Analysis(..), varName, srcName, isNamedExpression
+  ( initAnalysis, stripAnalysis, Analysis(..)
+  , varName, srcName, lvVarName, lvSrcName, isNamedExpression
   , genVar, puName, puSrcName, blockRhsExprs, rhsExprs
   , ModEnv, NameType(..), IDType(..), ConstructType(..), BaseType(..)
   , lhsExprs, isLExpr, allVars, analyseAllLhsVars, analyseAllLhsVars1, allLhsVars
@@ -16,6 +17,7 @@ import Language.Fortran.Util.Position (SrcSpan)
 import Data.Generics.Uniplate.Data
 import Data.Data
 import Language.Fortran.AST
+import Language.Fortran.LValue
 import Data.Graph.Inductive.PatriciaTree (Gr)
 import GHC.Generics (Generic)
 import Text.PrettyPrint.GenericPretty
@@ -144,6 +146,19 @@ srcName (ExpValue _ _ (ValVariable n))                                    = n
 srcName (ExpValue (Analysis { sourceName = Just n }) _ (ValIntrinsic {})) = n
 srcName (ExpValue _ _ (ValIntrinsic n))                                   = n
 srcName _                                                                 = error "Use of srcName on non-variable."
+
+-- | Obtain either uniqueName or source name from an LvSimpleVar variable.
+lvVarName :: LValue (Analysis a) -> String
+lvVarName (LvSimpleVar (Analysis { uniqueName = Just n }) _ _)  = n
+lvVarName (LvSimpleVar (Analysis { sourceName = Just n }) _ _)  = n
+lvVarName (LvSimpleVar _ _ n)                                   = n
+lvVarName _                                                     = error "Use of lvVarName on non-variable."
+
+-- | Obtain the source name from an LvSimpleVar variable.
+lvSrcName :: LValue (Analysis a) -> String
+lvSrcName (LvSimpleVar (Analysis { sourceName = Just n }) _ _) = n
+lvSrcName (LvSimpleVar _ _ n) = n
+lvSrcName _ = error "Use of lvSrcName on a non-variable"
 
 -- | Generate an ExpValue variable with its source name == to its uniqueName.
 genVar :: Analysis a -> SrcSpan -> String -> Expression (Analysis a)
