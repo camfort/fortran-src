@@ -358,7 +358,7 @@ data Expression a =
   | ExpSubscript     a SrcSpan (Expression a) (AList Index a)
   -- ^ Array indexing
   | ExpDataRef       a SrcSpan (Expression a) (Expression a)
-  -- ^ % notation for variables inside data types
+  -- ^ @%@ notation for variables inside data types
   | ExpFunctionCall  a SrcSpan (Expression a) (Maybe (AList Argument a))
   -- ^ A function expression applied to a list of arguments.
   | ExpImpliedDo     a SrcSpan (AList Expression a) (DoSpecification a)

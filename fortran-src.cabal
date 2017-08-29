@@ -47,6 +47,7 @@ library
     Language.Fortran.Analysis.BBlocks
     Language.Fortran.Analysis.DataFlow
     Language.Fortran.AST
+    Language.Fortran.LValue
     Language.Fortran.Intrinsics
     Language.Fortran.Lexer.FixedForm
     Language.Fortran.Lexer.FreeForm
