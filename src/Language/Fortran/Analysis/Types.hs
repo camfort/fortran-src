@@ -122,6 +122,7 @@ statement (StDeclaration _ _ (TypeSpec _ _ baseType _) mAttrAList declAList)
   | mAttrs  <- maybe [] aStrip mAttrAList
   , isArray <- any isAttrDimension mAttrs
   , isParam <- any isAttrParameter mAttrs
+  , isExtrn <- any isAttrExternal mAttrs
   , decls   <- aStrip declAList = do
     env <- gets environ
     forM_ decls $ \ decl -> case decl of
@@ -130,7 +131,8 @@ statement (StDeclaration _ _ (TypeSpec _ _ baseType _) mAttrAList declAList)
       DeclVariable _ _ v Nothing _  -> recordType baseType cType n
         where
           n = varName v
-          cType | isArray                                     = CTArray
+          cType | isExtrn                                     = CTFunction
+                | isArray                                     = CTArray
                 | isParam                                     = CTParameter
                 | Just (IDType _ (Just ct)) <- M.lookup n env = ct
                 | otherwise                                   = CTVariable
@@ -232,6 +234,9 @@ isAttrDimension _                  = False
 
 isAttrParameter (AttrParameter {}) = True
 isAttrParameter _                  = False
+
+isAttrExternal (AttrExternal {}) = True
+isAttrExternal _                 = False
 
 isIxSingle (IxSingle {}) = True
 isIxSingle _             = False
