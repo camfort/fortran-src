@@ -2,7 +2,7 @@
 -- documentation, see http://haskell.org/cabal/users-guide/
 
 name:                fortran-src
-version:             0.2.0.0
+version:             0.2.0.1
 synopsis:            Parser and anlyses for Fortran standards 66, 77, 90.
 description:         Provides lexing, parsing, and basic analyses of Fortran code covering standards: FORTRAN 66, FORTRAN 77, and Fortran 90. Includes data flow and basic block analysis, a renamer, and type analysis. For example usage, see the 'camfort' project, which uses fortran-src as its front end.
 bug-reports:         https://github.com/camfort/fortran-src/issues
@@ -20,8 +20,7 @@ source-repository head
   location: https://github.com/camfort/fortran-src
 
 executable fortran-src
-  main-is: Main.hs
-  hs-source-dirs: src
+  main-is: src/Main.hs
   build-depends:
     base >= 4.6 && < 5,
     mtl >= 2.2 && < 3,
@@ -35,33 +34,8 @@ executable fortran-src
     binary >= 0.8.3.0 && < 0.9,
     filepath >= 1.4 && < 2,
     directory >= 1.2 && < 2,
-    fgl >= 5 && < 6
-  other-modules:
-    Language.Fortran.Analysis
-    Language.Fortran.Analysis.Renaming
-    Language.Fortran.Analysis.Types
-    Language.Fortran.Analysis.BBlocks
-    Language.Fortran.Analysis.DataFlow
-    Language.Fortran.AST
-    Language.Fortran.Intrinsics
-    Language.Fortran.Lexer.FixedForm
-    Language.Fortran.Lexer.FreeForm
-    Language.Fortran.ParserMonad
-    Language.Fortran.Parser.Any
-    Language.Fortran.Parser.Fortran66
-    Language.Fortran.Parser.Fortran77
-    Language.Fortran.Parser.Fortran90
-    Language.Fortran.Parser.Utils
-    Language.Fortran.PrettyPrint
-    Language.Fortran.Transformation.Disambiguation.Function
-    Language.Fortran.Transformation.Disambiguation.Intrinsic
-    Language.Fortran.Transformation.Grouping
-    Language.Fortran.Transformation.TransformMonad
-    Language.Fortran.Transformer
-    Language.Fortran.Util.Position
-    Language.Fortran.Util.FirstParameter
-    Language.Fortran.Util.SecondParameter
-    Language.Fortran.Util.ModFile
+    fgl >= 5 && < 6,
+    fortran-src
   ghc-options: -fno-warn-tabs
   default-language: Haskell2010
 
@@ -73,6 +47,7 @@ library
     Language.Fortran.Analysis.BBlocks
     Language.Fortran.Analysis.DataFlow
     Language.Fortran.AST
+    Language.Fortran.LValue
     Language.Fortran.Intrinsics
     Language.Fortran.Lexer.FixedForm
     Language.Fortran.Lexer.FreeForm
@@ -81,6 +56,7 @@ library
     Language.Fortran.Parser.Fortran66
     Language.Fortran.Parser.Fortran77
     Language.Fortran.Parser.Fortran90
+    Language.Fortran.Parser.Fortran95Experimental
     Language.Fortran.Parser.Utils
     Language.Fortran.PrettyPrint
     Language.Fortran.Transformation.Disambiguation.Function
@@ -116,6 +92,7 @@ library
 test-suite spec
   type: exitcode-stdio-1.0
   build-depends:
+    deepseq,
     base >= 4.6 && < 5,
     hspec >= 2.2 && < 3,
     mtl >= 2.2 && < 3,
@@ -133,4 +110,25 @@ test-suite spec
     fortran-src
   hs-source-dirs: test
   main-is: Spec.hs
+  other-modules:
+    Language.Fortran.Analysis.BBlocksSpec
+    Language.Fortran.Analysis.DataFlowSpec
+    Language.Fortran.Analysis.RenamingSpec
+    Language.Fortran.Analysis.TypesSpec
+    Language.Fortran.AnalysisSpec
+    Language.Fortran.Lexer.FixedFormSpec
+    Language.Fortran.Lexer.FreeFormSpec
+    Language.Fortran.Parser.Fortran2003Spec
+    Language.Fortran.Parser.Fortran2008Spec
+    Language.Fortran.Parser.Fortran66Spec
+    Language.Fortran.Parser.Fortran77Spec
+    Language.Fortran.Parser.Fortran90Spec
+    Language.Fortran.Parser.UtilsSpec
+    Language.Fortran.ParserMonadSpec
+    Language.Fortran.PrettyPrintSpec
+    Language.Fortran.Transformation.Disambiguation.FunctionSpec
+    Language.Fortran.Transformation.GroupingSpec
+    Language.Fortran.Util.FirstParameterSpec
+    Language.Fortran.Util.SecondParameterSpec
+    TestUtil
   default-language:    Haskell2010

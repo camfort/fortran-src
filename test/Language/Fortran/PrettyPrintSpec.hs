@@ -409,7 +409,7 @@ spec =
           pprint Fortran90 mod (Just 0) `shouldBe` text expect
 
         it "prints module with sub programs" $ do
-          let sub = PUSubroutine () u False "sub" Nothing body Nothing
+          let sub = PUSubroutine () u (None () u False) "sub" Nothing body Nothing
           let mod = PUModule () u "my_mod" body (Just [ sub ])
           let expect = unlines [ "   module my_mod"
                                , "     print *, i"
@@ -427,7 +427,7 @@ spec =
       describe "Subroutine" $ do
         it "prints recursive subroutine with args without sub programs" $ do
           let args = AList () u [ varGen "x", varGen "y", varGen "z" ]
-          let sub = PUSubroutine () u True "sub" (Just args) body Nothing
+          let sub = PUSubroutine () u (None () u True) "sub" (Just args) body Nothing
           let expect = unlines [ "recursive subroutine sub(x, y, z)"
                                , "print *, i"
                                , "i = (i - 1)"
@@ -435,7 +435,7 @@ spec =
           pprint Fortran90 sub Nothing `shouldBe` text expect
 
         it "prints 66 style subroutine without args" $ do
-          let mod = PUSubroutine () u False "sub" Nothing body Nothing
+          let mod = PUSubroutine () u (None () u False) "sub" Nothing body Nothing
           let expect = unlines [ "      subroutine sub"
                                , "        print *, i"
                                , "        i = (i - 1)"
@@ -448,7 +448,7 @@ spec =
         it "prints function with args with result without sub programs" $ do
           let args = AList () u [ varGen "x", varGen "y", varGen "z" ]
           let res = Just $ varGen "i"
-          let fun = PUFunction () u tSpec False "f" (Just args) res body Nothing
+          let fun = PUFunction () u tSpec (None () u False) "f" (Just args) res body Nothing
           let expect = unlines [ "  integer function f(x, y, z) result(i)"
                                , "    print *, i"
                                , "    i = (i - 1)"

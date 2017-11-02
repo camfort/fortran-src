@@ -108,12 +108,18 @@ instance IndentablePretty (ProgramUnit a) where
       where
         nextI = incIndentation i
 
-    pprint v (PUSubroutine _ _ isRec name mArgs body mSubs) i
-      | isRec, v < Fortran90 = tooOld v "Recursive subroutine" Fortran90
+    pprint v (PUSubroutine _ _ funcSpec name mArgs body mSubs) i
+      | Pure _ _ _ <- funcSpec, v < Fortran95 = tooOld v "Pure subroutine" Fortran90
+      | Elemental _ _ <- funcSpec, v < Fortran90 = tooOld v "Elemental subroutine" Fortran90
+      | functionIsRecursive funcSpec, v < Fortran90 = tooOld v "Recursive subroutine" Fortran90
       | isJust mSubs, v < Fortran90 = tooOld v "Subroutine subprogram" Fortran90
       | otherwise =
         indent curI
-          ((if isRec then "recursive" else empty) <+>
+          ((case funcSpec of
+            (Elemental _ _) -> "elemental"
+            (Pure _ _ _) -> "pure"
+            otherwise -> empty) <+>
+          (if functionIsRecursive funcSpec then "recursive" else empty) <+>
           "subroutine" <+> text name <>
           lparen <?> pprint' v mArgs <?> rparen <> newline) <>
         pprint v body nextI <>
@@ -128,14 +134,20 @@ instance IndentablePretty (ProgramUnit a) where
                     then incIndentation i
                     else incIndentation fixedForm
 
-    pprint v (PUFunction _ _ mRetType isRec name mArgs mRes body mSubs) i
-      | isRec, v < Fortran90 = tooOld v "Recursive function" Fortran90
+    pprint v (PUFunction _ _ mRetType fSpec name mArgs mRes body mSubs) i
+      | (Elemental _ _) <- fSpec, v < Fortran95 = tooOld v "Elemental function" Fortran90
+      | (Pure _ _ _) <- fSpec, v < Fortran95 = tooOld v "Pure function" Fortran90
+      | functionIsRecursive fSpec, v < Fortran90 = tooOld v "Recursive function" Fortran90
       | isJust mRes, v < Fortran90 = tooOld v "Function result" Fortran90
       | isJust mSubs, v < Fortran90 = tooOld v "Function subprogram" Fortran90
       | otherwise =
         indent curI
           (pprint' v mRetType <+>
-          (if isRec then "recursive" else empty) <+>
+          (case fSpec of
+            (Elemental _ _) -> "elemental"
+            (Pure _ _ _) -> "pure"
+            otherwise -> empty) <+>
+          (if functionIsRecursive fSpec then "recursive" else empty) <+>
           "function" <+> text name <>
           lparen <?> pprint' v mArgs <?> rparen <+>
           "result" <?> lparen <?> pprint' v mRes <?> rparen <> newline) <>

@@ -99,7 +99,7 @@ data ProgramUnit a =
       (Maybe [ProgramUnit a]) -- Subprograms
   | PUSubroutine
       a SrcSpan
-      Bool -- Recursive or not
+      (PUFunctionOpt a) -- Subroutine options
       Name
       (Maybe (AList Expression a)) -- Arguments
       [Block a] -- Body
@@ -107,7 +107,7 @@ data ProgramUnit a =
   | PUFunction
       a SrcSpan
       (Maybe (TypeSpec a)) -- Return type
-      Bool -- Recursive or not
+      (PUFunctionOpt a) -- Function Options
       Name
       (Maybe (AList Expression a)) -- Arguments
       (Maybe (Expression a)) -- Result
@@ -119,6 +119,37 @@ data ProgramUnit a =
       [Block a] -- Body
   | PUComment a SrcSpan (Comment a)
   deriving (Eq, Show, Data, Typeable, Generic, Functor)
+
+type IsRecursive = Bool
+data PUFunctionOpt a =
+    None a SrcSpan IsRecursive
+  | Pure a SrcSpan IsRecursive
+  | Elemental a SrcSpan
+  deriving (Eq, Show, Data, Typeable, Generic, Functor)
+
+buildPUFunctionOpt :: (PUFunctionOpt ()) -> (PUFunctionOpt ()) -> Either String (PUFunctionOpt ())
+buildPUFunctionOpt a b =
+  case (a, b) of
+    ((None () _ False ), _)         -> Right $ setSpan (getTransSpan a b) b
+    (_, (None () _ False))          -> Right $ setSpan (getTransSpan a b) a
+    ((Elemental () _), _)           -> if functionIsRecursive b
+                                         then Left "Function cannot be both elemental and recursive. "
+                                         else Right . Elemental () $ getTransSpan a b
+    (_, (Elemental () _))           -> buildPUFunctionOpt b a
+    ((Pure () _ r), b)              -> Right $ Pure () (getTransSpan a b) (r || functionIsRecursive b)
+    (a, (Pure () _ r))              -> Right $ Pure () (getTransSpan a b) (r || functionIsRecursive a)
+    ((None () _ r), (None () _ r')) -> Right $ None () (getTransSpan a b) (r || r')
+-- Should parse: "elemental pure recursive function f()\nend": Right (Elemental ()) FAILED [4]
+
+buildPUFunctionOpts :: [PUFunctionOpt ()] -> Either String (PUFunctionOpt())
+buildPUFunctionOpts =
+  foldr merge . Right $ None () initSrcSpan False
+  where merge a = either Left $ buildPUFunctionOpt a
+
+functionIsRecursive :: (PUFunctionOpt a) -> Bool
+functionIsRecursive (Elemental _ _) = False
+functionIsRecursive (Pure _ _ r)    = r
+functionIsRecursive (None _ _ r)    = r
 
 programUnitBody :: ProgramUnit a -> [Block a]
 programUnitBody (PUMain _ _ _ bs _)              = bs
@@ -156,6 +187,13 @@ data Block a =
     BlStatement a SrcSpan
                 (Maybe (Expression a))       -- Label
                 (Statement a)                -- Statement
+
+  | BlForall    a SrcSpan
+                (Maybe (Expression a))       -- Label
+                (Maybe String)               -- Construct name
+                (ForallHeader a)             -- Header information
+                [ Block a ]                  -- Body
+                (Maybe (Expression a))       -- Label to END DO
 
   | BlIf        a SrcSpan
                 (Maybe (Expression a))       -- Label
@@ -268,7 +306,9 @@ data Statement a  =
   | StType                a SrcSpan (Maybe (AList Attribute a)) String
   | StEndType             a SrcSpan (Maybe String)
   | StSequence            a SrcSpan
-  | StForall              a SrcSpan (ForallHeader a) (Statement a)
+  | StForall              a SrcSpan (Maybe String) (ForallHeader a)
+  | StForallStatement     a SrcSpan (ForallHeader a) (Statement a)
+  | StEndForall           a SrcSpan (Maybe String)
   -- Following is a temporary solution to a complicated FORMAT statement
   -- parsing problem.
   | StFormatBogus         a SrcSpan String
@@ -350,14 +390,23 @@ data DoSpecification a =
 
 data Expression a =
     ExpValue         a SrcSpan (Value a)
+  -- ^ Use a value as an expression.
   | ExpBinary        a SrcSpan BinaryOp (Expression a) (Expression a)
+  -- ^ A binary operator applied to two expressions.
   | ExpUnary         a SrcSpan UnaryOp (Expression a)
+  -- ^ A unary operator applied to two expressions.
   | ExpSubscript     a SrcSpan (Expression a) (AList Index a)
+  -- ^ Array indexing
   | ExpDataRef       a SrcSpan (Expression a) (Expression a)
+  -- ^ @%@ notation for variables inside data types
   | ExpFunctionCall  a SrcSpan (Expression a) (Maybe (AList Argument a))
+  -- ^ A function expression applied to a list of arguments.
   | ExpImpliedDo     a SrcSpan (AList Expression a) (DoSpecification a)
+  -- ^ Implied do (i.e. one-liner do loops)
   | ExpInitialisation  a SrcSpan (AList Expression a)
+  -- ^ Array initialisation
   | ExpReturnSpec    a SrcSpan (Expression a)
+  -- ^ Function return value specification
   deriving (Eq, Show, Data, Typeable, Generic, Functor)
 
 data Index a =
@@ -371,15 +420,25 @@ data Index a =
 -- All recursive Values
 data Value a =
     ValInteger           String
+  -- ^ The string representation of an integer literal
   | ValReal              String
+  -- ^ The string representation of a real literal
   | ValComplex           (Expression a) (Expression a)
+  -- ^ The real and imaginary parts of a complex value
   | ValString            String
+  -- ^ A string literal
   | ValHollerith         String
+  -- ^ A Hollerith literal
   | ValVariable          Name
+  -- ^ The name of a variable
   | ValIntrinsic         Name
+  -- ^ The name of a built-in function
   | ValLogical           String
+  -- ^ A boolean value
   | ValOperator          String
+  -- ^ User-defined operators in interfaces
   | ValAssignment
+  -- ^ Overloaded assignment in interfaces
   | ValType              String
   | ValStar
   deriving (Eq, Show, Data, Typeable, Generic, Functor)
@@ -448,6 +507,7 @@ class Annotated f where
 
 instance FirstParameter (AList t a) a
 instance FirstParameter (ProgramUnit a) a
+instance FirstParameter (PUFunctionOpt a) a
 instance FirstParameter (Block a) a
 instance FirstParameter (Statement a) a
 instance FirstParameter (Argument a) a
@@ -470,6 +530,7 @@ instance FirstParameter (ControlPair a) a
 
 instance SecondParameter (AList t a) SrcSpan
 instance SecondParameter (ProgramUnit a) SrcSpan
+instance SecondParameter (PUFunctionOpt a) SrcSpan
 instance SecondParameter (Block a) SrcSpan
 instance SecondParameter (Statement a) SrcSpan
 instance SecondParameter (Argument a) SrcSpan
@@ -514,6 +575,7 @@ instance Annotated ControlPair
 
 instance Spanned (AList t a)
 instance Spanned (ProgramUnit a)
+instance Spanned (PUFunctionOpt a)
 instance Spanned (Statement a)
 instance Spanned (Argument a)
 instance Spanned (Use a)
@@ -533,6 +595,14 @@ instance Spanned (DoSpecification a)
 instance Spanned (Declarator a)
 instance Spanned (DimensionDeclarator a)
 instance Spanned (ControlPair a)
+
+instance Spanned (ProgramFile a) where
+  getSpan (ProgramFile _ pus) =
+    case pus of
+      [] -> SrcSpan initPosition initPosition
+      pus -> getSpan pus
+
+  setSpan _ _ = error "Cannot set span to a program unit"
 
 instance (Spanned a) => Spanned [a] where
   getSpan [] = error "Trying to find how long an empty list spans for."
@@ -675,6 +745,7 @@ instance Out FortranVersion
 instance Out MetaInfo
 instance Out a => Out (ProgramFile a)
 instance Out a => Out (ProgramUnit a)
+instance Out a => Out (PUFunctionOpt a)
 instance (Out a, Out (t a)) => Out (AList t a)
 instance Out a => Out (Statement a)
 instance Out Only

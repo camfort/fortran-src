@@ -1,15 +1,17 @@
-module Language.Fortran.Parser.Fortran90Spec (spec) where
+module Language.Fortran.Parser.Fortran95ExperimentalSpec (spec) where
 
-import Prelude hiding (GT)
+import Prelude hiding (GT, EQ, NE)
 
 import TestUtil
 import Test.Hspec
+import Control.Exception (evaluate)
 
 import Language.Fortran.AST
 import Language.Fortran.ParserMonad
 import Language.Fortran.Lexer.FreeForm
-import Language.Fortran.Parser.Fortran90
+import Language.Fortran.Parser.Fortran95Experimental
 import qualified Data.List as List
+import Data.Foldable(forM_)
 import qualified Data.ByteString.Char8 as B
 
 eParser :: String -> Expression ()
@@ -18,11 +20,11 @@ eParser sourceCode =
     (StExpressionAssign _ _ _ e) -> e
   where
     paddedSourceCode = B.pack $ "      a = " ++ sourceCode
-    parseState =  initParseState paddedSourceCode Fortran90 "<unknown>"
+    parseState =  initParseState paddedSourceCode Fortran95 "<unknown>"
 
 sParser :: String -> Statement ()
 sParser sourceCode =
-  evalParse statementParser $ initParseState (B.pack sourceCode) Fortran90 "<unknown>"
+  evalParse statementParser $ initParseState (B.pack sourceCode) Fortran95 "<unknown>"
 
 fParser :: String -> ProgramUnit ()
 fParser sourceCode =
@@ -42,7 +44,7 @@ combination = foldr ((++) . List.permutations) [] . List.subsequences
 
 spec :: Spec
 spec =
-  describe "Fortran 90 Parser" $ do
+  describe "Fortran 95 Parser" $ do
     describe "Function" $ do
       let puFunction = PUFunction () u
       let fType = Nothing
@@ -80,12 +82,24 @@ spec =
                                , "end function f" ]
           fParser fStr `shouldBe'` expected
 
-      it "parses recursive functions" $ do
-        let fOpt = None () u True
-        let expected = puFunction fType fOpt fName fArgs fRes fBody fSub
-        let fStr = init $ unlines ["recursive function f()", "end"]
-        fParser fStr `shouldBe'` expected
+      describe "parses function options (recursive, pure, elemental)" $ do
+        let options_list = map unzip $ combination
+                                        [ ("recursive ", None () u True)
+                                        , ("pure ", Pure () u False)
+                                        , ("elemental ", Elemental () u) ]
 
+        forM_ options_list (\(strs, opts) -> do
+          let str = foldr (++) "" strs
+          let fStr = str ++ (init $ unlines ["function f()", "end"])
+          let opt = buildPUFunctionOpts opts
+          let expected = puFunction fType 
+          case opt of
+            Left _ -> it ("Shouldn't parse: " ++ show fStr ++ ": " ++ show opt) $ evaluate (fParser fStr) `shouldThrow` anyIOException
+            Right fOpt ->
+              it ("Should parse: " ++ show fStr ++ ": " ++ show opt) $ do
+                let expected = puFunction fType fOpt fName fArgs fRes fBody fSub
+                fParser fStr `shouldBe'` expected
+          )
 
       it "parses functions with a list of arguments" $ do
         let fArgs = Just $ AList () u [ varGen "x", varGen "y", varGen "z" ]                                                     
@@ -175,15 +189,17 @@ spec =
         let st = StExpressionAssign () u lhs (intGen 1)
         sParser "x(1) % y = 1" `shouldBe'` st
 
-      it "parses pause statements" $ do
-        let stPause = StPause () u Nothing
+      it "doesn't parse assign statements" $ do
+        let stStr = "ASSIGN 1 \"LABEL\""
+        evaluate (sParser stStr) `shouldThrow` anyIOException
+
+      it "doesn't parse pause statements" $ do
         let stStr = "PAUSE"
-        sParser stStr `shouldBe'` stPause
+        evaluate (sParser stStr) `shouldThrow` anyIOException
         
-      it "parses pause statements with expression" $ do
-        let stPause = StPause () u (Just (strGen "MESSAGE"))
+      it "doesn't parse pause statements with expression" $ do
         let stStr = "PAUSE \"MESSAGE\""
-        sParser stStr `shouldBe'` stPause
+        evaluate (sParser stStr) `shouldThrow` anyIOException
 
       it "parses declaration with attributes" $ do
         let typeSpec = TypeSpec () u TypeReal Nothing
@@ -273,6 +289,39 @@ spec =
         let ass2 = DeclVariable () u (varGen "y") Nothing (Just $ intGen 20)
         let expected = StParameter () u (fromList () [ ass1, ass2 ])
         sParser "parameter (x = 10, y = 20)" `shouldBe'` expected
+
+      describe "FORALL blocks" $ do
+        let stride = Just $ ExpBinary () u NE (varGen "i") (intGen 2)
+        let tripletSpecList = [("i", intGen 1, varGen "n", stride)]
+
+        it "parses basic FORALL blocks" $ do
+          let stStr = "FORALL (I=1:N, I /= 2)"
+          let expected = StForall () u Nothing (ForallHeader tripletSpecList Nothing) 
+          sParser stStr `shouldBe'` expected
+
+      describe "FORALL statements" $ do
+        let stride = Just $ ExpBinary () u NE (varGen "i") (intGen 2)
+        let tripletSpecList = [("i", intGen 1, varGen "n", stride)]
+        let varI = IxSingle () u Nothing (varGen "i")
+        let expSub1 = ExpSubscript () u (varGen "a") (AList () u [varI, varI])
+        let expSub2 = ExpSubscript () u (varGen "x") (AList () u [varI])
+        let eAssign = StExpressionAssign () u expSub1 expSub2
+
+        it "parses basic FORALL statements" $ do
+          let stStr = "FORALL (I=1:N, I /= 2)" -- A(I,I) = X(I)"
+          let expected = StForall () u Nothing (ForallHeader tripletSpecList Nothing)-- eAssign
+          sParser stStr `shouldBe'` expected
+
+      describe "ENDFORALL statements" $ do
+        it "parses FORALL end statements" $ do
+          let stStr = "ENDFORALL"
+          let expected = StEndForall () u Nothing
+          sParser stStr `shouldBe'` expected
+
+        it "parses FORALL end statements with label" $ do
+          let stStr = "ENDFORALL A"
+          let expected = StEndForall () u $ Just "a"
+          sParser stStr `shouldBe'` expected
 
       describe "Implicit" $ do
         it "parses implicit none" $ do
@@ -505,14 +554,11 @@ spec =
         let st = StGotoComputed () u list (intGen 20)
         sParser "goto (10, 20, 30) 20" `shouldBe'` st
 
-      it "parses assigned goto" $ do
-        let list = fromList () [ intGen 10, intGen 20, intGen 30 ]
-        let st = StGotoAssigned () u (varGen "i") list
-        sParser "goto i, (10, 20, 30)" `shouldBe'` st
+      it "doesn't parse assigned goto" $ do
+        evaluate (sParser "goto i, (10, 20, 30)") `shouldThrow` anyIOException
 
-      it "parses label assignment" $ do
-        let st = StLabelAssign () u (intGen 20) (varGen "l")
-        sParser "assign 20 to l" `shouldBe'` st
+      it "doesn't parse label assignment" $ do
+        evaluate (sParser "assign 20 to l") `shouldThrow` anyIOException
 
     describe "IO" $ do
       it "parses vanilla print" $ do

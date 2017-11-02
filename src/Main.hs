@@ -262,6 +262,7 @@ instance Read FortranVersion where
                   , ("77e", Fortran77Extended)
                   , ("77", Fortran77)
                   , ("90", Fortran90)
+                  , ("95", Fortran95)
                   , ("03", Fortran2003)
                   , ("08", Fortran2008)] in
       tryTypes options
