@@ -131,12 +131,14 @@ statement (StDeclaration _ _ (TypeSpec _ _ baseType _) mAttrAList declAList)
       DeclVariable _ _ v Nothing _  -> recordType baseType cType n
         where
           n = varName v
-          cType | isExtrn                                     = CTFunction
+          cType | isExtrn                                     = CTExternal
                 | isArray                                     = CTArray
                 | isParam                                     = CTParameter
                 | Just (IDType _ (Just ct)) <- M.lookup n env = ct
                 | otherwise                                   = CTVariable
-
+statement (StExternal _ _ varAList) = do
+  let vars = aStrip varAList
+  mapM_ (recordCType CTExternal . varName) vars
 statement (StExpressionAssign _ _ (ExpSubscript _ _ v ixAList) _)
   --  | any (not . isIxSingle) (aStrip ixAList) = recordCType CTArray (varName v)  -- it's an array (or a string?) FIXME
   | all isIxSingle (aStrip ixAList) = do

@@ -64,6 +64,7 @@ type ModEnv = M.Map String (String, NameType)
 data ConstructType =
     CTFunction
   | CTSubroutine
+  | CTExternal
   | CTVariable
   | CTArray
   | CTParameter
