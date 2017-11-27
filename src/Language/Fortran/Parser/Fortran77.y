@@ -375,8 +375,8 @@ INTEGER_OR_STRING :: { Expression A0 } : STRING { $1 } | INTEGER_LITERAL { $1 }
 GOTO_STATEMENT :: { Statement A0 }
 GOTO_STATEMENT
 : goto LABEL_IN_STATEMENT { StGotoUnconditional () (getTransSpan $1 $2) $2 }
-| goto VARIABLE LABELS_IN_STATEMENT { StGotoAssigned () (getTransSpan $1 $3) $2 $3 }
-| goto VARIABLE ',' LABELS_IN_STATEMENT { StGotoAssigned () (getTransSpan $1 $4) $2 $4 }
+| goto VARIABLE LABELS_IN_STATEMENT { StGotoAssigned () (getTransSpan $1 $3) $2 (Just $3) }
+| goto VARIABLE ',' LABELS_IN_STATEMENT { StGotoAssigned () (getTransSpan $1 $4) $2 (Just $4) }
 | goto LABELS_IN_STATEMENT EXPRESSION { StGotoComputed () (getTransSpan $1 $3) $2 $3 }
 | goto LABELS_IN_STATEMENT ',' EXPRESSION { StGotoComputed () (getTransSpan $1 $4) $2 $4 }
 

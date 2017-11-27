@@ -507,7 +507,7 @@ spec =
 
       it "parses assigned goto" $ do
         let list = fromList () [ intGen 10, intGen 20, intGen 30 ]
-        let st = StGotoAssigned () u (varGen "i") list
+        let st = StGotoAssigned () u (varGen "i") (Just list)
         sParser "goto i, (10, 20, 30)" `shouldBe'` st
 
       it "parses label assignment" $ do

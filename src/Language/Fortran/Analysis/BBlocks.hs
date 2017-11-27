@@ -91,7 +91,7 @@ labelWithinBlocks = perBlock
         BlIf        a s e1 mn e2 bss el    -> BlIf        a s (mfill i e1) mn (mmfill i e2) bss el
         BlCase      a s e1 mn e2 is bss el -> BlCase      a s (mfill i e1) mn (fill i e2) (mmfill i is) bss el
         BlDo        a s e1 mn tl e2 bs el  -> BlDo        a s (mfill i e1) mn tl (mfill i e2) bs el
-        BlDoWhile   a s e1 n e2 bs el      -> BlDoWhile   a s (mfill i e1) n (fill i e2) bs el
+        BlDoWhile   a s e1 n tl e2 bs el   -> BlDoWhile   a s (mfill i e1) n tl (fill i e2) bs el
         _                             -> b
       where i = insLabel $ getAnnotation b
 
@@ -213,7 +213,7 @@ insExitEdges pu lm gr = flip insEdges (insNode (-1, bs) gr) $ do
 -- Find target of Goto statements (Return statements default target to -1).
 examineFinalBlock lm bs@(_:_)
   | BlStatement _ _ _ (StGotoUnconditional _ _ k) <- last bs = [lookupBBlock lm k]
-  | BlStatement _ _ _ (StGotoAssigned _ _ _ ks)   <- last bs = map (lookupBBlock lm) (aStrip ks)
+  | BlStatement _ _ _ (StGotoAssigned _ _ _ ks)   <- last bs = map (lookupBBlock lm) (maybe [] aStrip ks)
   | BlStatement _ _ _ (StGotoComputed _ _ ks _)   <- last bs = map (lookupBBlock lm) (aStrip ks)
   | BlStatement _ _ _ (StReturn _ _ _)            <- last bs = [-1]
   | BlStatement _ _ _ (StIfArithmetic _ _ _ k1 k2 k3) <- last bs =
@@ -354,7 +354,7 @@ perBlock b@(BlDo _ _ mlab _ _ (Just spec) bs _) = do
   me3' <- case me3 of Just e3 -> Just `fmap` processFunctionCalls e3; Nothing -> return Nothing
   perDoBlock Nothing b bs
 perBlock b@(BlDo _ _ _ _ _ Nothing bs _) = perDoBlock Nothing b bs
-perBlock b@(BlDoWhile _ _ _ _ exp bs _) = perDoBlock (Just exp) b bs
+perBlock b@(BlDoWhile _ _ _ _ _ exp bs _) = perDoBlock (Just exp) b bs
 perBlock b@(BlStatement _ _ _ (StReturn {})) =
   processLabel b >> addToBBlock b >> closeBBlock_
 perBlock b@(BlStatement _ _ _ (StGotoUnconditional {})) =
@@ -474,7 +474,7 @@ genTemp str = do
 -- Strip nested code not necessary since it is duplicated in another
 -- basic block.
 stripNestedBlocks (BlDo a s l mn tl ds _ el)     = BlDo a s l mn tl ds [] el
-stripNestedBlocks (BlDoWhile a s l n e _ el)     = BlDoWhile a s l n e [] el
+stripNestedBlocks (BlDoWhile a s l tl n e _ el)  = BlDoWhile a s l tl n e [] el
 stripNestedBlocks (BlIf a s l mn exps _ el)      = BlIf a s l mn exps [] el
 stripNestedBlocks (BlCase a s l mn sc inds _ el) = BlCase a s l mn sc inds [] el
 stripNestedBlocks (BlStatement a s l

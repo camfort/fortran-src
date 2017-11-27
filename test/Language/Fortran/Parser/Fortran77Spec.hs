@@ -129,7 +129,7 @@ spec =
         let st = StGotoComputed () u (AList () u [labelGen 10, labelGen 20, labelGen 30]) exp
         sParser "      GOTO (10, 20, 30), 42 * 24" `shouldBe'` st
 
-      let gotoSt = StGotoAssigned () u (varGen "v") (AList () u [labelGen 10, labelGen 20, labelGen 30])
+      let gotoSt = StGotoAssigned () u (varGen "v") (Just (AList () u [labelGen 10, labelGen 20, labelGen 30]))
       it "parses assigned GOTO with comma" $
         sParser "      GOTO v, (10, 20, 30)" `shouldBe'` gotoSt
 
