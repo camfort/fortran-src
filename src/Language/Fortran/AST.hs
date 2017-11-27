@@ -254,7 +254,7 @@ data Statement a  =
   | StFormat              a SrcSpan (AList FormatItem a)
   | StImplicit            a SrcSpan (Maybe (AList ImpList a))
   | StEntry               a SrcSpan (Expression a) (Maybe (AList Expression a)) (Maybe (Expression a))
-  | StInclude             a SrcSpan (Expression a)
+  | StInclude             a SrcSpan (Expression a) (Maybe [Block a])
   | StDo                  a SrcSpan (Maybe String) (Maybe (Expression a)) (Maybe (DoSpecification a))
   | StDoWhile             a SrcSpan (Maybe String) (Maybe (Expression a)) (Expression a)
   | StEnddo               a SrcSpan (Maybe String)

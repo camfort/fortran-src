@@ -433,7 +433,7 @@ instance Pretty (Statement a) where
         pprint' v name <+> parens (pprint' v mArgs) <+>
         "result (" <?> pprint' v mResult <?> char ')'
 
-    pprint' v (StInclude _ _ file) = "include" <+> pprint' v file
+    pprint' v (StInclude _ _ file _) = "include" <+> pprint' v file
 
     pprint' v (StDo _ s mConstructor mLabel mDoSpec)
       | v < Fortran90
