@@ -64,6 +64,7 @@ data BaseType =
   | TypeLogical
   | TypeCharacter
   | TypeCustom String
+  | TypeByte
   deriving (Ord, Eq, Show, Data, Typeable, Generic)
 
 instance Binary BaseType
@@ -221,6 +222,7 @@ data Block a =
   | BlDoWhile   a SrcSpan
                 (Maybe (Expression a))       -- Label
                 (Maybe String)               -- Construct name
+                (Maybe (Expression a))       -- Target label
                 (Expression a)               -- Condition
                 [ Block a ]                  -- Body
                 (Maybe (Expression a))       -- Label to END DO
@@ -235,6 +237,7 @@ data Block a =
 
 data Statement a  =
     StDeclaration         a SrcSpan (TypeSpec a) (Maybe (AList Attribute a)) (AList Declarator a)
+  | StStructure           a SrcSpan (Maybe String) (AList StructureItem a)
   | StIntent              a SrcSpan Intent (AList Expression a)
   | StOptional            a SrcSpan (AList Expression a)
   | StPublic              a SrcSpan (Maybe (AList Expression a))
@@ -245,6 +248,7 @@ data Statement a  =
   | StPointer             a SrcSpan (AList Declarator a)
   | StTarget              a SrcSpan (AList Declarator a)
   | StData                a SrcSpan (AList DataGroup a)
+  | StAutomatic           a SrcSpan (AList Declarator a)
   | StNamelist            a SrcSpan (AList Namelist a)
   | StParameter           a SrcSpan (AList Declarator a)
   | StExternal            a SrcSpan (AList Expression a)
@@ -274,7 +278,7 @@ data Statement a  =
   | StPointerAssign       a SrcSpan (Expression a) (Expression a)
   | StLabelAssign         a SrcSpan (Expression a) (Expression a)
   | StGotoUnconditional   a SrcSpan (Expression a)
-  | StGotoAssigned        a SrcSpan (Expression a) (AList Expression a)
+  | StGotoAssigned        a SrcSpan (Expression a) (Maybe (AList Expression a))
   | StGotoComputed        a SrcSpan (AList Expression a) (Expression a)
   | StCall                a SrcSpan (Expression a) (Maybe (AList Argument a))
   | StReturn              a SrcSpan (Maybe (Expression a))
@@ -285,6 +289,7 @@ data Statement a  =
   | StRead2               a SrcSpan (Expression a) (Maybe (AList Expression a))
   | StWrite               a SrcSpan (AList ControlPair a) (Maybe (AList Expression a))
   | StPrint               a SrcSpan (Expression a) (Maybe (AList Expression a))
+  | StTypePrint           a SrcSpan (Expression a) (Maybe (AList Expression a))
   | StOpen                a SrcSpan (AList ControlPair a)
   | StClose               a SrcSpan (AList ControlPair a)
   | StInquire             a SrcSpan (AList ControlPair a)
@@ -371,6 +376,16 @@ data Namelist a =
 
 data DataGroup a =
   DataGroup a SrcSpan (AList Expression a) (AList Expression a)
+  deriving (Eq, Show, Data, Typeable, Generic, Functor)
+
+data StructureItem a =
+    StructFields a SrcSpan (TypeSpec a) (Maybe (AList Attribute a)) (AList Declarator a)
+  | StructUnion a SrcSpan (AList UnionMap a)
+  | StructStructure a SrcSpan (Maybe String) (AList StructureItem a)
+  deriving (Eq, Show, Data, Typeable, Generic, Functor)
+
+data UnionMap a =
+  UnionMap a SrcSpan (AList StructureItem a)
   deriving (Eq, Show, Data, Typeable, Generic, Functor)
 
 data FormatItem a =
@@ -486,6 +501,7 @@ data BinaryOp =
   | EQ
   | NE
   | Or
+  | XOr
   | And
   | Equivalent
   | NotEquivalent
@@ -519,6 +535,8 @@ instance FirstParameter (ImpList a) a
 instance FirstParameter (ImpElement a) a
 instance FirstParameter (CommonGroup a) a
 instance FirstParameter (DataGroup a) a
+instance FirstParameter (StructureItem a) a
+instance FirstParameter (UnionMap a) a
 instance FirstParameter (Namelist a) a
 instance FirstParameter (FormatItem a) a
 instance FirstParameter (Expression a) a
@@ -542,6 +560,8 @@ instance SecondParameter (ImpList a) SrcSpan
 instance SecondParameter (ImpElement a) SrcSpan
 instance SecondParameter (CommonGroup a) SrcSpan
 instance SecondParameter (DataGroup a) SrcSpan
+instance SecondParameter (StructureItem a) SrcSpan
+instance SecondParameter (UnionMap a) SrcSpan
 instance SecondParameter (Namelist a) SrcSpan
 instance SecondParameter (FormatItem a) SrcSpan
 instance SecondParameter (Expression a) SrcSpan
@@ -564,6 +584,8 @@ instance Annotated ImpList
 instance Annotated ImpElement
 instance Annotated CommonGroup
 instance Annotated DataGroup
+instance Annotated StructureItem
+instance Annotated UnionMap
 instance Annotated Namelist
 instance Annotated FormatItem
 instance Annotated Expression
@@ -587,6 +609,8 @@ instance Spanned (ImpElement a)
 instance Spanned (Block a)
 instance Spanned (CommonGroup a)
 instance Spanned (DataGroup a)
+instance Spanned (StructureItem a)
+instance Spanned (UnionMap a)
 instance Spanned (Namelist a)
 instance Spanned (FormatItem a)
 instance Spanned (Expression a)
@@ -681,20 +705,20 @@ instance Labeled Block where
   getLabel (BlIf _ _ l _ _ _ _) = l
   getLabel (BlCase _ _ l _ _ _ _ _) = l
   getLabel (BlDo _ _ l _ _ _ _ _) = l
-  getLabel (BlDoWhile _ _ l _ _ _ _) = l
+  getLabel (BlDoWhile _ _ l _ _ _ _ _) = l
   getLabel _ = Nothing
 
   getLastLabel b@BlStatement{} = getLabel b
   getLastLabel (BlIf _ _ _ _ _ _ l) = l
   getLastLabel (BlCase _ _ _ _ _ _ _ l) = l
   getLastLabel (BlDo _ _ _ _ _ _ _ l) = l
-  getLastLabel (BlDoWhile _ _ _ _ _ _ l) = l
+  getLastLabel (BlDoWhile _ _ _ _ _ _ _ l) = l
   getLastLabel _ = Nothing
 
   setLabel (BlStatement a s _ st) l = BlStatement a s (Just l) st
   setLabel (BlIf a s _ mn conds bs el) l = BlIf a s (Just l) mn conds bs el
   setLabel (BlDo a s _ mn tl spec bs el) l = BlDo a s (Just l) mn tl spec bs el
-  setLabel (BlDoWhile a s _ n spec bs el) l = BlDoWhile a s (Just l) n spec bs el
+  setLabel (BlDoWhile a s _ n tl spec bs el) l = BlDoWhile a s (Just l) n tl spec bs el
   setLabel b l = b
 
 class Conditioned f where
@@ -759,6 +783,8 @@ instance Out a => Out (Comment a)
 instance Out a => Out (Block a)
 instance Out a => Out (CommonGroup a)
 instance Out a => Out (DataGroup a)
+instance Out a => Out (StructureItem a)
+instance Out a => Out (UnionMap a)
 instance Out a => Out (Namelist a)
 instance Out a => Out (FormatItem a)
 instance Out a => Out (Expression a)
@@ -805,6 +831,7 @@ nonExecutableStatement v s = case s of
     StFormatBogus {} -> True
     StInclude {}     -> True
     StDeclaration {} -> True
+    StStructure {}   -> True
     _                -> False
 
 executableStatement :: FortranVersion -> Statement a -> Bool

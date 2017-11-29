@@ -49,6 +49,8 @@ instance NFData a => NFData (ImpElement a)
 instance NFData a => NFData (ImpList a)
 instance NFData a => NFData (Namelist a)
 instance NFData a => NFData (PUFunctionOpt a)
+instance NFData a => NFData (StructureItem a)
+instance NFData a => NFData (UnionMap a)
 
 spec :: Spec
 spec = do

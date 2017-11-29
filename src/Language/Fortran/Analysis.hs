@@ -293,7 +293,7 @@ blockRhsExprs (BlStatement _ _ _ s) = statementRhsExprs s
 blockRhsExprs (BlDo _ _ _ _ _ (Just (DoSpecification _ _ (StExpressionAssign _ _ lhs rhs) e1 e2)) _ _)
   | ExpSubscript _ _ _ subs <- lhs = universeBi (rhs, e1, e2) ++ universeBi subs
   | otherwise                      = universeBi (rhs, e1, e2)
-blockRhsExprs (BlDoWhile _ _ e1 _ e2 _ _)   = universeBi (e1, e2)
+blockRhsExprs (BlDoWhile _ _ e1 _ _ e2 _ _) = universeBi (e1, e2)
 blockRhsExprs (BlIf _ _ e1 _ e2 _ _)        = universeBi (e1, e2)
 blockRhsExprs b                             = universeBi b
 
@@ -322,7 +322,7 @@ blockVarUses (BlStatement _ _ _ (StDeclaration {})) = []
 blockVarUses (BlStatement _ _ _ (StCall _ _ f@(ExpValue _ _ (ValIntrinsic _)) _))
   | Just uses <- intrinsicUses f = uses
 blockVarUses (BlStatement _ _ _ (StCall _ _ _ (Just aexps))) = allVars aexps
-blockVarUses (BlDoWhile _ _ e1 _ e2 _ _)   = maybe [] allVars e1 ++ allVars e2
+blockVarUses (BlDoWhile _ _ e1 _ _ e2 _ _) = maybe [] allVars e1 ++ allVars e2
 blockVarUses (BlIf _ _ e1 _ e2 _ _)        = maybe [] allVars e1 ++ concatMap (maybe [] allVars) e2
 blockVarUses b                             = allVars b
 

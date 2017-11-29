@@ -274,13 +274,15 @@ instance IndentablePretty (Block a) where
             then indent i (pprint' v label <+> stDoc)
             else pprint' v mLabel `overlay` indent i stDoc
 
-    pprint v (BlDoWhile _ _ mLabel mName cond body el) i
+    pprint v (BlDoWhile _ _ mLabel mName mTarget cond body el) i
        | v >= Fortran77Extended =
         labeledIndent mLabel
           (pprint' v mName <?> colon <+>
-          "do while" <+> parens (pprint' v cond) <> newline) <>
+          "do" <+> pprint' v mTarget <+> "while" <+> parens (pprint' v cond) <> newline) <>
         pprint v body nextI <>
-        labeledIndent el ("end do" <+> pprint' v mName <> newline)
+        if isJust mTarget && isNothing mName
+          then empty
+          else labeledIndent el ("end do" <+> pprint' v mName <> newline)
       | otherwise = tooOld v "Do while loop" Fortran77Extended
       where
         nextI = incIndentation i
@@ -320,7 +322,11 @@ instance Pretty BaseType where
       | otherwise = tooOld v "Character data type" Fortran77
     pprint' v (TypeCustom str)
       | v >= Fortran90 = "type" <+> parens (text str)
+      | v >= Fortran77Extended = "record" <+> char '/' <> text str <> char '/'
       | otherwise = tooOld v "User defined type" Fortran90
+    pprint' v TypeByte
+      | v >= Fortran77Extended = "byte"
+      | otherwise = tooOld v "Byte" Fortran77Extended
 
 instance Pretty (TypeSpec a) where
     pprint' v (TypeSpec _ _ baseType mSelector) =
@@ -359,6 +365,13 @@ instance Pretty (Statement a) where
           pprint' v mAttrList <+>
           text "::" <+>
           pprint' v declList
+
+    pprint' v st@(StStructure _ _ mName itemList)
+      | v /= Fortran77Extended = tooOld v "Structure" Fortran77Extended
+      | otherwise =
+          "structure" <> (if isJust mName then " /" <> pprint' v mName <> "/" else empty) <> newline <>
+          foldl' (\doc item -> doc <> pprint v item (incIndentation (Just 0)) <> newline) empty (aStrip itemList) <>
+          "end structure"
 
     pprint' v (StIntent _ _ intent exps)
       | v >= Fortran90 =
@@ -400,6 +413,10 @@ instance Pretty (Statement a) where
     pprint' v (StData _ _ aDataGroups@(AList _ _ dataGroups))
       | v >= Fortran90 = "data" <+> pprint' v aDataGroups
       | otherwise = "data" <+> hsep (map (pprint' v) dataGroups)
+
+    pprint' v (StAutomatic _ _ decls)
+      | v == Fortran77Extended = "automatic" <+> pprint' v decls
+      | otherwise = tooOld v "Target statement" Fortran90
 
     pprint' v (StNamelist _ _ namelist)
       | v >= Fortran90 = "namelist" <+> pprint' v namelist
@@ -567,6 +584,10 @@ instance Pretty (Statement a) where
       "write" <+> parens (pprint' v cilist) <+> pprint' v mIolist
     pprint' v (StPrint _ _ formatId mIolist) =
       "print" <+> pprint' v formatId <> comma <?+> pprint' v mIolist
+    pprint' v (StTypePrint _ _ formatId mIolist)
+      | v == Fortran77Extended
+      = "type" <+> pprint' v formatId <> comma <?+> pprint' v mIolist
+      | otherwise = tooOld v "Type (print) statement" Fortran77Extended
 
     pprint' v (StOpen _ _ cilist) = "open" <+> parens (pprint' v cilist)
     pprint' v (StClose _ _ cilist) = "close" <+> parens (pprint' v cilist)
@@ -781,6 +802,20 @@ instance Pretty (Value a) where
     pprint' v (ValString str) = quotes $ text str
     pprint' v valLit = text . getFirstParameter $ valLit
 
+instance IndentablePretty (StructureItem a) where
+  pprint v (StructFields a s spec mAttrs decls) i = pprint' v (StDeclaration a s spec mAttrs decls)
+  pprint v (StructUnion _ _ maps) i =
+    "union" <> newline <>
+    foldl' (\doc item -> doc <> pprint v item (incIndentation i) <> newline) empty (aStrip maps) <>
+    "end union"
+  pprint v (StructStructure a s mName items) i = pprint' v (StStructure a s mName items)
+
+instance IndentablePretty (UnionMap a) where
+  pprint v (UnionMap _ _ items) i =
+    "map" <> newline <>
+    foldl' (\doc item -> doc <> pprint v item (incIndentation i) <> newline) empty (aStrip items) <>
+    "end map"
+
 instance Pretty (Declarator a) where
     pprint' v (DeclVariable _ _ e mLen mInit)
       | v >= Fortran90 =
@@ -847,6 +882,7 @@ instance Pretty BinaryOp where
     pprint' v EQ  = if v <= Fortran77Extended then ".eq." else "=="
     pprint' v NE  = if v <= Fortran77Extended then ".ne." else "/="
     pprint' v Or  = ".or."
+    pprint' v XOr = ".xor."
     pprint' v And = ".and."
     pprint' v Equivalent
       | v >= Fortran77 = ".eqv."

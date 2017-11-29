@@ -478,7 +478,7 @@ EXECUTABLE_STATEMENT :: { Statement A0 }
 | goto VARIABLE { StGotoUnconditional () (getTransSpan $1 $2) $2 }
 -- GO TO scalar-int-variable [,] label-list
 | goto VARIABLE MAYBE_COMMA '(' INTEGERS ')'
-  { StGotoAssigned () (getTransSpan $1 $6) $2 (fromReverseList $5) }
+  { StGotoAssigned () (getTransSpan $1 $6) $2 (Just (fromReverseList $5)) }
 -- GO TO label-list [,] scalar-int-expression
 | goto '(' INTEGERS ')' MAYBE_COMMA EXPRESSION
   { StGotoComputed () (getTransSpan $1 $6) (fromReverseList $3) $6 }

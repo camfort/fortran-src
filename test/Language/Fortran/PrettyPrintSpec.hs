@@ -286,14 +286,22 @@ spec =
       describe "Interface" $
         it "prints interface block" pending
 
-      describe "Do While" $
+      describe "Do While" $ do
         it "prints simple do while loop" $ do
           let cond = ExpBinary () u LFA.GT (varGen "i") (intGen 42)
-          let bl = BlDoWhile () u Nothing (Just "my_block") cond body Nothing
+          let bl = BlDoWhile () u Nothing (Just "my_block") Nothing cond body Nothing
           let expect = unlines [ "my_block: do while ((i > 42))"
                                , "print *, i"
                                , "i = (i - 1)"
                                , "end do my_block" ]
+          pprint Fortran90 bl Nothing `shouldBe` text expect
+
+        it "prints a labelled do while loop" $ do
+          let cond = ExpBinary () u LFA.GT (varGen "i") (intGen 42)
+          let bl = BlDoWhile () u Nothing Nothing (Just (intGen 10)) cond body Nothing
+          let expect = unlines [ "do 10 while ((i > 42))"
+                               , "print *, i"
+                               , "i = (i - 1)" ]
           pprint Fortran90 bl Nothing `shouldBe` text expect
 
       describe "Do" $ do
