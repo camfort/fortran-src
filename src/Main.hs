@@ -100,14 +100,17 @@ main = do
 
 -- List files in dir
 rGetDirContents :: String -> IO [String]
-rGetDirContents d = do
+rGetDirContents d = canonicalizePath d >>= \d' -> go [d'] d'
+  where
+  go seen d = do
     ds <- getDirectoryContents d
     fmap concat . mapM f $ ds \\ [".", ".."] -- remove '.' and '..' entries
       where
         f x = do
-          g <- doesDirectoryExist (d ++ "/" ++ x)
-          if g then do
-            x' <- rGetDirContents (d ++ "/" ++ x)
+          path <- canonicalizePath $ d ++ "/" ++ x
+          g <- doesDirectoryExist path
+          if g && not (path `elem` seen) then do
+            x' <- go (path : seen) path
             return $ map (\ y -> x ++ "/" ++ y) x'
           else return [x]
 
