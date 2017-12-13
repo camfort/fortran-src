@@ -10,32 +10,19 @@ import Language.Fortran.Util.Position
 import Language.Fortran.Analysis
 import Language.Fortran.Transformation.TransformMonad
 
+import Data.Data
+import Data.Generics.Uniplate.Operations
 
 type ABlocks a = [ Block (Analysis a) ]
 
-genericGroup :: (ABlocks a -> ABlocks a) -> Transform a ()
+genericGroup :: Data a => (ABlocks a -> ABlocks a) -> Transform a ()
 genericGroup groupingFunction =
-    modifyProgramFile $
-      \(ProgramFile mi pus) ->
-        ProgramFile mi (map go pus)
-  where
-    go pu =
-      case pu of
-        PUMain a s n bs subPUs                  ->
-          PUMain a s n (groupingFunction bs) (map go <$> subPUs)
-        PUModule a s n bs subPUs                ->
-          PUModule a s n (groupingFunction bs) (map go <$> subPUs)
-        PUSubroutine a s r n as bs subPUs       ->
-          PUSubroutine a s r n as (groupingFunction bs) (map go <$> subPUs)
-        PUFunction a s r rec n as res bs subPUs ->
-          PUFunction a s r rec n as res (groupingFunction bs) (map go <$> subPUs)
-        bd@PUBlockData {}                       -> bd -- Block data cannot have any if statements.
-        c@PUComment {}                          -> c
+    modifyProgramFile $ transformBi groupingFunction
 
 --------------------------------------------------------------------------------
 -- Grouping FORALL statement blocks into FORALL blocks in entire parse tree
 --------------------------------------------------------------------------------
-groupForall :: Transform a ()
+groupForall :: Data a => Transform a ()
 groupForall = genericGroup groupForall'
 
 
@@ -78,7 +65,7 @@ collectNonForallBlocks blocks mNameTarget =
 -- Grouping if statement blocks into if blocks in entire parse tree
 --------------------------------------------------------------------------------
 
-groupIf :: Transform a ()
+groupIf :: Data a => Transform a ()
 groupIf = genericGroup groupIf'
 
 -- Actual grouping is done here.
@@ -175,7 +162,7 @@ collectNonConditionalBlocks blocks =
 -- Grouping new do statement blocks into do blocks in entire parse tree
 --------------------------------------------------------------------------------
 
-groupDo :: Transform a ()
+groupDo :: Data a => Transform a ()
 groupDo = genericGroup groupDo'
 
 groupDo' :: ABlocks a -> ABlocks a
@@ -220,7 +207,7 @@ collectNonDoBlocks blocks mNameTarget =
 -- Grouping labeled do statement blocks into do blocks in entire parse tree
 --------------------------------------------------------------------------------
 
-groupLabeledDo :: Transform a ()
+groupLabeledDo :: Data a => Transform a ()
 groupLabeledDo = genericGroup groupLabeledDo'
 
 groupLabeledDo' :: ABlocks a -> ABlocks a
@@ -265,7 +252,7 @@ compLabel _ _ = False
 -- Grouping case statements
 --------------------------------------------------------------------------------
 
-groupCase :: Transform a ()
+groupCase :: Data a => Transform a ()
 groupCase = genericGroup groupCase'
 
 groupCase' :: ABlocks a -> ABlocks a

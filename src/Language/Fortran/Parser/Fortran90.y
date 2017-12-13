@@ -412,7 +412,7 @@ NONEXECUTABLE_STATEMENT :: { Statement A0 }
 | endType { StEndType () (getSpan $1) Nothing }
 | endType id
   { let TId span id = $2 in StEndType () (getTransSpan $1 span) (Just id) }
-| include STRING { StInclude () (getTransSpan $1 $2) $2 }
+| include STRING { StInclude () (getTransSpan $1 $2) $2 Nothing }
 -- Following is a fake node to make arbitrary FORMAT statements parsable.
 -- Must be fixed in the future. TODO
 | format blob
