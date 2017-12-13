@@ -1,6 +1,6 @@
 -- -*- Mode: Haskell -*-
 {
-module Language.Fortran.Parser.Fortran95Experimental ( functionParser
+module Language.Fortran.Parser.Fortran95 ( functionParser
                                          , statementParser
                                          , fortran95Parser
                                          , fortran95ParserWithModFiles

@@ -1,4 +1,4 @@
-module Language.Fortran.Parser.Fortran95ExperimentalSpec (spec) where
+module Language.Fortran.Parser.Fortran95Spec (spec) where
 
 import Prelude hiding (GT, EQ, NE)
 
@@ -9,7 +9,7 @@ import Control.Exception (evaluate)
 import Language.Fortran.AST
 import Language.Fortran.ParserMonad
 import Language.Fortran.Lexer.FreeForm
-import Language.Fortran.Parser.Fortran95Experimental
+import Language.Fortran.Parser.Fortran95
 import qualified Data.List as List
 import Data.Foldable(forM_)
 import qualified Data.ByteString.Char8 as B

@@ -8,7 +8,7 @@ import Language.Fortran.Parser.Fortran66 ( fortran66Parser, fortran66ParserWithM
 import Language.Fortran.Parser.Fortran77 ( fortran77Parser, fortran77ParserWithModFiles
                                          , extended77Parser, extended77ParserWithModFiles )
 import Language.Fortran.Parser.Fortran90 ( fortran90Parser, fortran90ParserWithModFiles )
-import Language.Fortran.Parser.Fortran95Experimental (fortran95Parser, fortran95ParserWithModFiles )
+import Language.Fortran.Parser.Fortran95 ( fortran95Parser, fortran95ParserWithModFiles )
 
 import qualified Data.ByteString.Char8 as B
 import Data.Char (toLower)
