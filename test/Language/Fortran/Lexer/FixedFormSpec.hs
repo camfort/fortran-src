@@ -78,8 +78,8 @@ spec =
       it "lexes exponent" $
         resetSrcSpan (collectFixedTokens' Fortran66 "      a = 42 e42") `shouldBe` resetSrcSpan [TId u "a", TOpAssign u, TInt u "42", TExponent u "e42", TEOF u]
 
-      it "lexes 'function'" $
-        resetSrcSpan (lex66 "      function") `shouldBe` resetSrcSpan (Just $ TFunction u)
+      it "lexes 'function foo()'" $
+        resetSrcSpan (collectFixedTokens' Fortran66 "      function foo()") `shouldBe` resetSrcSpan [TFunction u, TId u "foo", TLeftPar u, TRightPar u, TEOF u]
 
       it "lexes 'end'" $
         resetSrcSpan (lex66 "      end") `shouldBe` resetSrcSpan (Just $ TEnd u)
@@ -120,13 +120,21 @@ spec =
       it "should lex continuation lines properly" $
         resetSrcSpan (collectFixedTokens' Fortran66 continuationExample) `shouldBe` resetSrcSpan [ TType u "integer", TId u "ix", TNewline u, TId u "ix", TOpAssign u, TInt u "42", TNewline u, TEnd u, TNewline u, TEOF u ]
 
+      it "lexes 'ASSIGN 100 TO FOO'" $
+        resetSrcSpan (collectFixedTokens' Fortran66 "      ASSIGN 100 TO FOO") `shouldBe` resetSrcSpan [TAssign u, TInt u "100", TTo u, TId u "foo", TEOF u]
+
+      it "lexes 'DO 100 dovar = 1, 10'" $
+        resetSrcSpan (collectFixedTokens' Fortran66 "      DO 100 dovar = 1, 10")
+          `shouldBe`
+          resetSrcSpan [TDo u, TInt u "100", TId u "dovar", TOpAssign u, TInt u "1", TComma u, TInt u "10", TEOF u]
+
     describe "lexN" $
       it "`lexN 5` parses lexes next five characters" $
         (lexemeMatch . aiLexeme) (evalParse (lexN 5 >> getAlex) (initParseState (B.pack "helloWorld") Fortran66 "")) `shouldBe` reverse "hello"
 
     describe "lexHollerith" $ do
       it "lexes Hollerith '7hmistral'" $
-        resetSrcSpan (lex66 "      format 7hmistral") `shouldBe` resetSrcSpan (Just $ THollerith u "mistral")
+        resetSrcSpan (lex66 "      x = 7hmistral") `shouldBe` resetSrcSpan (Just $ THollerith u "mistral")
 
       it "becomes case sensitive" $
         resetSrcSpan (collectFixedTokens' Fortran66 "      format (5h a= 1)") `shouldBe` resetSrcSpan [ TFormat u, TBlob u "(5ha=1)", TEOF u ]
@@ -136,6 +144,11 @@ spec =
 
     it "lexes if then statement '      if (x) then'" $
       resetSrcSpan (collectFixedTokens' Fortran77 "      if (x) then") `shouldBe` resetSrcSpan [TIf u, TLeftPar u, TId u "x", TRightPar u, TThen u, TEOF u]
+
+    it "lexes if variable decl '      INTEGER IF'" $  -- yes, really..
+      resetSrcSpan (collectFixedTokens' Fortran77 "      INTEGER IF")
+        `shouldBe` resetSrcSpan [TType u "integer", TId u "if", TEOF u]
+
 
 example1 = unlines [
   "      intEGerix",

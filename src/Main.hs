@@ -84,7 +84,7 @@ main = do
                   sgr = genSuperBBGr bbm
 
       case actionOpt of
-        Lex | version `elem` [ Fortran66, Fortran77, Fortran77Extended ] ->
+        Lex | version `elem` [ Fortran66, Fortran77, Fortran77Extended, Fortran77Legacy ] ->
           print $ FixedForm.collectFixedTokens version contents
         Lex | version `elem` [Fortran90, Fortran2003, Fortran2008] ->
           print $ FreeForm.collectFreeTokens version contents
@@ -263,11 +263,13 @@ instance Read FortranVersion where
   readsPrec _ value =
     let options = [ ("66", Fortran66)
                   , ("77e", Fortran77Extended)
+                  , ("77l", Fortran77Legacy)
                   , ("77", Fortran77)
                   , ("90", Fortran90)
                   , ("95", Fortran95)
                   , ("03", Fortran2003)
-                  , ("08", Fortran2008)] in
+                  , ("08", Fortran2008)
+                  ] in
       tryTypes options
       where
         tryTypes [] = []

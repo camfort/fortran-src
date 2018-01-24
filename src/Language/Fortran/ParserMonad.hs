@@ -26,6 +26,7 @@ import Language.Fortran.Util.Position
 data FortranVersion = Fortran66
                     | Fortran77
                     | Fortran77Extended
+                    | Fortran77Legacy
                     | Fortran90
                     | Fortran95
                     | Fortran2003
@@ -36,6 +37,7 @@ instance Show FortranVersion where
   show Fortran66 = "Fortran 66"
   show Fortran77 = "Fortran 77"
   show Fortran77Extended = "Fortran 77 Extended"
+  show Fortran77Legacy = "Fortran 77 Legacy"
   show Fortran90 = "Fortran 90"
   show Fortran95 = "Fortran 95"
   show Fortran2003 = "Fortran 2003"
