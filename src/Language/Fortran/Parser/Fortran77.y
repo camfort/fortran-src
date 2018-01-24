@@ -1,30 +1,40 @@
 -- -*- Mode: Haskell -*-
 {
-module Language.Fortran.Parser.Fortran77 ( expressionParser
-                               , statementParser
-                               , fortran77Parser
-                               , extended77Parser
-                               , fortran77ParserWithModFiles
-                               , extended77ParserWithModFiles
-                               ) where
+module Language.Fortran.Parser.Fortran77
+  ( expressionParser
+  , statementParser
+  , fortran77Parser
+  , extended77Parser
+  , legacy77Parser
+  , includeParser
+  , fortran77ParserWithModFiles
+  , extended77ParserWithModFiles
+  , legacy77ParserWithModFiles
+  , legacy77ParserWithIncludes
+  ) where
 
 import Prelude hiding (EQ,LT,GT) -- Same constructors exist in the AST
 
 import Control.Monad.State
+import Data.List
 import Data.Maybe (isNothing, fromJust)
 import qualified Data.ByteString.Char8 as B
 import Language.Fortran.Util.Position
 import Language.Fortran.Util.ModFile
 import Language.Fortran.ParserMonad
-import Language.Fortran.Lexer.FixedForm
+import Language.Fortran.Lexer.FixedForm hiding (Move(..))
 import Language.Fortran.Transformer
 import Language.Fortran.AST
 
-import Debug.Trace
+import Data.Generics.Uniplate.Operations
+import System.Directory
+import System.FilePath
+import Control.Exception
 
 }
 
 %name programParser PROGRAM
+%name includesParser INCLUDES
 %name statementParser STATEMENT
 %name expressionParser EXPRESSION
 %monad { LexAction }
@@ -44,7 +54,17 @@ import Debug.Trace
   program               { TProgram _ }
   function              { TFunction _ }
   subroutine            { TSubroutine _ }
+  endprogram            { TEndProgram _ }
+  endfunction           { TEndFunction _ }
+  endsubroutine         { TEndSubroutine _ }
   blockData             { TBlockData _ }
+  structure             { TStructure _ }
+  union                 { TUnion _ }
+  map                   { TMap _ }
+  endstructure          { TEndStructure _ }
+  endunion              { TEndUnion _ }
+  endmap                { TEndMap _ }
+  record                { TRecord _ }
   end                   { TEnd _ }
   '='                   { TOpAssign _ }
   assign                { TAssign _ }
@@ -61,13 +81,20 @@ import Debug.Trace
   continue              { TContinue _ }
   stop                  { TStop _ }
   exit                  { TExit _ }
+  cycle                 { TCycle _ }
+  case                  { TCase _ }
+  selectcase            { TSelectCase _ }
+  endselect             { TEndSelect _ }
+  casedefault           { TCaseDefault _ }
   pause                 { TPause _ }
   do                    { TDo _ }
   doWhile               { TDoWhile _ }
+  while                 { TWhile _ }
   enddo                 { TEndDo _ }
   read                  { TRead _ }
   write                 { TWrite _ }
   print                 { TPrint _ }
+  typeprint             { TTypePrint _ }
   open                  { TOpen _ }
   close                 { TClose _ }
   inquire               { TInquire _ }
@@ -78,6 +105,7 @@ import Debug.Trace
   equivalence           { TEquivalence _ }
   external              { TExternal _ }
   dimension             { TDimension _ }
+  byte                  { TType _ "byte" }
   character             { TType _ "character" }
   integer               { TType _ "integer" }
   real                  { TType _ "real" }
@@ -88,12 +116,15 @@ import Debug.Trace
   intrinsic             { TIntrinsic _ }
   implicit              { TImplicit _ }
   parameter             { TParameter _ }
+  pointer               { TPointer _ }
   entry                 { TEntry _ }
   none                  { TNone _ }
   data                  { TData _ }
+  automatic             { TAutomatic _ }
   format                { TFormat _ }
   blob                  { TBlob _ _ }
   int                   { TInt _ _ }
+  boz                   { TBozInt _ _ }
   exponent              { TExponent _ _ }
   bool                  { TBool _ _ }
   '+'                   { TOpPlus _ }
@@ -101,10 +132,12 @@ import Debug.Trace
   '**'                  { TOpExp _ }
   '*'                   { TStar _ }
   '/'                   { TSlash _ }
+  '&'                   { TAmpersand _ }
   eqv                   { TOpEquivalent _ }
   neqv                  { TOpNotEquivalent _ }
   or                    { TOpOr _ }
   and                   { TOpAnd _ }
+  xor                   { TOpXOr _ }
   not                   { TOpNot _ }
   '<'                   { TOpLT _ }
   '<='                  { TOpLE _ }
@@ -119,7 +152,7 @@ import Debug.Trace
   label                 { TLabel _ _ }
   newline               { TNewline _ }
 
-%left eqv neqv
+%left eqv neqv xor
 %left or
 %left and
 %right not
@@ -136,6 +169,24 @@ import Debug.Trace
 
 %%
 
+maybe(p)
+: p           { Just $1 }
+| {- empty -} { Nothing }
+
+rev_list1(p)
+: p              { [$1] }
+| rev_list1(p) p { $2 : $1 }
+
+rev_list(p)
+: rev_list1(p) { $1 }
+| {- empty -}  { [] }
+
+list1(p)
+: rev_list1(p) { reverse $1 }
+
+list(p)
+: rev_list(p) { reverse $1 }
+
 -- This rule is to ignore leading whitespace
 PROGRAM :: { ProgramFile A0 }
 PROGRAM
@@ -148,27 +199,59 @@ PROGRAM_INNER
 
 PROGRAM_UNITS :: { [ ProgramUnit A0 ] }
 PROGRAM_UNITS
-: PROGRAM_UNITS PROGRAM_UNIT MAYBE_NEWLINE { $2 : $1 }
-| PROGRAM_UNIT MAYBE_NEWLINE { [ $1 ] }
+: PROGRAM_UNITS maybe(LABEL_IN_6COLUMN) PROGRAM_UNIT maybe(NEWLINE) { $3 : $1 }
+| maybe(LABEL_IN_6COLUMN) PROGRAM_UNIT maybe(NEWLINE) { [ $2 ] }
 
 PROGRAM_UNIT :: { ProgramUnit A0 }
 PROGRAM_UNIT
-: program NAME NEWLINE BLOCKS end { PUMain () (getTransSpan $1 $5) (Just $2) (reverse $4) Nothing }
-| TYPE_SPEC function NAME MAYBE_ARGUMENTS NEWLINE BLOCKS end
+: program NAME NEWLINE BLOCKS ENDPROG
+  { PUMain () (getTransSpan $1 $5) (Just $2) (reverse $4) Nothing }
+| TYPE_SPEC function NAME MAYBE_ARGUMENTS NEWLINE BLOCKS ENDFUN
   { PUFunction () (getTransSpan $1 $7) (Just $1) (None () initSrcSpan False) $3 $4 Nothing (reverse $6) Nothing }
-| function NAME MAYBE_ARGUMENTS NEWLINE BLOCKS end
+| function NAME MAYBE_ARGUMENTS NEWLINE BLOCKS ENDFUN
   { PUFunction () (getTransSpan $1 $6) Nothing (None () initSrcSpan False) $2 $3 Nothing (reverse $5) Nothing }
-| subroutine NAME MAYBE_ARGUMENTS NEWLINE BLOCKS end
+| subroutine NAME MAYBE_ARGUMENTS NEWLINE BLOCKS ENDSUB
   { PUSubroutine () (getTransSpan $1 $6) (None () initSrcSpan False) $2 $3 (reverse $5) Nothing }
-| blockData NEWLINE BLOCKS end { PUBlockData () (getTransSpan $1 $4) Nothing (reverse $3) }
-| blockData NAME NEWLINE BLOCKS end { PUBlockData () (getTransSpan $1 $5) (Just $2) (reverse $4) }
+| blockData NEWLINE BLOCKS END { PUBlockData () (getTransSpan $1 $4) Nothing (reverse $3) }
+| blockData NAME NEWLINE BLOCKS END { PUBlockData () (getTransSpan $1 $5) (Just $2) (reverse $4) }
 | comment { let (TComment s c) = $1 in PUComment () s (Comment c) }
+
+END :: { Token }
+END
+: end                  { $1 }
+| LABEL_IN_6COLUMN end { $2 }
+
+ENDPROG :: { Token }
+ENDPROG
+: END                         { $1 }
+| endprogram MAYBE_ID       { $1 }
+| LABEL_IN_6COLUMN endprogram MAYBE_ID { $2 }
+
+ENDFUN :: { Token }
+ENDFUN
+: END                          { $1 }
+| endfunction MAYBE_ID       { $1 }
+| LABEL_IN_6COLUMN endfunction MAYBE_ID { $2 }
+
+ENDSUB :: { Token }
+ENDSUB
+: END                            { $1 }
+| endsubroutine MAYBE_ID       { $1 }
+| LABEL_IN_6COLUMN endsubroutine MAYBE_ID { $2 }
 
 MAYBE_ARGUMENTS :: { Maybe (AList Expression A0) }
 : '(' MAYBE_VARIABLES ')' { $2 }
 | {- Nothing -} { Nothing }
 
+MAYBE_ID :: { Maybe Name }
+: id { let (TId _ name) = $1 in Just name }
+| {- empty -} { Nothing }
+
 NAME :: { Name } : id { let (TId _ name) = $1 in name }
+
+INCLUDES :: { [ Block A0 ] }
+INCLUDES
+: maybe(NEWLINE) list(BLOCK) { $2 }
 
 BLOCKS :: { [ Block A0 ] }
 BLOCKS
@@ -184,8 +267,6 @@ BLOCK
 COMMENT_BLOCK :: { Block A0 }
 COMMENT_BLOCK
 : comment NEWLINE { let (TComment s c) = $1 in BlComment () s (Comment c) }
-
-MAYBE_NEWLINE :: { Maybe Token } : NEWLINE { Just $1 } | {- EMPTY -} { Nothing }
 
 NEWLINE :: { Token }
 NEWLINE
@@ -207,6 +288,7 @@ DO_STATEMENT
 : do LABEL_IN_STATEMENT DO_SPECIFICATION { StDo () (getTransSpan $1 $3) Nothing (Just $2) (Just $3) }
 | do LABEL_IN_STATEMENT ',' DO_SPECIFICATION { StDo () (getTransSpan $1 $4) Nothing (Just $2) (Just $4) }
 | do DO_SPECIFICATION { StDo () (getTransSpan $1 $2) Nothing Nothing (Just $2) }
+| do { StDo () (getSpan $1) Nothing Nothing Nothing }
 
 DO_SPECIFICATION :: { DoSpecification A0 }
 DO_SPECIFICATION
@@ -225,6 +307,10 @@ EXECUTABLE_STATEMENT
 | endif { StEndif () (getSpan $1) Nothing }
 | doWhile '(' EXPRESSION ')'
   { StDoWhile () (getTransSpan $1 $4) Nothing Nothing $3 }
+| do LABEL_IN_STATEMENT while '(' EXPRESSION ')'
+  { StDoWhile () (getTransSpan $1 $6) Nothing (Just $2) $5 }
+| do LABEL_IN_STATEMENT ',' while '(' EXPRESSION ')'
+  { StDoWhile () (getTransSpan $1 $7) Nothing (Just $2) $6 }
 | enddo { StEnddo () (getSpan $1) Nothing }
 | call VARIABLE ARGUMENTS
   { StCall () (getTransSpan $1 $3) $2 $ Just $3 }
@@ -236,8 +322,22 @@ EXECUTABLE_STATEMENT
 | stop INTEGER_OR_STRING { StStop () (getTransSpan $1 $2) $ Just $2 }
 | stop { StStop () (getSpan $1) Nothing }
 | exit { StExit () (getSpan $1) Nothing }
+| cycle { StCycle () (getSpan $1) Nothing }
 | pause INTEGER_OR_STRING { StPause () (getTransSpan $1 $2) $ Just $2 }
 | pause { StPause () (getSpan $1) Nothing }
+| selectcase '(' EXPRESSION ')'
+  { StSelectCase () (getTransSpan $1 $4) Nothing $3 }
+| casedefault { StCase () (getSpan $1) Nothing Nothing }
+| casedefault id
+  { let TId s id = $2 in StCase () (getTransSpan $1 s) (Just id) Nothing }
+| case '(' INDICIES ')'
+  { StCase () (getTransSpan $1 $4) Nothing (Just $ fromReverseList $3) }
+| case '(' INDICIES ')' id
+  { let TId s id = $5
+    in StCase () (getTransSpan $1 s) (Just id) (Just $ fromReverseList $3) }
+| endselect { StEndcase () (getSpan $1) Nothing }
+| endselect id
+  { let TId s id = $2 in StEndcase () (getTransSpan $1 s) (Just id) }
 -- IO Statements
 | read CILIST IN_IOLIST { StRead () (getTransSpan $1 $3) $2 (Just $ aReverse $3) }
 | read CILIST { StRead () (getTransSpan $1 $2) $2 Nothing }
@@ -247,6 +347,8 @@ EXECUTABLE_STATEMENT
 | write CILIST { StWrite () (getTransSpan $1 $2) $2 Nothing }
 | print FORMAT_ID ',' OUT_IOLIST { StPrint () (getTransSpan $1 $4) $2 (Just $ aReverse $4) }
 | print FORMAT_ID { StPrint () (getTransSpan $1 $2) $2 Nothing }
+| typeprint FORMAT_ID ',' OUT_IOLIST { StTypePrint () (getTransSpan $1 $4) $2 (Just $ aReverse $4) }
+| typeprint FORMAT_ID { StTypePrint () (getTransSpan $1 $2) $2 Nothing }
 | open CILIST { StOpen () (getTransSpan $1 $2) $2 }
 | close CILIST { StClose () (getTransSpan $1 $2) $2 }
 | inquire CILIST { StInquire () (getTransSpan $1 $2) $2 }
@@ -265,13 +367,11 @@ FORMAT_ID
 -- There should be FUNCTION_CALL here but as far as the parser is concerned it is same as SUBSCRIPT,
 -- hence putting it here would cause a reduce/reduce conflict.
 | SUBSCRIPT                     { $1 }
-| VARIABLE                      { $1 }
 | '*' { ExpValue () (getSpan $1) ValStar }
 
 UNIT :: { Expression A0 }
 UNIT
 : INTEGER_LITERAL { $1 }
-| VARIABLE { $1 }
 | SUBSCRIPT { $1 }
 | '*' { ExpValue () (getSpan $1) ValStar }
 
@@ -323,6 +423,7 @@ CI_EXPRESSION
 | ARITHMETIC_SIGN CI_EXPRESSION %prec NEGATION { ExpUnary () (getTransSpan (fst $1) $2) (snd $1) $2 }
 | CI_EXPRESSION or CI_EXPRESSION { ExpBinary () (getTransSpan $1 $3) Or $1 $3 }
 | CI_EXPRESSION and CI_EXPRESSION { ExpBinary () (getTransSpan $1 $3) And $1 $3 }
+| CI_EXPRESSION xor CI_EXPRESSION { ExpBinary () (getTransSpan $1 $3) XOr $1 $3 }
 | not CI_EXPRESSION { ExpUnary () (getTransSpan $1 $2) Not $2 }
 | CI_EXPRESSION eqv CI_EXPRESSION { ExpBinary () (getTransSpan $1 $3) Equivalent $1 $3 }
 | CI_EXPRESSION neqv CI_EXPRESSION { ExpBinary () (getTransSpan $1 $3) NotEquivalent $1 $3 }
@@ -334,7 +435,6 @@ CI_EXPRESSION
 -- There should be FUNCTION_CALL here but as far as the parser is concerned it is same as SUBSCRIPT,
 -- hence putting it here would cause a reduce/reduce conflict.
 | SUBSCRIPT                     { $1 }
-| VARIABLE                      { $1 }
 
 -- Input IOList used in read like statements is much more restrictive as it
 -- doesn't make sense to read into an integer.
@@ -348,8 +448,7 @@ IN_IOLIST
 
 IN_IO_ELEMENT :: { Expression A0 }
 IN_IO_ELEMENT
-: VARIABLE { $1 }
-| SUBSCRIPT { $1 }
+: SUBSCRIPT { $1 }
 | '(' IN_IOLIST ',' DO_SPECIFICATION ')' { ExpImpliedDo () (getTransSpan $1 $5) (aReverse $2) $4 }
 
 OUT_IOLIST :: { AList Expression A0 }
@@ -375,6 +474,7 @@ INTEGER_OR_STRING :: { Expression A0 } : STRING { $1 } | INTEGER_LITERAL { $1 }
 GOTO_STATEMENT :: { Statement A0 }
 GOTO_STATEMENT
 : goto LABEL_IN_STATEMENT { StGotoUnconditional () (getTransSpan $1 $2) $2 }
+| goto VARIABLE { StGotoAssigned () (getTransSpan $1 $2) $2 Nothing }
 | goto VARIABLE LABELS_IN_STATEMENT { StGotoAssigned () (getTransSpan $1 $3) $2 (Just $3) }
 | goto VARIABLE ',' LABELS_IN_STATEMENT { StGotoAssigned () (getTransSpan $1 $4) $2 (Just $4) }
 | goto LABELS_IN_STATEMENT EXPRESSION { StGotoComputed () (getTransSpan $1 $3) $2 $3 }
@@ -390,7 +490,9 @@ NONEXECUTABLE_STATEMENT
 | dimension ARRAY_DECLARATORS { StDimension () (getTransSpan $1 $2) (aReverse $2) }
 | common COMMON_GROUPS { StCommon () (getTransSpan $1 $2) (aReverse $2) }
 | equivalence EQUIVALENCE_GROUPS { StEquivalence () (getTransSpan $1 $2) (aReverse $2) }
-| data DATA_GROUPS { StData () (getTransSpan $1 $2) (aReverse $2) }
+| pointer POINTER_LIST { StPointer () (getTransSpan $1 $2) (fromReverseList $2) }
+| data DATA_GROUPS { StData () (getTransSpan $1 $2) (fromReverseList $2) }
+| automatic DECLARATORS { StAutomatic () (getTransSpan $1 $2) (aReverse $2) }
 -- Following is a fake node to make arbitrary FORMAT statements parsable.
 -- Must be fixed in the future. TODO
 | format blob
@@ -403,6 +505,37 @@ NONEXECUTABLE_STATEMENT
 | entry VARIABLE { StEntry () (getTransSpan $1 $2) $2 Nothing Nothing }
 | entry VARIABLE ENTRY_ARGS { StEntry () (getTransSpan $1 $3) $2 (Just $3) Nothing }
 | include STRING { StInclude () (getTransSpan $1 $2) $2 Nothing }
+| structure MAYBE_NAME NEWLINE STRUCTURE_DECLARATIONS endstructure
+  { StStructure () (getTransSpan $1 $5) $2 (fromReverseList $4) }
+
+MAYBE_NAME :: { Maybe Name }
+MAYBE_NAME
+: '/' NAME '/' { Just $2 }
+| {- empty -}  { Nothing }
+
+STRUCTURE_DECLARATIONS :: { [StructureItem A0] }
+STRUCTURE_DECLARATIONS
+: STRUCTURE_DECLARATIONS STRUCTURE_DECLARATION_STATEMENT
+  { $2 : $1 }
+| STRUCTURE_DECLARATION_STATEMENT { [ $1 ] }
+
+STRUCTURE_DECLARATION_STATEMENT :: { StructureItem A0 }
+STRUCTURE_DECLARATION_STATEMENT
+: DECLARATION_STATEMENT NEWLINE
+  { let StDeclaration () s t attrs decls = $1
+    in StructFields () s t attrs decls }
+| union NEWLINE UNION_MAPS endunion NEWLINE
+  { StructUnion () (getTransSpan $1 $5) (fromReverseList $3) }
+
+UNION_MAPS :: { [ UnionMap A0 ] }
+UNION_MAPS
+: UNION_MAPS UNION_MAP { $2 : $1 }
+| UNION_MAP { [ $1 ] }
+
+UNION_MAP :: { UnionMap A0 }
+UNION_MAP
+: map NEWLINE STRUCTURE_DECLARATIONS endmap NEWLINE
+  { UnionMap () (getTransSpan $1 $5) (fromReverseList $3) }
 
 ENTRY_ARGS :: { AList Expression A0 }
 ENTRY_ARGS
@@ -431,7 +564,7 @@ PARAMETER_ASSIGNMENT
 
 DECLARATION_STATEMENT :: { Statement A0 }
 DECLARATION_STATEMENT
-: TYPE_SPEC DECLARATORS { StDeclaration () (getTransSpan $1 $2) $1 Nothing $2 }
+: TYPE_SPEC maybe(',') DECLARATORS { StDeclaration () (getTransSpan $1 $3) $1 Nothing (aReverse $3) }
 
 IMP_LISTS :: { AList ImpList A0 }
 IMP_LISTS
@@ -466,13 +599,22 @@ IMP_ELEMENT
 
 ELEMENT :: { Expression A0 }
 ELEMENT
-: VARIABLE { $1 }
-| SUBSCRIPT { $1 }
+: SUBSCRIPT { $1 }
 
-DATA_GROUPS :: { AList DataGroup A0 }
+DATA_GROUPS :: { [DataGroup A0] }
 DATA_GROUPS
-: DATA_GROUPS ',' NAME_LIST  '/' DATA_ITEMS '/' { setSpan (getTransSpan $1 $6) $ (DataGroup () (getTransSpan $3 $6) (aReverse $3) (aReverse $5)) `aCons` $1 }
-| NAME_LIST  '/' DATA_ITEMS '/' { AList () (getTransSpan $1 $4) [ DataGroup () (getTransSpan $1 $4) (aReverse $1) (aReverse $3) ] }
+: DATA_GROUPS ',' DATA_GROUP { $3 : $1 }
+| DATA_GROUPS DATA_GROUP     { $2 : $1 }
+| DATA_GROUP                 { [$1] }
+
+DATA_GROUP :: { DataGroup A0 }
+DATA_GROUP
+: DATA_NAMES  '/' DATA_ITEMS '/' { DataGroup () (getTransSpan $1 $4) (aReverse $1) (aReverse $3) }
+
+DATA_NAMES :: { AList Expression A0 }
+DATA_NAMES
+: NAME_LIST  { $1 }
+| IMPLIED_DO { fromList () [ $1 ] }
 
 DATA_ITEMS :: { AList Expression A0 }
 DATA_ITEMS
@@ -481,7 +623,7 @@ DATA_ITEMS
 
 DATA_ITEM :: { Expression A0 }
 DATA_ITEM
-: INTEGER_LITERAL '*' DATA_ITEM_LEVEL1 { ExpBinary () (getTransSpan $1 $3) Multiplication $1 $3 }
+: INTEGER_CONSTANT '*' DATA_ITEM_LEVEL1 { ExpBinary () (getTransSpan $1 $3) Multiplication $1 $3 }
 | DATA_ITEM_LEVEL1 { $1 }
 
 DATA_ITEM_LEVEL1 :: { Expression A0 }
@@ -492,11 +634,23 @@ DATA_ITEM_LEVEL1
 | '(' SIGNED_NUMERIC_LITERAL ',' SIGNED_NUMERIC_LITERAL ')' { ExpValue () (getTransSpan $1 $5) (ValComplex $2 $4)}
 | LOGICAL_LITERAL         { $1 }
 | STRING                  { $1 }
+| HOLLERITH               { $1 }
 
 EQUIVALENCE_GROUPS :: { AList (AList Expression) A0 }
 EQUIVALENCE_GROUPS
 : EQUIVALENCE_GROUPS ','  '(' NAME_LIST ')' { setSpan (getTransSpan $1 $5) $ (setSpan (getTransSpan $3 $5) $ aReverse $4) `aCons` $1 }
 | '(' NAME_LIST ')' { let s = (getTransSpan $1 $3) in AList () s [ setSpan s $ aReverse $2 ] }
+
+POINTER_LIST :: { [ Declarator A0 ] }
+POINTER_LIST
+: POINTER_LIST ',' POINTER
+  { $3 : $1 }
+| POINTER
+  { [ $1 ] }
+
+POINTER :: { Declarator A0 }
+: '(' VARIABLE ',' VARIABLE ')'
+  { DeclVariable () (getTransSpan $1 $5) $2 Nothing (Just $4) }
 
 COMMON_GROUPS :: { AList CommonGroup A0 }
 COMMON_GROUPS
@@ -543,12 +697,54 @@ ARRAY_DECLARATOR :: { Declarator A0 }
 ARRAY_DECLARATOR
 : VARIABLE '(' DIMENSION_DECLARATORS ')'
   { DeclArray () (getTransSpan $1 $4) $1 (aReverse $3) Nothing Nothing }
+| VARIABLE '(' DIMENSION_DECLARATORS ')' '/' SIMPLE_EXPRESSION_LIST '/'
+  { DeclArray () (getTransSpan $1 $7) $1 (aReverse $3) Nothing
+    (Just (ExpInitialisation () (getSpan $6) (fromReverseList $6))) }
+| VARIABLE '*' SIMPLE_EXPRESSION '(' DIMENSION_DECLARATORS ')'
+  { DeclArray () (getTransSpan $1 $6) $1 (aReverse $5) (Just $3) Nothing }
+| VARIABLE '*' SIMPLE_EXPRESSION '(' DIMENSION_DECLARATORS ')' '/' SIMPLE_EXPRESSION_LIST '/'
+  { DeclArray () (getTransSpan $1 $9) $1 (aReverse $5) (Just $3)
+    (Just (ExpInitialisation () (getSpan $8) (fromReverseList $8))) }
+| VARIABLE '(' DIMENSION_DECLARATORS ')' '*' SIMPLE_EXPRESSION
+  { DeclArray () (getTransSpan $1 $6) $1 (aReverse $3) (Just $6) Nothing }
+| VARIABLE '(' DIMENSION_DECLARATORS ')' '*' SIMPLE_EXPRESSION '/' SIMPLE_EXPRESSION_LIST '/'
+  { DeclArray () (getTransSpan $1 $9) $1 (aReverse $3) (Just $6)
+    (Just (ExpInitialisation () (getSpan $8) (fromReverseList $8))) }
+
+SIMPLE_EXPRESSION_LIST :: { [Expression A0] }
+SIMPLE_EXPRESSION_LIST
+: SIMPLE_EXPRESSION_LIST ',' SIMPLE_EXPRESSION  { $3 : $1 }
+| SIMPLE_EXPRESSION { [ $1 ] }
+
+SIMPLE_EXPRESSION :: { Expression A0 }
+SIMPLE_EXPRESSION
+: INTEGER_CONSTANT '*' CONSTANT  { ExpBinary () (getTransSpan $1 $3) Multiplication $1 $3 }
+| CONSTANT { $1 }
+| '(' '*' ')' { ExpValue () (getSpan $2) ValStar }
+| '(' EXPRESSION ')' { $2 }
+
+CONSTANT :: { Expression A0 }
+CONSTANT
+: VARIABLE { $1 }
+| SIGNED_NUMERIC_LITERAL { $1 }
+| LOGICAL_LITERAL { $1 }
+| STRING { $1 }
+| HOLLERITH { $1 }
+
+INTEGER_CONSTANT :: { Expression A0 }
+INTEGER_CONSTANT
+: VARIABLE { $1 }
+| SIGNED_NUMERIC_LITERAL { $1 }
 
 VARIABLE_DECLARATOR :: { Declarator A0 }
 VARIABLE_DECLARATOR
 : VARIABLE { DeclVariable () (getSpan $1) $1 Nothing Nothing }
-| VARIABLE '*' EXPRESSION
+| VARIABLE '*' SIMPLE_EXPRESSION
   { DeclVariable () (getTransSpan $1 $3) $1 (Just $3) Nothing }
+| VARIABLE '/' SIMPLE_EXPRESSION '/'
+  { DeclVariable () (getTransSpan $1 $4) $1 Nothing (Just $3) }
+| VARIABLE '*' SIMPLE_EXPRESSION '/' SIMPLE_EXPRESSION '/'
+  { DeclVariable () (getTransSpan $1 $6) $1 (Just $3) (Just $5) }
 
 DIMENSION_DECLARATORS :: { AList DimensionDeclarator A0 }
 DIMENSION_DECLARATORS
@@ -584,7 +780,9 @@ ARGUMENTS_LEVEL1
 -- Expression all by itself subsumes all other callable expressions.
 CALLABLE_EXPRESSION :: { Argument A0 }
 CALLABLE_EXPRESSION
-: HOLLERITH   { Argument () (getSpan $1) Nothing $1 }
+: id '=' EXPRESSION
+  { let TId span keyword = $1
+    in Argument () (getTransSpan span $3) (Just keyword) $3 }
 | EXPRESSION  { Argument () (getSpan $1) Nothing $1 }
 
 EXPRESSION :: { Expression A0 }
@@ -597,6 +795,7 @@ EXPRESSION
 | EXPRESSION '/' '/' EXPRESSION %prec CONCAT { ExpBinary () (getTransSpan $1 $4) Concatenation $1 $4 }
 | ARITHMETIC_SIGN EXPRESSION %prec NEGATION { ExpUnary () (getTransSpan (fst $1) $2) (snd $1) $2 }
 | EXPRESSION or EXPRESSION { ExpBinary () (getTransSpan $1 $3) Or $1 $3 }
+| EXPRESSION xor EXPRESSION { ExpBinary () (getTransSpan $1 $3) XOr $1 $3 }
 | EXPRESSION and EXPRESSION { ExpBinary () (getTransSpan $1 $3) And $1 $3 }
 | not EXPRESSION { ExpUnary () (getTransSpan $1 $2) Not $2 }
 | EXPRESSION eqv EXPRESSION { ExpBinary () (getTransSpan $1 $3) Equivalent $1 $3 }
@@ -607,16 +806,18 @@ EXPRESSION
 | '(' EXPRESSION ',' EXPRESSION ')' { ExpValue () (getTransSpan $1 $5) (ValComplex $2 $4) }
 | LOGICAL_LITERAL                   { $1 }
 | STRING                            { $1 }
+| HOLLERITH                         { $1 }
 -- There should be FUNCTION_CALL here but as far as the parser is concerned it is same as SUBSCRIPT,
 -- hence putting it here would cause a reduce/reduce conflict.
 | SUBSCRIPT                         { $1 }
-| VARIABLE                          { $1 }
 | IMPLIED_DO                        { $1 }
 | '(/' EXPRESSION_LIST '/)' {
     let { exps = reverse $2;
           expList = AList () (getSpan exps) exps }
     in ExpInitialisation () (getTransSpan $1 $3) expList
           }
+| '*' INTEGER_LITERAL { ExpReturnSpec () (getTransSpan $1 $2) $2 }
+| '&' INTEGER_LITERAL { ExpReturnSpec () (getTransSpan $1 $2) $2 }
 
 IMPLIED_DO :: { Expression A0 }
 IMPLIED_DO
@@ -651,6 +852,7 @@ CONSTANT_EXPRESSION
 | CONSTANT_EXPRESSION '/' '/' CONSTANT_EXPRESSION %prec CONCAT { ExpBinary () (getTransSpan $1 $4) Concatenation $1 $4 }
 | ARITHMETIC_SIGN CONSTANT_EXPRESSION %prec NEGATION { ExpUnary () (getTransSpan (fst $1) $2) (snd $1) $2 }
 | CONSTANT_EXPRESSION or CONSTANT_EXPRESSION { ExpBinary () (getTransSpan $1 $3) Or $1 $3 }
+| CONSTANT_EXPRESSION xor CONSTANT_EXPRESSION { ExpBinary () (getTransSpan $1 $3) XOr $1 $3 }
 | CONSTANT_EXPRESSION and CONSTANT_EXPRESSION { ExpBinary () (getTransSpan $1 $3) And $1 $3 }
 | not CONSTANT_EXPRESSION { ExpUnary () (getTransSpan $1 $2) Not $2 }
 | CONSTANT_EXPRESSION RELATIONAL_OPERATOR CONSTANT_EXPRESSION %prec RELATIONAL { ExpBinary () (getTransSpan $1 $3) $2 $1 $3 }
@@ -659,7 +861,13 @@ CONSTANT_EXPRESSION
 | '(' CONSTANT_EXPRESSION ',' CONSTANT_EXPRESSION ')' { ExpValue () (getTransSpan $1 $5) (ValComplex $2 $4)}
 | LOGICAL_LITERAL               { $1 }
 | string                        { let (TString s cs) = $1 in ExpValue () s (ValString cs) }
-| VARIABLE                     { $1 }
+| SUBSCRIPT                    { $1 }
+| HOLLERITH                    { $1 }
+| '(/' EXPRESSION_LIST '/)' {
+    let { exps = reverse $2;
+          expList = AList () (getSpan exps) exps }
+    in ExpInitialisation () (getTransSpan $1 $3) expList
+          }
 
 ARITHMETIC_CONSTANT_EXPRESSION :: { Expression A0 }
 ARITHMETIC_CONSTANT_EXPRESSION
@@ -685,7 +893,15 @@ RELATIONAL_OPERATOR
 
 SUBSCRIPT :: { Expression A0 }
 SUBSCRIPT
-: VARIABLE '(' ')'
+: SUBSCRIPT '.' SUBSCRIPT_ITEM
+  { ExpDataRef () (getTransSpan $1 $3) $1 $3 }
+| SUBSCRIPT_ITEM
+  { $1 }
+
+SUBSCRIPT_ITEM :: { Expression A0 }
+SUBSCRIPT_ITEM
+: VARIABLE { $1 }
+| VARIABLE '(' ')'
   { ExpFunctionCall () (getTransSpan $1 $3) $1 Nothing }
 | VARIABLE '(' INDICIES ')'
   { ExpSubscript () (getTransSpan $1 $4) $1 (fromReverseList $3) }
@@ -717,7 +933,15 @@ MAYBE_VARIABLES :: { Maybe (AList Expression A0) }
 : VARIABLES { Just $ fromReverseList $1 } | {- EMPTY -} { Nothing }
 
 VARIABLES :: { [ Expression A0 ] }
-VARIABLES : VARIABLES ',' VARIABLE { $3 : $1 } | VARIABLE { [ $1 ] }
+VARIABLES
+: VARIABLES ',' VARIABLE_OR_STAR { $3 : $1 }
+| VARIABLE_OR_STAR { [ $1 ] }
+
+VARIABLE_OR_STAR :: { Expression A0 }
+VARIABLE_OR_STAR
+: VARIABLE { $1 }
+| '*' { ExpValue () (getSpan $1) ValStar }
+| '&' { ExpValue () (getSpan $1) ValStar }
 
 -- This may also be used to parse a function name, or an array name. Since when
 -- are valid options in a production there is no way of differentiating them at
@@ -727,7 +951,9 @@ VARIABLE :: { Expression A0 }
 VARIABLE
 : id { ExpValue () (getSpan $1) $ let (TId _ s) = $1 in ValVariable s }
 
-INTEGER_LITERAL :: { Expression A0 } : int { ExpValue () (getSpan $1) $ let (TInt _ i) = $1 in ValInteger i }
+INTEGER_LITERAL :: { Expression A0 }
+: int { ExpValue () (getSpan $1) $ let (TInt _ i) = $1 in ValInteger i }
+| boz { let TBozInt s i = $1 in ExpValue () s $ ValInteger i }
 
 REAL_LITERAL :: { Expression A0 }
 REAL_LITERAL
@@ -777,45 +1003,47 @@ LABEL_IN_STATEMENT :: { Expression A0 } : int { ExpValue () (getSpan $1) (let (T
 
 TYPE_SPEC :: { TypeSpec A0 }
 TYPE_SPEC
-: integer KIND_SELECTOR { TypeSpec () (getSpan $1) TypeInteger Nothing }
-| real KIND_SELECTOR { TypeSpec () (getSpan $1) TypeReal Nothing }
+: integer KIND_SELECTOR { TypeSpec () (getSpan ($1, $2)) TypeInteger $2 }
+| real KIND_SELECTOR { TypeSpec () (getSpan ($1, $2)) TypeReal $2  }
 | doublePrecision KIND_SELECTOR
-  { TypeSpec () (getSpan $1) TypeDoublePrecision Nothing }
-| logical KIND_SELECTOR { TypeSpec () (getSpan $1) TypeLogical Nothing }
-| complex KIND_SELECTOR { TypeSpec () (getSpan $1) TypeComplex Nothing }
+  { TypeSpec () (getSpan ($1, $2)) TypeDoublePrecision $2 }
+| logical KIND_SELECTOR { TypeSpec () (getSpan ($1, $2)) TypeLogical $2 }
+| complex KIND_SELECTOR { TypeSpec () (getSpan ($1, $2)) TypeComplex $2 }
 | doubleComplex KIND_SELECTOR
-  { TypeSpec () (getSpan $1) TypeDoubleComplex Nothing }
+  { TypeSpec () (getSpan ($1, $2)) TypeDoubleComplex $2 }
 | character CHAR_SELECTOR { TypeSpec () (getSpan ($1, $2)) TypeCharacter $2 }
+| byte KIND_SELECTOR { TypeSpec () (getSpan ($1, $2)) TypeByte $2 }
+| record '/' NAME '/' { TypeSpec () (getSpan ($1, $4)) (TypeCustom $3) Nothing }
 
 KIND_SELECTOR :: { Maybe (Selector A0) }
 KIND_SELECTOR
+: KIND_SELECTOR1
+  { Just $1 }
+| {- EMPTY -}
+  { Nothing }
+
+KIND_SELECTOR1 :: { Selector A0 }
+KIND_SELECTOR1
 : '*' ARITHMETIC_CONSTANT_EXPRESSION
-  { Just $ Selector () (getTransSpan $1 $2) Nothing (Just $2) }
-| '*' '(' STAR ')' { Just $ Selector () (getTransSpan $1 $4) Nothing (Just $3) }
-| {- EMPTY -} { Nothing }
+  { Selector () (getTransSpan $1 $2) Nothing (Just $2) }
+| '*' '(' STAR ')' { Selector () (getTransSpan $1 $4) Nothing (Just $3) }
 
 CHAR_SELECTOR :: { Maybe (Selector A0) }
-CHAR_SELECTOR
-: '(' ARITHMETIC_CONSTANT_EXPRESSION ')'
-  { Just $ Selector () (getTransSpan $1 $3) (Just $2) Nothing }
-| BASIC_CHAR_SELECTOR { $1 }
+: CHAR_SELECTOR1
+  { Just $1 }
+| {- EMPTY -}
+  { Nothing }
 
-BASIC_CHAR_SELECTOR :: { Maybe (Selector A0) }
-BASIC_CHAR_SELECTOR
+CHAR_SELECTOR1 :: { Selector A0 }
+CHAR_SELECTOR1
 : '*' ARITHMETIC_CONSTANT_EXPRESSION
-  { Just $ Selector () (getTransSpan $1 $2) (Just $2) Nothing }
-| '*' '(' STAR ')' { Just $ Selector () (getTransSpan $1 $4) (Just $3) Nothing }
-| {- EMPTY -} { Nothing }
+  { Selector () (getTransSpan $1 $2) (Just $2) Nothing }
+| '*' '(' STAR ')'
+  { Selector () (getTransSpan $1 $4) (Just $3) Nothing }
 
 IMP_TYPE_SPEC :: { TypeSpec A0 }
 IMP_TYPE_SPEC
-: integer          { TypeSpec () (getSpan $1) TypeInteger Nothing }
-| real             { TypeSpec () (getSpan $1) TypeReal Nothing }
-| doublePrecision  { TypeSpec () (getSpan $1) TypeDoublePrecision Nothing }
-| logical          { TypeSpec () (getSpan $1) TypeLogical Nothing }
-| complex          { TypeSpec () (getSpan $1) TypeComplex Nothing }
-| doubleComplex    { TypeSpec () (getSpan $1) TypeDoubleComplex Nothing }
-| character BASIC_CHAR_SELECTOR { TypeSpec () (getSpan ($1, $2)) TypeCharacter $2 }
+: TYPE_SPEC  { $1 }
 
 STAR :: { Expression A0 }
 STAR : '*' { ExpValue () (getSpan $1) ValStar }
@@ -858,6 +1086,7 @@ transformations77Extended =
   [ GroupLabeledDo
   , GroupDo
   , GroupIf
+  , GroupCase
   , DisambiguateIntrinsic
   , DisambiguateFunction
   ]
@@ -872,6 +1101,69 @@ extended77ParserWithModFiles mods sourceCode filename =
   where
     transform = transformWithModFiles mods transformations77Extended
     parseState = initParseState sourceCode Fortran77Extended filename
+
+transformations77Legacy =
+  [ GroupLabeledDo
+  , GroupDo
+  , GroupIf
+  , DisambiguateIntrinsic
+  , DisambiguateFunction
+  ]
+legacy77Parser ::
+    B.ByteString -> String -> ParseResult AlexInput Token (ProgramFile A0)
+legacy77Parser = legacy77ParserWithModFiles emptyModFiles
+
+legacy77ParserWithModFiles ::
+    ModFiles -> B.ByteString -> String -> ParseResult AlexInput Token (ProgramFile A0)
+legacy77ParserWithModFiles mods sourceCode filename =
+    fmap (pfSetFilename filename . transform) $ parse parseState
+  where
+    transform = transformWithModFiles mods transformations77Legacy
+    parseState = initParseState (truncateLines sourceCode) Fortran77Legacy filename
+
+legacy77ParserWithIncludes ::
+  [String] -> B.ByteString -> String -> IO (ParseResult AlexInput Token (ProgramFile A0))
+legacy77ParserWithIncludes incs sourceCode filename =
+    fmap (pfSetFilename filename . transform) <$> doParse
+  where
+    doParse = case parse parseState of
+      ParseFailed e -> return (ParseFailed e)
+      ParseOk p x -> do
+        p' <- descendBiM (inlineInclude Fortran77Legacy incs) p
+        return (ParseOk p' x)
+    transform = transformWithModFiles emptyModFiles transformations77Legacy
+    parseState = initParseState sourceCode Fortran77Legacy filename
+
+includeParser ::
+    FortranVersion -> B.ByteString -> String -> ParseResult AlexInput Token [Block A0]
+includeParser version sourceCode filename =
+    runParse includesParser parseState
+  where
+    -- ensure the file ends with a newline..
+    parseState = initParseState (sourceCode `B.snoc` '\n') version filename
+
+inlineInclude :: FortranVersion -> [String] -> Statement A0 -> IO (Statement A0)
+inlineInclude fv dirs st = case st of
+  StInclude a s e@(ExpValue _ _ (ValString path)) Nothing -> do
+    inc <- truncateLines <$> readInDirs dirs path
+    case includeParser fv inc path of
+      ParseOk blocks _ -> do
+        blocks' <- descendBiM (inlineInclude fv dirs) blocks
+        return $ StInclude a s e (Just blocks')
+      ParseFailed e -> throwIO e
+  _ -> return st
+
+readInDirs :: [String] -> String -> IO B.ByteString
+readInDirs [] f = fail $ "cannot find file: " ++ f
+readInDirs (d:ds) f = do
+  b <- doesFileExist (d</>f)
+  if b then
+    B.readFile (d</>f)
+  else
+    readInDirs ds f
+
+truncateLines :: B.ByteString -> B.ByteString
+truncateLines b = B.unlines . map (B.filter (/='\r') . B.take 72) . B.lines $ b
 
 parseError :: Token -> LexAction a
 parseError _ = do

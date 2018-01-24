@@ -21,6 +21,10 @@ sParser :: String -> Statement ()
 sParser sourceCode =
   evalParse statementParser $ initParseState (B.pack sourceCode) Fortran77 "<unknown>"
 
+iParser :: String -> [Block ()]
+iParser sourceCode =
+  fromParseResultUnsafe $ includeParser Fortran77Legacy (B.pack sourceCode) "<unknown>"
+
 pParser :: String -> ProgramFile ()
 pParser source = fromParseResultUnsafe $ fortran77Parser (B.pack source) "<unknown>"
 
@@ -151,7 +155,7 @@ spec =
 
     it "parses 'parameter (pi = 3.14, b = 'X' // 'O', d = k) '" $ do
       let sts = [ DeclVariable () u (varGen "pi") Nothing (Just $ realGen 3.14)
-                , let e = ExpBinary () u Concatenation (strGen "x") (strGen "o")
+                , let e = ExpBinary () u Concatenation (strGen "X") (strGen "O")
                   in DeclVariable () u (varGen "b") Nothing (Just e)
                 , DeclVariable () u (varGen "d") Nothing (Just $ varGen "k") ]
       let st = StParameter () u (AList () u sts)
@@ -188,6 +192,14 @@ spec =
       let typeSpec = TypeSpec () u TypeCharacter Nothing
       let st = StDeclaration () u typeSpec Nothing (AList () u [ decl ])
       sParser "      character a*8" `shouldBe'` st
+
+    it "parses included files" $ do
+      let decl = DeclVariable () u (varGen "a") Nothing Nothing
+      let typeSpec = TypeSpec () u TypeInteger Nothing
+      let st = StDeclaration () u typeSpec Nothing (AList () u [ decl ])
+      let bl = BlStatement () u Nothing st
+      iParser "      integer a" `shouldBe'` [bl]
+
 
 exampleProgram1 = unlines
   [ "      program hello"

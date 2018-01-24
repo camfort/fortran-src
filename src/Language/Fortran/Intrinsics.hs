@@ -143,6 +143,10 @@ fortran77intrinsics = M.fromList
   , ("lgt"     , mkIEntry ITLogical func2)
   , ("lle"     , mkIEntry ITLogical func2)
   , ("llt"     , mkIEntry ITLogical func2)
+  -- https://gcc.gnu.org/onlinedocs/gfortran/Argument-list-functions.html
+  , ("%loc", mkIEntry (ITParam 1) func1)
+  , ("%ref", mkIEntry (ITParam 1) func1)
+  , ("%val", mkIEntry (ITParam 1) func1)
   ]
 
 fortran90intrinisics :: IntrinsicsTable

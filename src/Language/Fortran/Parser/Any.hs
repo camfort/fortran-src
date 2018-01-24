@@ -6,7 +6,8 @@ import Language.Fortran.ParserMonad (FortranVersion(..), ParseErrorSimple(..), f
 
 import Language.Fortran.Parser.Fortran66 ( fortran66Parser, fortran66ParserWithModFiles )
 import Language.Fortran.Parser.Fortran77 ( fortran77Parser, fortran77ParserWithModFiles
-                                         , extended77Parser, extended77ParserWithModFiles )
+                                         , extended77Parser, extended77ParserWithModFiles
+                                         , legacy77Parser, legacy77ParserWithModFiles )
 import Language.Fortran.Parser.Fortran90 ( fortran90Parser, fortran90ParserWithModFiles )
 import Language.Fortran.Parser.Fortran95 ( fortran95Parser, fortran95ParserWithModFiles )
 
@@ -36,6 +37,7 @@ parserVersions =
   [ (Fortran66, fromParseResult `after` fortran66Parser)
   , (Fortran77, fromParseResult `after` fortran77Parser)
   , (Fortran77Extended, fromParseResult `after` extended77Parser)
+  , (Fortran77Legacy, fromParseResult `after` legacy77Parser)
   , (Fortran90, fromParseResult `after` fortran90Parser)
   , (Fortran95, fromParseResult `after` fortran95Parser) ]
 
@@ -45,6 +47,7 @@ parserWithModFilesVersions =
   [ (Fortran66, \m s -> fromParseResult . fortran66ParserWithModFiles m s)
   , (Fortran77, \m s -> fromParseResult . fortran77ParserWithModFiles m s)
   , (Fortran77Extended, \m s -> fromParseResult . extended77ParserWithModFiles m s)
+  , (Fortran77Legacy, \m s -> fromParseResult . legacy77ParserWithModFiles m s)
   , (Fortran90, \m s -> fromParseResult . fortran90ParserWithModFiles m s)
   , (Fortran95, \m s -> fromParseResult . fortran95ParserWithModFiles m s) ]
 
