@@ -222,6 +222,13 @@ groupLabeledDo' blos@(b:bs) = b' : bs'
               lastLabel = getLastLabel $ last blocks
           in ( BlDo a (getTransSpan s blocks) label mn tl doSpec blocks lastLabel
              , leftOverBlocks )
+      BlStatement a s label
+        (StDoWhile _ _ mn tl@Just{} cond) ->
+          let ( blocks, leftOverBlocks ) =
+                collectNonLabeledDoBlocks tl groupedBlocks
+              lastLabel = getLastLabel $ last blocks
+          in ( BlDoWhile a (getTransSpan s blocks) label mn tl cond blocks lastLabel
+             , leftOverBlocks )
       b | containsGroups b ->
         ( applyGroupingToSubblocks groupLabeledDo' b, groupedBlocks )
       _ -> (b, groupedBlocks)
