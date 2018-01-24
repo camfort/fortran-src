@@ -123,6 +123,7 @@ test-suite spec
     Language.Fortran.Parser.Fortran66Spec
     Language.Fortran.Parser.Fortran77Spec
     Language.Fortran.Parser.Fortran90Spec
+    Language.Fortran.Parser.Fortran95Spec
     Language.Fortran.Parser.UtilsSpec
     Language.Fortran.ParserMonadSpec
     Language.Fortran.PrettyPrintSpec
