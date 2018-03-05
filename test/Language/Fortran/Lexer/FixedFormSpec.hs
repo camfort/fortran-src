@@ -149,6 +149,113 @@ spec =
       resetSrcSpan (collectFixedTokens' Fortran77 "      INTEGER IF")
         `shouldBe` resetSrcSpan [TType u "integer", TId u "if", TEOF u]
 
+    describe "Fortran 77 Legacy" $ do
+      it "lexes inline comments" $ do
+        resetSrcSpan (collectFixedTokens' Fortran77Legacy "      integer foo ! bar")
+          `shouldBe` resetSrcSpan [TType u "integer", TId u "foo", TEOF u]
+
+      it "lexes continuation lines separated by comments" $ do
+        let src = unlines [ "      integer foo,"
+                          , "C hello"
+                          , "     +        bar"
+                          ]
+        resetSrcSpan (collectFixedTokens' Fortran77Legacy src)
+          `shouldBe` resetSrcSpan [TType u "integer", TId u "foo", TComma u, TId u "bar", TNewline u, TEOF u]
+        let src = unlines [ "      integer foo, ! hello"
+                          , "     +        bar"
+                          ]
+        resetSrcSpan (collectFixedTokens' Fortran77Legacy src)
+          `shouldBe` resetSrcSpan [TType u "integer", TId u "foo", TComma u, TId u "bar", TNewline u, TEOF u]
+        let src = unlines [ "      integer foo,"
+                          , ""
+                          , "     +        bar"
+                          ]
+        resetSrcSpan (collectFixedTokens' Fortran77Legacy src)
+          `shouldBe` resetSrcSpan [TType u "integer", TId u "foo", TComma u, TId u "bar", TNewline u, TEOF u]
+        let src = unlines [ "      integer foo,"
+                          , "  " -- the space is intentional
+                          , "     +        bar"
+                          ]
+        resetSrcSpan (collectFixedTokens' Fortran77Legacy src)
+          `shouldBe` resetSrcSpan [TType u "integer", TId u "foo", TComma u, TId u "bar", TNewline u, TEOF u]
+
+      it "lexes the older TYPE statement" $ do
+        resetSrcSpan (collectFixedTokens' Fortran77Legacy "      type *, 'hello'")
+          `shouldBe` resetSrcSpan [TTypePrint u, TStar u, TComma u, TString u "hello", TEOF u]
+
+      it "lexes width-specific type declarations" $ do
+        resetSrcSpan (collectFixedTokens' Fortran77Legacy "      integer*4 i")
+          `shouldBe` resetSrcSpan [TType u "integer", TStar u, TInt u "4", TId u "i", TEOF u]
+
+        resetSrcSpan (collectFixedTokens' Fortran77Legacy "      integer*4 function foo()")
+          `shouldBe` resetSrcSpan [TType u "integer", TStar u, TInt u "4", TFunction u, TId u "foo", TLeftPar u, TRightPar u, TEOF u]
+
+        resetSrcSpan (collectFixedTokens' Fortran77Legacy "      character*4 s")
+          `shouldBe` resetSrcSpan [TType u "character", TStar u, TInt u "4", TId u "s", TEOF u]
+
+        resetSrcSpan (collectFixedTokens' Fortran77Legacy "      character*(*) s")
+          `shouldBe` resetSrcSpan [TType u "character", TStar u, TLeftPar u, TStar u, TRightPar u, TId u "s", TEOF u]
+
+        resetSrcSpan (collectFixedTokens' Fortran77Legacy "      character s*(*)")
+          `shouldBe` resetSrcSpan [TType u "character", TId u "s", TStar u, TLeftPar u, TStar u, TRightPar u, TEOF u]
+
+      it "lexes strings case-sensitively" $ do
+        resetSrcSpan (collectFixedTokens' Fortran77Legacy "      c = 'Hello'")
+          `shouldBe` resetSrcSpan [TId u "c", TOpAssign u, TString u "Hello", TEOF u]
+
+      it "lexes strings delimited by '\"'" $ do
+        resetSrcSpan (collectFixedTokens' Fortran77Legacy "      c = \"hello\"")
+          `shouldBe` resetSrcSpan [TId u "c", TOpAssign u, TString u "hello", TEOF u]
+
+      it "lexes Hollerith constants" $ do
+        resetSrcSpan (collectFixedTokens' Fortran77Legacy "      x = 7hmistral")
+          `shouldBe` resetSrcSpan [TId u "x", TOpAssign u, THollerith u "mistral", TEOF u]
+
+        resetSrcSpan (collectFixedTokens' Fortran77Legacy "      x = 7hshort\n")
+          `shouldBe` resetSrcSpan [TId u "x", TOpAssign u, THollerith u "short  ", TNewline u, TEOF u]
+
+      it "lexes BOZ constants" $ do
+        resetSrcSpan (collectFixedTokens' Fortran77Legacy "      integer i, j, k / b'0101', o'0755', z'ab01' /")
+          `shouldBe` resetSrcSpan [ TType u "integer", TId u "i", TComma u, TId u "j", TComma u, TId u"k"
+                                  , TSlash u, TBozInt u "b'0101'", TComma u, TBozInt u "o'0755'", TComma u, TBozInt u "z'ab01'", TSlash u
+                                  , TEOF u ]
+
+      it "lexes non-standard identifiers" $ do
+        resetSrcSpan (collectFixedTokens' Fortran77Legacy "      integer _this_is_a_long_identifier$")
+          `shouldBe` resetSrcSpan [TType u "integer", TId u "_this_is_a_long_identifier$", TEOF u]
+
+      it "lexes ';' as a line-terminator" $ do
+        resetSrcSpan (collectFixedTokens' Fortran77Legacy "      integer i; integer j")
+          `shouldBe` resetSrcSpan [TType u "integer", TId u "i", TNewline u, TType u "integer", TId u "j", TEOF u]
+
+      it "lexes subscripts in assignments" $ do
+        resetSrcSpan (collectFixedTokens' Fortran77Legacy "      x(0,0) = 0")
+          `shouldBe` resetSrcSpan [TId u "x", TLeftPar u, TInt u "0", TComma u, TInt u "0", TRightPar u, TOpAssign u, TInt u "0", TEOF u]
+
+      it "lexes labeled DO WHILE blocks" $ do
+        resetSrcSpan (collectFixedTokens' Fortran77Legacy "      do 10 while (.true.)")
+          `shouldBe` resetSrcSpan [TDo u, TInt u "10", TWhile u, TLeftPar u, TBool u ".true.", TRightPar u, TEOF u]
+
+
+      it "lexes structure/union/map blocks" $ do
+        let src = unlines [ "      structure /foo/"
+                          , "        union"
+                          , "          map"
+                          , "            integer i"
+                          , "            real r"
+                          , "          end map"
+                          , "        end union"
+                          , "      end structure"]
+        resetSrcSpan (collectFixedTokens' Fortran77Legacy src)
+          `shouldBe` resetSrcSpan [ TStructure u, TSlash u, TId u "foo", TSlash u, TNewline u
+                                  , TUnion u, TNewline u
+                                  , TMap u, TNewline u
+                                  , TType u "integer", TId u "i", TNewline u
+                                  , TType u "real", TId u "r", TNewline u
+                                  , TEndMap u, TNewline u
+                                  , TEndUnion u, TNewline u
+                                  , TEndStructure u, TNewline u
+                                  , TEOF u ]
 
 example1 = unlines [
   "      intEGerix",

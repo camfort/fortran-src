@@ -80,7 +80,7 @@ tokens :-
 
   <0,st,keyword,iif,assn,doo> \n              { resetPar >> toSC 0 >> addSpan TNewline }
   <0,st,keyword,iif,assn,doo> \r              ;
-  <0,st,keyword,iif,assn,doo> ";"             { resetPar >> toSC 0 >> addSpan TNewline }
+  <0,st,keyword,iif,assn,doo> ";"             { resetPar >> toSC keyword >> addSpan TNewline }
 
   <st> "("                                    { addSpan TLeftPar }
   <keyword> "(" / { legacy77P }               { addSpan TLeftPar }

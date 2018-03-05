@@ -893,21 +893,13 @@ RELATIONAL_OPERATOR
 
 SUBSCRIPT :: { Expression A0 }
 SUBSCRIPT
-: SUBSCRIPT '.' SUBSCRIPT_ITEM
+: SUBSCRIPT '.' VARIABLE
   { ExpDataRef () (getTransSpan $1 $3) $1 $3 }
-| SUBSCRIPT_ITEM
-  { $1 }
-
-SUBSCRIPT_ITEM :: { Expression A0 }
-SUBSCRIPT_ITEM
-: VARIABLE { $1 }
-| VARIABLE '(' ')'
+| SUBSCRIPT '(' ')'
   { ExpFunctionCall () (getTransSpan $1 $3) $1 Nothing }
-| VARIABLE '(' INDICIES ')'
+| SUBSCRIPT '(' INDICIES ')'
   { ExpSubscript () (getTransSpan $1 $4) $1 (fromReverseList $3) }
-| VARIABLE '(' INDICIES ')' '(' INDICIES ')'
-  { let innerSub = ExpSubscript () (getTransSpan $1 $4) $1 (fromReverseList $3)
-    in ExpSubscript () (getTransSpan $1 $7) innerSub (fromReverseList $6) }
+| VARIABLE { $1 }
 
 INDICIES :: { [ Index A0 ] }
 : INDICIES ',' INDEX { $3 : $1 }
