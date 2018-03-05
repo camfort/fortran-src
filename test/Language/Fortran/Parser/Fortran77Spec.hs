@@ -21,6 +21,10 @@ sParser :: String -> Statement ()
 sParser sourceCode =
   evalParse statementParser $ initParseState (B.pack sourceCode) Fortran77 "<unknown>"
 
+slParser :: String -> Statement ()
+slParser sourceCode =
+  evalParse statementParser $ initParseState (B.pack sourceCode) Fortran77Legacy "<unknown>"
+
 iParser :: String -> [Block ()]
 iParser sourceCode =
   fromParseResultUnsafe $ includeParser Fortran77Legacy (B.pack sourceCode) "<unknown>"
@@ -200,6 +204,91 @@ spec =
       let bl = BlStatement () u Nothing st
       iParser "      integer a" `shouldBe'` [bl]
 
+    describe "Legacy Extensions" $ do
+      it "parses structure/union/map blocks" $ do
+        let src = init
+                $ unlines [ "      structure /foo/"
+                          , "        union"
+                          , "          map"
+                          , "            integer i"
+                          , "          end map"
+                          , "          map"
+                          , "            real r"
+                          , "          end map"
+                          , "        end union"
+                          , "      end structure"]
+        let ds = [ UnionMap () u $ AList () u
+                   [StructFields () u (TypeSpec () u TypeInteger Nothing) Nothing $
+                    AList () u [DeclVariable () u (varGen "i") Nothing Nothing]]
+                 , UnionMap () u $ AList () u
+                   [StructFields () u (TypeSpec () u TypeReal Nothing) Nothing $
+                    AList () u [DeclVariable () u (varGen "r") Nothing Nothing]]
+                 ]
+        let st = StStructure () u (Just "foo") $ AList () u [StructUnion () u $ AList () u ds]
+        resetSrcSpan (slParser src) `shouldBe` st
+
+      it "parses character declarations with unspecfied lengths" $ do
+        let src = "      character s*(*)"
+        let st = StDeclaration () u (TypeSpec () u TypeCharacter Nothing) Nothing $
+                 AList () u [DeclVariable () u
+                               (ExpValue () u (ValVariable "s"))
+                               (Just (ExpValue () u ValStar))
+                               Nothing]
+        resetSrcSpan (slParser src) `shouldBe` st
+
+      it "parses array initializers" $ do
+        let src = "      integer xs(3) / 1, 2, 3 /"
+        let inits = [ExpValue () u (ValInteger "1"), ExpValue () u (ValInteger "2"), ExpValue () u (ValInteger "3")]
+        let st = StDeclaration () u (TypeSpec () u TypeInteger Nothing) Nothing $
+                 AList () u [DeclArray () u
+                               (ExpValue () u (ValVariable "xs"))
+                               (AList () u [DimensionDeclarator () u Nothing (Just (ExpValue () u (ValInteger "3")))])
+                               Nothing
+                               (Just (ExpInitialisation () u $ AList () u inits))]
+        resetSrcSpan (slParser src) `shouldBe` st
+
+        let src = "      character xs(2)*5 / 'hello', 'world' /"
+        let inits = [ExpValue () u (ValString "hello"), ExpValue () u (ValString "world")]
+        let st = StDeclaration () u (TypeSpec () u TypeCharacter Nothing) Nothing $
+                 AList () u [DeclArray () u
+                               (ExpValue () u (ValVariable "xs"))
+                               (AList () u [DimensionDeclarator () u Nothing (Just (ExpValue () u (ValInteger "2")))])
+                               (Just (ExpValue () u (ValInteger "5")))
+                               (Just (ExpInitialisation () u $ AList () u inits))]
+        resetSrcSpan (slParser src) `shouldBe` st
+
+        let src = "      character xs*5(2) / 'hello', 'world' /"
+        let inits = [ExpValue () u (ValString "hello"), ExpValue () u (ValString "world")]
+        let st = StDeclaration () u (TypeSpec () u TypeCharacter Nothing) Nothing $
+                 AList () u [DeclArray () u
+                               (ExpValue () u (ValVariable "xs"))
+                               (AList () u [DimensionDeclarator () u Nothing (Just (ExpValue () u (ValInteger "2")))])
+                               (Just (ExpValue () u (ValInteger "5")))
+                               (Just (ExpInitialisation () u $ AList () u inits))]
+        resetSrcSpan (slParser src) `shouldBe` st
+
+      it "parses subscripts in assignments" $ do
+        let mkIdx i = IxSingle () u Nothing (ExpValue () u (ValInteger i))
+
+        let src = "      x(0,1) = 0"
+        let tgt = ExpSubscript () u (ExpValue () u (ValVariable "x")) (AList () u [mkIdx "0", mkIdx "1"])
+        let st = StExpressionAssign () u tgt (ExpValue () u (ValInteger "0"))
+        resetSrcSpan (slParser src) `shouldBe` st
+
+        let src = "      x(0).foo = 0"
+        let tgt = ExpDataRef () u (ExpSubscript () u (ExpValue () u (ValVariable "x")) (AList () u [mkIdx "0"])) (ExpValue () u (ValVariable "foo"))
+        let st = StExpressionAssign () u tgt (ExpValue () u (ValInteger "0"))
+        resetSrcSpan (slParser src) `shouldBe` st
+
+        let src = "      x.foo = 0"
+        let tgt = ExpDataRef () u (ExpValue () u (ValVariable "x")) (ExpValue () u (ValVariable "foo"))
+        let st = StExpressionAssign () u tgt (ExpValue () u (ValInteger "0"))
+        resetSrcSpan (slParser src) `shouldBe` st
+
+        let src = "      x.foo(0) = 0"
+        let tgt = ExpSubscript () u (ExpDataRef () u (ExpValue () u (ValVariable "x")) (ExpValue () u (ValVariable "foo"))) (AList () u [mkIdx "0"])
+        let st = StExpressionAssign () u tgt (ExpValue () u (ValInteger "0"))
+        resetSrcSpan (slParser src) `shouldBe` st
 
 exampleProgram1 = unlines
   [ "      program hello"
