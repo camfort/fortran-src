@@ -8,6 +8,7 @@ import Data.Text.Encoding (encodeUtf8, decodeUtf8With)
 import Data.Text.Encoding.Error (replace)
 
 import Text.PrettyPrint (render)
+import Text.Read
 
 import System.Console.GetOpt
 
@@ -211,8 +212,8 @@ options :: [OptDescr (Options -> Options)]
 options =
   [ Option ['v']
       ["fortranVersion"]
-      (ReqArg (\v opts -> opts { fortranVersion = Just $ read v }) "VERSION")
-      "Fortran version to use, format: Fortran[66/77/77Extended/90]"
+      (ReqArg (\v opts -> opts { fortranVersion = readMaybe v }) "VERSION")
+      "Fortran version to use, format: Fortran[66/77/77Legacy/77Extended/90]"
   , Option ['a']
       ["action"]
       (ReqArg (\a opts -> opts { action = read a }) "ACTION")
@@ -260,21 +261,21 @@ compileArgs args =
     header = "Usage: forpar [OPTION...] <lex|parse> <file>"
 
 instance Read FortranVersion where
-  readsPrec _ value =
-    let options = [ ("66", Fortran66)
-                  , ("77e", Fortran77Extended)
-                  , ("77l", Fortran77Legacy)
-                  , ("77", Fortran77)
-                  , ("90", Fortran90)
-                  , ("95", Fortran95)
-                  , ("03", Fortran2003)
-                  , ("08", Fortran2008)
-                  ] in
-      tryTypes options
-      where
-        tryTypes [] = []
-        tryTypes ((attempt,result):xs) =
-          if attempt `isInfixOf` value then [(result, "")] else tryTypes xs
+  readsPrec _ value = tryTypes options
+    where
+      value' = map toLower value
+      options = [ ("66" , Fortran66)
+                , ("77e", Fortran77Extended)
+                , ("77l", Fortran77Legacy)
+                , ("77" , Fortran77)
+                , ("90" , Fortran90)
+                , ("95" , Fortran95)
+                , ("03" , Fortran2003)
+                , ("08" , Fortran2008) ]
+      tryTypes [] = []
+      tryTypes ((attempt,result):xs)
+          | attempt `isInfixOf` value' = [(result, "")]
+          | otherwise = tryTypes xs
 
 instance {-# OVERLAPPING #-} Show [ FixedForm.Token ] where
   show = unlines . lines'
