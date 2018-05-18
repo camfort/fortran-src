@@ -4,7 +4,7 @@
 name:                fortran-src
 version:             0.2.1.1
 synopsis:            Parser and anlyses for Fortran standards 66, 77, 90 and 95.
-description:         Provides lexing, parsing, and basic analyses of Fortran code covering standards: FORTRAN 66, FORTRAN 77, Fortran 90, and Fortran 95. Includes data flow and basic block analysis, a renamer, and type analysis. For example usage, see the 'camfort' project, which uses fortran-src as its front end.
+description:         Provides lexing, parsing, and basic analyses of Fortran code covering standards: FORTRAN 66, FORTRAN 77, Fortran 90, and Fortran 95 and some legacy extensions. Includes data flow and basic block analysis, a renamer, and type analysis. For example usage, see the 'camfort' project, which uses fortran-src as its front end.
 bug-reports:         https://github.com/camfort/fortran-src/issues
 license:             Apache-2.0
 license-file:        LICENSE
