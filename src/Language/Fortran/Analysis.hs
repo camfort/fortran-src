@@ -255,10 +255,15 @@ computeAllLhsVars = concatMap lhsOfStmt . universeBi
   where
     lhsOfStmt :: Statement (Analysis a) -> [Name]
     lhsOfStmt (StExpressionAssign _ _ e e') = match' e : onExprs e'
+    lhsOfStmt (StDeclaration _ _ _ _ decls) = concat [ lhsOfDecls decl | decl <- universeBi decls ]
     lhsOfStmt (StCall _ _ f@(ExpValue _ _ (ValIntrinsic _)) _)
       | Just defs <- intrinsicDefs f = defs
     lhsOfStmt (StCall _ _ _ (Just aexps)) = concatMap (match'' . extractExp) (aStrip aexps)
     lhsOfStmt s = onExprs s
+
+    lhsOfDecls (DeclVariable _ _ e _ (Just e')) = match' e : onExprs e'
+    lhsOfDecls (DeclArray _ _ e _ _ (Just e')) = match' e : onExprs e'
+    lhsOfDecls _ = []
 
     onExprs :: (Data (c (Analysis a))) => c (Analysis a) -> [Name]
     onExprs = concatMap lhsOfExp . universeBi
