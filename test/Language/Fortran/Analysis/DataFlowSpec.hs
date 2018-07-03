@@ -244,6 +244,24 @@ spec =
           -- Find the flows of the assignment statements in the program.
           findLabelsBlEdges pf [(1,2),(1,3),(1,5),(2,3),(3,4),(4,5),(5,5)]
 
+    describe "defUse2" $ do
+      let pf = pParser F90 programDefUse2
+      let sgr = genSuperBBGr (genBBlockMap pf)
+      let gr = superBBGrGraph sgr
+      let bm = genBlockMap pf
+      let dm = genDefMap bm
+      let rDefs = reachingDefinitions dm gr
+      let flTo = genFlowsToGraph bm dm gr rDefs
+      let domMap = dominators gr
+      let bedges = genBackEdgeMap domMap gr
+      let diMap = genDerivedInductionMap bedges gr
+      it "backEdges" $ do
+        bedges `shouldBe` IM.fromList [(findLabelBB gr 12, findLabelBB gr 11)]
+      it "flowsTo" $ do
+        (S.fromList . edges $ flTo) `shouldSatisfy`
+          -- Find the flows of the assignment statements in the program.
+          S.isSubsetOf (findLabelsBlEdges pf [(1,2),(1,3),(1,4),(2,3),(3,11),(4,4),(11,12),(12,12)])
+
     describe "other" $ do
       it "dominators on disconnected graph" $ do
         dominators (nmap (const []) (mkUGraph [0,1,3,4,5,6,7,8,9] [(0,3) ,(3,1) ,(5,6) ,(6,7) ,(7,4) ,(7,8) ,(8,7) ,(8,9) ,(9,8)] :: Gr () ())) `shouldBe` IM.fromList [(0,IS.fromList [0]),(1,IS.fromList [0,1,3]),(3,IS.fromList [0,3]),(4,IS.fromList [4,5,6,7]),(5,IS.fromList [5]),(6,IS.fromList [5,6]),(7,IS.fromList [5,6,7]),(8,IS.fromList [5,6,7,8]),(9,IS.fromList [5,6,7,8,9])]
@@ -435,6 +453,22 @@ programDefUse1 = unlines [
     , "5  x = x + y"
     , "6 end do"
     , "end program defUse1"
+    ]
+
+programDefUse2 = unlines [
+      "program defUse2"
+    , "1 integer :: x = 1"
+    , "2 integer :: y = x + 1"
+    , "3 integer :: z = x * y"
+    , "4 call s(x)"
+    , "contains"
+    , "  subroutine s(a)"
+    , "10  integer :: a"
+    , "11  do y=1,z"
+    , "12     a = a + y"
+    , "13  end do"
+    , "end subroutine s"
+    , "end program defUse2"
     ]
 
 -- Local variables:
