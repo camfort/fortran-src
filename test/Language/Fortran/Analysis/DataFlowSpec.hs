@@ -226,6 +226,24 @@ spec =
         IM.lookup iLabel diMap `shouldBe` Just (IELinear iName 1 0)
         IM.lookup jLabel diMap `shouldBe` Just (IELinear iName 6 2)
 
+    describe "defUse1" $ do
+      let pf = pParser F90 programDefUse1
+      let sgr = genSuperBBGr (genBBlockMap pf)
+      let gr = superBBGrGraph sgr
+      let bm = genBlockMap pf
+      let dm = genDefMap bm
+      let rDefs = reachingDefinitions dm gr
+      let flTo = genFlowsToGraph bm dm gr rDefs
+      let domMap = dominators gr
+      let bedges = genBackEdgeMap domMap gr
+      let diMap = genDerivedInductionMap bedges gr
+      it "backEdges" $ do
+        bedges `shouldBe` IM.fromList [(findLabelBB gr 5, findLabelBB gr 4)]
+      it "flowsTo" $ do
+        (S.fromList . edges $ flTo) `shouldBe`
+          -- Find the flows of the assignment statements in the program.
+          findLabelsBlEdges pf [(1,2),(1,3),(1,5),(2,3),(3,4),(4,5),(5,5)]
+
     describe "other" $ do
       it "dominators on disconnected graph" $ do
         dominators (nmap (const []) (mkUGraph [0,1,3,4,5,6,7,8,9] [(0,3) ,(3,1) ,(5,6) ,(6,7) ,(7,4) ,(7,8) ,(8,7) ,(8,9) ,(9,8)] :: Gr () ())) `shouldBe` IM.fromList [(0,IS.fromList [0]),(1,IS.fromList [0,1,3]),(3,IS.fromList [0,3]),(4,IS.fromList [4,5,6,7]),(5,IS.fromList [5]),(6,IS.fromList [5,6]),(7,IS.fromList [5,6,7]),(8,IS.fromList [5,6,7,8]),(9,IS.fromList [5,6,7,8,9])]
@@ -406,6 +424,17 @@ programFuncFlow2 = unlines [
     , " 3        f = k + 1"
     , "        end function f"
     , "      end program main"
+    ]
+
+programDefUse1 = unlines [
+      "program defUse1"
+    , "1 integer :: x = 1"
+    , "2 integer :: y = x + 1"
+    , "3 integer :: z = x * y"
+    , "4 do y=1,z"
+    , "5  x = x + y"
+    , "6 end do"
+    , "end program defUse1"
     ]
 
 -- Local variables:
