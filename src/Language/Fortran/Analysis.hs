@@ -316,14 +316,19 @@ statementRhsExprs (StDo _ _ _ l s) = (universeBi l) ++ doSpecRhsExprs s
 statementRhsExprs s = universeBi s
 
 -- | Set of names used -- not defined -- by an AST-block.
-blockVarUses :: Data a => Block (Analysis a) -> [Name]
+blockVarUses :: forall a. Data a => Block (Analysis a) -> [Name]
 blockVarUses (BlStatement _ _ _ (StExpressionAssign _ _ lhs rhs))
   | ExpSubscript _ _ _ subs <- lhs = allVars rhs ++ concatMap allVars (aStrip subs)
   | otherwise                      = allVars rhs
 blockVarUses (BlDo _ _ _ _ _ (Just (DoSpecification _ _ (StExpressionAssign _ _ lhs rhs) e1 e2)) _ _)
   | ExpSubscript _ _ _ subs <- lhs = allVars rhs ++ allVars e1 ++ maybe [] allVars e2 ++ concatMap allVars (aStrip subs)
   | otherwise                      = allVars rhs ++ allVars e1 ++ maybe [] allVars e2
-blockVarUses (BlStatement _ _ _ (StDeclaration {})) = []
+blockVarUses (BlStatement _ _ _ st@(StDeclaration {})) = concat [ rhsOfDecls d | d <- universeBi st ]
+  where
+    rhsOfDecls :: Data a => Declarator (Analysis a) -> [Name]
+    rhsOfDecls (DeclVariable _ _ _ _ (Just e)) = allVars e
+    rhsOfDecls (DeclArray _ _ _ _ _ (Just e)) = allVars e
+    rhsOfDecls _ = []
 blockVarUses (BlStatement _ _ _ (StCall _ _ f@(ExpValue _ _ (ValIntrinsic _)) _))
   | Just uses <- intrinsicUses f = uses
 blockVarUses (BlStatement _ _ _ (StCall _ _ _ (Just aexps))) = allVars aexps
