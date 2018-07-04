@@ -3,7 +3,7 @@
 -- |
 -- Common data structures and functions supporting analysis of the AST.
 module Language.Fortran.Analysis
-  ( initAnalysis, stripAnalysis, Analysis(..)
+  ( initAnalysis, stripAnalysis, Analysis(..), Constant(..)
   , varName, srcName, lvVarName, lvSrcName, isNamedExpression
   , genVar, puName, puSrcName, blockRhsExprs, rhsExprs
   , ModEnv, NameType(..), IDType(..), ConstructType(..), BaseType(..)
@@ -82,6 +82,17 @@ data IDType = IDType
 instance Out IDType
 instance Binary IDType
 
+-- | Information about potential / actual constant expressions.
+data Constant
+  = ConstInt Integer            -- ^ interpreted integer
+  | ConstUninterpInt String     -- ^ uninterpreted integer
+  | ConstUninterpReal String    -- ^ uninterpreted real
+  | ConstBinary BinaryOp Constant Constant -- ^ binary operation on potential constants
+  deriving (Show, Eq, Typeable, Generic, Data)
+
+instance Out Constant
+instance Binary Constant
+
 data Analysis a = Analysis
   { prevAnnotation :: a -- ^ original annotation
   , uniqueName     :: Maybe String -- ^ unique name for function/variable, after variable renaming phase
@@ -91,6 +102,7 @@ data Analysis a = Analysis
   , moduleEnv      :: Maybe ModEnv
   , idType         :: Maybe IDType
   , allLhsVarsAnn  :: [Name]
+  , constExp       :: Maybe Constant
   }
   deriving (Data, Show, Eq, Generic)
 
@@ -105,6 +117,7 @@ instance Functor Analysis where
     , moduleEnv = moduleEnv analysis
     , idType = idType analysis
     , allLhsVarsAnn = allLhsVarsAnn analysis
+    , constExp = constExp analysis
     }
 
 instance Out (Analysis a) where
@@ -122,7 +135,8 @@ analysis0 a = Analysis { prevAnnotation = a
                        , insLabel       = Nothing
                        , moduleEnv      = Nothing
                        , idType         = Nothing
-                       , allLhsVarsAnn  = [] }
+                       , allLhsVarsAnn  = []
+                       , constExp       = Nothing }
 
 -- | True iff the expression can be used with varName or srcName
 isNamedExpression :: Expression a -> Bool

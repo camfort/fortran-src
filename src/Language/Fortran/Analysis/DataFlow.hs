@@ -9,6 +9,7 @@ module Language.Fortran.Analysis.DataFlow
   , genUDMap, genDUMap, duMapToUdMap, UDMap, DUMap
   , genFlowsToGraph, FlowsGraph
   , genVarFlowsToMap, VarFlowsMap
+  , Constant(..), ParameterVarMap, ConstExpMap, genConstExpMap, analyseConstExps
   , genBlockMap, genDefMap, BlockMap, DefMap
   , genCallMap, CallMap
   , loopNodes, genBackEdgeMap, sccWith, BackEdgeMap
@@ -342,6 +343,90 @@ tc g = newEdges `insEdges` insNodes ln empty
 
 --------------------------------------------------
 
+-- Integer arithmetic can be compile-time evaluated if we guard
+-- against overflow, divide-by-zero. We must interpret the various
+-- lexical forms of integers.
+--
+-- Floating point arithmetic requires knowing the target machine and
+-- being very careful with all the possible effects of IEEE FP. Will
+-- leave it alone for now.
+
+-- conservative assumption: stay within bounds of signed 32-bit integer
+minConst = -2 ^ 31 :: Integer
+maxConst = 2 ^ 31 - 1 :: Integer
+inBounds x = minConst <= x && x <= maxConst
+
+-- | Evaluate possible constant expressions within tree.
+constantFolding :: Constant -> Constant
+constantFolding c = case c of
+  ConstBinary binOp a b | ConstInt x <- constantFolding a
+                        , ConstInt y <- constantFolding b -> case binOp of
+    Addition       | inBounds (x + y) -> ConstInt (x + y)
+    Subtraction    | inBounds (x - y) -> ConstInt (x - y)
+    Multiplication | inBounds (x * y) -> ConstInt (x * y)
+    Division       | y /= 0           -> ConstInt (x `div` y)
+    _                                 -> ConstBinary binOp (ConstInt x) (ConstInt y)
+  _ -> c
+
+-- | The map of all parameter variables and their corresponding values
+type ParameterVarMap = M.Map Name Constant
+-- | The map of all expressions and whether they are undecided (not
+-- present in map), a constant value (Just Constant), or probably not
+-- constant (Nothing).
+type ConstExpMap = IM.IntMap (Maybe Constant)
+
+-- | Generate a constant-expression map with information about the
+-- expressions (identified by insLabel numbering) in the ProgramFile
+-- pf (must have analysis initiated) .
+genConstExpMap :: forall a. Data a => ProgramFile (Analysis a) -> ConstExpMap
+genConstExpMap pf = ceMap
+  where
+    -- Generate map of 'parameter' variables, obtaining their value from ceMap below, lazily.
+    pvMap = M.fromList
+      [ (varName v, getE e)
+      | st@(StDeclaration _ _ (TypeSpec _ _ TypeInteger _) _ _) <- universeBi pf :: [Statement (Analysis a)]
+      , AttrParameter _ _ <- universeBi st :: [Attribute (Analysis a)]
+      , d@(DeclVariable _ _ v _ (Just e)) <- universeBi st ]
+    getV :: Expression (Analysis a) -> Maybe Constant
+    getV = join . flip M.lookup pvMap . varName
+
+    -- Generate map of information about 'constant expressions'.
+    ceMap = IM.fromList [ (label, doExpr e) | e <- universeBi pf, Just label <- [labelOf e] ]
+    getE :: Expression (Analysis a) -> Maybe Constant
+    getE = join . (flip IM.lookup ceMap <=< labelOf)
+    labelOf = insLabel . getAnnotation
+    doExpr :: Expression (Analysis a) -> Maybe Constant
+    doExpr e = case e of
+      ExpValue _ _ (ValInteger str)
+        | Just i <- readInteger str -> Just . ConstInt $ fromIntegral i
+      ExpValue _ _ (ValInteger str) -> Just $ ConstUninterpInt str
+      ExpValue _ _ (ValReal str)    -> Just $ ConstUninterpReal str
+      ExpValue _ _ (ValVariable _)  -> getV e
+      -- Recursively seek information about sub-expressions, relying on laziness.
+      ExpBinary _ _ binOp e1 e2     -> constantFolding <$> liftM2 (ConstBinary binOp) (getE e1) (getE e2)
+      _ -> Nothing
+
+-- | Get constant-expression information and put it into the AST
+-- analysis annotation. Must occur after analyseBBlocks.
+analyseConstExps :: forall a. Data a => ProgramFile (Analysis a) -> ProgramFile (Analysis a)
+analyseConstExps pf = pf'
+  where
+    ceMap = genConstExpMap pf
+    -- transform both the AST and the basic block graph
+    pf'   = transformBB (nmap (transformExpr insertConstExp)) $ transformBi insertConstExp pf
+    -- insert info about constExp into Expression annotation
+    insertConstExp :: Expression (Analysis a) -> Expression (Analysis a)
+    insertConstExp e = flip modifyAnnotation e $ \ a ->
+      a { constExp = join (flip IM.lookup ceMap =<< insLabel (getAnnotation e)) }
+    -- utility functions for transforming expressions tucked away inside of the basic block graph
+    transformBB :: (BBGr (Analysis a) -> (BBGr (Analysis a))) -> ProgramFile (Analysis a) -> (ProgramFile (Analysis a))
+    transformBB = transformBi
+    transformExpr :: (Expression (Analysis a) -> (Expression (Analysis a))) ->
+                     [Block (Analysis a)] -> [Block (Analysis a)]
+    transformExpr = transformBi
+
+--------------------------------------------------
+
 -- | BackEdgeMap : node -> node
 type BackEdgeMap = IM.IntMap Node
 
@@ -549,13 +634,16 @@ showDataFlow pf = perPU =<< uni pf
                        , ("loopNodes",    show (loopNodes bedges gr))
                        , ("duMap",        show (genDUMap bm dm gr (rd gr)))
                        , ("udMap",        show (genUDMap bm dm gr (rd gr)))
-                       , ("flowsTo",      show (edges $ genFlowsToGraph bm dm gr (rd gr)))
+                       , ("flowsTo",      show (edges flTo))
                        , ("varFlowsTo",   show (genVarFlowsToMap dm (genFlowsToGraph bm dm gr (rd gr))))
                        , ("ivMap",        show (genInductionVarMap bedges gr))
                        , ("ivMapByAST",   show (genInductionVarMapByASTBlock bedges gr))
                        , ("noPredNodes",  show (noPredNodes gr))
+                       , ("constExpMap",  show (genConstExpMap pf))
                        ] where
                            bedges = genBackEdgeMap (dominators gr) gr
+                           flTo = genFlowsToGraph bm dm gr (rd gr)
+
     perPU _ = ""
     lva = liveVariableAnalysis
     bm = genBlockMap pf

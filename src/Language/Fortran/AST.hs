@@ -487,6 +487,8 @@ data UnaryOp =
   | UnCustom String
   deriving (Eq, Show, Data, Typeable, Generic)
 
+instance Binary UnaryOp
+
 data BinaryOp =
     Addition
   | Subtraction
@@ -507,6 +509,8 @@ data BinaryOp =
   | NotEquivalent
   | BinCustom String
   deriving (Eq, Show, Data, Typeable, Generic)
+
+instance Binary BinaryOp
 
 -- Retrieving SrcSpan and Annotation from nodes
 class Annotated f where

@@ -165,6 +165,7 @@ superGraphDataFlow pf sgr = showBBGr (nmap (map (fmap insLabel)) gr) ++ "\n\n" +
                                           | e <- universeBi bm :: [Expression (Analysis a)]
                                           , i <- maybeToList (insLabel (getAnnotation e))
                                           , let ie = IM.lookup i diMap ])
+               , ("constExpMap",  show (genConstExpMap pf))
                ] where
                    bedges = genBackEdgeMap (dominators gr) gr
                    flTo   = genFlowsToGraph bm dm gr rDefs
