@@ -382,10 +382,13 @@ genConstExpMap :: forall a. Data a => ProgramFile (Analysis a) -> ConstExpMap
 genConstExpMap pf = ceMap
   where
     -- Generate map of 'parameter' variables, obtaining their value from ceMap below, lazily.
-    pvMap = M.fromList
+    pvMap = M.fromList $
       [ (varName v, getE e)
       | st@(StDeclaration _ _ (TypeSpec _ _ TypeInteger _) _ _) <- universeBi pf :: [Statement (Analysis a)]
       , AttrParameter _ _ <- universeBi st :: [Attribute (Analysis a)]
+      , d@(DeclVariable _ _ v _ (Just e)) <- universeBi st ] ++
+      [ (varName v, getE e)
+      | st@(StParameter _ _ _) <- universeBi pf :: [Statement (Analysis a)]
       , d@(DeclVariable _ _ v _ (Just e)) <- universeBi st ]
     getV :: Expression (Analysis a) -> Maybe Constant
     getV = join . flip M.lookup pvMap . varName
