@@ -68,6 +68,7 @@ fortran77intrinsics = M.fromList
   , ("cmplx"   , mkIEntry ITComplex func1)
   , ("ichar"   , mkIEntry ITInteger func1)
   , ("char"    , mkIEntry ITCharacter func1)
+  , ("achar"   , mkIEntry ITCharacter func1)
   , ("aint"    , mkIEntry (ITParam 1) func1)
   , ("dint"    , mkIEntry ITDouble func1)
   , ("anint"   , mkIEntry (ITParam 1) func1)

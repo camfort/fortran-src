@@ -127,14 +127,15 @@ statement (StDeclaration _ _ (TypeSpec _ _ baseType _) mAttrAList declAList)
     env <- gets environ
     forM_ decls $ \ decl -> case decl of
       DeclArray _ _ v _ _ _         -> recordType baseType CTArray (varName v)
-      DeclVariable _ _ v (Just _) _ -> recordType baseType CTVariable (varName v)
+      DeclVariable _ _ v (Just _) _ -> recordType baseType CTArray (varName v)
       DeclVariable _ _ v Nothing _  -> recordType baseType cType n
         where
           n = varName v
           cType | isExtrn                                     = CTExternal
                 | isArray                                     = CTArray
                 | isParam                                     = CTParameter
-                | Just (IDType _ (Just ct)) <- M.lookup n env = ct
+                | Just (IDType _ (Just ct)) <- M.lookup n env
+                , ct /= CTIntrinsic                           = ct
                 | otherwise                                   = CTVariable
 statement (StExternal _ _ varAList) = do
   let vars = aStrip varAList
