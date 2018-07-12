@@ -104,7 +104,7 @@ main = do
 
     _ -> fail $ usageInfo programName options
 
--- List files in dir
+-- List files in dir recursively
 rGetDirContents :: String -> IO [String]
 rGetDirContents d = canonicalizePath d >>= \d' -> go [d'] d'
   where
@@ -120,10 +120,16 @@ rGetDirContents d = canonicalizePath d >>= \d' -> go [d'] d'
             return $ map (\ y -> x ++ "/" ++ y) x'
           else return [x]
 
+-- List files in dir
+getDirContents :: String -> IO [String]
+getDirContents d = do
+  d' <- canonicalizePath d
+  map (d' </>) `fmap` listDirectory d'
+
 decodeModFiles :: [String] -> IO ModFiles
 decodeModFiles = foldM (\ modFiles d -> do
       -- Figure out the camfort mod files and parse them.
-      modFileNames <- filter isModFile `fmap` rGetDirContents d
+      modFileNames <- filter isModFile `fmap` getDirContents d
       addedModFiles <- forM modFileNames $ \ modFileName -> do
         eResult <- decodeFileOrFail (d </> modFileName)
         case eResult of
