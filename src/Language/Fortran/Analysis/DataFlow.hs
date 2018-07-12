@@ -377,7 +377,7 @@ type ConstExpMap = IM.IntMap (Maybe Constant)
 
 -- | Generate a constant-expression map with information about the
 -- expressions (identified by insLabel numbering) in the ProgramFile
--- pf (must have analysis initiated) .
+-- pf (must have analysis initiated & basic blocks generated) .
 genConstExpMap :: forall a. Data a => ProgramFile (Analysis a) -> ConstExpMap
 genConstExpMap pf = ceMap
   where
