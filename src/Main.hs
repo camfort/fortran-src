@@ -83,7 +83,7 @@ main = do
             where pf' = analyseBBlocks . analyseRenamesWithModuleMap mmap . initAnalysis $ pf
                   bbm = genBBlockMap pf'
                   sgr = genSuperBBGr bbm
-      let runCompile pf = encodeModFile . genModFile . analyseRenamesWithModuleMap mmap . initAnalysis $ pf
+      let runCompile pf = encodeModFile . genModFile . fst . analyseTypesWithEnv tenv . analyseRenamesWithModuleMap mmap . initAnalysis $ pf
 
       case actionOpt of
         Lex | version `elem` [ Fortran66, Fortran77, Fortran77Extended, Fortran77Legacy ] ->

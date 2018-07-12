@@ -126,8 +126,10 @@ programUnit (PUFunction a s ty rec name args res blocks m_contains) = do
   blocks3     <- mapM renameDeclDecls blocks2 -- handle declarations
   m_contains' <- renameSubPUs m_contains      -- handle contained program units
   blocks4     <- mapM renameBlock blocks3     -- process all uses of variables
+  let env     = M.singleton name (name', NTSubprogram)
+  let a'      = a { moduleEnv = Just env }    -- also annotate it on the program unit
   popScope
-  let pu' = PUFunction a s ty rec name args' res' blocks4 m_contains'
+  let pu' = PUFunction a' s ty rec name args' res' blocks4 m_contains'
   return . setSourceName name . setUniqueName name' $ pu'
 
 programUnit (PUSubroutine a s rec name args blocks m_contains) = do
@@ -139,8 +141,10 @@ programUnit (PUSubroutine a s rec name args blocks m_contains) = do
   blocks2     <- mapM renameDeclDecls blocks1 -- handle declarations
   m_contains' <- renameSubPUs m_contains      -- handle contained program units
   blocks3     <- mapM renameBlock blocks2     -- process all uses of variables
+  let env     = M.singleton name (name', NTSubprogram)
+  let a'      = a { moduleEnv = Just env }    -- also annotate it on the program unit
   popScope
-  let pu' = PUSubroutine a s rec name args' blocks3 m_contains'
+  let pu' = PUSubroutine a' s rec name args' blocks3 m_contains'
   return . setSourceName name . setUniqueName name' $ pu'
 
 programUnit (PUMain a s n blocks m_contains) = do
@@ -217,18 +221,20 @@ initialEnv blocks = do
   -- to have two different names used by different parts of the
   -- program).
   let uses = filter isUseStatement blocks
-  fmap M.unions . forM uses $ \ use -> case use of
+  mMap <- gets moduleMap
+  modEnv <- fmap M.unions . forM uses $ \ use -> case use of
     (BlStatement _ _ _ (StUse _ _ (ExpValue _ _ (ValVariable m)) _ Nothing)) -> do
-      mMap <- gets moduleMap
       return $ fromMaybe empty (Named m `lookup` mMap)
     (BlStatement _ _ _ (StUse _ _ (ExpValue _ _ (ValVariable m)) _ (Just onlyAList)))
       | only <- aStrip onlyAList, all isUseID only -> do
-      mMap <- gets moduleMap
       let env = fromMaybe empty (Named m `lookup` mMap)
       let onlyNames = map (\ (UseID _ _ v) -> varName v) only
       -- filter for the the mod remappings mentioned in the list, only
       return $ M.filterWithKey (\ k _ -> k `elem` onlyNames) env
     _ -> trace "WARNING: USE renaming not supported (yet)" $ return empty
+
+  -- include any global names from program units defined outside of modules as well
+  return . M.union modEnv . fromMaybe M.empty $ M.lookup NamelessMain mMap
 
 -- Get the current scope name.
 getScope :: Renamer String

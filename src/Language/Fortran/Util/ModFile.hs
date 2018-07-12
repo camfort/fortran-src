@@ -30,7 +30,7 @@ One typical usage might look like:
 
 > let modFile1 = genModFile programFile
 > let modFile2 = alterModFileData (const (Just ...)) "mydata" modFile1
-> let bytes    = encodeModFile modFile1
+> let bytes    = encodeModFile modFile2
 > ...
 > case decodeModFile bytes of
 >   Left error -> print error
@@ -189,10 +189,18 @@ genUniqNameToFilenameMap = M.unions . map perMF
 -- | Extract all module maps (name -> environment) by collecting all
 -- of the stored module maps within the PUModule annotation.
 extractModuleMap :: forall a. Data a => F.ProgramFile (FA.Analysis a) -> FAR.ModuleMap
-extractModuleMap pf = M.fromList [ (n, env) | pu@(F.PUModule {}) <- universeBi pf :: [F.ProgramUnit (FA.Analysis a)]
-                                            , let a = F.getAnnotation pu
-                                            , let n = F.getName pu
-                                            , env <- maybeToList (FA.moduleEnv a) ]
+extractModuleMap pf
+  -- in case there are no modules, store global program unit names under the name 'NamelessMain'
+  | null mmap = M.singleton F.NamelessMain $ M.unions combinedEnv
+  | otherwise = M.fromList mmap
+  where
+    mmap = [ (n, env) | pu@(F.PUModule {}) <- childrenBi pf :: [F.ProgramUnit (FA.Analysis a)]
+                      , let a = F.getAnnotation pu
+                      , let n = F.getName pu
+                      , env <- maybeToList (FA.moduleEnv a) ]
+    combinedEnv = [ env | pu <- childrenBi pf :: [F.ProgramUnit (FA.Analysis a)]
+                        , let a = F.getAnnotation pu
+                        , env <- maybeToList (FA.moduleEnv a) ]
 
 -- | Extract map of declared variables with their associated program
 -- unit and source span.
