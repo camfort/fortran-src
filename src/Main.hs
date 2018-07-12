@@ -83,6 +83,7 @@ main = do
             where pf' = analyseBBlocks . analyseRenamesWithModuleMap mmap . initAnalysis $ pf
                   bbm = genBBlockMap pf'
                   sgr = genSuperBBGr bbm
+      let runCompile pf = encodeModFile . genModFile . analyseRenamesWithModuleMap mmap . initAnalysis $ pf
 
       case actionOpt of
         Lex | version `elem` [ Fortran66, Fortran77, Fortran77Extended, Fortran77Legacy ] ->
@@ -96,6 +97,10 @@ main = do
         BBlocks    -> putStrLn . runBBlocks $ parserF mods contents path
         SuperGraph -> putStrLn . runSuperGraph $ parserF mods contents path
         Reprint    -> putStrLn . render . flip (pprint version) (Just 0) $ parserF mods contents path
+        Compile    -> do
+          let bytes = runCompile $ parserF mods contents path
+          let fspath = path <.> modFileSuffix
+          B.writeFile fspath bytes
 
     _ -> fail $ usageInfo programName options
 
@@ -188,7 +193,7 @@ showTypes tenv = flip concatMap (M.toList tenv) $ \ (name, IDType { idVType = vt
 printTypes :: TypeEnv -> IO ()
 printTypes = putStrLn . showTypes
 
-data Action = Lex | Parse | Typecheck | Rename | BBlocks | SuperGraph | Reprint | DumpModFile deriving Eq
+data Action = Lex | Parse | Typecheck | Rename | BBlocks | SuperGraph | Reprint | DumpModFile | Compile deriving Eq
 
 instance Read Action where
   readsPrec _ value =
@@ -251,6 +256,10 @@ options =
       ["include-dir"]
       (ReqArg (\ d opts -> opts { includeDirs = d:includeDirs opts }) "DIR")
       "directory to search for precompiled 'mod files'"
+  , Option ['c']
+      ["compile"]
+      (NoArg $ \ opts -> opts { action = Compile })
+      "compile an .fsmod file from the input"
   ]
 
 compileArgs :: [ String ] -> IO (Options, [ String ])
