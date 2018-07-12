@@ -259,7 +259,7 @@ compileArgs args =
     (o, n, []) -> return (foldl (flip id) initOptions o, n)
     (_, _, errors) -> ioError $ userError $ concat errors ++ usageInfo header options
   where
-    header = "Usage: forpar [OPTION...] <lex|parse> <file>"
+    header = "Usage: fortran-src [OPTION...] <file>"
 
 instance Read FortranVersion where
   readsPrec _ value = tryTypes options
