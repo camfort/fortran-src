@@ -44,6 +44,7 @@ import qualified Data.IntMap as IM
 import qualified Data.Map as M
 import Control.Monad
 import Text.Printf
+import Data.List
 
 programName = "fortran-src"
 
@@ -53,8 +54,8 @@ main = do
   (opts, parsedArgs) <- compileArgs args
   case (parsedArgs, action opts) of
     ([path], DumpModFile) -> do
-      let path = head parsedArgs
-      contents <- B.readFile path
+      let path' = if modFileSuffix `isSuffixOf` path then path else path <.> modFileSuffix
+      contents <- B.readFile path'
       case decodeModFile contents of
         Left msg -> putStrLn $ "Error: " ++ msg
         Right mf -> putStrLn $ "Filename: " ++ moduleFilename mf ++
@@ -64,7 +65,6 @@ main = do
                                "\n\nOther Data Labels: " ++ show (getLabelsModFileData mf)
 
     ([path], actionOpt) -> do
-      let path = head parsedArgs
       contents <- flexReadFile path
       let version = fromMaybe (deduceVersion path) (fortranVersion opts)
       let (Just parserF0) = lookup version parserWithModFilesVersions
@@ -274,7 +274,7 @@ compileArgs args =
     (o, n, []) -> return (foldl (flip id) initOptions o, n)
     (_, _, errors) -> ioError $ userError $ concat errors ++ usageInfo header options
   where
-    header = "Usage: fortran-src [OPTION...] <file>"
+    header = "Usage: " ++ programName ++ " [OPTION...] <file>"
 
 instance Read FortranVersion where
   readsPrec _ value = tryTypes options
