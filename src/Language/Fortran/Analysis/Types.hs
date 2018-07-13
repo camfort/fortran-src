@@ -10,6 +10,7 @@ import Data.Maybe (maybeToList)
 import Control.Monad.State.Strict
 import Data.Generics.Uniplate.Data
 import Data.Data
+import Data.Functor.Identity (Identity ())
 import Language.Fortran.Analysis
 import Language.Fortran.Intrinsics
 import Language.Fortran.ParserMonad (FortranVersion(..))
@@ -82,6 +83,7 @@ intrinsicsExp (ExpSubscript _ _ nexp _)    = intrinsicsHelper nexp
 intrinsicsExp (ExpFunctionCall _ _ nexp _) = intrinsicsHelper nexp
 intrinsicsExp _                            = return ()
 
+intrinsicsHelper :: Expression (Analysis a) -> StateT InferState Identity ()
 intrinsicsHelper nexp | isNamedExpression nexp = do
   itab <- gets intrinsics
   case getIntrinsicReturnType (srcName nexp) itab of
