@@ -3,6 +3,13 @@ module Language.Fortran.Parser.Utils (readReal, readInteger) where
 import Data.Char
 import Numeric
 
+breakAtDot :: [Char] -> ([Char], [Char])
+replaceDwithE :: Char -> Char
+readsToMaybe :: [(a, b)] -> Maybe a
+fixAtDot :: ([Char], [Char]) -> ([Char], [Char])
+fixAtDot' :: ([Char], [Char]) -> ([Char], [Char])
+combineAtDot :: ([Char], [Char]) -> [Char]
+
 -- | Convert a Fortran literal Real into a Haskell Double.
 readReal :: String -> Maybe Double
 readReal = readsToMaybe . reads . filter (/= '+') . combineAtDot . fixAtDot . breakAtDot . map replaceDwithE . takeWhile (/= '_')

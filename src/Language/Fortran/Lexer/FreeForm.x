@@ -411,7 +411,7 @@ typeSpecP _ _ _ ai
   , isTypeSpec prevToken = True
   | otherwise = isTypeSpecImmediatelyBefore $ reverse prevTokens
   where
-    isTypeSpecImmediatelyBefore tokens@(x:xs)
+    isTypeSpecImmediatelyBefore tokens@(_:xs)
       | isTypeSpec tokens = True
       | otherwise = isTypeSpecImmediatelyBefore xs
     isTypeSpecImmediatelyBefore [] = False
@@ -484,7 +484,7 @@ leftPar = do
           ParseOk tokenCons _ -> do
             span <- getLexemeSpan
             return $ Just $ tokenCons span
-          ParseFailed e -> fail "Left parantheses is not matched."
+          ParseFailed _ -> fail "Left parantheses is not matched."
       else addSpan TLeftPar
   where
     f :: LexAction (SrcSpan -> Token)
@@ -493,7 +493,7 @@ leftPar = do
       mPrevToken <- aiPreviousToken <$> getAlex
       case mPrevToken of
         Just TRightPar{} | pc == 0 -> do
-          span <- getLexemeSpan
+          _ <- getLexemeSpan
           curToken <- lexer'
           case curToken of
             TComma{} -> return TLeftPar2

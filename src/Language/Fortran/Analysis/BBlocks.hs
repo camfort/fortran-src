@@ -166,12 +166,14 @@ toBBlocksPerPU pu
 
 -- Create node 0 "the start node" and link it
 -- for now assume only one entry
+insEntryEdges :: (Data a, DynGraph gr) => ProgramUnit (Analysis a) -> gr [Block (Analysis a)] () -> gr [Block (Analysis a)] ()
 insEntryEdges pu = insEdge (0, 1, ()) . insNode (0, bs)
   where
     bs = genInOutAssignments pu False
 
 -- create assignments of the form "x = f[1]" or "f[1] = x" at the
 -- entry/exit bblocks.
+genInOutAssignments :: Data a => ProgramUnit (Analysis a) -> Bool -> [Block (Analysis a)]
 genInOutAssignments pu exit
   | exit, PUFunction _ _ _ _ _ _ _ _ _ <- pu = zipWith genAssign (genVar a0 noSrcSpan fn:vs) [0..]
   | otherwise                                = zipWith genAssign vs [1..]
@@ -189,10 +191,11 @@ genInOutAssignments pu exit
       where
         (vl, vr) = if exit then (v', v) else (v, v')
         v'       = case v of
-          ExpValue a' s (ValVariable _) -> genVar a0 s (name i)
+          ExpValue _ s (ValVariable _) -> genVar a0 s (name i)
           _               -> error $ "unhandled genAssign case: " ++ show (fmap (const ()) v)
 
 -- Remove exit edges for bblocks where standard construction doesn't apply.
+delInvalidExits :: DynGraph gr => gr [Block a] b -> gr [Block a] b
 delInvalidExits gr = flip delEdges gr $ do
   n  <- nodes gr
   bs <- maybeToList $ lab gr n
@@ -201,6 +204,7 @@ delInvalidExits gr = flip delEdges gr $ do
   return $ toEdge le
 
 -- Insert exit edges for bblocks with special handling.
+insExitEdges :: (Data a, DynGraph gr) => ProgramUnit (Analysis a) -> M.Map String Node -> gr [Block (Analysis a)] () -> gr [Block (Analysis a)] ()
 insExitEdges pu lm gr = flip insEdges (insNode (-1, bs) gr) $ do
   n <- nodes gr
   guard $ null (out gr n)
@@ -211,6 +215,7 @@ insExitEdges pu lm gr = flip insEdges (insNode (-1, bs) gr) $ do
     bs = genInOutAssignments pu True
 
 -- Find target of Goto statements (Return statements default target to -1).
+examineFinalBlock :: Num a1 => M.Map String a1 -> [Block a2] -> [a1]
 examineFinalBlock lm bs@(_:_)
   | BlStatement _ _ _ (StGotoUnconditional _ _ k) <- last bs = [lookupBBlock lm k]
   | BlStatement _ _ _ (StGotoAssigned _ _ _ ks)   <- last bs = map (lookupBBlock lm) (maybe [] aStrip ks)
@@ -221,6 +226,7 @@ examineFinalBlock lm bs@(_:_)
 examineFinalBlock _ _                                        = [-1]
 
 -- True iff the final block in the list is an explicit control transfer.
+isFinalBlockCtrlXfer :: [Block a] -> Bool
 isFinalBlockCtrlXfer bs@(_:_)
   | BlStatement _ _ _ (StGotoUnconditional {}) <- last bs = True
   | BlStatement _ _ _ (StGotoAssigned {})      <- last bs = True
@@ -229,12 +235,14 @@ isFinalBlockCtrlXfer bs@(_:_)
   | BlStatement _ _ _ (StIfArithmetic {})      <- last bs = True
 isFinalBlockCtrlXfer _                                    = False
 
+lookupBBlock :: Num a1 => M.Map String a1 -> Expression a2 -> a1
 lookupBBlock lm (ExpValue _ _ (ValInteger l)) = (-1) `fromMaybe` M.lookup l lm
 -- This occurs if a variable is being used for a label, e.g., from a Fortran 77 ASSIGN statement
 lookupBBlock lm (ExpValue _ _ (ValVariable l)) = (-1) `fromMaybe` M.lookup l lm
 
 -- Seek out empty bblocks with a single entrance and a single exit
 -- edge, and remove them, re-establishing the edges without them.
+delEmptyBBlocks :: (Foldable t, DynGraph gr) => gr (t a) b -> gr (t a) b
 delEmptyBBlocks gr
   | (n, s, t, l):_ <- candidates = delEmptyBBlocks . insEdge (s, t, l) . delNode n $ gr
   | otherwise                    = gr
@@ -247,6 +255,7 @@ delEmptyBBlocks gr
       return (n, s, t, l)
 
 -- Delete unreachable nodes.
+delUnreachable :: DynGraph gr => gr a b -> gr a b
 delUnreachable gr = subgraph (reachable 0 gr) gr
 
 --------------------------------------------------
@@ -261,6 +270,7 @@ data BBState a = BBS { bbGraph  :: BBGr a
                      , newEdges :: [LEdge ()] }
 
 -- Initial state
+bbs0 :: BBState a
 bbs0 = BBS { bbGraph = empty, curBB = [], curNode = 1
            , labelMap = M.empty, nums = [2..], tempNums = [0..]
            , newEdges = [] }
@@ -295,7 +305,7 @@ perBlock :: Data a => Block (Analysis a) -> BBlocker (Analysis a) ()
 -- invariant: curBB is in reverse order
 perBlock b@(BlIf _ _ _ _ exps bss _) = do
   processLabel b
-  exps' <- forM (map fromJust . filter isJust $ exps) processFunctionCalls
+  _ <- forM (map fromJust . filter isJust $ exps) processFunctionCalls
   addToBBlock $ stripNestedBlocks b
   (ifN, _) <- closeBBlock
 
@@ -330,7 +340,7 @@ perBlock b@(BlCase _ _ _ _ _ inds bss _) = do
 
 perBlock b@(BlStatement a ss _ (StIfLogical _ _ exp stm)) = do
   processLabel b
-  exp' <- processFunctionCalls exp
+  _ <- processFunctionCalls exp
   addToBBlock $ stripNestedBlocks b
 
   -- start a bblock for the nested statement inside the If
@@ -338,7 +348,7 @@ perBlock b@(BlStatement a ss _ (StIfLogical _ _ exp stm)) = do
 
   -- build pseudo-AST-block to contain nested statement
   processBlocks [BlStatement a ss Nothing stm]
-  endN <- gets curNode
+  _ <- gets curNode
 
   -- connect all the new bblocks with edges, link to subsequent bblock labeled nxtN
   nxtN <- genBBlock
@@ -347,11 +357,11 @@ perBlock b@(BlStatement a ss _ (StIfLogical _ _ exp stm)) = do
 perBlock b@(BlStatement _ _ _ (StIfArithmetic {})) =
   -- Treat an arithmetic if similarly to a goto
   processLabel b >> addToBBlock b >> closeBBlock_
-perBlock b@(BlDo _ _ mlab _ _ (Just spec) bs _) = do
+perBlock b@(BlDo _ _ _ _ _ (Just spec) bs _) = do
   let DoSpecification _ _ (StExpressionAssign _ _ _ e1) e2 me3 = spec
-  e1'  <- processFunctionCalls e1
-  e2'  <- processFunctionCalls e2
-  me3' <- case me3 of Just e3 -> Just `fmap` processFunctionCalls e3; Nothing -> return Nothing
+  _  <- processFunctionCalls e1
+  _  <- processFunctionCalls e2
+  _  <- case me3 of Just e3 -> Just `fmap` processFunctionCalls e3; Nothing -> return Nothing
   perDoBlock Nothing b bs
 perBlock b@(BlDo _ _ _ _ _ Nothing bs _) = perDoBlock Nothing b bs
 perBlock b@(BlDoWhile _ _ _ _ _ exp bs _) = perDoBlock (Just exp) b bs
@@ -359,13 +369,13 @@ perBlock b@(BlStatement _ _ _ (StReturn {})) =
   processLabel b >> addToBBlock b >> closeBBlock_
 perBlock b@(BlStatement _ _ _ (StGotoUnconditional {})) =
   processLabel b >> addToBBlock b >> closeBBlock_
-perBlock b@(BlStatement a s l (StCall a' s' cn@(ExpValue _ _ _) Nothing)) = do
+perBlock b@(BlStatement _ _ _ (StCall _ _ (ExpValue _ _ _) Nothing)) = do
   (prevN, callN) <- closeBBlock
   -- put StCall in a bblock by itself
   addToBBlock b
   (_, nextN) <- closeBBlock
   createEdges [ (prevN, callN, ()), (callN, nextN, ()) ]
-perBlock b@(BlStatement a s l (StCall a' s' cn@(ExpValue _ _ _) (Just aargs))) = do
+perBlock (BlStatement a s l (StCall a' s' cn@(ExpValue _ _ _) (Just aargs))) = do
   let exps = map extractExp . aStrip $ aargs
   (prevN, formalN) <- closeBBlock
 
@@ -433,6 +443,7 @@ processLabel b | Just (ExpValue _ _ (ValInteger l)) <- getLabel b = do
 processLabel _ = return ()
 
 -- Inserts into labelMap
+insertLabel :: MonadState (BBState a) m => String -> Node -> m ()
 insertLabel l n = modify $ \ st -> st { labelMap = M.insert l n (labelMap st) }
 
 -- Puts an AST block into the current bblock.
@@ -456,6 +467,7 @@ genBBlock = do
   return n'
 
 -- Adds labeled-edge mappings.
+createEdges :: MonadState (BBState a) m => [LEdge ()] -> m ()
 createEdges es = modify $ \ st -> st { newEdges = es ++ newEdges st }
 
 -- Generates a new node number.
@@ -473,6 +485,7 @@ genTemp str = do
 
 -- Strip nested code not necessary since it is duplicated in another
 -- basic block.
+stripNestedBlocks :: Block a -> Block a
 stripNestedBlocks (BlDo a s l mn tl ds _ el)     = BlDo a s l mn tl ds [] el
 stripNestedBlocks (BlDoWhile a s l tl n e _ el)  = BlDoWhile a s l tl n e [] el
 stripNestedBlocks (BlIf a s l mn exps _ el)      = BlIf a s l mn exps [] el
@@ -499,7 +512,7 @@ processFunctionCall (ExpFunctionCall a s fn@(ExpValue a' s' _) aargs) = do
   -- create bblock that assigns formal parameters (fn[1], fn[2], ...)
   let name i   = varName fn ++ "[" ++ show i ++ "]"
   let setName n e = setAnnotation ((getAnnotation e) { uniqueName = Just n, sourceName = Just n }) e
-  let formal (ExpValue a s (ValVariable _)) i = setName n $ ExpValue a0 s (ValVariable n)
+  let formal (ExpValue _ s (ValVariable _)) i = setName n $ ExpValue a0 s (ValVariable n)
         where n = name i
       formal e i                              = setName n $ ExpValue a0 s (ValVariable n)
         where a = getAnnotation e; s = getSpan e; n = name i
@@ -533,6 +546,7 @@ processFunctionCall (ExpFunctionCall a s fn@(ExpValue a' s' _) aargs) = do
   return temp
 processFunctionCall e = return e
 
+extractExp :: Argument a -> Expression a
 extractExp (Argument _ _ _ exp) = exp
 
 --------------------------------------------------
@@ -608,6 +622,7 @@ genSuperBBGr bbm = SuperBBGr { graph = superGraph'', clusters = cmap, entries = 
                    insEdges [ (0, m, l) | (_, m, l) <- out superGraph' mainEntry ] .
                    insNode (0, []) $ superGraph'
 
+fromJustMsg :: [Char] -> Maybe a -> a
 fromJustMsg _ (Just x) = x
 fromJustMsg msg _      = error msg
 
@@ -680,11 +695,13 @@ bbgrToDOT' clusters gr = execWriter $ do
     when (isJust mname) $ tell "}\n"
   tell "}\n"
 
+showPUName :: ProgramUnitName -> String
 showPUName (Named n) = n
 showPUName (NamelessBlockData) = ".blockdata."
 showPUName (NamelessMain) = ".main."
 
 -- Some helper functions to output some pseudo-code for readability
+showBlock :: Block a -> [Char]
 showBlock (BlStatement _ _ mlab st)
     | null (str :: String) = ""
     | otherwise = showLab mlab ++ str ++ "\\l"
@@ -714,6 +731,7 @@ showBlock (BlDo _ _ mlab _ _ (Just spec) _ _) =
 showBlock (BlDo _ _ _ _ _ Nothing _ _) = "do"
 showBlock _ = ""
 
+showAttr :: Attribute a -> [Char]
 showAttr (AttrParameter _ _) = "parameter"
 showAttr (AttrPublic _ _) = "public"
 showAttr (AttrPrivate _ _) = "private"
@@ -730,9 +748,11 @@ showAttr (AttrPointer _ _) = "pointer"
 showAttr (AttrSave _ _) = "save"
 showAttr (AttrTarget _ _) = "target"
 
+showLab :: Maybe (Expression a) -> [Char]
 showLab Nothing = replicate 6 ' '
 showLab (Just (ExpValue _ _ (ValInteger l))) = ' ':l ++ replicate (5 - length l) ' '
 
+showValue :: Value a -> Name
 showValue (ValVariable v)       = v
 showValue (ValIntrinsic v)      = v
 showValue (ValInteger v)        = v
@@ -740,6 +760,7 @@ showValue (ValReal v)           = v
 showValue (ValComplex e1 e2)    = "( " ++ showExpr e1 ++ " , " ++ showExpr e2 ++ " )"
 showValue _                     = ""
 
+showExpr :: Expression a -> [Char]
 showExpr (ExpValue _ _ v)         = showValue v
 showExpr (ExpBinary _ _ op e1 e2) = "(" ++ showExpr e1 ++ showOp op ++ showExpr e2 ++ ")"
 showExpr (ExpUnary _ _ op e)      = "(" ++ showUOp op ++ showExpr e ++ ")"
@@ -747,25 +768,30 @@ showExpr (ExpSubscript _ _ e1 aexps) = showExpr e1 ++ "[" ++
                                        aIntercalate ", " showIndex aexps ++ "]"
 showExpr _                        = ""
 
+showIndex :: Index a -> [Char]
 showIndex (IxSingle _ _ _ i) = showExpr i
 showIndex (IxRange _ _ l u s) =
   maybe "" showExpr l ++ -- Lower
   ':' : maybe "" showExpr u ++ -- Upper
   maybe "" (\u -> ':' : showExpr u) s -- Stride
 
+showUOp :: UnaryOp -> [Char]
 showUOp Plus = "+"
 showUOp Minus = "-"
 showUOp Not = "!"
 
+showOp :: BinaryOp -> [Char]
 showOp Addition = " + "
 showOp Multiplication = " * "
 showOp Subtraction = " - "
 showOp Division = " / "
 showOp op = " ." ++ show op ++ ". "
 
-showType (TypeSpec _ _ t (Just s)) = showBaseType t ++ "(selector)" -- ++ show s
+showType :: TypeSpec a -> [Char]
+showType (TypeSpec _ _ t (Just _)) = showBaseType t ++ "(selector)" -- ++ show s
 showType (TypeSpec _ _ t Nothing)  = showBaseType t
 
+showBaseType :: BaseType -> [Char]
 showBaseType TypeInteger         = "integer"
 showBaseType TypeReal            = "real"
 showBaseType TypeDoublePrecision = "double"
@@ -775,6 +801,7 @@ showBaseType TypeLogical         = "logical"
 showBaseType TypeCharacter       = "character"
 showBaseType (TypeCustom s)      = s
 
+showDecl :: Declarator a -> [Char]
 showDecl (DeclArray _ _ e adims length initial) =
   showExpr e ++
     "(" ++ aIntercalate "," showDim adims ++ ")" ++
@@ -785,10 +812,13 @@ showDecl (DeclVariable _ _ e length initial) =
     maybe "" (\e -> "*" ++ showExpr e) length ++
     maybe "" (\e -> " = " ++ showExpr e) initial
 
+showDim :: DimensionDeclarator a -> [Char]
 showDim (DimensionDeclarator _ _ me1 me2) = maybe "" ((++":") . showExpr) me1 ++ maybe "" showExpr me2
 
+aIntercalate :: [a1] -> (t a2 -> [a1]) -> AList t a2 -> [a1]
 aIntercalate sep f = intercalate sep . map f . aStrip
 
+noSrcSpan :: SrcSpan
 noSrcSpan = SrcSpan initPosition initPosition
 
 --------------------------------------------------

@@ -45,8 +45,10 @@ overlay :: Doc -> Doc -> Doc
 overlay top bottom = text $ top' ++ drop (length top') (render bottom)
   where top' = render top
 
+fixedForm :: Maybe Int
 fixedForm = Just 6
 
+pprintAndRender :: IndentablePretty t => FortranVersion -> t -> Indentation -> String
 pprintAndRender v t i = render $ pprint v t i
 
 class IndentablePretty t where
@@ -118,7 +120,7 @@ instance IndentablePretty (ProgramUnit a) where
           ((case funcSpec of
             (Elemental _ _) -> "elemental"
             (Pure _ _ _) -> "pure"
-            otherwise -> empty) <+>
+            _ -> empty) <+>
           (if functionIsRecursive funcSpec then "recursive" else empty) <+>
           "subroutine" <+> text name <>
           lparen <?> pprint' v mArgs <?> rparen <> newline) <>
@@ -146,7 +148,7 @@ instance IndentablePretty (ProgramUnit a) where
           (case fSpec of
             (Elemental _ _) -> "elemental"
             (Pure _ _ _) -> "pure"
-            otherwise -> empty) <+>
+            _ -> empty) <+>
           (if functionIsRecursive fSpec then "recursive" else empty) <+>
           "function" <+> text name <>
           lparen <?> pprint' v mArgs <?> rparen <+>
@@ -299,7 +301,7 @@ class Pretty t where
     pprint' :: FortranVersion -> t -> Doc
 
 instance Pretty a => Pretty (Maybe a) where
-    pprint' v Nothing  = empty
+    pprint' _ Nothing  = empty
     pprint' v (Just e) = pprint' v e
 
 instance Pretty String where
@@ -309,14 +311,14 @@ instance Pretty (e a) => Pretty (AList e a) where
     pprint' v es = commaSep (map (pprint' v) (aStrip es))
 
 instance Pretty BaseType where
-    pprint' v TypeInteger = "integer"
-    pprint' v TypeReal    = "real"
-    pprint' v TypeDoublePrecision = "double precision"
-    pprint' v TypeComplex = "complex"
+    pprint' _ TypeInteger = "integer"
+    pprint' _ TypeReal    = "real"
+    pprint' _ TypeDoublePrecision = "double precision"
+    pprint' _ TypeComplex = "complex"
     pprint' v TypeDoubleComplex
       | v == Fortran77Extended = "double complex"
       | otherwise = tooOld v "Double complex" Fortran77Extended
-    pprint' v TypeLogical = "logical"
+    pprint' _ TypeLogical = "logical"
     pprint' v TypeCharacter
       | v >= Fortran77 = "character"
       | otherwise = tooOld v "Character data type" Fortran77
@@ -357,7 +359,7 @@ instance Pretty (Selector a) where
       kind e = "kind=" <> pprint' Fortran90 e
 
 instance Pretty (Statement a) where
-    pprint' v st@(StDeclaration _ s typeSpec mAttrList declList)
+    pprint' v (StDeclaration _ _ typeSpec mAttrList declList)
       | v < Fortran90 = pprint' v typeSpec <+> pprint' v declList
       | v >= Fortran90 =
           pprint' v typeSpec <>
@@ -366,7 +368,7 @@ instance Pretty (Statement a) where
           text "::" <+>
           pprint' v declList
 
-    pprint' v st@(StStructure _ _ mName itemList)
+    pprint' v (StStructure _ _ mName itemList)
       | v /= Fortran77Extended = tooOld v "Structure" Fortran77Extended
       | otherwise =
           "structure" <> (if isJust mName then " /" <> pprint' v mName <> "/" else empty) <> newline <>
@@ -452,7 +454,7 @@ instance Pretty (Statement a) where
 
     pprint' v (StInclude _ _ file _) = "include" <+> pprint' v file
 
-    pprint' v (StDo _ s mConstructor mLabel mDoSpec)
+    pprint' v (StDo _ _ mConstructor mLabel mDoSpec)
       | v < Fortran90
       , Just _ <- mConstructor = tooOld v "Named DO block" Fortran90
       | v < Fortran77Extended
@@ -473,7 +475,7 @@ instance Pretty (Statement a) where
     pprint' v (StEnddo _ _ mConstructor)
       | v < Fortran77Extended = tooOld v "End do" Fortran77Extended
       | v < Fortran90
-      , name <- mConstructor = tooOld v "Named DO loop" Fortran90
+      , _ <- mConstructor = tooOld v "Named DO loop" Fortran90
       | otherwise = "end do" <+> pprint' v mConstructor
 
     pprint' v (StExpressionAssign _ _ lhs rhs) =
@@ -567,7 +569,7 @@ instance Pretty (Statement a) where
 
     pprint' v (StCall _ _ name args) = pprint' v name <+> parens (pprint' v args)
 
-    pprint' v (StContinue _ _) = "continue"
+    pprint' _ (StContinue _ _) = "continue"
 
     pprint' v (StReturn _ _ exp) = "return" <+> pprint' v exp
 
@@ -577,7 +579,7 @@ instance Pretty (Statement a) where
 
     pprint' v (StRead _ _ cilist mIolist) =
       "read" <+> parens (pprint' v cilist) <+> pprint' v mIolist
-    pprint' v (StRead2 _ s formatId mIolist) =
+    pprint' v (StRead2 _ _ formatId mIolist) =
       "read" <+> pprint' v formatId <> comma <?+> pprint' v mIolist
 
     pprint' v (StWrite _ _ cilist mIolist) =
@@ -658,8 +660,8 @@ instance Pretty (Statement a) where
     pprint' v (StFormatBogus _ _ blob) = "format" <+> pprint' v blob
 
 instance Pretty Only where
-    pprint' v Exclusive = "only" <> colon
-    pprint' v Permissive = empty
+    pprint' _ Exclusive = "only" <> colon
+    pprint' _ Permissive = empty
 
 instance Pretty (Use a) where
     pprint' v use
@@ -670,7 +672,7 @@ instance Pretty (Use a) where
       | v < Fortran90 = tooOld v "Module system" Fortran90
 
 instance Pretty (Argument a) where
-    pprint' v (Argument _ s key e) =
+    pprint' v (Argument _ _ key e) =
        case key of
          Just keyName -> text keyName <+> char '=' <+> pprint' v e
          Nothing      -> pprint' v e
@@ -727,7 +729,7 @@ instance Pretty (ControlPair a) where
       | v >= Fortran77
       , Just str <- mStr = text str <> char '=' <> pprint' v exp
       | v < Fortran77
-      , Just str <- mStr = tooOld v "Named control pair" Fortran77
+      , Just _ <- mStr = tooOld v "Named control pair" Fortran77
       | otherwise = pprint' v exp
 
 instance Pretty (ImpList a) where
@@ -747,68 +749,68 @@ instance Pretty (DataGroup a) where
       pprint' v vars <> char '/' <> pprint' v exps <> char '/'
 
 instance Pretty (ImpElement a) where
-    pprint' v (ImpCharacter _ _ c) = text c
-    pprint' v (ImpRange _ _ beg end) = text beg <> "-" <> text end
+    pprint' _ (ImpCharacter _ _ c) = text c
+    pprint' _ (ImpRange _ _ beg end) = text beg <> "-" <> text end
 
 instance Pretty (Expression a) where
-    pprint' v (ExpValue _ s val)  =
+    pprint' v (ExpValue _ _ val)  =
          pprint' v val
 
-    pprint' v (ExpBinary _ s op e1 e2) =
+    pprint' v (ExpBinary _ _ op e1 e2) =
         parens (pprint' v e1 <+> pprint' v op <+> pprint' v e2)
 
-    pprint' v (ExpUnary _ s op e) =
+    pprint' v (ExpUnary _ _ op e) =
         pprint' v op <+> pprint' v e
 
-    pprint' v (ExpSubscript _ s e ixs) =
+    pprint' v (ExpSubscript _ _ e ixs) =
         pprint' v e <> parens (pprint' v ixs)
 
-    pprint' v (ExpDataRef _ s e1 e2) =
+    pprint' v (ExpDataRef _ _ e1 e2) =
         pprint' v e1 <+> char '%' <+> pprint' v e2
 
-    pprint' v (ExpFunctionCall _ s e mes) =
+    pprint' v (ExpFunctionCall _ _ e mes) =
         pprint' v e <> parens (pprint' v mes)
 
-    pprint' v (ExpImpliedDo _ s es dospec) =
+    pprint' v (ExpImpliedDo _ _ es dospec) =
         pprint' v es <> comma <+> pprint' v dospec
 
-    pprint' v (ExpInitialisation _ s es) =
+    pprint' v (ExpInitialisation _ _ es) =
         "(/" <> pprint' v es <> "/)"
 
-    pprint' v (ExpReturnSpec _ s e) =
+    pprint' v (ExpReturnSpec _ _ e) =
         char '*' <> pprint' v e
 
 instance Pretty (Index a) where
-    pprint' v (IxSingle _ s Nothing e) = pprint' v e
+    pprint' v (IxSingle _ _ Nothing e) = pprint' v e
     -- This is an intermediate expression form which shouldn't make it
     -- to the pretty printer
-    pprint' v (IxSingle _ s (Just _) e) = pprint' v e
-    pprint' v (IxRange _ s low up stride) =
+    pprint' v (IxSingle _ _ (Just _) e) = pprint' v e
+    pprint' v (IxRange _ _ low up stride) =
        pprint' v low <> colon <> pprint' v up <> colon <?> pprint' v stride
 
 -- A subset of Value permit the 'FirstParameter' operation
 instance FirstParameter (Value a) String
 instance Pretty (Value a) where
-    pprint' v ValStar       = char '*'
+    pprint' _ ValStar       = char '*'
     pprint' v ValAssignment
       | v >= Fortran90 = "assignment (=)"
       -- TODO better error message is needed. Assignment is too vague.
-      | otherwise = tooOld v "Asiggnment" Fortran90
+      | otherwise = tooOld v "Assignment" Fortran90
     pprint' v (ValOperator op)
       | v >= Fortran90 = "operator" <+> parens (text op)
       -- TODO better error message is needed. Operator is too vague.
       | otherwise = tooOld v "Operator" Fortran90
     pprint' v (ValComplex e1 e2) = parens $ commaSep [pprint' v e1, pprint' v e2]
-    pprint' v (ValString str) = quotes $ text str
-    pprint' v valLit = text . getFirstParameter $ valLit
+    pprint' _ (ValString str) = quotes $ text str
+    pprint' _ valLit = text . getFirstParameter $ valLit
 
 instance IndentablePretty (StructureItem a) where
-  pprint v (StructFields a s spec mAttrs decls) i = pprint' v (StDeclaration a s spec mAttrs decls)
+  pprint v (StructFields a s spec mAttrs decls) _ = pprint' v (StDeclaration a s spec mAttrs decls)
   pprint v (StructUnion _ _ maps) i =
     "union" <> newline <>
     foldl' (\doc item -> doc <> pprint v item (incIndentation i) <> newline) empty (aStrip maps) <>
     "end union"
-  pprint v (StructStructure a s mName items) i = pprint' v (StStructure a s mName items)
+  pprint v (StructStructure a s mName items) _ = pprint' v (StStructure a s mName items)
 
 instance IndentablePretty (UnionMap a) where
   pprint v (UnionMap _ _ items) i =
@@ -881,9 +883,9 @@ instance Pretty BinaryOp where
     pprint' v GTE = if v <= Fortran77Extended then ".ge." else ">="
     pprint' v EQ  = if v <= Fortran77Extended then ".eq." else "=="
     pprint' v NE  = if v <= Fortran77Extended then ".ne." else "/="
-    pprint' v Or  = ".or."
-    pprint' v XOr = ".xor."
-    pprint' v And = ".and."
+    pprint' _ Or  = ".or."
+    pprint' _ XOr = ".xor."
+    pprint' _ And = ".and."
     pprint' v Equivalent
       | v >= Fortran77 = ".eqv."
       | otherwise = tooOld v ".EQV. operator" Fortran77

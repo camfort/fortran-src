@@ -51,7 +51,7 @@ collectNonForallBlocks :: ABlocks a -> Maybe String
                              , Maybe (Expression (Analysis a)) )
 collectNonForallBlocks blocks mNameTarget =
   case blocks of
-    b@(BlStatement _ _ mLabel (StEndForall _ _ mName)):rest
+    (BlStatement _ _ mLabel (StEndForall _ _ mName)):rest
       | mName == mNameTarget -> ([], rest, mLabel)
       | otherwise ->
         error "Forall block name does not match that of the end statement."
@@ -120,7 +120,7 @@ decomposeIf :: ABlocks a
                  [ ABlocks a ],
                  ABlocks a,
                  Maybe (Expression (Analysis a)) )
-decomposeIf blocks@(BlStatement _ _ _ (StIfThen _ _ mTargetName _):rest) =
+decomposeIf blocks@(BlStatement _ _ _ (StIfThen _ _ mTargetName _):_) =
     decomposeIf' blocks
   where
     decomposeIf' (BlStatement _ _ mLabel st:rest) =
@@ -151,7 +151,7 @@ collectNonConditionalBlocks blocks =
     -- conditional directives. The reason is that this block can be
     -- a branch target if it is labeled according to the specification, hence
     -- it is presence in the parse tree is meaningful.
-    b@(BlStatement _ _ _ StEndif{}):_ -> ([], blocks)
+    (BlStatement _ _ _ StEndif{}):_ -> ([], blocks)
     -- Catch all case for all non-if related blocks.
     b:bs -> let (bs', rest) = collectNonConditionalBlocks bs in (b : bs', rest)
     -- In this case the structured if block is malformed and the file ends
@@ -167,7 +167,7 @@ groupDo = genericGroup groupDo'
 
 groupDo' :: ABlocks a -> ABlocks a
 groupDo' [ ] = [ ]
-groupDo' blocks@(b:bs) = b' : bs'
+groupDo' (b:bs) = b' : bs'
   where
     (b', bs') = case b of
       BlStatement a s label st
@@ -194,7 +194,7 @@ collectNonDoBlocks :: ABlocks a -> Maybe String
                       , Maybe (Expression (Analysis a)) )
 collectNonDoBlocks blocks mNameTarget =
   case blocks of
-    b@(BlStatement _ _ mLabel (StEnddo _ _ mName)):rest
+    (BlStatement _ _ mLabel (StEnddo _ _ mName)):rest
       | mName == mNameTarget -> ([ ], rest, mLabel)
       | otherwise ->
           error "Do block name does not match that of the end statement."
@@ -212,7 +212,7 @@ groupLabeledDo = genericGroup groupLabeledDo'
 
 groupLabeledDo' :: ABlocks a -> ABlocks a
 groupLabeledDo' [ ] = [ ]
-groupLabeledDo' blos@(b:bs) = b' : bs'
+groupLabeledDo' (b:bs) = b' : bs'
   where
     (b', bs') = case b of
       BlStatement a s label
@@ -287,7 +287,7 @@ decomposeCase :: ABlocks a -> Maybe String
                  , [ ABlocks a ]
                  , ABlocks a
                  , Maybe (Expression (Analysis a)) )
-decomposeCase blocks@(BlStatement _ _ mLabel st:rest) mTargetName =
+decomposeCase (BlStatement _ _ mLabel st:rest) mTargetName =
     case st of
       StCase _ _ mName mCondition
         | Nothing <- mName -> go mCondition rest
@@ -311,7 +311,7 @@ decomposeCase blocks@(BlStatement _ _ mLabel st:rest) mTargetName =
 collectNonCaseBlocks :: ABlocks a -> (ABlocks a, ABlocks a)
 collectNonCaseBlocks blocks =
   case blocks of
-    b@(BlStatement _ _ _ st):_
+    (BlStatement _ _ _ st):_
       | StCase{} <- st -> ( [], blocks )
       | StEndcase{} <- st -> ( [], blocks )
     -- In this case case block is malformed and the file ends prematurely.

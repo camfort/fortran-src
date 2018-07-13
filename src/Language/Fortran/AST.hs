@@ -84,7 +84,9 @@ data MetaInfo = MetaInfo { miVersion :: FortranVersion, miFilename :: String }
 data ProgramFile a = ProgramFile MetaInfo [ ProgramUnit a ]
   deriving (Eq, Show, Data, Typeable, Generic, Functor)
 
+pfSetFilename :: String -> ProgramFile a -> ProgramFile a
 pfSetFilename fn (ProgramFile mi pus) = ProgramFile (mi { miFilename = fn }) pus
+pfGetFilename :: ProgramFile a -> String
 pfGetFilename (ProgramFile mi _) = miFilename mi
 
 data ProgramUnit a =
@@ -161,15 +163,15 @@ programUnitBody (PUBlockData _ _ _ bs)           = bs
 programUnitBody (PUComment {})                   = []
 
 updateProgramUnitBody :: ProgramUnit a -> [Block a] -> ProgramUnit a
-updateProgramUnitBody (PUMain a s n bs pu)   bs' =
+updateProgramUnitBody (PUMain a s n _ pu)   bs' =
     PUMain a s n bs' pu
-updateProgramUnitBody (PUModule a s n bs pu) bs' =
+updateProgramUnitBody (PUModule a s n _ pu) bs' =
     PUModule a s n bs' pu
-updateProgramUnitBody (PUSubroutine a s f n args bs pu) bs' =
+updateProgramUnitBody (PUSubroutine a s f n args _ pu) bs' =
     PUSubroutine a s f n args bs' pu
-updateProgramUnitBody (PUFunction a s t f n args res bs pu) bs' =
+updateProgramUnitBody (PUFunction a s t f n args res _ pu) bs' =
     PUFunction a s t f n args res bs' pu
-updateProgramUnitBody (PUBlockData a s n bs) bs' =
+updateProgramUnitBody (PUBlockData a s n _) bs' =
     PUBlockData a s n bs'
 updateProgramUnitBody p@(PUComment {}) _ = p
 
@@ -674,7 +676,7 @@ instance {-# OVERLAPPING #-} (Spanned a, Spanned b, Spanned c) => Spanned (Maybe
   setSpan _ = undefined
 
 instance {-# OVERLAPPABLE #-} (Spanned a, Spanned b, Spanned c) => Spanned (a, b, c) where
-  getSpan (x,y,z) = getTransSpan x z
+  getSpan (x,_,z) = getTransSpan x z
   setSpan _ = undefined
 
 class (Spanned a, Spanned b) => SpannedPair a b where
@@ -723,7 +725,7 @@ instance Labeled Block where
   setLabel (BlIf a s _ mn conds bs el) l = BlIf a s (Just l) mn conds bs el
   setLabel (BlDo a s _ mn tl spec bs el) l = BlDo a s (Just l) mn tl spec bs el
   setLabel (BlDoWhile a s _ n tl spec bs el) l = BlDoWhile a s (Just l) n tl spec bs el
-  setLabel b l = b
+  setLabel b _ = b
 
 class Conditioned f where
   getCondition :: f a -> Maybe (Expression a)
@@ -808,7 +810,7 @@ instance Out a => Out (ForallHeader a)
 -- Classifiers on statement and blocks ASTs
 
 nonExecutableStatement :: FortranVersion -> Statement a -> Bool
-nonExecutableStatement v s = case s of
+nonExecutableStatement _ s = case s of
     StIntent {}      -> True
     StOptional {}    -> True
     StPublic {}      -> True
@@ -847,9 +849,9 @@ executableStatement v s = not $ nonExecutableStatement v s
 
 executableStatementBlock :: FortranVersion -> Block a -> Bool
 executableStatementBlock v (BlStatement _ _ _ s) = executableStatement v s
-executableStatementBlock v _ = False
+executableStatementBlock _ _ = False
 
 nonExecutableStatementBlock :: FortranVersion -> Block a -> Bool
 nonExecutableStatementBlock v (BlStatement _ _ _ s) = nonExecutableStatement v s
-nonExecutableStatementBlock v BlInterface{} = True
-nonExecutableStatementBlock v _ = False
+nonExecutableStatementBlock _ BlInterface{} = True
+nonExecutableStatementBlock _ _ = False

@@ -77,12 +77,13 @@ instance Show b => Show (ParseError a b) where
     where
       lastTokenMsg = tokenMsg (errLastToken err)
 
+tokenMsg :: Show a => Maybe a -> [Char]
 tokenMsg (Just a) = "Last parsed token: " ++ show a ++ "."
 tokenMsg Nothing = "No token had been lexed."
 
 instance Functor (ParseResult b c) where
     fmap f (ParseOk a s) = ParseOk (f a) s
-    fmap f (ParseFailed err) = ParseFailed err
+    fmap _ (ParseFailed err) = ParseFailed err
 
 instance (Typeable a, Typeable b, Show a, Show b) => Exception (ParseError a b)
 
@@ -221,6 +222,7 @@ decPar = do
 -- Generic token collection and functions
 -------------------------------------------------------------------------------
 
+throwIOerror :: String -> a
 throwIOerror s = throw $
   IOError { ioe_handle      = Nothing
           , ioe_type        = UserError

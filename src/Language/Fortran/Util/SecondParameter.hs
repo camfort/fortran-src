@@ -63,7 +63,7 @@ instance GSecondParameter' a e => GSecondParameter' (a :*: b) e where
 
 instance {-# OVERLAPPING #-} GSecondParameter' (K1 i e) e where
   getSecondParameter'' (K1 a) = a
-  setSecondParameter'' e (K1 a) = K1 e
+  setSecondParameter'' e (K1 _) = K1 e
 
 instance {-# OVERLAPPABLE #-} GSecondParameter' (K1 i a) e where
   getSecondParameter'' _ = undefined

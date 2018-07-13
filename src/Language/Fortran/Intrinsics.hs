@@ -19,11 +19,13 @@ data IntrinsicType = ITReal | ITInteger | ITComplex | ITDouble | ITLogical | ITC
 data IntrinsicsEntry = IEntry { iType :: IntrinsicType, iDefsUses :: ([Int], [Int]) }
   deriving (Show, Eq, Ord, Typeable, Generic)
 
+mkIEntry :: IntrinsicType -> ([Int], [Int]) -> IntrinsicsEntry
 mkIEntry ty du = IEntry ty du
 
 type IntrinsicsTable = M.Map String IntrinsicsEntry
 
 -- Main table of Fortran intrinsics by version
+fortranVersionIntrinsics :: [(FortranVersion, IntrinsicsTable)]
 fortranVersionIntrinsics =
   [ (Fortran66, fortran77intrinsics) -- FIXME: find list of original '66 intrinsics
   , (Fortran77, fortran77intrinsics)
@@ -48,10 +50,15 @@ isIntrinsic = M.member
 allIntrinsics :: IntrinsicsTable
 allIntrinsics = M.unions (map snd fortranVersionIntrinsics)
 
+func1 :: ([Int], [Int])
 func1 = ([0],[1])
+func2 :: ([Int], [Int])
 func2 = ([0],[1,2])
+func3 :: ([Int], [Int])
 func3 = ([0],[1,2,3])
+func4 :: ([Int], [Int])
 func4 = ([0],[1,2,3,4])
+funcN :: ([Int], [Int])
 funcN = func2 -- FIXME: implement arbitrary-# parameter functions
 
 -- | name => (return-unit, parameter-units)

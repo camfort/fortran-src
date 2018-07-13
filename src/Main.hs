@@ -46,6 +46,7 @@ import Control.Monad
 import Text.Printf
 import Data.List
 
+programName :: [Char]
 programName = "fortran-src"
 
 main :: IO ()
@@ -142,6 +143,7 @@ decodeModFiles = foldM (\ modFiles d -> do
       return $ addedModFiles ++ modFiles
     ) emptyModFiles
 
+isModFile :: FilePath -> Bool
 isModFile = (== modFileSuffix) . takeExtension
 
 superGraphDataFlow :: forall a. (Out a, Data a) => ProgramFile (Analysis a) -> SuperBBGr (Analysis a) -> String
@@ -218,6 +220,7 @@ data Options = Options
   , outputFormat    :: OutputFormat
   , includeDirs     :: [String] }
 
+initOptions :: Options
 initOptions = Options Nothing Parse Default []
 
 options :: [OptDescr (Options -> Options)]

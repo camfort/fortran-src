@@ -85,7 +85,7 @@ intrinsicsExp _                            = return ()
 intrinsicsHelper nexp | isNamedExpression nexp = do
   itab <- gets intrinsics
   case getIntrinsicReturnType (srcName nexp) itab of
-    Just itype -> do
+    Just _ -> do
       let n = varName nexp
       recordCType CTIntrinsic n
       -- recordBaseType _  n -- FIXME: going to skip base types for the moment
@@ -146,7 +146,7 @@ statement (StExpressionAssign _ _ (ExpSubscript _ _ v ixAList) _)
     let n = varName v
     mIDType <- getRecordedType n
     case mIDType of
-      Just (IDType mBT (Just CTArray)) -> return ()                -- do nothing, it's already known to be an array
+      Just (IDType _ (Just CTArray)) -> return ()                -- do nothing, it's already known to be an array
       _                                -> recordCType CTFunction n -- assume it's a function statement
 
 -- FIXME: if StFunctions can only be identified after types analysis
@@ -174,6 +174,7 @@ annotateProgramUnit pu                        = return pu
 --------------------------------------------------
 -- Monadic helper combinators.
 
+inferState0 :: FortranVersion -> InferState
 inferState0 v = InferState { environ = M.empty, entryPoints = M.empty, langVersion = v, intrinsics = getVersionIntrinsics v }
 runInfer :: FortranVersion -> TypeEnv -> State InferState a -> (a, InferState)
 runInfer v env = flip runState ((inferState0 v) { environ = env })
@@ -232,15 +233,19 @@ allStatements = universeBi
 allExpressions :: (Data a, Data (f (Analysis a))) => UniFunc f Expression a
 allExpressions = universeBi
 
+isAttrDimension :: Attribute a -> Bool
 isAttrDimension (AttrDimension {}) = True
 isAttrDimension _                  = False
 
+isAttrParameter :: Attribute a -> Bool
 isAttrParameter (AttrParameter {}) = True
 isAttrParameter _                  = False
 
+isAttrExternal :: Attribute a -> Bool
 isAttrExternal (AttrExternal {}) = True
 isAttrExternal _                 = False
 
+isIxSingle :: Index a -> Bool
 isIxSingle (IxSingle {}) = True
 isIxSingle _             = False
 

@@ -93,9 +93,9 @@ unrename pf = trPU fPU . trE fE $ pf
     trPU :: Data a => (ProgramUnit (Analysis a) -> ProgramUnit (Analysis a)) -> ProgramFile (Analysis a) -> ProgramFile (Analysis a)
     trPU = transformBi
     fPU :: Data a => ProgramUnit (Analysis a) -> ProgramUnit (Analysis a)
-    fPU (PUFunction a s ty r n args res b subs)
+    fPU (PUFunction a s ty r _ args res b subs)
       | Just srcN <- sourceName a = PUFunction a s ty r srcN args res b subs
-    fPU (PUSubroutine a s r n args b subs)
+    fPU (PUSubroutine a s r _ args b subs)
       | Just srcN <- sourceName a = PUSubroutine a s r srcN args b subs
     fPU           pu              = pu
 
@@ -181,6 +181,7 @@ expression = renameExp
 -- transformations.
 
 -- Initial monad state.
+renameState0 :: FortranVersion -> RenameState
 renameState0 v = RenameState { langVersion = v
                              , intrinsics  = getVersionIntrinsics v
                              , scopeStack  = []
@@ -189,6 +190,7 @@ renameState0 v = RenameState { langVersion = v
                              , moduleMap   = empty }
 
 -- Run the monad.
+runRenamer :: State a b -> a -> (b, a)
 runRenamer m = runState m
 
 -- Get a freshly generated number.
@@ -205,11 +207,14 @@ uniquify scope var = do
   n <- getUniqNum
   return $ scope ++ "_" ++ var ++ show n
 
+isModule :: ProgramUnit a -> Bool
 isModule (PUModule {}) = True; isModule _             = False
 
+isUseStatement :: Block a -> Bool
 isUseStatement (BlStatement _ _ _ (StUse _ _ (ExpValue _ _ (ValVariable _)) _ _)) = True
 isUseStatement _                                                                  = False
 
+isUseID :: Use a -> Bool
 isUseID (UseID {}) = True; isUseID _ = False
 
 -- Generate an initial environment for a scope based upon any Use
