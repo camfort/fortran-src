@@ -50,7 +50,7 @@ dominators :: BBGr a -> DomMap
 dominators gr = IM.map snd $ dataFlowSolver gr init revPostOrder inn out
   where
     nodeSet   = IS.fromList $ nodes gr
-    init n    = (nodeSet, nodeSet)
+    init _    = (nodeSet, nodeSet)
 
     inn outF n
       | preNodes@(_:_) <- pre gr n = foldl1' IS.intersection . map outF $ preNodes
@@ -352,8 +352,13 @@ tc g = newEdges `insEdges` insNodes ln empty
 -- leave it alone for now.
 
 -- conservative assumption: stay within bounds of signed 32-bit integer
-minConst = -2 ^ 31 :: Integer
-maxConst = 2 ^ 31 - 1 :: Integer
+minConst :: Integer
+minConst = -2 ^ 31
+
+maxConst :: Integer
+maxConst = 2 ^ 31 - 1
+
+inBounds :: Integer -> Bool
 inBounds x = minConst <= x && x <= maxConst
 
 -- | Evaluate possible constant expressions within tree.
@@ -386,10 +391,10 @@ genConstExpMap pf = ceMap
       [ (varName v, getE e)
       | st@(StDeclaration _ _ (TypeSpec _ _ TypeInteger _) _ _) <- universeBi pf :: [Statement (Analysis a)]
       , AttrParameter _ _ <- universeBi st :: [Attribute (Analysis a)]
-      , d@(DeclVariable _ _ v _ (Just e)) <- universeBi st ] ++
+      , (DeclVariable _ _ v _ (Just e)) <- universeBi st ] ++
       [ (varName v, getE e)
       | st@(StParameter _ _ _) <- universeBi pf :: [Statement (Analysis a)]
-      , d@(DeclVariable _ _ v _ (Just e)) <- universeBi st ]
+      , (DeclVariable _ _ v _ (Just e)) <- universeBi st ]
     getV :: Expression (Analysis a) -> Maybe Constant
     getV = join . flip M.lookup pvMap . varName
 
@@ -516,9 +521,16 @@ type DerivedInductionMap = IM.IntMap InductionExpr
 data IEFlow = IEFlow { ieFlowVars :: M.Map Name InductionExpr, ieFlowExprs :: DerivedInductionMap }
   deriving (Show, Eq, Ord, Typeable, Generic, Data)
 
+ieFlowInsertVar :: Name -> InductionExpr -> IEFlow -> IEFlow
 ieFlowInsertVar v ie flow = flow { ieFlowVars = M.insert v ie (ieFlowVars flow) }
+
+ieFlowInsertExpr :: IS.Key -> InductionExpr -> IEFlow -> IEFlow
 ieFlowInsertExpr i ie flow = flow { ieFlowExprs = IM.insert i ie (ieFlowExprs flow) }
+
+emptyIEFlow :: IEFlow
 emptyIEFlow = IEFlow M.empty IM.empty
+
+joinIEFlows :: [IEFlow] -> IEFlow
 joinIEFlows flows = IEFlow flowV flowE
   where
     flowV = M.unionsWith joinInductionExprs (map ieFlowVars flows)
@@ -536,7 +548,7 @@ genDerivedInductionMap bedges gr = ieFlowExprs . joinIEFlows . map snd . IM.elem
     step :: IEFlow -> Block (Analysis a) -> IEFlow
     step flow b = case b of
       BlStatement _ _ _ (StExpressionAssign _ _ lv@(ExpValue _ _ (ValVariable _)) rhs)
-        | rhsLabel <- insLabel (getAnnotation rhs)
+        | _ <- insLabel (getAnnotation rhs)
         , flow''   <- ieFlowInsertVar (varName lv) (derivedInductionExpr flow' rhs) flow' -> stepExpr flow'' lv
       _ -> flow'
       where
@@ -584,8 +596,8 @@ addInductionExprs (IELinear ln lc lo) (IELinear rn rc ro)
   | lc == 0                 = IELinear rn rc (lo + ro)
   | rc == 0                 = IELinear ln lc (lo + ro)
   | otherwise               = IEBottom -- maybe for future...
-addInductionExprs ie1 IETop = IETop
-addInductionExprs IETop ie2 = IETop
+addInductionExprs _ IETop = IETop
+addInductionExprs IETop _ = IETop
 addInductionExprs _ _       = IEBottom
 
 -- Negate an induction variable relationship.
@@ -596,8 +608,8 @@ negInductionExpr _                = IEBottom
 
 -- Combine two induction variable relationships through multiplication.
 mulInductionExprs :: InductionExpr -> InductionExpr -> InductionExpr
-mulInductionExprs (IELinear "" lc lo) (IELinear rn rc ro) = IELinear rn (rc * lo) (ro * lo)
-mulInductionExprs (IELinear ln lc lo) (IELinear "" rc ro) = IELinear ln (lc * ro) (lo * ro)
+mulInductionExprs (IELinear "" _ lo) (IELinear rn rc ro) = IELinear rn (rc * lo) (ro * lo)
+mulInductionExprs (IELinear ln lc lo) (IELinear "" _ ro) = IELinear ln (lc * ro) (lo * ro)
 mulInductionExprs _ IETop                                 = IETop
 mulInductionExprs IETop _                                 = IETop
 mulInductionExprs _ _                                     = IEBottom
@@ -682,6 +694,7 @@ converge p (x:ys@(y:_))
   | p x y     = y
   | otherwise = converge p ys
 
+fromJustMsg :: [Char] -> Maybe a -> a
 fromJustMsg _ (Just x) = x
 fromJustMsg msg _      = error msg
 

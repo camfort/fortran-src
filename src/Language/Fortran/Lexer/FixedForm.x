@@ -279,7 +279,7 @@ implicitTypeExtendedP :: FortranVersion -> AlexInput -> Int -> AlexInput -> Bool
 implicitTypeExtendedP fv b c d = extended77P fv b c d && implicitStP fv b c d
 
 implicitStP :: FortranVersion -> AlexInput -> Int -> AlexInput -> Bool
-implicitStP fv _ _ ai = checkPreviousTokensInLine f ai
+implicitStP _ _ _ ai = checkPreviousTokensInLine f ai
   where
     f (TImplicit _) = True
     f _ = False
@@ -357,10 +357,10 @@ functionP fv _ _ ai = "function" == (reverse . lexemeMatch . aiLexeme $ ai) &&
         _ -> return False
 
 hollerithP :: FortranVersion -> AlexInput -> Int -> AlexInput -> Bool
-hollerithP fv _ _ ai = isDigit (lookBack 2 ai)
+hollerithP _ _ _ ai = isDigit (lookBack 2 ai)
 
 notToP :: FortranVersion -> AlexInput -> Int -> AlexInput -> Bool
-notToP fv _ _ ai = not $ "to" `isPrefixOf` (reverse . lexemeMatch . aiLexeme $ ai)
+notToP _ _ _ ai = not $ "to" `isPrefixOf` (reverse . lexemeMatch . aiLexeme $ ai)
 
 equalFollowsP :: FortranVersion -> AlexInput -> Bool
 equalFollowsP fv ai =
@@ -421,7 +421,7 @@ commentP _ aiOld _ aiNew = atColP 1 aiOld && _endsWithLine
     _endsWithLine = (posColumn . aiPosition) aiNew /= 1
 
 bangCommentP :: FortranVersion -> AlexInput -> Int -> AlexInput -> Bool
-bangCommentP fv aiOld i aiNew = _endsWithLine
+bangCommentP _ _ _ aiNew = _endsWithLine
   where
     _endsWithLine = (posColumn . aiPosition) aiNew /= 1
 
@@ -635,13 +635,13 @@ strAutomaton c 1 = do
         strAutomaton c 0
       else strAutomaton c 2
     Nothing -> strAutomaton c 2
-strAutomaton c 2 = do
+strAutomaton _ 2 = do
   s <- getLexemeSpan
   m <- getMatch
   resetWhiteSensitiveCharCount
   setCaseInsensitive
   return $ Just $ TString s $ (init . tail) m
-strAutomaton c 3 = fail "Unmatched string."
+strAutomaton _ 3 = fail "Unmatched string."
 
 lexHollerith :: LexAction (Maybe Token)
 lexHollerith = do
@@ -665,7 +665,7 @@ lexN n = do
   then return $ Just match'
   else
     case alexGetByte alex of
-      Just (w, newAlex) | fromIntegral w == ord '\n' -> do
+      Just (w, _) | fromIntegral w == ord '\n' -> do
         return . Just $! pad match'
       Just (_, newAlex) -> do
         putAlex newAlex
@@ -1081,7 +1081,7 @@ lexer' = do
       parseState <- get
       fail $ psFilename parseState ++ ": lexing failed. "
     AlexSkip newAlex _ -> putAlex newAlex >> lexer'
-    AlexToken newAlex startCode action -> do
+    AlexToken newAlex _ action -> do
       putAlex newAlex
       maybeToken <- action
       case maybeToken of

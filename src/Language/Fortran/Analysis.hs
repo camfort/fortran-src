@@ -128,6 +128,7 @@ instance Out (Analysis a) where
             , ("idType: ", fmap show (idType a)) ]
   docPrec _ = doc
 
+analysis0 :: a -> Analysis a
 analysis0 a = Analysis { prevAnnotation = a
                        , uniqueName     = Nothing
                        , sourceName     = Nothing
@@ -304,7 +305,7 @@ computeAllLhsVars = concatMap lhsOfStmt . universeBi
     match v@(ExpValue _ _ (ValVariable {})) = [varName v]
     match (ExpSubscript _ _ v@(ExpValue _ _ (ValVariable {})) _) = [varName v]
     match (ExpDataRef _ _ e _) = match e
-    match e = []
+    match _ = []
 
 -- | Set of expressions used -- not defined -- by an AST-block.
 blockRhsExprs :: Data a => Block a -> [Expression a]
@@ -352,7 +353,7 @@ blockVarUses b                             = allVars b
 
 -- | Set of names defined by an AST-block.
 blockVarDefs :: Data a => Block (Analysis a) -> [Name]
-blockVarDefs b@(BlStatement _ _ _ st) = allLhsVars b
+blockVarDefs b@(BlStatement{}) = allLhsVars b
 blockVarDefs (BlDo _ _ _ _ _ (Just doSpec) _ _)  = allLhsVarsDoSpec doSpec
 blockVarDefs _                      = []
 
