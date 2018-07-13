@@ -3,7 +3,7 @@ module Language.Fortran.Transformation.TransformMonad
   , putProgramFile
   , modifyProgramFile
   , runTransform
-  , Transform(..) )
+  , Transform)
 
 where
 

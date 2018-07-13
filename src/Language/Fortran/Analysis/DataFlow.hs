@@ -33,7 +33,6 @@ import qualified Data.Set as S
 import qualified Data.IntSet as IS
 import Data.Graph.Inductive hiding (trc, dom)
 import Data.Graph.Inductive.PatriciaTree (Gr)
-import Data.Graph.Inductive.Query.BFS (bfen)
 import Data.Maybe
 import Data.List (foldl', foldl1', (\\), union, intersect)
 

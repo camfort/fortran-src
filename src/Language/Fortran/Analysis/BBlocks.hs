@@ -22,6 +22,7 @@ import Data.Graph.Inductive
 import Data.Graph.Inductive.PatriciaTree (Gr)
 import Data.List (intercalate)
 import Data.Maybe
+import Data.Functor.Identity
 
 --------------------------------------------------
 
@@ -457,6 +458,7 @@ closeBBlock = do
   modify $ \ st -> st { bbGraph = insNode (n, reverse (curBB st)) (bbGraph st), curBB = [] }
   n' <- genBBlock
   return (n, n')
+closeBBlock_ :: StateT (BBState a) Identity ()
 closeBBlock_ = closeBBlock >> return ()
 
 -- Starts up a new bblock.

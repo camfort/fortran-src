@@ -21,7 +21,7 @@ import Language.Fortran.ParserMonad (FortranVersion(..))
 import Prelude hiding (lookup)
 import Data.Maybe (maybe, fromMaybe)
 import qualified Data.List as L
-import Data.Map (insert, union, empty, lookup, Map, fromList)
+import Data.Map (insert, empty, lookup, Map)
 import qualified Data.Map.Strict as M
 import Control.Monad.State.Strict
 import Data.Generics.Uniplate.Data
