@@ -624,7 +624,7 @@ genSuperBBGr bbm = SuperBBGr { graph = superGraph'', clusters = cmap, entries = 
                    insEdges [ (0, m, l) | (_, m, l) <- out superGraph' mainEntry ] .
                    insNode (0, []) $ superGraph'
 
-fromJustMsg :: [Char] -> Maybe a -> a
+fromJustMsg :: String -> Maybe a -> a
 fromJustMsg _ (Just x) = x
 fromJustMsg msg _      = error msg
 
@@ -703,7 +703,7 @@ showPUName (NamelessBlockData) = ".blockdata."
 showPUName (NamelessMain) = ".main."
 
 -- Some helper functions to output some pseudo-code for readability
-showBlock :: Block a -> [Char]
+showBlock :: Block a -> String
 showBlock (BlStatement _ _ mlab st)
     | null (str :: String) = ""
     | otherwise = showLab mlab ++ str ++ "\\l"
@@ -733,7 +733,7 @@ showBlock (BlDo _ _ mlab _ _ (Just spec) _ _) =
 showBlock (BlDo _ _ _ _ _ Nothing _ _) = "do"
 showBlock _ = ""
 
-showAttr :: Attribute a -> [Char]
+showAttr :: Attribute a -> String
 showAttr (AttrParameter _ _) = "parameter"
 showAttr (AttrPublic _ _) = "public"
 showAttr (AttrPrivate _ _) = "private"
@@ -750,7 +750,7 @@ showAttr (AttrPointer _ _) = "pointer"
 showAttr (AttrSave _ _) = "save"
 showAttr (AttrTarget _ _) = "target"
 
-showLab :: Maybe (Expression a) -> [Char]
+showLab :: Maybe (Expression a) -> String
 showLab Nothing = replicate 6 ' '
 showLab (Just (ExpValue _ _ (ValInteger l))) = ' ':l ++ replicate (5 - length l) ' '
 
@@ -762,7 +762,7 @@ showValue (ValReal v)           = v
 showValue (ValComplex e1 e2)    = "( " ++ showExpr e1 ++ " , " ++ showExpr e2 ++ " )"
 showValue _                     = ""
 
-showExpr :: Expression a -> [Char]
+showExpr :: Expression a -> String
 showExpr (ExpValue _ _ v)         = showValue v
 showExpr (ExpBinary _ _ op e1 e2) = "(" ++ showExpr e1 ++ showOp op ++ showExpr e2 ++ ")"
 showExpr (ExpUnary _ _ op e)      = "(" ++ showUOp op ++ showExpr e ++ ")"
@@ -770,30 +770,30 @@ showExpr (ExpSubscript _ _ e1 aexps) = showExpr e1 ++ "[" ++
                                        aIntercalate ", " showIndex aexps ++ "]"
 showExpr _                        = ""
 
-showIndex :: Index a -> [Char]
+showIndex :: Index a -> String
 showIndex (IxSingle _ _ _ i) = showExpr i
 showIndex (IxRange _ _ l u s) =
   maybe "" showExpr l ++ -- Lower
   ':' : maybe "" showExpr u ++ -- Upper
   maybe "" (\u -> ':' : showExpr u) s -- Stride
 
-showUOp :: UnaryOp -> [Char]
+showUOp :: UnaryOp -> String
 showUOp Plus = "+"
 showUOp Minus = "-"
 showUOp Not = "!"
 
-showOp :: BinaryOp -> [Char]
+showOp :: BinaryOp -> String
 showOp Addition = " + "
 showOp Multiplication = " * "
 showOp Subtraction = " - "
 showOp Division = " / "
 showOp op = " ." ++ show op ++ ". "
 
-showType :: TypeSpec a -> [Char]
+showType :: TypeSpec a -> String
 showType (TypeSpec _ _ t (Just _)) = showBaseType t ++ "(selector)" -- ++ show s
 showType (TypeSpec _ _ t Nothing)  = showBaseType t
 
-showBaseType :: BaseType -> [Char]
+showBaseType :: BaseType -> String
 showBaseType TypeInteger         = "integer"
 showBaseType TypeReal            = "real"
 showBaseType TypeDoublePrecision = "double"
@@ -803,7 +803,7 @@ showBaseType TypeLogical         = "logical"
 showBaseType TypeCharacter       = "character"
 showBaseType (TypeCustom s)      = s
 
-showDecl :: Declarator a -> [Char]
+showDecl :: Declarator a -> String
 showDecl (DeclArray _ _ e adims length initial) =
   showExpr e ++
     "(" ++ aIntercalate "," showDim adims ++ ")" ++
@@ -814,7 +814,7 @@ showDecl (DeclVariable _ _ e length initial) =
     maybe "" (\e -> "*" ++ showExpr e) length ++
     maybe "" (\e -> " = " ++ showExpr e) initial
 
-showDim :: DimensionDeclarator a -> [Char]
+showDim :: DimensionDeclarator a -> String
 showDim (DimensionDeclarator _ _ me1 me2) = maybe "" ((++":") . showExpr) me1 ++ maybe "" showExpr me2
 
 aIntercalate :: [a1] -> (t a2 -> [a1]) -> AList t a2 -> [a1]

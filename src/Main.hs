@@ -46,7 +46,7 @@ import Control.Monad
 import Text.Printf
 import Data.List
 
-programName :: [Char]
+programName :: String
 programName = "fortran-src"
 
 main :: IO ()

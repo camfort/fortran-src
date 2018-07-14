@@ -77,7 +77,7 @@ instance Show b => Show (ParseError a b) where
     where
       lastTokenMsg = tokenMsg (errLastToken err)
 
-tokenMsg :: Show a => Maybe a -> [Char]
+tokenMsg :: Show a => Maybe a -> String
 tokenMsg (Just a) = "Last parsed token: " ++ show a ++ "."
 tokenMsg Nothing = "No token had been lexed."
 
