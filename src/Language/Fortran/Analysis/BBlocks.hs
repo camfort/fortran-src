@@ -517,7 +517,7 @@ processFunctionCall (ExpFunctionCall a s fn@(ExpValue a' s' _) aargs) = do
   let formal (ExpValue _ s (ValVariable _)) i = setName n $ ExpValue a0 s (ValVariable n)
         where n = name i
       formal e i                              = setName n $ ExpValue a0 s (ValVariable n)
-        where a = getAnnotation e; s = getSpan e; n = name i
+        where s = getSpan e; n = name i
   forM_ (zip exps [1..]) $ \ (e, i) -> do
     addToBBlock . analyseAllLhsVars1 $ BlStatement a0 s Nothing (StExpressionAssign a' s' (formal e i) e)
   (_, dummyCallN) <- closeBBlock
