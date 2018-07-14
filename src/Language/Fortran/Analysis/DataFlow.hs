@@ -120,20 +120,6 @@ dataFlowSolver gr initF order inF outF = converge (==) $ iterate step initM
     step m   = IM.fromList [ (n, (inF (snd . get m) n, outF (fst . get m) n)) | n <- ordNodes ]
     get m n  = fromJustMsg ("dataFlowSolver: get " ++ show (n)) $ IM.lookup n m
 
--- | Apply the iterative dataflow analysis method.
-dataFlowSolver' :: Ord t => BBGr a            -- ^ basic block graph
-                        -> (Node -> InOut t) -- ^ initialisation for in and out dataflows
-                        -> OrderF a          -- ^ ordering function
-                        -> (OutF t -> InF t) -- ^ compute the in-flow given an out-flow function
-                        -> (InF t -> OutF t) -- ^ compute the out-flow given an in-flow function
-                        -> [InOutMap t]        -- ^ dataflow steps
-dataFlowSolver' gr initF order inF outF = iterate step initM
-  where
-    ordNodes = order gr
-    initM    = IM.fromList [ (n, initF n) | n <- ordNodes ]
-    step m   = IM.fromList [ (n, (inF (snd . get m) n, outF (fst . get m) n)) | n <- ordNodes ]
-    get m n  = fromJustMsg ("dataFlowSolver': get " ++ show (n)) $ IM.lookup n m
-
 --------------------------------------------------
 
 -- | BlockMap : AST-block label -> AST-block
@@ -187,13 +173,6 @@ bblockGen :: Data a => [Block (Analysis a)] -> S.Set Name
 bblockGen bs = S.fromList . fst . foldl' f ([], []) $ zip (map blockGen bs) (map blockKill bs)
   where
     f (bbgen, bbkill) (gen, kill) = ((gen \\ bbkill) `union` bbgen, kill `union` bbkill)
-
--- | Iterate "GEN" set through a single basic block.
--- attempt to make this faster using sets internally (no obvious speedup though)
-bblockGenFast :: Data a => [Block (Analysis a)] -> S.Set Name
-bblockGenFast bs = fst . foldl' f (S.empty, S.empty) $ zip (map (S.fromList . blockGen) bs) (map (S.fromList . blockKill) bs)
-  where
-    f (bbgen, bbkill) (gen, kill) = ((gen S.\\ bbkill) `S.union` bbgen, kill `S.union` bbkill)
 
 -- | "KILL" set for a single AST-block.
 blockKill :: Data a => Block (Analysis a) -> [Name]
@@ -327,18 +306,6 @@ genVarFlowsToMap dm fg = M.fromListWith S.union [ (conv u, sconv v) | (u, v) <- 
            | otherwise                    = error $ "genVarFlowsToMap: convert failed, i=" ++ show i
     -- planning to make revDM a surjection, after I flatten-out Fortran functions
     revDM = IM.fromListWith (curry fst) [ (i, v) | (v, is) <- M.toList dm, i <- IS.toList is ]
-
-{-|
-Finds the transitive closure of a directed graph.
-Given a graph G=(V,E), its transitive closure is the graph:
-G* = (V,E*) where E*={(i,j): i,j in V and there is a path from i to j in G}
--}
-tc :: (DynGraph gr) => gr a b -> gr a ()
-tc g = newEdges `insEdges` insNodes ln empty
-  where
-    ln       = labNodes g
-    newEdges = [ toLEdge (u, v) () | (u, _) <- ln, (_, v) <- bfen (outU g u) g ]
-    outU gr  = map toEdge . out gr
 
 --------------------------------------------------
 
