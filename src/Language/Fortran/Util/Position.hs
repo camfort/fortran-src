@@ -67,7 +67,7 @@ class Spanned a where
   setSpan :: SrcSpan -> a -> a
 
   default getSpan :: (SecondParameter a SrcSpan) => a -> SrcSpan
-  getSpan a = getSecondParameter a
+  getSpan = getSecondParameter
 
   default setSpan :: (SecondParameter a SrcSpan) => SrcSpan -> a -> a
-  setSpan e a = setSecondParameter e a
+  setSpan = setSecondParameter

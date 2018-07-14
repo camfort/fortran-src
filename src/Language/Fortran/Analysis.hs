@@ -147,28 +147,28 @@ isNamedExpression _                               = False
 
 -- | Obtain either uniqueName or source name from an ExpValue variable.
 varName :: Expression (Analysis a) -> String
-varName (ExpValue (Analysis { uniqueName = Just n }) _ (ValVariable {}))  = n
-varName (ExpValue (Analysis { sourceName = Just n }) _ (ValVariable {}))  = n
-varName (ExpValue _ _ (ValVariable n))                                    = n
-varName (ExpValue (Analysis { uniqueName = Just n }) _ (ValIntrinsic {})) = n
-varName (ExpValue (Analysis { sourceName = Just n }) _ (ValIntrinsic {})) = n
-varName (ExpValue _ _ (ValIntrinsic n))                                   = n
-varName _                                                                 = error "Use of varName on non-variable."
+varName (ExpValue Analysis { uniqueName = Just n } _ ValVariable{})  = n
+varName (ExpValue Analysis { sourceName = Just n } _ ValVariable{})  = n
+varName (ExpValue _ _ (ValVariable n))                               = n
+varName (ExpValue Analysis { uniqueName = Just n } _ ValIntrinsic{}) = n
+varName (ExpValue Analysis { sourceName = Just n } _ ValIntrinsic{}) = n
+varName (ExpValue _ _ (ValIntrinsic n))                              = n
+varName _                                                            = error "Use of varName on non-variable."
 
 -- | Obtain the source name from an ExpValue variable.
 srcName :: Expression (Analysis a) -> String
-srcName (ExpValue (Analysis { sourceName = Just n }) _ (ValVariable {}))  = n
-srcName (ExpValue _ _ (ValVariable n))                                    = n
-srcName (ExpValue (Analysis { sourceName = Just n }) _ (ValIntrinsic {})) = n
-srcName (ExpValue _ _ (ValIntrinsic n))                                   = n
-srcName _                                                                 = error "Use of srcName on non-variable."
+srcName (ExpValue Analysis { sourceName = Just n } _ ValVariable{})  = n
+srcName (ExpValue _ _ (ValVariable n))                               = n
+srcName (ExpValue Analysis { sourceName = Just n } _ ValIntrinsic{}) = n
+srcName (ExpValue _ _ (ValIntrinsic n))                              = n
+srcName _                                                            = error "Use of srcName on non-variable."
 
 -- | Obtain either uniqueName or source name from an LvSimpleVar variable.
 lvVarName :: LValue (Analysis a) -> String
-lvVarName (LvSimpleVar (Analysis { uniqueName = Just n }) _ _)  = n
-lvVarName (LvSimpleVar (Analysis { sourceName = Just n }) _ _)  = n
-lvVarName (LvSimpleVar _ _ n)                                   = n
-lvVarName _                                                     = error "Use of lvVarName on non-variable."
+lvVarName (LvSimpleVar Analysis { uniqueName = Just n } _ _)  = n
+lvVarName (LvSimpleVar Analysis { sourceName = Just n } _ _)  = n
+lvVarName (LvSimpleVar _ _ n)                                 = n
+lvVarName _                                                   = error "Use of lvVarName on non-variable."
 
 -- | Obtain the source name from an LvSimpleVar variable.
 lvSrcName :: LValue (Analysis a) -> String
@@ -234,9 +234,9 @@ rhsExprs x = concat [ blockRhsExprs b | b <- universeBi x ]
 
 -- | Is this an expression capable of assignment?
 isLExpr :: Expression a -> Bool
-isLExpr (ExpValue _ _ (ValVariable {}))  = True
-isLExpr (ExpSubscript _ _ _ _)           = True
-isLExpr _                                = False
+isLExpr (ExpValue _ _ ValVariable {}) = True
+isLExpr ExpSubscript{}                = True
+isLExpr _                             = False
 
 -- | Set of names found in an AST node.
 allVars :: forall a b. (Data a, Data (b (Analysis a))) => b (Analysis a) -> [Name]
@@ -258,10 +258,10 @@ analyseAllLhsVars1 x = modifyAnnotation (\ a -> a { allLhsVarsAnn = computeAllLh
 -- an assignment statement.
 -- allLhsVars :: (Annotated b, Data a, Data (b (Analysis a))) => b (Analysis a) -> [Name]
 allLhsVars :: Data a => Block (Analysis a) -> [Name]
-allLhsVars x = allLhsVarsAnn . getAnnotation $ x
+allLhsVars = allLhsVarsAnn . getAnnotation
 
 allLhsVarsDoSpec :: Data a => DoSpecification (Analysis a) -> [Name]
-allLhsVarsDoSpec x = computeAllLhsVars x
+allLhsVarsDoSpec = computeAllLhsVars
 
 -- | Set of names found in the parts of an AST that are the target of
 -- an assignment statement.
@@ -290,22 +290,22 @@ computeAllLhsVars = concatMap lhsOfStmt . universeBi
     extractExp (Argument _ _ _ exp) = exp
 
     -- Match and give the varname for LHS of statement
-    match' v@(ExpValue _ _ (ValVariable {})) = varName v
-    match' (ExpSubscript _ _ v@(ExpValue _ _ (ValVariable {})) _) = varName v
+    match' v@(ExpValue _ _ ValVariable{}) = varName v
+    match' (ExpSubscript _ _ v@(ExpValue _ _ ValVariable{}) _) = varName v
     match' (ExpDataRef _ _ v _) = match' v
     match' e = error $ "An unexpected LHS to an expression assign: " ++ show (fmap (const ()) e)
 
     -- Match and give the varname of LHSes which occur in subroutine calls
-    match'' v@(ExpValue _ _ (ValVariable {})) = [varName v]
-    match'' (ExpSubscript _ _ v@(ExpValue _ _ (ValVariable {})) _) = [varName v]
-    match'' (ExpDataRef _ _ v _) = match'' v
-    match'' e = onExprs e
+    match'' v@(ExpValue _ _ ValVariable{})                      = [varName v]
+    match'' (ExpSubscript _ _ v@(ExpValue _ _ ValVariable{}) _) = [varName v]
+    match'' (ExpDataRef _ _ v _)                                = match'' v
+    match'' e                                                   = onExprs e
 
    -- Match and give the varname of LHSes which occur in function calls
-    match v@(ExpValue _ _ (ValVariable {})) = [varName v]
-    match (ExpSubscript _ _ v@(ExpValue _ _ (ValVariable {})) _) = [varName v]
-    match (ExpDataRef _ _ e _) = match e
-    match _ = []
+    match v@(ExpValue _ _ ValVariable{})                      = [varName v]
+    match (ExpSubscript _ _ v@(ExpValue _ _ ValVariable{}) _) = [varName v]
+    match (ExpDataRef _ _ e _)                                = match e
+    match _                                                   = []
 
 -- | Set of expressions used -- not defined -- by an AST-block.
 blockRhsExprs :: Data a => Block a -> [Expression a]
@@ -322,11 +322,11 @@ statementRhsExprs :: Data a => Statement a -> [Expression a]
 statementRhsExprs (StExpressionAssign _ _ lhs rhs)
  | ExpSubscript _ _ _ subs <- lhs = universeBi rhs ++ universeBi subs
  | otherwise                      = universeBi rhs
-statementRhsExprs (StDeclaration {}) = []
+statementRhsExprs StDeclaration{} = []
 statementRhsExprs (StIfLogical _ _ _ s) = statementRhsExprs s
-statementRhsExprs (StDo _ _ _ l s) = (universeBi l) ++ doSpecRhsExprs s
+statementRhsExprs (StDo _ _ _ l s) = universeBi l ++ doSpecRhsExprs s
   where doSpecRhsExprs (Just (DoSpecification _ _ s e1 e2)) =
-           (e1 : (universeBi e2)) ++ statementRhsExprs s
+           (e1 : universeBi e2) ++ statementRhsExprs s
         doSpecRhsExprs Nothing = []
 statementRhsExprs s = universeBi s
 
@@ -338,7 +338,7 @@ blockVarUses (BlStatement _ _ _ (StExpressionAssign _ _ lhs rhs))
 blockVarUses (BlDo _ _ _ _ _ (Just (DoSpecification _ _ (StExpressionAssign _ _ lhs rhs) e1 e2)) _ _)
   | ExpSubscript _ _ _ subs <- lhs = allVars rhs ++ allVars e1 ++ maybe [] allVars e2 ++ concatMap allVars (aStrip subs)
   | otherwise                      = allVars rhs ++ allVars e1 ++ maybe [] allVars e2
-blockVarUses (BlStatement _ _ _ st@(StDeclaration {})) = concat [ rhsOfDecls d | d <- universeBi st ]
+blockVarUses (BlStatement _ _ _ st@StDeclaration{}) = concat [ rhsOfDecls d | d <- universeBi st ]
   where
     rhsOfDecls :: Data a => Declarator (Analysis a) -> [Name]
     rhsOfDecls (DeclVariable _ _ _ _ (Just e)) = allVars e
@@ -353,7 +353,7 @@ blockVarUses b                             = allVars b
 
 -- | Set of names defined by an AST-block.
 blockVarDefs :: Data a => Block (Analysis a) -> [Name]
-blockVarDefs b@(BlStatement{}) = allLhsVars b
+blockVarDefs b@BlStatement{} = allLhsVars b
 blockVarDefs (BlDo _ _ _ _ _ (Just doSpec) _ _)  = allLhsVarsDoSpec doSpec
 blockVarDefs _                      = []
 

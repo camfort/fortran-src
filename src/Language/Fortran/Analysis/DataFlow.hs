@@ -118,7 +118,7 @@ dataFlowSolver gr initF order inF outF = converge (==) $ iterate step initM
     ordNodes = order gr
     initM    = IM.fromList [ (n, initF n) | n <- ordNodes ]
     step m   = IM.fromList [ (n, (inF (snd . get m) n, outF (fst . get m) n)) | n <- ordNodes ]
-    get m n  = fromJustMsg ("dataFlowSolver: get " ++ show (n)) $ IM.lookup n m
+    get m n  = fromJustMsg ("dataFlowSolver: get " ++ show n) $ IM.lookup n m
 
 --------------------------------------------------
 
@@ -254,7 +254,7 @@ genDUMap bm dm gr rdefs = IM.unionsWith IS.union duMaps
         gen b | null (allLhsVars b) = IS.empty
               | otherwise           = IS.singleton . fromJustMsg "genDUMap" . insLabel . getAnnotation $ b
         kill   = rdDefs dm
-        inSet' = (inSet IS.\\ (kill b)) `IS.union` (gen b)
+        inSet' = (inSet IS.\\ kill b) `IS.union` gen b
 
 -- | UDMap : use -> { definition }
 type UDMap = IM.IntMap IS.IntSet
@@ -359,7 +359,7 @@ genConstExpMap pf = ceMap
       , AttrParameter _ _ <- universeBi st :: [Attribute (Analysis a)]
       , (DeclVariable _ _ v _ (Just e)) <- universeBi st ] ++
       [ (varName v, getE e)
-      | st@(StParameter _ _ _) <- universeBi pf :: [Statement (Analysis a)]
+      | st@StParameter{} <- universeBi pf :: [Statement (Analysis a)]
       , (DeclVariable _ _ v _ (Just e)) <- universeBi st ]
     getV :: Expression (Analysis a) -> Maybe Constant
     getV = join . flip M.lookup pvMap . varName
@@ -393,9 +393,9 @@ analyseConstExps pf = pf'
     insertConstExp e = flip modifyAnnotation e $ \ a ->
       a { constExp = join (flip IM.lookup ceMap =<< insLabel (getAnnotation e)) }
     -- utility functions for transforming expressions tucked away inside of the basic block graph
-    transformBB :: (BBGr (Analysis a) -> (BBGr (Analysis a))) -> ProgramFile (Analysis a) -> (ProgramFile (Analysis a))
+    transformBB :: (BBGr (Analysis a) -> BBGr (Analysis a)) -> ProgramFile (Analysis a) -> ProgramFile (Analysis a)
     transformBB = transformBi
-    transformExpr :: (Expression (Analysis a) -> (Expression (Analysis a))) ->
+    transformExpr :: (Expression (Analysis a) -> Expression (Analysis a)) ->
                      [Block (Analysis a)] -> [Block (Analysis a)]
     transformExpr = transformBi
 
@@ -410,7 +410,7 @@ type BackEdgeMap = IM.IntMap Node
 genBackEdgeMap :: Graph gr => DomMap -> gr a b -> BackEdgeMap
 genBackEdgeMap domMap = IM.fromList . filter isBackEdge . edges
   where
-    isBackEdge (s, t) = t `IS.member` (fromJustMsg "genBackEdgeMap" $ s `IM.lookup` domMap)
+    isBackEdge (s, t) = t `IS.member` fromJustMsg "genBackEdgeMap" (s `IM.lookup` domMap)
 
 -- | For each loop in the program, find out which bblock nodes are
 -- part of the loop by looking through the backedges (m, n) where n is
@@ -450,7 +450,7 @@ basicInductionVars :: Data a => BackEdgeMap -> BBGr (Analysis a) -> InductionVar
 basicInductionVars bedges gr = IM.fromListWith S.union [
     (n, S.singleton v) | (_, n)      <- IM.toList bedges
                        , let Just bs = lab gr n
-                       , b@(BlDo {}) <- bs
+                       , b@BlDo{} <- bs
                        , v           <- blockVarDefs b
   ]
 
@@ -594,7 +594,7 @@ joinInductionExprs ie1 ie2
 showDataFlow :: (Data a, Out a, Show a) => ProgramFile (Analysis a) -> String
 showDataFlow pf = perPU =<< uni pf
   where
-    uni = (universeBi :: Data a => ProgramFile (Analysis a) -> [ProgramUnit (Analysis a)])
+    uni = universeBi :: Data a => ProgramFile (Analysis a) -> [ProgramUnit (Analysis a)]
     perPU pu | Analysis { bBlocks = Just gr } <- getAnnotation pu =
       dashes ++ "\n" ++ p ++ "\n" ++ dashes ++ "\n" ++ dfStr gr ++ "\n\n"
       where p = "| Program Unit " ++ show (puName pu) ++ " |"
@@ -640,7 +640,7 @@ type CallMap = M.Map ProgramUnitName (S.Set Name)
 -- | Create a call map showing the structure of the program.
 genCallMap :: Data a => ProgramFile (Analysis a) -> CallMap
 genCallMap pf = flip execState M.empty $ do
-  let uP = (universeBi :: Data a => ProgramFile a -> [ProgramUnit a])
+  let uP = universeBi :: Data a => ProgramFile a -> [ProgramUnit a]
   forM_ (uP pf) $ \ pu -> do
     let n = puName pu
     let uS :: Data a => ProgramUnit a -> [Statement a]
@@ -648,8 +648,8 @@ genCallMap pf = flip execState M.empty $ do
     let uE :: Data a => ProgramUnit a -> [Expression a]
         uE = universeBi
     m <- get
-    let ns = [ varName v | StCall _ _ v@(ExpValue _ _ _) _          <- uS pu ] ++
-             [ varName v | ExpFunctionCall _ _ v@(ExpValue _ _ _) _ <- uE pu ]
+    let ns = [ varName v | StCall _ _ v@ExpValue{} _          <- uS pu ] ++
+             [ varName v | ExpFunctionCall _ _ v@ExpValue{} _ <- uE pu ]
     put $ M.insert n (S.fromList ns) m
 
 --------------------------------------------------

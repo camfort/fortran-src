@@ -52,7 +52,7 @@ parserWithModFilesVersions =
   , (Fortran95, \m s -> fromParseResult . fortran95ParserWithModFiles m s) ]
 
 after :: (b -> c) -> (t -> a -> b) -> t -> a -> c
-after g f x = g . (f x)
+after g f x = g . f x
 
 -- | Deduce the type of parser from the filename and parse the
 -- contents of the file.

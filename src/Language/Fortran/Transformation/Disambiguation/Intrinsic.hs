@@ -15,7 +15,7 @@ import Language.Fortran.Transformation.TransformMonad
 disambiguateIntrinsic :: Data a => Transform a ()
 disambiguateIntrinsic = modifyProgramFile (trans expression)
   where
-    trans = (transformBi :: Data a => TransFunc Expression ProgramFile a)
+    trans = transformBi :: Data a => TransFunc Expression ProgramFile a
     expression (ExpValue a s (ValVariable v))
       | Just (IDType _ (Just CTIntrinsic)) <- idType a = ExpValue a s (ValIntrinsic v)
     expression e                                      = e

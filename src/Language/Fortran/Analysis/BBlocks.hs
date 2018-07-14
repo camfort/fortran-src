@@ -51,12 +51,12 @@ genBBlockMap pf = M.fromList [
 
 -- Insert unique labels on each AST-block for easier look-up later.
 labelBlocks :: Data a => ProgramFile (Analysis a) -> State Int (ProgramFile (Analysis a))
-labelBlocks gr = transform eachBlock gr
+labelBlocks = transform eachBlock
   where
     eachBlock :: Data a => Block (Analysis a) -> State Int (Block (Analysis a))
     eachBlock b = do
       n <- get
-      put $ (n + 1)
+      put (n + 1)
       return . labelWithinBlocks $ setAnnotation ((getAnnotation b) { insLabel = Just n }) b
     transform :: Data a => TransFuncM (State Int) Block ProgramFile a
     transform = transformBiM
@@ -67,7 +67,7 @@ labelBlocks gr = transform eachBlock gr
 -- additional AST-blocks are generated within the process of creating
 -- basic-block graphs, and must also be labelled.
 labelBlocksInBBGr :: Data a => ProgramFile (Analysis a) -> State Int (ProgramFile (Analysis a))
-labelBlocksInBBGr pf = transform (nmapM' (mapM eachBlock)) pf
+labelBlocksInBBGr = transform (nmapM' (mapM eachBlock))
   where
     eachBlock :: Data a => Block (Analysis a) -> State Int (Block (Analysis a))
     eachBlock b
@@ -113,12 +113,12 @@ labelWithinBlocks = perBlock
 
 -- Insert unique labels on each expression for easier look-up later.
 labelExprs :: Data a => ProgramFile (Analysis a) -> State Int (ProgramFile (Analysis a))
-labelExprs gr = transform eachExpr gr
+labelExprs = transform eachExpr
   where
     eachExpr :: Data a => Expression (Analysis a) -> State Int (Expression (Analysis a))
     eachExpr e = do
       n <- get
-      put $ (n + 1)
+      put (n + 1)
       return $ setAnnotation ((getAnnotation e) { insLabel = Just n }) e
     transform :: Data a => TransFuncM (State Int) Expression ProgramFile a
     transform = transformBiM
@@ -129,7 +129,7 @@ labelExprs gr = transform eachExpr gr
 -- additional expressions are generated within the process of creating
 -- basic-block graphs, and must also be labelled.
 labelExprsInBBGr :: Data a => ProgramFile (Analysis a) -> State Int (ProgramFile (Analysis a))
-labelExprsInBBGr pf = transformBB (nmapM' (transformExpr eachExpr)) pf
+labelExprsInBBGr = transformBB (nmapM' (transformExpr eachExpr))
   where
     eachExpr :: Data a => Expression (Analysis a) -> State Int (Expression (Analysis a))
     eachExpr e
@@ -176,8 +176,8 @@ insEntryEdges pu = insEdge (0, 1, ()) . insNode (0, bs)
 -- entry/exit bblocks.
 genInOutAssignments :: Data a => ProgramUnit (Analysis a) -> Bool -> [Block (Analysis a)]
 genInOutAssignments pu exit
-  | exit, PUFunction _ _ _ _ _ _ _ _ _ <- pu = zipWith genAssign (genVar a0 noSrcSpan fn:vs) [0..]
-  | otherwise                                = zipWith genAssign vs [1..]
+  | exit, PUFunction{} <- pu = zipWith genAssign (genVar a0 noSrcSpan fn:vs) [0..]
+  | otherwise                = zipWith genAssign vs [1..]
   where
     Named fn      = puName pu
     name i        = fn ++ "[" ++ show i ++ "]"
@@ -221,7 +221,7 @@ examineFinalBlock lm bs@(_:_)
   | BlStatement _ _ _ (StGotoUnconditional _ _ k) <- last bs = [lookupBBlock lm k]
   | BlStatement _ _ _ (StGotoAssigned _ _ _ ks)   <- last bs = map (lookupBBlock lm) (maybe [] aStrip ks)
   | BlStatement _ _ _ (StGotoComputed _ _ ks _)   <- last bs = map (lookupBBlock lm) (aStrip ks)
-  | BlStatement _ _ _ (StReturn _ _ _)            <- last bs = [-1]
+  | BlStatement _ _ _ StReturn{}            <- last bs = [-1]
   | BlStatement _ _ _ (StIfArithmetic _ _ _ k1 k2 k3) <- last bs =
       [lookupBBlock lm k1, lookupBBlock lm k2, lookupBBlock lm k3]
 examineFinalBlock _ _                                        = [-1]
@@ -229,11 +229,11 @@ examineFinalBlock _ _                                        = [-1]
 -- True iff the final block in the list is an explicit control transfer.
 isFinalBlockCtrlXfer :: [Block a] -> Bool
 isFinalBlockCtrlXfer bs@(_:_)
-  | BlStatement _ _ _ (StGotoUnconditional {}) <- last bs = True
-  | BlStatement _ _ _ (StGotoAssigned {})      <- last bs = True
-  | BlStatement _ _ _ (StGotoComputed {})      <- last bs = True
-  | BlStatement _ _ _ (StReturn {})            <- last bs = True
-  | BlStatement _ _ _ (StIfArithmetic {})      <- last bs = True
+  | BlStatement _ _ _ StGotoUnconditional{} <- last bs = True
+  | BlStatement _ _ _ StGotoAssigned{}      <- last bs = True
+  | BlStatement _ _ _ StGotoComputed{}      <- last bs = True
+  | BlStatement _ _ _ StReturn{}            <- last bs = True
+  | BlStatement _ _ _ StIfArithmetic{}      <- last bs = True
 isFinalBlockCtrlXfer _                                    = False
 
 lookupBBlock :: Num a1 => M.Map String a1 -> Expression a2 -> a1
@@ -355,7 +355,7 @@ perBlock b@(BlStatement a ss _ (StIfLogical _ _ exp stm)) = do
   nxtN <- genBBlock
   createEdges [(ifN, thenN, ()), (ifN, nxtN, ()), (thenN, nxtN, ())]
 
-perBlock b@(BlStatement _ _ _ (StIfArithmetic {})) =
+perBlock b@(BlStatement _ _ _ StIfArithmetic{}) =
   -- Treat an arithmetic if similarly to a goto
   processLabel b >> addToBBlock b >> closeBBlock_
 perBlock b@(BlDo _ _ _ _ _ (Just spec) bs _) = do
@@ -366,17 +366,17 @@ perBlock b@(BlDo _ _ _ _ _ (Just spec) bs _) = do
   perDoBlock Nothing b bs
 perBlock b@(BlDo _ _ _ _ _ Nothing bs _) = perDoBlock Nothing b bs
 perBlock b@(BlDoWhile _ _ _ _ _ exp bs _) = perDoBlock (Just exp) b bs
-perBlock b@(BlStatement _ _ _ (StReturn {})) =
+perBlock b@(BlStatement _ _ _ StReturn{}) =
   processLabel b >> addToBBlock b >> closeBBlock_
-perBlock b@(BlStatement _ _ _ (StGotoUnconditional {})) =
+perBlock b@(BlStatement _ _ _ StGotoUnconditional{}) =
   processLabel b >> addToBBlock b >> closeBBlock_
-perBlock b@(BlStatement _ _ _ (StCall _ _ (ExpValue _ _ _) Nothing)) = do
+perBlock b@(BlStatement _ _ _ (StCall _ _ ExpValue{} Nothing)) = do
   (prevN, callN) <- closeBBlock
   -- put StCall in a bblock by itself
   addToBBlock b
   (_, nextN) <- closeBBlock
   createEdges [ (prevN, callN, ()), (callN, nextN, ()) ]
-perBlock (BlStatement a s l (StCall a' s' cn@(ExpValue _ _ _) (Just aargs))) = do
+perBlock (BlStatement a s l (StCall a' s' cn@ExpValue{} (Just aargs))) = do
   let exps = map extractExp . aStrip $ aargs
   (prevN, formalN) <- closeBBlock
 
@@ -518,7 +518,7 @@ processFunctionCall (ExpFunctionCall a s fn@(ExpValue a' s' _) aargs) = do
         where n = name i
       formal e i                              = setName n $ ExpValue a0 s (ValVariable n)
         where s = getSpan e; n = name i
-  forM_ (zip exps [1..]) $ \ (e, i) -> do
+  forM_ (zip exps [1..]) $ \ (e, i) ->
     addToBBlock . analyseAllLhsVars1 $ BlStatement a0 s Nothing (StExpressionAssign a' s' (formal e i) e)
   (_, dummyCallN) <- closeBBlock
 
@@ -601,7 +601,7 @@ genSuperBBGr bbm = SuperBBGr { graph = superGraph'', clusters = cmap, entries = 
     -- Assumption: all StCalls appear by themselves in a bblock.
     stCalls      :: [(SuperNode, String)]
     stCalls      = [ (getSuperNode n, sub) | (n, [BlStatement _ _ _ (StCall _ _ e _)]) <- namedNodes
-                                           , v@(ExpValue _ _ _)                        <- [e]
+                                           , v@ExpValue{}                              <- [e]
                                            , let sub = varName v
                                            , Named sub `M.member` entryMap && Named sub `M.member` exitMap ]
     stCallCtxts  :: [([SuperEdge], SuperNode, String, [SuperEdge])]
@@ -687,9 +687,9 @@ bbgrToDOT' clusters gr = execWriter $ do
     let mname = IM.lookup n clusters
     case mname of Just name -> do tell $ "subgraph \"cluster " ++ showPUName name ++ "\" {\n"
                                   tell $ "label=\"" ++ showPUName name ++ "\"\n"
-                                  tell $ "fontname=\"Courier New\"\nfontsize=24\n"
+                                  tell "fontname=\"Courier New\"\nfontsize=24\n"
                   _         -> return ()
-    tell $ "bb" ++ show n ++ "[label=\"" ++ show n ++ "\\l" ++ (concatMap showBlock bs) ++ "\"]\n"
+    tell $ "bb" ++ show n ++ "[label=\"" ++ show n ++ "\\l" ++ concatMap showBlock bs ++ "\"]\n"
     when (null bs) . tell $ "bb" ++ show n ++ "[shape=circle]\n"
     tell $ "bb" ++ show n ++ " -> {"
     forM (suc gr n) $ \ m -> tell (" bb" ++ show m)
@@ -699,8 +699,8 @@ bbgrToDOT' clusters gr = execWriter $ do
 
 showPUName :: ProgramUnitName -> String
 showPUName (Named n) = n
-showPUName (NamelessBlockData) = ".blockdata."
-showPUName (NamelessMain) = ".main."
+showPUName NamelessBlockData = ".blockdata."
+showPUName NamelessMain = ".main."
 
 -- Some helper functions to output some pseudo-code for readability
 showBlock :: Block a -> String
@@ -830,7 +830,7 @@ noSrcSpan = SrcSpan initPosition initPosition
 ufoldM' :: (Graph gr, Monad m) => (Context a b -> c -> m c) -> c -> gr a b -> m c
 ufoldM' f u g
   | isEmpty g = return u
-  | otherwise = f c =<< (ufoldM' f u g')
+  | otherwise = f c =<< ufoldM' f u g'
   where
     (c,g') = matchAny g
 

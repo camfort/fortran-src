@@ -51,7 +51,7 @@ collectNonForallBlocks :: ABlocks a -> Maybe String
                              , Maybe (Expression (Analysis a)) )
 collectNonForallBlocks blocks mNameTarget =
   case blocks of
-    (BlStatement _ _ mLabel (StEndForall _ _ mName)):rest
+    BlStatement _ _ mLabel (StEndForall _ _ mName):rest
       | mName == mNameTarget -> ([], rest, mLabel)
       | otherwise ->
         error "Forall block name does not match that of the end statement."
@@ -151,7 +151,7 @@ collectNonConditionalBlocks blocks =
     -- conditional directives. The reason is that this block can be
     -- a branch target if it is labeled according to the specification, hence
     -- it is presence in the parse tree is meaningful.
-    (BlStatement _ _ _ StEndif{}):_ -> ([], blocks)
+    BlStatement _ _ _ StEndif{}:_ -> ([], blocks)
     -- Catch all case for all non-if related blocks.
     b:bs -> let (bs', rest) = collectNonConditionalBlocks bs in (b : bs', rest)
     -- In this case the structured if block is malformed and the file ends
@@ -194,7 +194,7 @@ collectNonDoBlocks :: ABlocks a -> Maybe String
                       , Maybe (Expression (Analysis a)) )
 collectNonDoBlocks blocks mNameTarget =
   case blocks of
-    (BlStatement _ _ mLabel (StEnddo _ _ mName)):rest
+    BlStatement _ _ mLabel (StEnddo _ _ mName):rest
       | mName == mNameTarget -> ([ ], rest, mLabel)
       | otherwise ->
           error "Do block name does not match that of the end statement."
@@ -311,7 +311,7 @@ decomposeCase (BlStatement _ _ mLabel st:rest) mTargetName =
 collectNonCaseBlocks :: ABlocks a -> (ABlocks a, ABlocks a)
 collectNonCaseBlocks blocks =
   case blocks of
-    (BlStatement _ _ _ st):_
+    BlStatement _ _ _ st:_
       | StCase{} <- st -> ( [], blocks )
       | StEndcase{} <- st -> ( [], blocks )
     -- In this case case block is malformed and the file ends prematurely.
