@@ -107,10 +107,10 @@ fromRight (Right x) = x
 fromParseResult :: (Show c) => ParseResult b c a -> Either ParseErrorSimple a
 fromParseResult (ParseOk a _)     = Right a
 fromParseResult (ParseFailed err) =
-    Left $ ParseErrorSimple
+    Left ParseErrorSimple
       { errorPos = errPos err
       , errorFilename = errFilename err
-      , errorMsg = errMsg err ++ "\n" ++ (tokenMsg $ errLastToken err)  }
+      , errorMsg = errMsg err ++ "\n" ++ tokenMsg (errLastToken err)  }
 
 instance Show ParseErrorSimple where
   show err = errorFilename err ++ ", " ++ show (errorPos err) ++ ": " ++ errorMsg err
@@ -223,7 +223,7 @@ decPar = do
 -------------------------------------------------------------------------------
 
 throwIOerror :: String -> a
-throwIOerror s = throw $
+throwIOerror s = throw
   IOError { ioe_handle      = Nothing
           , ioe_type        = UserError
           , ioe_location    = "fortran-src"

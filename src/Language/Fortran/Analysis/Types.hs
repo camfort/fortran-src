@@ -165,12 +165,12 @@ statement (StDimension _ _ declAList) = do
 statement _ = return ()
 
 annotateExpression :: Data a => Expression (Analysis a) -> Infer (Expression (Analysis a))
-annotateExpression e@(ExpValue _ _ (ValVariable _))  = maybe e (flip setIDType e) `fmap` getRecordedType (varName e)
-annotateExpression e@(ExpValue _ _ (ValIntrinsic _)) = maybe e (flip setIDType e) `fmap` getRecordedType (varName e)
+annotateExpression e@(ExpValue _ _ (ValVariable _))  = maybe e (`setIDType` e) `fmap` getRecordedType (varName e)
+annotateExpression e@(ExpValue _ _ (ValIntrinsic _)) = maybe e (`setIDType` e) `fmap` getRecordedType (varName e)
 annotateExpression e                                 = return e
 
 annotateProgramUnit :: Data a => ProgramUnit (Analysis a) -> Infer (ProgramUnit (Analysis a))
-annotateProgramUnit pu | Named n <- puName pu = maybe pu (flip setIDType pu) `fmap` getRecordedType n
+annotateProgramUnit pu | Named n <- puName pu = maybe pu (`setIDType` pu) `fmap` getRecordedType n
 annotateProgramUnit pu                        = return pu
 
 --------------------------------------------------
@@ -187,7 +187,7 @@ recordType bt ct n = modify $ \ s -> s { environ = insert n (IDType (Just bt) (J
 
 -- Record the type (maybe) of the given name.
 recordMType :: Maybe BaseType -> Maybe ConstructType -> Name -> Infer ()
-recordMType bt ct n = modify $ \ s -> s { environ = insert n (IDType (bt) (ct)) (environ s) }
+recordMType bt ct n = modify $ \ s -> s { environ = insert n (IDType bt ct) (environ s) }
 
 -- Record the CType of the given name.
 recordCType :: ConstructType -> Name -> Infer ()
@@ -208,7 +208,7 @@ getRecordedType n = gets (M.lookup n . environ)
 -- Set the idType annotation
 setIDType :: Annotated f => IDType -> f (Analysis a) -> f (Analysis a)
 setIDType ty x
-  | a@(Analysis {}) <- getAnnotation x = setAnnotation (a { idType = Just ty }) x
+  | a@Analysis {} <- getAnnotation x = setAnnotation (a { idType = Just ty }) x
   | otherwise                          = x
 
 type UniFunc f g a = f (Analysis a) -> [g (Analysis a)]
@@ -226,19 +226,19 @@ allExpressions :: (Data a, Data (f (Analysis a))) => UniFunc f Expression a
 allExpressions = universeBi
 
 isAttrDimension :: Attribute a -> Bool
-isAttrDimension (AttrDimension {}) = True
+isAttrDimension AttrDimension {} = True
 isAttrDimension _                  = False
 
 isAttrParameter :: Attribute a -> Bool
-isAttrParameter (AttrParameter {}) = True
+isAttrParameter AttrParameter {} = True
 isAttrParameter _                  = False
 
 isAttrExternal :: Attribute a -> Bool
-isAttrExternal (AttrExternal {}) = True
+isAttrExternal AttrExternal {} = True
 isAttrExternal _                 = False
 
 isIxSingle :: Index a -> Bool
-isIxSingle (IxSingle {}) = True
+isIxSingle IxSingle {} = True
 isIxSingle _             = False
 
 --------------------------------------------------

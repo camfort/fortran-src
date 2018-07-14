@@ -16,7 +16,7 @@ import System.Environment
 import System.Directory
 import System.FilePath
 import Text.PrettyPrint.GenericPretty (pp, pretty, Out)
-import Data.List (isInfixOf, intercalate, (\\))
+import Data.List (isInfixOf, intercalate, (\\), isSuffixOf)
 import Data.Char (toLower)
 import Data.Maybe (fromMaybe, maybeToList)
 import Data.Data
@@ -44,7 +44,6 @@ import qualified Data.IntMap as IM
 import qualified Data.Map as M
 import Control.Monad
 import Text.Printf
-import Data.List
 
 programName :: String
 programName = "fortran-src"
@@ -69,13 +68,13 @@ main = do
       contents <- flexReadFile path
       let version = fromMaybe (deduceVersion path) (fortranVersion opts)
       let (Just parserF0) = lookup version parserWithModFilesVersions
-      let parserF = \m b s -> fromRight (parserF0 m b s)
+      let parserF m b s = fromRight (parserF0 m b s)
       let outfmt = outputFormat opts
       mods <- decodeModFiles $ includeDirs opts
       let mmap = combinedModuleMap mods
       let tenv = combinedTypeEnv mods
 
-      let runInfer pf = analyseTypesWithEnv tenv . analyseRenamesWithModuleMap mmap . initAnalysis $ pf
+      let runInfer = analyseTypesWithEnv tenv . analyseRenamesWithModuleMap mmap . initAnalysis
       let runRenamer = stripAnalysis . rename . analyseRenamesWithModuleMap mmap . initAnalysis
       let runBBlocks pf = showBBlocks pf' ++ "\n\n" ++ showDataFlow pf'
             where pf' = analyseBBlocks . analyseRenamesWithModuleMap mmap . initAnalysis $ pf
@@ -84,7 +83,7 @@ main = do
             where pf' = analyseBBlocks . analyseRenamesWithModuleMap mmap . initAnalysis $ pf
                   bbm = genBBlockMap pf'
                   sgr = genSuperBBGr bbm
-      let runCompile pf = encodeModFile . genModFile . fst . analyseTypesWithEnv tenv . analyseRenamesWithModuleMap mmap . initAnalysis $ pf
+      let runCompile = encodeModFile . genModFile . fst . analyseTypesWithEnv tenv . analyseRenamesWithModuleMap mmap . initAnalysis
 
       case actionOpt of
         Lex | version `elem` [ Fortran66, Fortran77, Fortran77Extended, Fortran77Legacy ] ->
@@ -116,7 +115,7 @@ rGetDirContents d = canonicalizePath d >>= \d' -> go [d'] d'
         f x = do
           path <- canonicalizePath $ d ++ "/" ++ x
           g <- doesDirectoryExist path
-          if g && not (path `elem` seen) then do
+          if g && notElem path seen then do
             x' <- go (path : seen) path
             return $ map (\ y -> x ++ "/" ++ y) x'
           else return [x]

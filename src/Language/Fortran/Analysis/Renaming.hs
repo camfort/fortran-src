@@ -80,7 +80,7 @@ rename pf = trPU fPU (trE fE pf)
 
 -- | Take a renamed program and undo the renames.
 unrename :: Data a => ProgramFile (Analysis a) -> ProgramFile (Analysis a)
-unrename pf = trPU fPU . trE fE $ pf
+unrename = trPU fPU . trE fE
   where
     trE :: Data a => (Expression (Analysis a) -> Expression (Analysis a)) -> ProgramFile (Analysis a) -> ProgramFile (Analysis a)
     trE = transformBi
@@ -190,7 +190,7 @@ renameState0 v = RenameState { langVersion = v
 
 -- Run the monad.
 runRenamer :: State a b -> a -> (b, a)
-runRenamer m = runState m
+runRenamer = runState
 
 -- Get a freshly generated number.
 getUniqNum :: Renamer Int
@@ -211,7 +211,7 @@ isUseStatement (BlStatement _ _ _ (StUse _ _ (ExpValue _ _ (ValVariable _)) _ _)
 isUseStatement _                                                                  = False
 
 isUseID :: Use a -> Bool
-isUseID (UseID {}) = True; isUseID _ = False
+isUseID UseID {} = True; isUseID _ = False
 
 -- Generate an initial environment for a scope based upon any Use
 -- statements in the blocks.
@@ -224,7 +224,7 @@ initialEnv blocks = do
   let uses = filter isUseStatement blocks
   mMap <- gets moduleMap
   modEnv <- fmap M.unions . forM uses $ \ use -> case use of
-    (BlStatement _ _ _ (StUse _ _ (ExpValue _ _ (ValVariable m)) _ Nothing)) -> do
+    (BlStatement _ _ _ (StUse _ _ (ExpValue _ _ (ValVariable m)) _ Nothing)) ->
       return $ fromMaybe empty (Named m `lookup` mMap)
     (BlStatement _ _ _ (StUse _ _ (ExpValue _ _ (ValVariable m)) _ (Just onlyAList)))
       | only <- aStrip onlyAList, all isUseID only -> do
@@ -298,7 +298,7 @@ getFromEnvsIfSubprogram v = do
   case mEntry of
     Just (v', NTSubprogram) -> return $ Just v'
     Just (_, NTVariable)    -> getFromEnv v
-    _                       -> return $ Nothing
+    _                       -> return Nothing
 
 -- Add a renaming mapping to the environment.
 addToEnv :: String -> String -> NameType -> Renamer ()
@@ -327,17 +327,17 @@ maybeAddUnique v nt = maybe (addUnique v nt) return =<< getFromEnvsIfSubprogram 
 -- If uniqueName/sourceName property is not set, then set it.
 setUniqueName, setSourceName :: (Annotated f, Data a) => String -> f (Analysis a) -> f (Analysis a)
 setUniqueName un x
-  | a@(Analysis { uniqueName = Nothing }) <- getAnnotation x = setAnnotation (a { uniqueName = Just un }) x
+  | a@Analysis { uniqueName = Nothing } <- getAnnotation x = setAnnotation (a { uniqueName = Just un }) x
   | otherwise                                                = x
 
 setSourceName sn x
-  | a@(Analysis { sourceName = Nothing }) <- getAnnotation x = setAnnotation (a { sourceName = Just sn }) x
+  | a@Analysis { sourceName = Nothing } <- getAnnotation x = setAnnotation (a { sourceName = Just sn }) x
   | otherwise                                                = x
 
 -- Work recursively into sub-program units.
 renameSubPUs :: Data a => RenamerFunc (Maybe [ProgramUnit (Analysis a)])
 renameSubPUs Nothing = return Nothing
-renameSubPUs (Just pus) = skimProgramUnits pus >> Just `fmap` (mapM programUnit pus)
+renameSubPUs (Just pus) = skimProgramUnits pus >> Just `fmap` mapM programUnit pus
 
 -- Go through all program units at the same level and add their names
 -- to the environment.
@@ -402,7 +402,7 @@ renameEntryPointResultDecl b = return b
 -- Rename an ExpValue variable, assuming that it is to be treated as a
 -- reference to a previous declaration, possibly in an outer scope.
 renameExp :: Data a => RenamerFunc (Expression (Analysis a))
-renameExp e@(ExpValue _ _ (ValVariable v))  = maybe e (flip setUniqueName (setSourceName v e)) `fmap` getFromEnvs v
+renameExp e@(ExpValue _ _ (ValVariable v))  = maybe e (`setUniqueName` setSourceName v e) `fmap` getFromEnvs v
 -- Intrinsics get unique names for each use.
 renameExp e@(ExpValue _ _ (ValIntrinsic v)) = flip setUniqueName (setSourceName v e) `fmap` addUnique v NTIntrinsic
 renameExp e                                 = return e

@@ -20,7 +20,7 @@ disambiguateFunction = do
 disambiguateFunctionStatements :: Data a => Transform a ()
 disambiguateFunctionStatements = modifyProgramFile (trans statement)
   where
-    trans = (transformBi :: Data a => TransFunc Statement ProgramFile a)
+    trans = transformBi :: Data a => TransFunc Statement ProgramFile a
     statement (StExpressionAssign a1 s (ExpSubscript _ _ v@(ExpValue a _ (ValVariable _)) indicies) e2)
       | Just (IDType _ (Just CTFunction)) <- idType a
       , indiciesRangeFree indicies = StFunction a1 s v (aMap fromIndex indicies) e2
@@ -29,7 +29,7 @@ disambiguateFunctionStatements = modifyProgramFile (trans statement)
 disambiguateFunctionCalls :: Data a => Transform a ()
 disambiguateFunctionCalls = modifyProgramFile (trans expression)
   where
-    trans = (transformBi :: Data a => TransFunc Expression ProgramFile a)
+    trans = transformBi :: Data a => TransFunc Expression ProgramFile a
     expression (ExpSubscript a1 s v@(ExpValue a _ (ValVariable _)) indicies)
       | Just (IDType _ (Just CTFunction)) <- idType a
       , indiciesRangeFree indicies = ExpFunctionCall a1 s v (Just $ aMap fromIndex indicies)

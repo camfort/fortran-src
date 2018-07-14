@@ -194,7 +194,7 @@ extractModuleMap pf
   | null mmap = M.singleton F.NamelessMain $ M.unions combinedEnv
   | otherwise = M.fromList mmap
   where
-    mmap = [ (n, env) | pu@(F.PUModule {}) <- childrenBi pf :: [F.ProgramUnit (FA.Analysis a)]
+    mmap = [ (n, env) | pu@F.PUModule{} <- childrenBi pf :: [F.ProgramUnit (FA.Analysis a)]
                       , let a = F.getAnnotation pu
                       , let n = F.getName pu
                       , env <- maybeToList (FA.moduleEnv a) ]
