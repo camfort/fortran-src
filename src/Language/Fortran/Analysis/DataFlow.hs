@@ -660,7 +660,7 @@ converge p (x:ys@(y:_))
   | p x y     = y
   | otherwise = converge p ys
 
-fromJustMsg :: [Char] -> Maybe a -> a
+fromJustMsg :: String -> Maybe a -> a
 fromJustMsg _ (Just x) = x
 fromJustMsg msg _      = error msg
 
