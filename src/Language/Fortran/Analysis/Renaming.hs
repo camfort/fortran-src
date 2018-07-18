@@ -206,6 +206,9 @@ uniquify scope var = do
   n <- getUniqNum
   return $ scope ++ "_" ++ var ++ show n
 
+--isModule :: ProgramUnit a -> Bool
+--isModule (PUModule {}) = True; isModule _             = False
+
 isUseStatement :: Block a -> Bool
 isUseStatement (BlStatement _ _ _ (StUse _ _ (ExpValue _ _ (ValVariable _)) _ _)) = True
 isUseStatement _                                                                  = False
@@ -236,6 +239,10 @@ initialEnv blocks = do
 
   -- include any global names from program units defined outside of modules as well
   return . M.union modEnv . fromMaybe M.empty $ M.lookup NamelessMain mMap
+
+-- Get the current scope name.
+--getScope :: Renamer String
+--getScope = gets (head . scopeStack)
 
 -- Get the concatenated scopes.
 getScopes :: Renamer String

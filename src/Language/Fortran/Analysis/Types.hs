@@ -211,6 +211,16 @@ setIDType ty x
   | a@Analysis {} <- getAnnotation x = setAnnotation (a { idType = Just ty }) x
   | otherwise                          = x
 
+-- Get the idType annotation
+--getIDType :: (Annotated f, Data a) => f (Analysis a) -> Maybe IDType
+--getIDType x = idType (getAnnotation x)
+
+-- Set the CType part of idType annotation
+--setCType :: (Annotated f, Data a) => ConstructType -> f (Analysis a) -> f (Analysis a)
+--setCType ct x
+--  | a@(Analysis { idType = Nothing }) <- getAnnotation x = setAnnotation (a { idType = Just (IDType Nothing (Just ct)) }) x
+--  | a@(Analysis { idType = Just it }) <- getAnnotation x = setAnnotation (a { idType = Just (it { idCType = Just ct }) }) x
+
 type UniFunc f g a = f (Analysis a) -> [g (Analysis a)]
 
 allProgramUnits :: Data a => UniFunc ProgramFile ProgramUnit a
