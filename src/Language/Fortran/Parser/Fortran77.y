@@ -1121,7 +1121,7 @@ legacy77ParserWithIncludes incs sourceCode filename =
     doParse = case parse parseState of
       ParseFailed e -> return (ParseFailed e)
       ParseOk p x -> do
-        p' <- descendBiM (inlineInclude Fortran77Legacy incs) p
+        p' <- descendBiM (inlineInclude Fortran77Legacy incs []) p
         return (ParseOk p' x)
     transform = transformWithModFiles emptyModFiles transformations77Legacy
     parseState = initParseState sourceCode Fortran77Legacy filename
@@ -1134,15 +1134,17 @@ includeParser version sourceCode filename =
     -- ensure the file ends with a newline..
     parseState = initParseState (sourceCode `B.snoc` '\n') version filename
 
-inlineInclude :: FortranVersion -> [String] -> Statement A0 -> IO (Statement A0)
-inlineInclude fv dirs st = case st of
+inlineInclude :: FortranVersion -> [String] -> [String] -> Statement A0 -> IO (Statement A0)
+inlineInclude fv dirs seen st = case st of
   StInclude a s e@(ExpValue _ _ (ValString path)) Nothing -> do
-    inc <- truncateLines <$> readInDirs dirs path
-    case includeParser fv inc path of
-      ParseOk blocks _ -> do
-        blocks' <- descendBiM (inlineInclude fv dirs) blocks
-        return $ StInclude a s e (Just blocks')
-      ParseFailed e -> throwIO e
+    if notElem path seen then do
+      inc <- truncateLines <$> readInDirs dirs path
+      case includeParser fv inc path of
+        ParseOk blocks _ -> do
+          blocks' <- descendBiM (inlineInclude fv dirs (path:seen)) blocks
+          return $ StInclude a s e (Just blocks')
+        ParseFailed e -> throwIO e
+    else return st
   _ -> return st
 
 readInDirs :: [String] -> String -> IO B.ByteString
