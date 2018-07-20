@@ -7,14 +7,15 @@ module Language.Fortran.Analysis.BBlocks
   , findLabeledBBlock )
 where
 
-import Data.Generics.Uniplate.Data
+import Prelude hiding (exp)
+import Data.Generics.Uniplate.Data hiding (transform)
 import Data.Data
 import Control.Monad
-import Control.Monad.State.Lazy
-import Control.Monad.Writer
+import Control.Monad.State.Lazy hiding (fix)
+import Control.Monad.Writer hiding (fix)
 import Text.PrettyPrint.GenericPretty (pretty, Out)
 import Language.Fortran.Analysis
-import Language.Fortran.AST
+import Language.Fortran.AST hiding (setName)
 import Language.Fortran.Util.Position
 import qualified Data.Map as M
 import qualified Data.IntMap as IM
@@ -83,10 +84,10 @@ labelBlocksInBBGr = transform (nmapM' (mapM eachBlock))
 -- Sets the label on each Index within a Block to match the Block, for
 -- later look-up.
 labelWithinBlocks :: forall a. Data a => Block (Analysis a) -> Block (Analysis a)
-labelWithinBlocks = perBlock
+labelWithinBlocks = perBlock'
   where
-    perBlock :: Block (Analysis a) -> Block (Analysis a)
-    perBlock b =
+    perBlock' :: Block (Analysis a) -> Block (Analysis a)
+    perBlock' b =
       case b of
         BlStatement a s e st               -> BlStatement a s (mfill i e) (fill i st)
         BlIf        a s e1 mn e2 bss el    -> BlIf        a s (mfill i e1) mn (mmfill i e2) bss el
@@ -155,9 +156,9 @@ toBBlocksPerPU pu
   where
     bs  =
       case pu of
-        PUMain _ _ _ bs _ -> bs;
-        PUSubroutine _ _ _ _ _ bs _ -> bs;
-        PUFunction _ _ _ _ _ _ _ bs _ -> bs
+        PUMain _ _ _ bs' _ -> bs';
+        PUSubroutine _ _ _ _ _ bs' _ -> bs';
+        PUFunction _ _ _ _ _ _ _ bs' _ -> bs'
         _ -> []
     bbs = execBBlocker (processBlocks bs)
     fix = delEmptyBBlocks . delUnreachable . insExitEdges pu lm . delInvalidExits . insEntryEdges pu
@@ -183,16 +184,16 @@ genInOutAssignments pu exit
     name i        = fn ++ "[" ++ show i ++ "]"
     a0            = head $ initAnalysis [prevAnnotation a]
     (a, s, vs)    = case pu of
-      PUFunction _ _ _ _ _ (Just (AList a s vs)) _ _ _ -> (a, s, vs)
-      PUSubroutine _ _ _ _ (Just (AList a s vs)) _ _   -> (a, s, vs)
-      PUFunction a s _ _ _ Nothing _ _ _               -> (a, s, [])
-      PUSubroutine a s _ _ Nothing _ _                 -> (a, s, [])
+      PUFunction _ _ _ _ _ (Just (AList a' s' vs')) _ _ _ -> (a', s', vs')
+      PUSubroutine _ _ _ _ (Just (AList a' s' vs')) _ _   -> (a', s', vs')
+      PUFunction a' s' _ _ _ Nothing _ _ _               -> (a', s', [])
+      PUSubroutine a' s' _ _ Nothing _ _                 -> (a', s', [])
       _                                                -> (error "genInOutAssignments", error "genInOutAssignments", [])
     genAssign v i = analyseAllLhsVars1 $ BlStatement a0 s Nothing (StExpressionAssign a0 s vl vr)
       where
         (vl, vr) = if exit then (v', v) else (v, v')
         v'       = case v of
-          ExpValue _ s (ValVariable _) -> genVar a0 s (name i)
+          ExpValue _ s' (ValVariable _) -> genVar a0 s' (name i)
           _               -> error $ "unhandled genAssign case: " ++ show (fmap (const ()) v)
 
 -- Remove exit edges for bblocks where standard construction doesn't apply.
@@ -209,8 +210,8 @@ insExitEdges :: (Data a, DynGraph gr) => ProgramUnit (Analysis a) -> M.Map Strin
 insExitEdges pu lm gr = flip insEdges (insNode (-1, bs) gr) $ do
   n <- nodes gr
   guard $ null (out gr n)
-  bs <- maybeToList $ lab gr n
-  n' <- examineFinalBlock lm bs
+  bs' <- maybeToList $ lab gr n
+  n' <- examineFinalBlock lm bs'
   return (n, n', ())
   where
     bs = genInOutAssignments pu True
@@ -382,12 +383,12 @@ perBlock (BlStatement a s l (StCall a' s' cn@ExpValue{} (Just aargs))) = do
 
   -- create bblock that assigns formal parameters (n[1], n[2], ...)
   case l of
-    Just (ExpValue _ _ (ValInteger l)) -> insertLabel l formalN -- label goes here, if present
+    Just (ExpValue _ _ (ValInteger l')) -> insertLabel l' formalN -- label goes here, if present
     _                                -> return ()
   let name i   = varName cn ++ "[" ++ show i ++ "]"
-  let formal (ExpValue a s (ValVariable _)) i = ExpValue a s (ValVariable (name i))
-      formal e i                              = ExpValue a s (ValVariable (name i))
-        where a = getAnnotation e; s = getSpan e
+  let formal (ExpValue a'' s'' (ValVariable _)) i = ExpValue a'' s'' (ValVariable (name i))
+      formal e i                              = ExpValue a'' s'' (ValVariable (name i))
+        where a'' = getAnnotation e; s'' = getSpan e
   forM_ (zip exps [1..]) $ \ (e, i) -> do
     e' <- processFunctionCalls e
     addToBBlock . analyseAllLhsVars1 $ BlStatement a s Nothing (StExpressionAssign a' s' (formal e' i) e')
@@ -514,10 +515,10 @@ processFunctionCall (ExpFunctionCall a s fn@(ExpValue a' s' _) aargs) = do
   -- create bblock that assigns formal parameters (fn[1], fn[2], ...)
   let name i   = varName fn ++ "[" ++ show i ++ "]"
   let setName n e = setAnnotation ((getAnnotation e) { uniqueName = Just n, sourceName = Just n }) e
-  let formal (ExpValue _ s (ValVariable _)) i = setName n $ ExpValue a0 s (ValVariable n)
+  let formal (ExpValue _ s'' (ValVariable _)) i = setName n $ ExpValue a0 s'' (ValVariable n)
         where n = name i
-      formal e i                              = setName n $ ExpValue a0 s (ValVariable n)
-        where s = getSpan e; n = name i
+      formal e i                              = setName n $ ExpValue a0 s'' (ValVariable n)
+        where s'' = getSpan e; n = name i
   forM_ (zip exps [1..]) $ \ (e, i) ->
     addToBBlock . analyseAllLhsVars1 $ BlStatement a0 s Nothing (StExpressionAssign a' s' (formal e i) e)
   (_, dummyCallN) <- closeBBlock
@@ -631,10 +632,10 @@ fromJustMsg msg _      = error msg
 --------------------------------------------------
 
 findLabeledBBlock :: String -> BBGr a -> Maybe Node
-findLabeledBBlock lab gr =
+findLabeledBBlock llab gr =
   listToMaybe [ n | (n, bs) <- labNodes gr, b <- bs
-                  , ExpValue _ _ (ValInteger lab') <- maybeToList (getLabel b)
-                  , lab == lab' ]
+                  , ExpValue _ _ (ValInteger llab') <- maybeToList (getLabel b)
+                  , llab == llab' ]
 
 -- | Show a basic block graph in a somewhat decent way.
 showBBGr :: (Out a, Show a) => BBGr a -> String
@@ -677,14 +678,14 @@ superBBGrToDOT sgr = bbgrToDOT' (clusters sgr) (graph sgr)
 
 -- shared code for DOT output
 bbgrToDOT' :: IM.IntMap ProgramUnitName -> BBGr a -> String
-bbgrToDOT' clusters gr = execWriter $ do
+bbgrToDOT' clusters' gr = execWriter $ do
   tell "strict digraph {\n"
   tell "node [shape=box,fontname=\"Courier New\"]\n"
   let entryNodes = filter (\ n -> null (pre gr n)) (nodes gr)
-  let nodes = bfsn entryNodes gr
-  forM nodes $ \ n -> do
+  let nodes' = bfsn entryNodes gr
+  forM nodes' $ \ n -> do
     let Just bs = lab gr n
-    let mname = IM.lookup n clusters
+    let mname = IM.lookup n clusters'
     case mname of Just name -> do tell $ "subgraph \"cluster " ++ showPUName name ++ "\" {\n"
                                   tell $ "label=\"" ++ showPUName name ++ "\"\n"
                                   tell "fontname=\"Courier New\"\nfontsize=24\n"
@@ -775,7 +776,7 @@ showIndex (IxSingle _ _ _ i) = showExpr i
 showIndex (IxRange _ _ l u s) =
   maybe "" showExpr l ++ -- Lower
   ':' : maybe "" showExpr u ++ -- Upper
-  maybe "" (\u -> ':' : showExpr u) s -- Stride
+  maybe "" (\u' -> ':' : showExpr u') s -- Stride
 
 showUOp :: UnaryOp -> String
 showUOp Plus = "+"
@@ -804,15 +805,15 @@ showBaseType TypeCharacter       = "character"
 showBaseType (TypeCustom s)      = s
 
 showDecl :: Declarator a -> String
-showDecl (DeclArray _ _ e adims length initial) =
+showDecl (DeclArray _ _ e adims length' initial) =
   showExpr e ++
     "(" ++ aIntercalate "," showDim adims ++ ")" ++
-    maybe "" (\e -> "*" ++ showExpr e) length ++
-    maybe "" (\e -> " = " ++ showExpr e) initial
-showDecl (DeclVariable _ _ e length initial) =
+    maybe "" (\e' -> "*" ++ showExpr e') length' ++
+    maybe "" (\e' -> " = " ++ showExpr e') initial
+showDecl (DeclVariable _ _ e length' initial) =
   showExpr e ++
-    maybe "" (\e -> "*" ++ showExpr e) length ++
-    maybe "" (\e -> " = " ++ showExpr e) initial
+    maybe "" (\e' -> "*" ++ showExpr e') length' ++
+    maybe "" (\e' -> " = " ++ showExpr e') initial
 
 showDim :: DimensionDeclarator a -> String
 showDim (DimensionDeclarator _ _ me1 me2) = maybe "" ((++":") . showExpr) me1 ++ maybe "" showExpr me2
