@@ -13,6 +13,7 @@ module Language.Fortran.Analysis
   , TransFunc, TransFuncM )
 where
 
+import Prelude hiding (exp)
 import Language.Fortran.Util.Position (SrcSpan)
 import Data.Generics.Uniplate.Data
 import Data.Data
@@ -324,7 +325,7 @@ statementRhsExprs (StExpressionAssign _ _ lhs rhs)
  | otherwise                      = universeBi rhs
 statementRhsExprs StDeclaration{} = []
 statementRhsExprs (StIfLogical _ _ _ s) = statementRhsExprs s
-statementRhsExprs (StDo _ _ _ l s) = universeBi l ++ doSpecRhsExprs s
+statementRhsExprs (StDo _ _ _ l s') = universeBi l ++ doSpecRhsExprs s'
   where doSpecRhsExprs (Just (DoSpecification _ _ s e1 e2)) =
            (e1 : universeBi e2) ++ statementRhsExprs s
         doSpecRhsExprs Nothing = []
@@ -372,7 +373,7 @@ intrinsicUses = fmap snd . intrinsicDefsUses
 -- return dummy arg names (defined, used) by intrinsic
 intrinsicDefsUses :: Expression (Analysis a) -> Maybe ([Name], [Name])
 intrinsicDefsUses f = both (map (dummyArg (varName f))) <$> getIntrinsicDefsUses (srcName f) allIntrinsics
-  where both f (x, y) = (f x, f y)
+  where both f' (x, y) = (f' x, f' y)
 
 -- Local variables:
 -- mode: haskell
