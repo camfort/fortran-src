@@ -38,7 +38,7 @@ import Language.Fortran.Analysis.Types
 import Language.Fortran.Analysis.BBlocks
 import Language.Fortran.Analysis.DataFlow
 import Language.Fortran.Analysis.Renaming
-import Data.Graph.Inductive hiding (trc)
+import Data.Graph.Inductive hiding (trc, mf, version)
 
 import qualified Data.IntMap as IM
 import qualified Data.Map as M
@@ -108,8 +108,8 @@ main = do
 rGetDirContents :: String -> IO [String]
 rGetDirContents d = canonicalizePath d >>= \d' -> go [d'] d'
   where
-  go seen d = do
-    ds <- getDirectoryContents d
+  go seen d'' = do
+    ds <- getDirectoryContents d''
     fmap concat . mapM f $ ds \\ [".", ".."] -- remove '.' and '..' entries
       where
         f x = do
@@ -146,11 +146,11 @@ isModFile :: FilePath -> Bool
 isModFile = (== modFileSuffix) . takeExtension
 
 superGraphDataFlow :: forall a. (Out a, Data a) => ProgramFile (Analysis a) -> SuperBBGr (Analysis a) -> String
-superGraphDataFlow pf sgr = showBBGr (nmap (map (fmap insLabel)) gr) ++ "\n\n" ++ replicate 50 '-' ++ "\n\n" ++
+superGraphDataFlow pf sgr = showBBGr (nmap (map (fmap insLabel)) gr') ++ "\n\n" ++ replicate 50 '-' ++ "\n\n" ++
                             show entries ++ "\n\n" ++ replicate 50 '-' ++ "\n\n" ++
-                            dfStr gr
+                            dfStr gr'
   where
-    gr = superBBGrGraph sgr
+    gr' = superBBGrGraph sgr
     entries = superBBGrEntries sgr
     dfStr gr = (\ (l, x) -> '\n':l ++ ": " ++ x) =<< [
                  ("callMap",      show cm)
@@ -204,8 +204,8 @@ data Action = Lex | Parse | Typecheck | Rename | BBlocks | SuperGraph | Reprint 
 
 instance Read Action where
   readsPrec _ value =
-    let options = [ ("lex", Lex) , ("parse", Parse) ] in
-      tryTypes options
+    let options' = [ ("lex", Lex) , ("parse", Parse) ] in
+      tryTypes options'
       where
         tryTypes [] = []
         tryTypes ((attempt,result):xs) =
@@ -279,10 +279,10 @@ compileArgs args =
     header = "Usage: " ++ programName ++ " [OPTION...] <file>"
 
 instance Read FortranVersion where
-  readsPrec _ value = tryTypes options
+  readsPrec _ value = tryTypes options'
     where
       value' = map toLower value
-      options = [ ("66" , Fortran66)
+      options' = [ ("66" , Fortran66)
                 , ("77e", Fortran77Extended)
                 , ("77l", Fortran77Legacy)
                 , ("77" , Fortran77)
