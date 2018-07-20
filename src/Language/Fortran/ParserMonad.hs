@@ -11,7 +11,7 @@ module Language.Fortran.ParserMonad where
 import GHC.IO.Exception
 import Control.Exception
 
-import Control.Monad.State
+import Control.Monad.State hiding (state)
 import Control.Monad.Except
 
 import Data.Typeable
