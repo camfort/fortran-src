@@ -8,6 +8,7 @@
 
 module Language.Fortran.AST where
 
+import Prelude hiding (init)
 import Data.Data
 import Data.Generics.Uniplate.Data ()
 import Data.Typeable ()
@@ -139,8 +140,8 @@ buildPUFunctionOpt a b =
                                          then Left "Function cannot be both elemental and recursive. "
                                          else Right . Elemental () $ getTransSpan a b
     (_, (Elemental () _))           -> buildPUFunctionOpt b a
-    ((Pure () _ r), b)              -> Right $ Pure () (getTransSpan a b) (r || functionIsRecursive b)
-    (a, (Pure () _ r))              -> Right $ Pure () (getTransSpan a b) (r || functionIsRecursive a)
+    ((Pure () _ r), b')              -> Right $ Pure () (getTransSpan a b') (r || functionIsRecursive b')
+    (a', (Pure () _ r))              -> Right $ Pure () (getTransSpan a' b) (r || functionIsRecursive a')
     ((None () _ r), (None () _ r')) -> Right $ None () (getTransSpan a b) (r || r')
 -- Should parse: "elemental pure recursive function f()\nend": Right (Elemental ()) FAILED [4]
 
@@ -630,7 +631,7 @@ instance Spanned (ProgramFile a) where
   getSpan (ProgramFile _ pus) =
     case pus of
       [] -> SrcSpan initPosition initPosition
-      pus -> getSpan pus
+      pus' -> getSpan pus'
 
   setSpan _ _ = error "Cannot set span to a program unit"
 
