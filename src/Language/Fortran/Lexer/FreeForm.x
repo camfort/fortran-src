@@ -10,6 +10,7 @@
 
 module Language.Fortran.Lexer.FreeForm where
 
+import Prelude hiding (span)
 import Data.Data
 import Data.Maybe (fromMaybe)
 import Data.Char (toLower)
@@ -810,22 +811,22 @@ isContinuation !ai =
   where
     match  = lexemeMatch lexeme
     lexeme = aiLexeme $ ai
-    _isContinuation !ai 0 =
-      if currentChar ai == '&'
-      then _advance ai
+    _isContinuation !ai' 0 =
+      if currentChar ai' == '&'
+      then _advance ai'
       else False
-    _isContinuation !ai 1 =
-      case currentChar ai of
-        ' ' -> _advance ai
-        '\t' -> _advance ai
-        '\r' -> _advance ai
+    _isContinuation !ai' 1 =
+      case currentChar ai' of
+        ' ' -> _advance ai'
+        '\t' -> _advance ai'
+        '\r' -> _advance ai'
         '!' -> True
         '\n' -> True
         _ -> False
     _advance :: AlexInput -> Bool
-    _advance !ai =
-      case advanceWithoutContinuation ai of
-        Just ai' -> _isContinuation ai' 1
+    _advance !ai' =
+      case advanceWithoutContinuation ai' of
+        Just ai'' -> _isContinuation ai'' 1
         Nothing -> False
 
 -- Here's the skip continuation automaton:
@@ -850,7 +851,7 @@ isContinuation !ai =
 -- This version is more permissive than the specification
 -- as it allows empty lines to be used between continuations.
 skipContinuation :: AlexInput -> AlexInput
-skipContinuation ai = _skipCont ai 0
+skipContinuation ai' = _skipCont ai' 0
   where
     _skipCont ai 0 =
       if currentChar ai == '&'
@@ -890,7 +891,7 @@ skipContinuation ai = _skipCont ai 0
         else ai
     _advance ai state =
       case advanceWithoutContinuation ai of
-        Just ai' -> _skipCont ai' state
+        Just ai'' -> _skipCont ai'' state
         Nothing -> error "File has ended prematurely during a continuation."
 
 advance :: Move -> Position -> Position
@@ -919,11 +920,11 @@ lexer' = do
   alex <- getAlex
   let startCode = scActual . aiStartCode $ alex
   normaliseStartCode
-  newAlex <- getAlex
+  newAlex' <- getAlex
   version <- getVersion
   paranthesesCount <- getParanthesesCount
   let user = User version paranthesesCount
-  case alexScanUser user newAlex startCode of
+  case alexScanUser user newAlex' startCode of
     AlexEOF -> return $ TEOF $ SrcSpan (getPos alex) (getPos alex)
     AlexError _ -> do
       parseState <- get
