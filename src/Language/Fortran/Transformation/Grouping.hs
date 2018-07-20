@@ -40,8 +40,8 @@ groupForall' (b:bs) = b' : bs'
         | StForallStatement _ _ header st' <- st ->
           let block = BlStatement a (getSpan st') Nothing st' in
           ( BlForall a (getTransSpan s st') label Nothing header [block] Nothing, groupedBlocks )
-      b | containsGroups b ->
-        ( applyGroupingToSubblocks groupForall' b, groupedBlocks )
+      b'' | containsGroups b'' ->
+        ( applyGroupingToSubblocks groupForall' b'', groupedBlocks )
       _ -> (b, groupedBlocks)
     groupedBlocks = groupForall' bs
 
@@ -90,8 +90,8 @@ groupIf' (b:bs) = b' : bs'
                 decomposeIf (b:groupedBlocks)
           in ( BlIf a (getTransSpan s blocks) label mName conditions blocks endLabel
              , leftOverBlocks)
-      b | containsGroups b -> -- Map to subblocks for groupable blocks
-        ( applyGroupingToSubblocks groupIf' b, groupedBlocks )
+      b'' | containsGroups b'' -> -- Map to subblocks for groupable blocks
+        ( applyGroupingToSubblocks groupIf' b'', groupedBlocks )
       _ -> ( b, groupedBlocks )
     groupedBlocks = groupIf' bs -- Assume everything to the right is grouped.
 
@@ -133,8 +133,8 @@ decomposeIf blocks@(BlStatement _ _ _ (StIfThen _ _ mTargetName _):_) =
           | otherwise -> error $ "If statement name does not match that of " ++
                                    "the corresponding end if statement."
         _ -> error "Block with non-if related statement. Should never occur."
-    go maybeCondition blocks =
-      let (nonConditionBlocks, rest') = collectNonConditionalBlocks blocks
+    go maybeCondition blocks' =
+      let (nonConditionBlocks, rest') = collectNonConditionalBlocks blocks'
           (conditions, listOfBlocks, rest'', endLabel) = decomposeIf' rest'
       in ( maybeCondition : conditions
          , nonConditionBlocks : listOfBlocks
@@ -183,8 +183,8 @@ groupDo' (b:bs) = b' : bs'
                 collectNonDoBlocks groupedBlocks mName
           in ( BlDo a (getTransSpan s blocks) label mName Nothing doSpec blocks endLabel
              , leftOverBlocks)
-      b | containsGroups b ->
-        ( applyGroupingToSubblocks groupDo' b, groupedBlocks )
+      b'' | containsGroups b'' ->
+        ( applyGroupingToSubblocks groupDo' b'', groupedBlocks )
       _ -> ( b, groupedBlocks )
     groupedBlocks = groupDo' bs -- Assume everything to the right is grouped.
 
@@ -229,8 +229,8 @@ groupLabeledDo' (b:bs) = b' : bs'
               lastLabel = getLastLabel $ last blocks
           in ( BlDoWhile a (getTransSpan s blocks) label mn tl cond blocks lastLabel
              , leftOverBlocks )
-      b | containsGroups b ->
-        ( applyGroupingToSubblocks groupLabeledDo' b, groupedBlocks )
+      b'' | containsGroups b'' ->
+        ( applyGroupingToSubblocks groupLabeledDo' b'', groupedBlocks )
       _ -> (b, groupedBlocks)
 
     -- Assume everything to the right is grouped.
@@ -276,11 +276,11 @@ groupCase' (b:bs) = b' : bs'
               ( conds, blocks, leftOverBlocks, endLabel ) = decomposeCase blocksToDecomp mName
           in ( BlCase a (getTransSpan s blocks) label mName scrutinee conds blocks endLabel
              , leftOverBlocks)
-      b | containsGroups b -> -- Map to subblocks for groupable blocks
-        ( applyGroupingToSubblocks groupCase' b, groupedBlocks )
+      b'' | containsGroups b'' -> -- Map to subblocks for groupable blocks
+        ( applyGroupingToSubblocks groupCase' b'', groupedBlocks )
       _ -> ( b , groupedBlocks )
     groupedBlocks = groupCase' bs -- Assume everything to the right is grouped.
-    isComment b = case b of { BlComment{} -> True; _ -> False }
+    isComment b'' = case b'' of { BlComment{} -> True; _ -> False }
 
 decomposeCase :: ABlocks a -> Maybe String
               -> ( [ Maybe (AList Index (Analysis a)) ]
@@ -301,11 +301,11 @@ decomposeCase (BlStatement _ _ mLabel st:rest) mTargetName =
       _ -> error "Block with non-case related statement. Must not occur."
   where
     go mCondition blocks =
-      let (nonCaseBlocks, rest) = collectNonCaseBlocks blocks
-          (conditions, listOfBlocks, rest', endLabel) = decomposeCase rest mTargetName
+      let (nonCaseBlocks, rest') = collectNonCaseBlocks blocks
+          (conditions, listOfBlocks, rest'', endLabel) = decomposeCase rest' mTargetName
       in ( mCondition : conditions
          , nonCaseBlocks : listOfBlocks
-         , rest', endLabel )
+         , rest'', endLabel )
 
 -- This compiles the executable blocks under various if conditions.
 collectNonCaseBlocks :: ABlocks a -> (ABlocks a, ABlocks a)
