@@ -6,6 +6,7 @@
 
 module Language.Fortran.LValue where
 
+import           Prelude                               hiding (exp)
 import           Data.Data
 import           GHC.Generics                          (Generic)
 
