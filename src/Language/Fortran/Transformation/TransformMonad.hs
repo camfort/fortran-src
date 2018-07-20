@@ -8,7 +8,7 @@ module Language.Fortran.Transformation.TransformMonad
 where
 
 import Prelude hiding (lookup)
-import Control.Monad.State.Lazy
+import Control.Monad.State.Lazy hiding (state)
 import Data.Data
 
 import Language.Fortran.Analysis
