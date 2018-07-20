@@ -8,7 +8,7 @@ module Language.Fortran.PrettyPrint where
 import Data.Maybe (isJust, isNothing)
 import Data.List (foldl')
 
-import Prelude hiding (EQ,LT,GT)
+import Prelude hiding (EQ,LT,GT,pred,exp)
 
 import Language.Fortran.AST
 import Language.Fortran.ParserMonad
@@ -236,7 +236,7 @@ instance IndentablePretty (Block a) where
           indent nextI
             ("case" <+>
             case mRanges of {
-              Just ranges -> parens (pprint' v ranges);
+              Just ranges' -> parens (pprint' v ranges');
               Nothing -> "default" } <> newline) <>
           pprint v block (incIndentation nextI)
         nextI = incIndentation i
