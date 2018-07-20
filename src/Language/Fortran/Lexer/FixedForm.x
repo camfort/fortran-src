@@ -677,8 +677,8 @@ lexN n = do
 maybeToKeyword :: LexAction (Maybe Token)
 maybeToKeyword = do
   decPar
-  pcActual <- pcActual . psParanthesesCount <$> get
-  if pcActual == 0
+  pcActual' <- pcActual . psParanthesesCount <$> get
+  if pcActual' == 0
   then toSC keyword
   else return Nothing
 
@@ -1004,12 +1004,12 @@ skipComment ai p =
 skipCommentLines :: AlexInput -> Position -> Position
 skipCommentLines ai p = go p p
   where
-  go p' p
+  go p' p''
     -- eof is not a comment line
     | not (null line)
-    , isCommentLine ai p
-    = go p p{ posAbsoluteOffset = posAbsoluteOffset p + length line + 1 -- skip the newline
-            , posColumn = 1, posLine = posLine p + 1
+    , isCommentLine ai p''
+    = go p'' p''{ posAbsoluteOffset = posAbsoluteOffset p'' + length line + 1 -- skip the newline
+            , posColumn = 1, posLine = posLine p'' + 1
             }
     | isContinuation ai'
     = advance Continuation ai'
@@ -1017,7 +1017,7 @@ skipCommentLines ai p = go p p
       -- after skipping comment lines, place cursor right at the last newline
     = p2
     where
-    line = takeLine p ai
+    line = takeLine p'' ai
     line' = takeLine p' ai
     p2 = p' { posAbsoluteOffset = posAbsoluteOffset p' + length line'
             , posColumn = length line' + 1
