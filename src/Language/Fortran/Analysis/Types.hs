@@ -105,7 +105,7 @@ programUnit pu@(PUFunction _ _ mRetType _ _ _ mRetVar blocks _)
       _                                        -> return ()
     -- record entry points for later annotation
     forM_ blocks $ \ block ->
-      sequence_ [ recordEntryPoint n (varName v) (fmap varName mRetVar) | (StEntry _ _ v _ mRetVar) <- allStatements block ]
+      sequence_ [ recordEntryPoint n (varName v) (fmap varName mRetVar') | (StEntry _ _ v _ mRetVar') <- allStatements block ]
 programUnit pu@(PUSubroutine _ _ _ _ _ blocks _) | Named n <- puName pu = do
   -- record the fact that this is a subroutine
   recordCType CTSubroutine n
