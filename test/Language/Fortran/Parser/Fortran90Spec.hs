@@ -1,6 +1,6 @@
 module Language.Fortran.Parser.Fortran90Spec (spec) where
 
-import Prelude hiding (GT)
+import Prelude hiding (GT, exp, pred)
 
 import TestUtil
 import Test.Hspec
@@ -74,59 +74,59 @@ spec =
 
 
         it "parses functions with return type specs" $ do
-          let fType = Just $ TypeSpec () u TypeInteger Nothing
-          let expected = puFunction fType fOpt fName fArgs fRes fBody fSub
+          let fType' = Just $ TypeSpec () u TypeInteger Nothing
+          let expected = puFunction fType' fOpt fName fArgs fRes fBody fSub
           let fStr = init $ unlines ["integer function f()"
                                , "end function f" ]
           fParser fStr `shouldBe'` expected
 
-      it "parses recursive functions" $ do
-        let fOpt = None () u True
-        let expected = puFunction fType fOpt fName fArgs fRes fBody fSub
-        let fStr = init $ unlines ["recursive function f()", "end"]
-        fParser fStr `shouldBe'` expected
+      it "parses recursive functions" $
+        let fOpt' = None () u True
+            expected = puFunction fType fOpt' fName fArgs fRes fBody fSub
+            fStr = init $ unlines ["recursive function f()", "end"]
+        in fParser fStr `shouldBe'` expected
 
 
-      it "parses functions with a list of arguments" $ do
-        let fArgs = Just $ AList () u [ varGen "x", varGen "y", varGen "z" ]                                                     
-        let expected = puFunction fType fOpt fName fArgs fRes fBody fSub
-        let fStr = init $ unlines ["function f(x, y, z)"
+      it "parses functions with a list of arguments" $
+        let fArgs' = Just $ AList () u [ varGen "x", varGen "y", varGen "z" ]
+            expected = puFunction fType fOpt fName fArgs' fRes fBody fSub
+            fStr = init $ unlines ["function f(x, y, z)"
                              , "end function f" ]
-        fParser fStr `shouldBe'` expected
+        in fParser fStr `shouldBe'` expected
 
-      it "parses functions with a result variable" $ do
-        let fRes = Just $ varGen "i"
-        let expected = puFunction fType fOpt fName fArgs fRes fBody fSub
-        let fStr = init $ unlines ["function f() result(i)"
+      it "parses functions with a result variable" $
+        let fRes' = Just $ varGen "i"
+            expected = puFunction fType fOpt fName fArgs fRes' fBody fSub
+            fStr = init $ unlines ["function f() result(i)"
                              , "end function f" ]
-        fParser fStr `shouldBe'` expected
+        in fParser fStr `shouldBe'` expected
 
-      it "parses functions with function bodies" $ do
+      it "parses functions with function bodies" $
         let decrementRHS = ExpBinary () u Subtraction (varGen "i") (intGen 1)
-        let f1 = StPrint () u starVal (Just $ AList () u [ varGen "i" ])                                                      
-        let f2 = StExpressionAssign () u (varGen "i") decrementRHS
-        let fBody = [ BlStatement () u Nothing f1 , BlStatement () u Nothing f2 ]
-        let expected = puFunction fType fOpt fName fArgs fRes fBody fSub
-        let fStr = init $ unlines ["function f()"
-                             , "  print *, i"                                                                          
-                             , "  i = (i - 1)"                                                                         
+            f1 = StPrint () u starVal (Just $ AList () u [ varGen "i" ])
+            f2 = StExpressionAssign () u (varGen "i") decrementRHS
+            fBody' = [ BlStatement () u Nothing f1 , BlStatement () u Nothing f2 ]
+            expected = puFunction fType fOpt fName fArgs fRes fBody' fSub
+            fStr = init $ unlines ["function f()"
+                             , "  print *, i"
+                             , "  i = (i - 1)"
                              , "end function f" ]
-        fParser fStr `shouldBe'` expected
+        in fParser fStr `shouldBe'` expected
 
-      it "parses complex functions" $ do
-        let fType = Just $ TypeSpec () u TypeInteger Nothing
-        let fArgs = Just $ AList () u [ varGen "x", varGen "y", varGen "z" ]                                                     
-        let fRes = Just $ varGen "i"                                                                                      
-        let decrementRHS = ExpBinary () u Subtraction (varGen "i") (intGen 1)
-        let f1 = StPrint () u starVal (Just $ AList () u [ varGen "i" ])                                                      
-        let f2 = StExpressionAssign () u (varGen "i") decrementRHS
-        let fBody = [ BlStatement () u Nothing f1 , BlStatement () u Nothing f2 ]
-        let expected = puFunction fType fOpt fName fArgs fRes fBody fSub
-        let fStr = init $ unlines [ "integer function f(x, y, z) result(i)"                                                 
-                             , "  print *, i"                                                                          
-                             , "  i = (i - 1)"                                                                         
-                             , "end function f" ]                                                                      
-        fParser fStr `shouldBe'` expected
+      it "parses complex functions" $
+        let fType' = Just $ TypeSpec () u TypeInteger Nothing
+            fArgs' = Just $ AList () u [ varGen "x", varGen "y", varGen "z" ]
+            fRes' = Just $ varGen "i"
+            decrementRHS = ExpBinary () u Subtraction (varGen "i") (intGen 1)
+            f1 = StPrint () u starVal (Just $ AList () u [ varGen "i" ])
+            f2 = StExpressionAssign () u (varGen "i") decrementRHS
+            fBody' = [ BlStatement () u Nothing f1 , BlStatement () u Nothing f2 ]
+            expected = puFunction fType' fOpt fName fArgs' fRes' fBody' fSub
+            fStr = init $ unlines [ "integer function f(x, y, z) result(i)"
+                             , "  print *, i"
+                             , "  i = (i - 1)"
+                             , "end function f" ]
+        in fParser fStr `shouldBe'` expected
 
     describe "Expression" $ do
       it "parses logial literals with kind" $ do
@@ -210,14 +210,14 @@ spec =
         let stStr = "logical x, y"
         sParser stStr `shouldBe'` expected
 
-      it "parses declaration with initialisation" $ do
+      it "parses declaration with initialisation" $
         let typeSpec = TypeSpec () u TypeComplex Nothing
-        let init = ExpValue () u (ValComplex (intGen 24) (realGen 42.0))
-        let declarators = AList () u
-              [ DeclVariable () u (varGen "x") Nothing (Just init) ]
-        let expected = StDeclaration () u typeSpec Nothing declarators
-        let stStr = "complex :: x = (24, 42.0)"
-        sParser stStr `shouldBe'` expected
+            init' = ExpValue () u (ValComplex (intGen 24) (realGen 42.0))
+            declarators = AList () u
+              [ DeclVariable () u (varGen "x") Nothing (Just init') ]
+            expected = StDeclaration () u typeSpec Nothing declarators
+            stStr = "complex :: x = (24, 42.0)"
+        in sParser stStr `shouldBe'` expected
 
       it "parses declaration of custom type" $ do
         let typeSpec = TypeSpec () u (TypeCustom "meinetype") Nothing

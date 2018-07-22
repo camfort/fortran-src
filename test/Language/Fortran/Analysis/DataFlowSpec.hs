@@ -16,7 +16,7 @@ import qualified Data.Map as M
 import qualified Data.Set as S
 import qualified Data.IntMap as IM
 import qualified Data.IntSet as IS
-import Data.Graph.Inductive
+import Data.Graph.Inductive hiding (version, lab')
 import Data.Graph.Inductive.PatriciaTree (Gr)
 import Data.Maybe
 import Data.List
@@ -59,8 +59,6 @@ testBackEdges version f p = bedges
 spec :: Spec
 spec =
   describe "Dataflow" $ do
-  ----------------------------------------------
-    let pf = pParser F77 programLoop4
     describe "loop4" $ do
       it "genBackEdgeMap" $ do
         let gr = testGraph F77 "loop4" programLoop4
@@ -75,7 +73,8 @@ spec =
         S.fromList (loopNodes bedges gr) `shouldBe`
           S.fromList [findLabelsBB gr [5,6,7,20], IS.unions [findLabelsBB gr [4,5,6,7,8,10,20,30], findSuccsBB gr [20]]]
 
-      it "genDefMap" $
+      it "genDefMap" $ do
+        let pf = pParser F77 programLoop4
         testGenDefMap F77 programLoop4 `shouldBe`
           M.fromList [("i",findLabelsBl pf [3,30]),("j",findLabelsBl pf [4,6]),("r",findLabelsBl pf [2,5])]
 
@@ -103,13 +102,6 @@ spec =
                                ]
 
   ----------------------------------------------
-    let pf = pParser F90 programLoop4Alt
-    let sgr = genSuperBBGr (genBBlockMap pf)
-    let gr = superBBGrGraph sgr
-    let domMap = dominators gr
-    let bedges = genBackEdgeMap domMap gr
-    let bm = genBlockMap pf
-    let dm = genDefMap bm
 
     describe "loop4 alt (module)" $ do
       it "genBackEdgeMap" $ do
@@ -118,18 +110,34 @@ spec =
           IM.fromList [(findLabelBB gr 22, findLabelBB gr 20), (findLabelBB gr 31, findLabelBB gr 10)]
 
       it "loopNodes" $ do
+        let pf = pParser F90 programLoop4Alt
+            sgr = genSuperBBGr (genBBlockMap pf)
+            gr = superBBGrGraph sgr
+            domMap = dominators gr
+            bedges = genBackEdgeMap domMap gr
         S.fromList (loopNodes bedges gr) `shouldBe`
           S.fromList [findLabelsBB gr [20,21,22], findLabelsBB gr [10,11,20,21,22,31,40]]
 
-      it "genDefMap" $
+      it "genDefMap" $ do
+        let pf = pParser F90 programLoop4Alt
         testGenDefMap F90 programLoop4Alt `shouldBe`
           M.fromList [("i",findLabelsBl pf [2,31]),("j",findLabelsBl pf [11,22]),("r",findLabelsBl pf [1,21])]
 
       it "reachingDefinitions" $ do
+        let pf = pParser F90 programLoop4Alt
+            sgr = genSuperBBGr (genBBlockMap pf)
+            gr = superBBGrGraph sgr
+            bm = genBlockMap pf
+            dm = genDefMap bm
         IM.lookup (findLabelBB gr 21) (reachingDefinitions dm gr) `shouldBe`
           Just (findLabelsBl pf [1,2,11,21,22,31], findLabelsBl pf [2,11,21,22,31])
 
       it "flowsTo" $ do
+        let pf = pParser F90 programLoop4Alt
+            sgr = genSuperBBGr (genBBlockMap pf)
+            gr = superBBGrGraph sgr
+            bm = genBlockMap pf
+            dm = genDefMap bm
         (S.fromList . edges . genFlowsToGraph bm dm gr $ reachingDefinitions dm gr) `shouldBe`
           -- Find the flows of the assignment statements in the program.
           findLabelsBlEdges pf [(1,21),(1,41)           -- r = 0

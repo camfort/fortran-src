@@ -157,25 +157,25 @@ spec =
                           , "C hello"
                           , "     +        bar"
                           ]
-        resetSrcSpan (collectFixedTokens' Fortran77Legacy src)
-          `shouldBe` resetSrcSpan [TType u "integer", TId u "foo", TComma u, TId u "bar", TNewline u, TEOF u]
+          in resetSrcSpan (collectFixedTokens' Fortran77Legacy src)
+            `shouldBe` resetSrcSpan [TType u "integer", TId u "foo", TComma u, TId u "bar", TNewline u, TEOF u]
         let src = unlines [ "      integer foo, ! hello"
                           , "     +        bar"
                           ]
-        resetSrcSpan (collectFixedTokens' Fortran77Legacy src)
-          `shouldBe` resetSrcSpan [TType u "integer", TId u "foo", TComma u, TId u "bar", TNewline u, TEOF u]
+          in resetSrcSpan (collectFixedTokens' Fortran77Legacy src)
+            `shouldBe` resetSrcSpan [TType u "integer", TId u "foo", TComma u, TId u "bar", TNewline u, TEOF u]
         let src = unlines [ "      integer foo,"
                           , ""
                           , "     +        bar"
                           ]
-        resetSrcSpan (collectFixedTokens' Fortran77Legacy src)
-          `shouldBe` resetSrcSpan [TType u "integer", TId u "foo", TComma u, TId u "bar", TNewline u, TEOF u]
+          in resetSrcSpan (collectFixedTokens' Fortran77Legacy src)
+            `shouldBe` resetSrcSpan [TType u "integer", TId u "foo", TComma u, TId u "bar", TNewline u, TEOF u]
         let src = unlines [ "      integer foo,"
                           , "  " -- the space is intentional
                           , "     +        bar"
                           ]
-        resetSrcSpan (collectFixedTokens' Fortran77Legacy src)
-          `shouldBe` resetSrcSpan [TType u "integer", TId u "foo", TComma u, TId u "bar", TNewline u, TEOF u]
+          in resetSrcSpan (collectFixedTokens' Fortran77Legacy src)
+            `shouldBe` resetSrcSpan [TType u "integer", TId u "foo", TComma u, TId u "bar", TNewline u, TEOF u]
 
       it "lexes the older TYPE statement" $ do
         resetSrcSpan (collectFixedTokens' Fortran77Legacy "      type *, 'hello'")
