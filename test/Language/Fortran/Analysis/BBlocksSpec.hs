@@ -1,11 +1,9 @@
 module Language.Fortran.Analysis.BBlocksSpec where
 
 import Test.Hspec
-import TestUtil
 
 import Language.Fortran.Parser.Fortran77
-import Language.Fortran.Lexer.FixedForm (initParseState)
-import Language.Fortran.ParserMonad (FortranVersion(..), evalParse, fromParseResultUnsafe)
+import Language.Fortran.ParserMonad (fromParseResultUnsafe)
 import Language.Fortran.AST
 import Language.Fortran.Analysis
 import Language.Fortran.Analysis.BBlocks
@@ -13,7 +11,6 @@ import Language.Fortran.Analysis.Renaming
 import qualified Data.Map as M
 import qualified Data.IntSet as IS
 import Data.Graph.Inductive
-import Data.Graph.Inductive.PatriciaTree (Gr)
 import Data.Maybe
 import qualified Data.ByteString.Char8 as B
 

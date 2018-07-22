@@ -1,6 +1,6 @@
 module Language.Fortran.Parser.Fortran95Spec (spec) where
 
-import Prelude hiding (GT, EQ, NE)
+import Prelude hiding (GT, EQ)
 
 import TestUtil
 import Test.Hspec

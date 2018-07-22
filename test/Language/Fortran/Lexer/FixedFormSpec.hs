@@ -7,9 +7,6 @@ import Test.Hspec
 import Test.Hspec.QuickCheck
 import TestUtil
 
-import Control.Monad.State.Lazy
-import Control.Exception
-
 import Data.List (isPrefixOf)
 import qualified Data.ByteString.Char8 as B
 

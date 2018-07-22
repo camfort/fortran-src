@@ -1,7 +1,6 @@
 module Language.Fortran.Parser.UtilsSpec where
 
 import Test.Hspec
-import TestUtil
 
 import Language.Fortran.Parser.Utils
 

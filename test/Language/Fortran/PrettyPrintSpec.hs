@@ -9,22 +9,14 @@ import Data.Text.Encoding (encodeUtf8, decodeUtf8With)
 import Data.Text.Encoding.Error (replace)
 
 import Data.Data
-import Data.Foldable
 import Data.Generics.Uniplate.Operations
 import Data.Maybe (catMaybes)
---import Data.DeriveTH
-
-import Control.Monad (void)
 
 import Language.Fortran.AST as LFA
 import Language.Fortran.ParserMonad
 import Language.Fortran.PrettyPrint
-import Language.Fortran.Parser.Any
-import Language.Fortran.Util.Position
-import Language.Fortran.Util.SecondParameter
 
 import System.FilePath
-import System.Directory
 import Text.PrettyPrint
 import Text.PrettyPrint.GenericPretty
 

@@ -6,8 +6,6 @@ module Language.Fortran.ParserMonadSpec where
 import Test.Hspec
 
 import Language.Fortran.ParserMonad
-import Control.Monad.State.Lazy
-
 import Language.Fortran.Util.Position
 
 vanillaParseState :: ParseState String

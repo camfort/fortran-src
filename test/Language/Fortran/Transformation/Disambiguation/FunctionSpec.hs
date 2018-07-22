@@ -4,11 +4,8 @@ import Test.Hspec
 import TestUtil
 
 import Language.Fortran.Analysis
-import Language.Fortran.Analysis.Renaming
-import Language.Fortran.Analysis.Types
 import Language.Fortran.AST
 import Language.Fortran.Transformer
-import Language.Fortran.Transformation.TransformMonad
 
 disambiguateFunction :: ProgramFile () -> ProgramFile ()
 disambiguateFunction = transform [ DisambiguateIntrinsic, DisambiguateFunction ]
