@@ -159,7 +159,7 @@ spec =
         sParser "      implicit character*30 (a, b, c), integer (a-z, l)" `shouldBe'` st
 
     it "parses 'parameter (pi = 3.14, b = 'X' // 'O', d = k) '" $ do
-      let sts = [ DeclVariable () u (varGen "pi") Nothing (Just $ realGen 3.14)
+      let sts = [ DeclVariable () u (varGen "pi") Nothing (Just $ realGen (3.14::Double))
                 , let e = ExpBinary () u Concatenation (strGen "X") (strGen "O")
                   in DeclVariable () u (varGen "b") Nothing (Just e)
                 , DeclVariable () u (varGen "d") Nothing (Just $ varGen "k") ]
