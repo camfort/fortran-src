@@ -27,7 +27,7 @@ valFalse = ExpValue () u $ ValLogical ".false."
 varGen :: String -> Expression ()
 varGen str = ExpValue () u $ ValVariable str
 
-intGen :: (Show a, Integral a) => a -> Expression ()
+intGen :: Integer -> Expression ()
 intGen i = ExpValue () u $ ValInteger $ show i
 
 realGen :: (Fractional a, Show a) => a -> Expression ()
