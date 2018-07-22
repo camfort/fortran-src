@@ -4,6 +4,7 @@
 
 module Language.Fortran.PrettyPrintSpec where
 
+import Prelude hiding (mod)
 import qualified Data.ByteString.Char8 as B
 import Data.Text.Encoding (encodeUtf8, decodeUtf8With)
 import Data.Text.Encoding.Error (replace)
@@ -457,8 +458,8 @@ spec =
 
     describe "Program file" $
       it "prints simple program file" $ do
-        let body = [ BlStatement () u Nothing (StContinue () u) ]
-        let pu = PUModule () u "my_mod" body Nothing
+        let body' = [ BlStatement () u Nothing (StContinue () u) ]
+        let pu = PUModule () u "my_mod" body' Nothing
         let com = PUComment () u (Comment "hello!")
         let pf = ProgramFile mi77 [com, pu, com, pu, com, com]
         let expect = unlines [ "!hello!"
