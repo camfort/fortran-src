@@ -3,13 +3,9 @@ module Language.Fortran.Lexer.FreeFormSpec where
 import Test.Hspec
 import TestUtil
 
-import Data.Maybe (fromJust)
-
 import Language.Fortran.ParserMonad (FortranVersion(..))
 import Language.Fortran.Lexer.FreeForm (collectFreeTokens, Token(..))
 import qualified Data.ByteString.Char8 as B
-
-import Debug.Trace
 
 collectF90 :: String -> [ Token ]
 collectF90 = collectFreeTokens Fortran90 . B.pack

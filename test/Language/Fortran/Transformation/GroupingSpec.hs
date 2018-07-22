@@ -3,7 +3,7 @@ module Language.Fortran.Transformation.GroupingSpec where
 import Test.Hspec hiding (Selector)
 import TestUtil
 import Control.Exception (evaluate)
-import Control.DeepSeq (force, ($!!), NFData)
+import Control.DeepSeq (force, NFData)
 
 import Language.Fortran.Transformer
 import Language.Fortran.AST

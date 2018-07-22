@@ -3,22 +3,16 @@ module Language.Fortran.Analysis.RenamingSpec (spec) where
 import Test.Hspec
 import TestUtil
 
-import Data.Map ((!), elems)
+import Data.Map (elems)
 import qualified Data.Map as M
-import Data.List
 
 import Language.Fortran.ParserMonad
 import Language.Fortran.AST
-import Language.Fortran.Util.Position
 import qualified Language.Fortran.Parser.Fortran90 as F90
 import Language.Fortran.Analysis
-import Language.Fortran.Analysis.Renaming hiding (extractNameMap, underRenaming)
+import Language.Fortran.Analysis.Renaming
 import Data.Generics.Uniplate.Data
-import Data.Generics.Uniplate.Operations
-import Data.Data
 import qualified Data.ByteString.Char8 as B
-
-import Debug.Trace
 
 testF90 pf = (resetSrcSpan . analyseRenames . initAnalysis) $ pf
 extractNameMap' = extractNameMap . analyseRenames . initAnalysis

@@ -3,7 +3,6 @@ module Language.Fortran.Parser.Fortran66Spec(spec) where
 import Test.Hspec
 import TestUtil
 
-import Control.Monad.State.Lazy
 import Prelude hiding (LT)
 
 import Language.Fortran.Parser.Fortran66
@@ -11,8 +10,6 @@ import Language.Fortran.Lexer.FixedForm
 import Language.Fortran.ParserMonad
 import Language.Fortran.AST
 import qualified Data.ByteString.Char8 as B
-
-import Data.Typeable
 
 eParser :: String -> Expression ()
 eParser sourceCode =

@@ -6,11 +6,10 @@ import TestUtil
 
 import Language.Fortran.Parser.Fortran77
 import qualified Language.Fortran.Parser.Fortran90 as F90
-import Language.Fortran.Lexer.FixedForm (initParseState)
-import Language.Fortran.ParserMonad (FortranVersion(..), evalParse, fromParseResultUnsafe)
+import Language.Fortran.ParserMonad (fromParseResultUnsafe)
 import Language.Fortran.AST
 import Language.Fortran.Analysis
-import Language.Fortran.Analysis.Renaming hiding (extractNameMap, underRenaming)
+import Language.Fortran.Analysis.Renaming
 import Language.Fortran.Analysis.BBlocks
 import Language.Fortran.Analysis.DataFlow
 import qualified Data.Map as M

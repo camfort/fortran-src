@@ -8,13 +8,10 @@ import Data.Map ((!))
 import Data.Data
 import Language.Fortran.AST
 import Language.Fortran.Analysis.Types
-import Language.Fortran.Analysis.Renaming hiding (extractNameMap, underRenaming)
 import Language.Fortran.Analysis
 import qualified Language.Fortran.Parser.Fortran90 as F90
 import Language.Fortran.ParserMonad
 import qualified Data.ByteString.Char8 as B
-
-import Debug.Trace
 
 inferTable :: Data a => ProgramFile a -> TypeEnv
 inferTable = underRenaming (snd . analyseTypes)
