@@ -9,7 +9,7 @@ import Language.Fortran.AST
 import Language.Fortran.ParserMonad
 import Language.Fortran.Lexer.FreeForm
 import Language.Fortran.Parser.Fortran90
-import qualified Data.List as List
+--import qualified Data.List as List
 import qualified Data.ByteString.Char8 as B
 
 eParser :: String -> Expression ()
@@ -37,8 +37,8 @@ fTok sourceCode = collectFreeTokens Fortran95 $ B.pack sourceCode
  - Given a list of values, find every combination of those values:
  - combination [1,2] = [[], [1], [2], [1,2], [2,1]]
  -}
-combination :: [a] -> [[a]]
-combination = foldr ((++) . List.permutations) [] . List.subsequences
+--combination :: [a] -> [[a]]
+--combination = foldr ((++) . List.permutations) [] . List.subsequences
 
 spec :: Spec
 spec =

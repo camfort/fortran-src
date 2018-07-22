@@ -92,7 +92,7 @@ spec =
           let str = foldr (++) "" strs
           let fStr = str ++ (init $ unlines ["function f()", "end"])
           let opt = buildPUFunctionOpts opts
-          let expected = puFunction fType 
+          --let expected = puFunction fType
           case opt of
             Left _ -> it ("Shouldn't parse: " ++ show fStr ++ ": " ++ show opt) $ evaluate (fParser fStr) `shouldThrow` anyIOException
             Right fOpt' ->
@@ -302,10 +302,10 @@ spec =
       describe "FORALL statements" $ do
         let stride = Just $ ExpBinary () u NE (varGen "i") (intGen 2)
         let tripletSpecList = [("i", intGen 1, varGen "n", stride)]
-        let varI = IxSingle () u Nothing (varGen "i")
-        let expSub1 = ExpSubscript () u (varGen "a") (AList () u [varI, varI])
-        let expSub2 = ExpSubscript () u (varGen "x") (AList () u [varI])
-        let eAssign = StExpressionAssign () u expSub1 expSub2
+        --let varI = IxSingle () u Nothing (varGen "i")
+        --let expSub1 = ExpSubscript () u (varGen "a") (AList () u [varI, varI])
+        --let expSub2 = ExpSubscript () u (varGen "x") (AList () u [varI])
+        --let eAssign = StExpressionAssign () u expSub1 expSub2
 
         it "parses basic FORALL statements" $ do
           let stStr = "FORALL (I=1:N, I /= 2)" -- A(I,I) = X(I)"
