@@ -34,6 +34,7 @@ collectToLexSafe version srcInput = dropUntil2 $ collectFixedTokensSafe version 
     dropUntil2 (Just (x:xs)) = dropUntil2 $ Just xs
     dropUntil2 _ = Nothing
 
+collectFixedTokens' :: FortranVersion -> String -> [Token]
 collectFixedTokens' v = collectFixedTokens v . B.pack
 
 spec :: Spec
@@ -254,6 +255,7 @@ spec =
                                   , TEndStructure u, TNewline u
                                   , TEOF u ]
 
+example1 :: String
 example1 = unlines [
   "      intEGerix",
   "1         iX= 42",
@@ -261,6 +263,7 @@ example1 = unlines [
   " 10   wrITe (*,*), ix",
   "        EnD" ]
 
+continuationExample :: String
 continuationExample = unlines [
   "      inte",
   "     .ger i",
@@ -269,6 +272,7 @@ continuationExample = unlines [
   "     .2",
   "      end"]
 
+example1Expectation :: [Token]
 example1Expectation = [
   TType u "integer", TId u "ix", TNewline u,
   TLabel u "1", TId u "ix", TOpAssign u, TInt u "42", TNewline u,

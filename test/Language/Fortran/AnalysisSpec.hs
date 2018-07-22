@@ -22,6 +22,7 @@ spec =
         let pf = stripAnalysis $ pParser programAnal1
         lhsExprs pf `shouldMatchList'` programAnal1LhsExprs
 
+programAnal1LhsExprs :: [Expression ()]
 programAnal1LhsExprs =
   [ ExpSubscript () u (ExpValue () u (ValVariable "a")) (AList () u [ ixSinGen 1 ])
   , ExpSubscript () u (ExpValue () u (ValVariable "a"))
@@ -33,6 +34,7 @@ programAnal1LhsExprs =
   , ExpSubscript () u (ExpValue () u (ValVariable "a")) (AList () u [ ixSinGen 6 ])
   , ExpSubscript () u (ExpValue () u (ValVariable "a")) (AList () u [ ixSinGen 5 ]) ]
 
+programAnal1 :: String
 programAnal1 = unlines $ map (replicate 6 ' '++) [
       "program anal1"
     , "integer a, f"

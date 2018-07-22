@@ -4,6 +4,7 @@ import Test.Hspec
 import TestUtil
 
 import Data.Map (elems)
+import Data.Data (Data)
 import qualified Data.Map as M
 
 import Language.Fortran.ParserMonad
@@ -14,15 +15,21 @@ import Language.Fortran.Analysis.Renaming
 import Data.Generics.Uniplate.Data
 import qualified Data.ByteString.Char8 as B
 
+testF90 :: Data a => ProgramFile a -> ProgramFile (Analysis a)
 testF90 pf = (resetSrcSpan . analyseRenames . initAnalysis) $ pf
+extractNameMap' :: ProgramFile () -> M.Map String String
 extractNameMap' = extractNameMap . analyseRenames . initAnalysis
+unrename' :: ProgramFile () -> ProgramFile ()
 unrename' = stripAnalysis . unrename . rename . analyseRenames . initAnalysis
+renameAndStrip' :: Data a => ProgramFile a -> ProgramFile a
 renameAndStrip' x = stripAnalysis . rename . analyseRenames . initAnalysis $ x
 
+countUnrenamed :: ProgramFile (Analysis ()) -> Int
 countUnrenamed e = length [ () | ExpValue (Analysis { uniqueName = Nothing }) _ (ValVariable {}) <- uniE_PF e ]
   where uniE_PF :: ProgramFile (Analysis ()) -> [Expression (Analysis ())]
         uniE_PF = universeBi
 
+fortran90Parser :: String -> String -> ProgramFile A0
 fortran90Parser src file = fromParseResultUnsafe $ F90.fortran90Parser (B.pack src) file
 
 spec :: Spec
@@ -112,11 +119,16 @@ spec = do
 
 --------------------------------------------------
 
+ex1 :: ProgramFile ()
 ex1 = ProgramFile mi77 [ ex1pu1 ]
+ex1pu1 :: ProgramUnit ()
 ex1pu1 = PUFunction () u (Just $ TypeSpec () u TypeInteger Nothing) (None () u False) "f1" Nothing Nothing [] Nothing
 
+ex2 :: ProgramFile ()
 ex2 = ProgramFile mi77 [ ex2pu1 ]
+ex2pu1 :: ProgramUnit ()
 ex2pu1 = PUMain () u (Just "main") ex2pu1bs Nothing
+ex2pu1bs :: [Block ()]
 ex2pu1bs =
   [ BlStatement () u Nothing (StDeclaration () u (TypeSpec () u TypeInteger Nothing) Nothing (AList () u
       [ DeclVariable () u (varGen "a") Nothing Nothing
@@ -134,8 +146,11 @@ ex2pu1bs =
   , BlStatement () u Nothing (StExpressionAssign () u
       (ExpSubscript () u (varGen "d") (AList () u [ ixSinGen 1 ])) (intGen 1)) ]
 
+ex3 :: ProgramFile ()
 ex3 = ProgramFile mi77 [ ex3pu1, ex3pu2 ]
+ex3pu1 :: ProgramUnit ()
 ex3pu1 = PUMain () u (Just "main") ex3pu1bs Nothing
+ex3pu1bs :: [Block ()]
 ex3pu1bs =
   [ BlStatement () u Nothing (StDeclaration () u (TypeSpec () u TypeInteger Nothing) Nothing (AList () u
       [ DeclVariable () u (varGen "a") Nothing Nothing
@@ -154,10 +169,14 @@ ex3pu1bs =
       (ExpSubscript () u (varGen "c") (AList () u [ ixSinGen 1 ])) (intGen 1))
   , BlStatement () u Nothing (StExpressionAssign () u
       (varGen "d") (ExpBinary () u Addition (varGen "d") (intGen 1))) ]
+ex3pu2 :: ProgramUnit ()
 ex3pu2 = PUFunction () u (Just $ TypeSpec () u TypeInteger Nothing) (None () u False) "f1" (Just $ AList () u [ varGen "d", varGen "b"]) Nothing (ex3pu1bs ++ [ BlStatement () u Nothing (StExpressionAssign () u (varGen "f1") (varGen "d")) ]) Nothing
 
+ex4 :: ProgramFile ()
 ex4 = ProgramFile mi77 [ ex4pu1, ex4pu2 ]
+ex4pu1 :: ProgramUnit ()
 ex4pu1 = PUMain () u (Just "main") ex4pu1bs Nothing
+ex4pu1bs :: [Block ()]
 ex4pu1bs =
   [ BlStatement () u Nothing (StDeclaration () u (TypeSpec () u TypeInteger Nothing) Nothing (AList () u
       [ DeclVariable () u (varGen "f1") Nothing Nothing
@@ -166,25 +185,39 @@ ex4pu1bs =
       (ExpValue () u (ValVariable "r"))
       (ExpFunctionCall () u (ExpValue () u (ValVariable "f1"))
                             (Just $ AList () u [ Argument () u Nothing $ intGen 1 ]))) ]
+ex4pu2 :: ProgramUnit ()
 ex4pu2 = PUFunction () u (Just $ TypeSpec () u TypeInteger Nothing) (None () u False) "f1" (Just $ AList () u [ varGen "x"]) Nothing [ BlStatement () u Nothing (StExpressionAssign () u (varGen "f1") (varGen "x")) ] Nothing
 
+ex5 :: ProgramFile ()
 ex5 = ProgramFile mi77 [ ex5pu1, ex5pu2 ]
+ex5pu1 :: ProgramUnit ()
 ex5pu1 = PUMain () u (Just "main") ex5pu1bs Nothing
+ex5pu1bs :: [a]
 ex5pu1bs = []
+ex5pu2 :: ProgramUnit ()
 ex5pu2 = PUModule () u "ex5mod" ex5pu2bs (Just [ex5pu2pu1])
+ex5pu2bs :: [a]
 ex5pu2bs = []
+ex5pu2pu1 :: ProgramUnit ()
 ex5pu2pu1 = PUFunction () u (Just $ TypeSpec () u TypeInteger Nothing) (None () u False) "f1" (Just $ AList () u [ varGen "x"]) Nothing [ BlStatement () u Nothing (StExpressionAssign () u (varGen "f1") (varGen "x")) ] Nothing
 
-
+ex6 :: ProgramFile ()
 ex6 = ProgramFile mi77 [ ex6pu1, ex6pu2 ]
+ex6pu1 :: ProgramUnit ()
 ex6pu1 = PUMain () u (Just "main") ex6pu1bs Nothing
+ex6pu1bs :: [a]
 ex6pu1bs = []
+ex6pu2 :: ProgramUnit ()
 ex6pu2 = PUModule () u "ex6mod" ex6pu2bs (Just [ex6pu2pu1])
+ex6pu2bs :: [a]
 ex6pu2bs = []
+ex6pu2pu1 :: ProgramUnit ()
 ex6pu2pu1 = PUFunction () u (Just $ TypeSpec () u TypeInteger Nothing) (None () u False) "f1" (Just $ AList () u [ varGen "x"]) Nothing [ BlStatement () u Nothing (StExpressionAssign () u (varGen "f1") (ExpFunctionCall () u (ExpValue () u (ValVariable "f1")) (Just $ AList () u [Argument () u Nothing (varGen "x")]))) ] (Just [ex5pu2pu1])
 
+parseF90 :: [String] -> ProgramFile A0
 parseF90 = resetSrcSpan . flip fortran90Parser "" . unlines
 
+ex8 :: ProgramFile A0
 ex8 = resetSrcSpan . flip fortran90Parser "" $ unlines [
     "module m1"
   , "  implicit none"
@@ -219,6 +252,7 @@ ex8 = resetSrcSpan . flip fortran90Parser "" $ unlines [
   , "end program main"
   ]
 
+ex9 :: ProgramFile A0
 ex9 = resetSrcSpan . flip fortran90Parser "" $ unlines [
     "module m1"
   , "  implicit none"
@@ -234,20 +268,27 @@ ex9 = resetSrcSpan . flip fortran90Parser "" $ unlines [
   , "end module m1"
   ]
 
+ex10 :: ProgramFile ()
 ex10 = ProgramFile mi77 [ ex10pu1 ]
+ex10pu1 :: ProgramUnit ()
 ex10pu1 = PUSubroutine () u (None () u False) "s1" Nothing ex10pu1bs Nothing
+ex10pu1bs :: [Block ()]
 ex10pu1bs =
   [ BlStatement () u Nothing (StEntry () u (ExpValue () u (ValVariable "e1")) Nothing Nothing)
   , BlStatement () u Nothing (StEntry () u (ExpValue () u (ValVariable "e2")) Nothing Nothing)
   , BlStatement () u Nothing (StEntry () u (ExpValue () u (ValVariable "e3")) Nothing Nothing) ]
 
+ex11 :: ProgramFile ()
 ex11 = ProgramFile mi77 [ ex11pu1 ]
+ex11pu1 :: ProgramUnit ()
 ex11pu1 = PUFunction () u (Just (TypeSpec () u TypeInteger Nothing)) (None () u False) "f1" Nothing (Just (varGen "r1")) ex11pu1bs Nothing
+ex11pu1bs :: [Block ()]
 ex11pu1bs =
   [ BlStatement () u Nothing (StEntry () u (ExpValue () u (ValVariable "e1")) Nothing Nothing)
   , BlStatement () u Nothing (StEntry () u (ExpValue () u (ValVariable "e2")) Nothing Nothing)
   , BlStatement () u Nothing (StEntry () u (ExpValue () u (ValVariable "e3")) Nothing (Just (varGen "r2"))) ]
 
+ex12 :: ProgramFile A0
 ex12 = resetSrcSpan . flip fortran90Parser "" $ unlines [
     "module m1"
   , "  implicit none"
@@ -285,6 +326,7 @@ ex12 = resetSrcSpan . flip fortran90Parser "" $ unlines [
   ]
 
 
+exScope1 :: ProgramFile A0
 exScope1 = resetSrcSpan . flip fortran90Parser "" $ unlines [
     "program scope1"
   -- local variables cannot take on the name of subprogram, therefore
@@ -300,6 +342,7 @@ exScope1 = resetSrcSpan . flip fortran90Parser "" $ unlines [
   , ""
   ]
 
+exScope2 :: ProgramFile A0
 exScope2 = resetSrcSpan . flip fortran90Parser "" $ unlines [
     "module scope2"
   , "  integer :: x"
@@ -329,6 +372,7 @@ exScope2 = resetSrcSpan . flip fortran90Parser "" $ unlines [
   , "end program main"
   ]
 
+exScope3 :: ProgramFile A0
 exScope3 = resetSrcSpan . flip fortran90Parser "" $ unlines [
     "module m1"
   , "  implicit none"
@@ -365,6 +409,7 @@ exScope3 = resetSrcSpan . flip fortran90Parser "" $ unlines [
   , "end function f2"
   ]
 
+common1 :: ProgramFile A0
 common1 = resetSrcSpan . flip fortran90Parser "" $ unlines [
     "program p1"
   , "  implicit none"

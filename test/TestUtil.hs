@@ -16,12 +16,17 @@ import Language.Fortran.Analysis.Renaming
 import qualified Data.Map as M
 import Data.Maybe
 
+u :: SrcSpan
 u = initSrcSpan
 
+mi77 :: MetaInfo
 mi77 = MetaInfo { miVersion = Fortran77, miFilename = "<unknown>" }
+mi90 :: MetaInfo
 mi90 = MetaInfo { miVersion = Fortran90, miFilename = "<unknown>" }
 
+valTrue :: Expression ()
 valTrue = ExpValue () u $ ValLogical ".true."
+valFalse :: Expression ()
 valFalse = ExpValue () u $ ValLogical ".false."
 
 varGen :: String -> Expression ()
@@ -48,11 +53,15 @@ opGen s = ExpValue () u (ValOperator s)
 assVal :: Expression ()
 assVal = ExpValue () u ValAssignment
 
+ixSinGen :: Integer -> Index ()
 ixSinGen i = IxSingle () u Nothing (intGen i)
+ixRanGen :: Integer -> Integer -> Index ()
 ixRanGen i j = IxRange () u (Just $ intGen i) (Just $ intGen j) Nothing
 
+shouldBe' :: (Data a, Eq a, Show a) => a -> a -> Expectation
 shouldBe' a b = resetSrcSpan a `shouldBe` resetSrcSpan b
 
+shouldMatchList' :: (Data a, Eq a, Show a) => [a] -> [a] -> Expectation
 shouldMatchList' a b = resetSrcSpan a `shouldMatchList` resetSrcSpan b
 
 -- To be used in testing it reverts the SrcSpans in AST to dummy initial

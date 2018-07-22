@@ -5,11 +5,13 @@ import TestUtil
 
 import Language.Fortran.ParserMonad (FortranVersion(..))
 import Language.Fortran.Lexer.FreeForm (collectFreeTokens, Token(..))
+import Language.Fortran.Util.Position (SrcSpan)
 import qualified Data.ByteString.Char8 as B
 
 collectF90 :: String -> [ Token ]
 collectF90 = collectFreeTokens Fortran90 . B.pack
 
+pseudoAssign :: (SrcSpan -> Token) -> [Token]
 pseudoAssign token = fmap ($u) [ flip TId "i", TOpAssign, token, TEOF ]
 
 spec :: Spec

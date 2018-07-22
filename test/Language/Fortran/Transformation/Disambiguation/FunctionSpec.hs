@@ -37,8 +37,11 @@ spec = do
 - d(x) = 1
 - end
 -}
+ex1 :: ProgramFile ()
 ex1 = ProgramFile mi77 [ ex1pu1 ]
+ex1pu1 :: ProgramUnit ()
 ex1pu1 = PUMain () u (Just "main") ex1pu1bs Nothing
+ex1pu1bs :: [Block ()]
 ex1pu1bs =
   [ BlStatement () u Nothing (StDeclaration () u (TypeSpec () u TypeInteger Nothing) Nothing (AList () u
       [ DeclVariable () u (varGen "a") Nothing Nothing
@@ -55,8 +58,11 @@ ex1pu1bs =
   , BlStatement () u Nothing (StExpressionAssign () u
       (ExpSubscript () u (varGen "d") (AList () u [ IxSingle () u Nothing $ varGen "x" ])) (intGen 1)) ]
 
+expectedEx1 :: ProgramFile ()
 expectedEx1 = ProgramFile mi77 [ expectedEx1pu1 ]
+expectedEx1pu1 :: ProgramUnit ()
 expectedEx1pu1 = PUMain () u (Just "main") expectedEx1pu1bs Nothing
+expectedEx1pu1bs :: [Block ()]
 expectedEx1pu1bs =
   [ BlStatement () u Nothing (StDeclaration () u (TypeSpec () u TypeInteger Nothing) Nothing (AList () u
       [ DeclVariable () u (varGen "a") Nothing Nothing
@@ -85,9 +91,13 @@ expectedEx1pu1bs =
 - function y(i,j)
 - end
 -}
+ex2 :: ProgramFile ()
 ex2 = ProgramFile mi77 [ ex2pu1, ex2pu2 ]
+ex2pu1 :: ProgramUnit ()
 ex2pu1 = PUMain () u Nothing ex2pu1bs Nothing
+ex2pu2 :: ProgramUnit ()
 ex2pu2 = PUFunction () u Nothing (None () u False) "y" (Just $ AList () u [ varGen "i", varGen "j" ]) Nothing [ ] Nothing
+ex2pu1bs :: [Block ()]
 ex2pu1bs =
   [ BlStatement () u Nothing
       (StFunction () u
@@ -102,8 +112,11 @@ ex2pu1bs =
                         (varGen "f")
                         (AList () u [ ixSinGen 1 ])))) ]
 
+expectedEx2 :: ProgramFile ()
 expectedEx2 = ProgramFile mi77 [ expectedEx2pu1, ex2pu2 ]
+expectedEx2pu1 :: ProgramUnit ()
 expectedEx2pu1 = PUMain () u Nothing expectedEx2pu1bs Nothing
+expectedEx2pu1bs :: [Block ()]
 expectedEx2pu1bs =
   [ BlStatement () u Nothing
       (StFunction () u
@@ -119,9 +132,13 @@ expectedEx2pu1bs =
             (Just $ AList () u [ Argument () u Nothing (intGen 1) ])))) ]
 
 
+ex3 :: ProgramFile ()
 ex3 = ProgramFile mi77 [ ex3pu1, ex3pu2 ]
+ex3pu1 :: ProgramUnit ()
 ex3pu1 = PUMain () u Nothing ex3pu1bs Nothing
+ex3pu2 :: ProgramUnit ()
 ex3pu2 = PUFunction () u Nothing (None () u False) "y" (Just $ AList () u [ varGen "i", varGen "j" ]) Nothing [ ] Nothing
+ex3pu1bs :: [Block ()]
 ex3pu1bs =
   [ BlStatement () u Nothing
       (StFunction () u
@@ -134,8 +151,11 @@ ex3pu1bs =
           (AList () u [
             (IxSingle () u Nothing (ExpSubscript () u (varGen "f") (AList () u [ ixSinGen 1 ])))]))) ]
 
+expectedEx3 :: ProgramFile ()
 expectedEx3 = ProgramFile mi77 [ expectedEx3pu1, ex3pu2 ]
+expectedEx3pu1 :: ProgramUnit ()
 expectedEx3pu1 = PUMain () u Nothing expectedEx3pu1bs Nothing
+expectedEx3pu1bs :: [Block ()]
 expectedEx3pu1bs =
   [ BlStatement () u Nothing
       (StFunction () u
