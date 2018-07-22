@@ -25,13 +25,13 @@ collectToLex version srcInput = dropUntil2 $ collectFixedTokens version (B.pack 
     dropUntil2 [] = Nothing
     dropUntil2 [_] = Nothing
     dropUntil2 [a,_] = Just a
-    dropUntil2 (x:xs) = dropUntil2 xs
+    dropUntil2 (_:xs) = dropUntil2 xs
 
 collectToLexSafe :: FortranVersion -> String -> Maybe Token
 collectToLexSafe version srcInput = dropUntil2 $ collectFixedTokensSafe version (B.pack srcInput)
   where
     dropUntil2 (Just [a,_]) = Just a
-    dropUntil2 (Just (x:xs)) = dropUntil2 $ Just xs
+    dropUntil2 (Just (_:xs)) = dropUntil2 $ Just xs
     dropUntil2 _ = Nothing
 
 collectFixedTokens' :: FortranVersion -> String -> [Token]

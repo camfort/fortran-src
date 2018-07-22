@@ -156,7 +156,7 @@ spec =
         testBackEdges F77 "f" programRd3 `shouldBe` IM.singleton (findLabelBB gr 4) (findLabelBB gr 1)
 
       it "loopNodes" $ do
-        let (pf, gr) = testPfAndGraph F77 "f" programRd3
+        let (_, gr) = testPfAndGraph F77 "f" programRd3
         let domMap = dominators gr
         let bedges = genBackEdgeMap domMap gr
         S.fromList (loopNodes bedges gr) `shouldBe`
@@ -183,7 +183,7 @@ spec =
 
     describe "rd4" $ do
       it "ivMapByASTBlock" $ do
-        let (pf, gr) = testPfAndGraph F77 "f" programRd4
+        let (_, gr) = testPfAndGraph F77 "f" programRd4
         let domMap = dominators gr
         let bedges = genBackEdgeMap domMap gr
         let ivMap  = genInductionVarMapByASTBlock bedges gr
@@ -206,9 +206,6 @@ spec =
       let dm = genDefMap bm
       let rDefs = reachingDefinitions dm gr
       let flTo = genFlowsToGraph bm dm gr rDefs
-      let domMap = dominators gr
-      let bedges = genBackEdgeMap domMap gr
-      let diMap = genDerivedInductionMap bedges gr
       it "flowsTo" $ do
         (S.fromList . edges . trc $ flTo) `shouldSatisfy`
           -- Find the flows of the assignment statements in the program.
@@ -227,7 +224,7 @@ spec =
       let diMap = genDerivedInductionMap bedges gr
       let (iLabel, iName):_ = [ (fromJust (insLabel a), varName e)
                               | e@(ExpValue a _ (ValVariable _)) <- rhsExprs pf, srcName e == "i" ]
-      let (jLabel, jName):_ = [ (fromJust (insLabel a), varName e)
+      let (jLabel, _):_ = [ (fromJust (insLabel a), varName e)
                               | e@(ExpValue a _ (ValVariable _)) <- lhsExprs pf, srcName e == "j" ]
       it "flowsTo" $ do
         (S.fromList . edges . trc $ flTo) `shouldSatisfy`
@@ -247,7 +244,6 @@ spec =
       let flTo = genFlowsToGraph bm dm gr rDefs
       let domMap = dominators gr
       let bedges = genBackEdgeMap domMap gr
-      let diMap = genDerivedInductionMap bedges gr
       it "backEdges" $ do
         bedges `shouldBe` IM.fromList [(findLabelBB gr 5, findLabelBB gr 4)]
       it "flowsTo" $ do
@@ -265,7 +261,6 @@ spec =
       let flTo = genFlowsToGraph bm dm gr rDefs
       let domMap = dominators gr
       let bedges = genBackEdgeMap domMap gr
-      let diMap = genDerivedInductionMap bedges gr
       it "backEdges" $ do
         bedges `shouldBe` IM.fromList [(findLabelBB gr 12, findLabelBB gr 11)]
       it "flowsTo" $ do
