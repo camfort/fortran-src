@@ -212,7 +212,7 @@ spec =
 
       it "parses declaration with initialisation" $
         let typeSpec = TypeSpec () u TypeComplex Nothing
-            init' = ExpValue () u (ValComplex (intGen 24) (realGen 42.0))
+            init' = ExpValue () u (ValComplex (intGen 24) (realGen (42.0::Double)))
             declarators = AList () u
               [ DeclVariable () u (varGen "x") Nothing (Just init') ]
             expected = StDeclaration () u typeSpec Nothing declarators
