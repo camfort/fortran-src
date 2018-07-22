@@ -52,7 +52,7 @@ analyseTypesWithEnv env pf@(ProgramFile mi _) = fmap environ . runInfer (miVersi
 
   -- Gather types for known entry points.
   eps <- gets (M.toList . entryPoints)
-  forM eps $ \ (eName, (fName, mRetName)) -> do
+  _ <- forM eps $ \ (eName, (fName, mRetName)) -> do
     mFType <- getRecordedType fName
     case mFType of
       Just (IDType fVType fCType) -> do
