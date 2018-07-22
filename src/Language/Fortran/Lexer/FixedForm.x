@@ -296,7 +296,7 @@ idP fv ao i ai = not (doP fv ai) && not (ifP fv ao i ai)
 
 doP :: FortranVersion -> AlexInput -> Bool
 doP fv ai = isPrefixOf "do" (reverse . lexemeMatch . aiLexeme $ ai) &&
-    case unParse (lexer $ f 0) ps of
+    case unParse (lexer $ f (0::Integer)) ps of
       ParseOk True _ -> True
       _ -> False
   where
@@ -364,7 +364,7 @@ notToP _ _ _ ai = not $ "to" `isPrefixOf` (reverse . lexemeMatch . aiLexeme $ ai
 
 equalFollowsP :: FortranVersion -> AlexInput -> Bool
 equalFollowsP fv ai =
-    case unParse (lexer $ f False 0) ps of
+    case unParse (lexer $ f False (0::Integer)) ps of
       ParseOk True _ -> True
       _ -> False
   where

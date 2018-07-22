@@ -325,7 +325,7 @@ opP _ _ _ ai
 
 partOfExpOrPointerAssignmentP :: User -> AlexInput -> Int -> AlexInput -> Bool
 partOfExpOrPointerAssignmentP (User fv pc) _ _ ai =
-    case unParse (lexer $ f False 0) ps of
+    case unParse (lexer $ f False (0::Integer)) ps of
       ParseOk True _ -> True
       _ -> False
   where
@@ -621,7 +621,7 @@ lexCharacter = do
     putAlex $ alex { aiStartCode = StartCode scC Stable }
     match <- getMatch
     let boundaryMarker = last match
-    _lexChar 0 boundaryMarker
+    _lexChar (0::Integer) boundaryMarker
   where
     _lexChar 0 bm = do
       alex <- getAlex
@@ -807,7 +807,7 @@ isContinuation !ai =
     (scActual . aiStartCode) ai /= scC
     -- No continuation while lexing a comment.
     && (null match || not (lexemeIsCmt lexeme))
-    && _isContinuation ai 0
+    && _isContinuation ai (0::Integer)
   where
     match  = lexemeMatch lexeme
     lexeme = aiLexeme $ ai
@@ -826,7 +826,7 @@ isContinuation !ai =
     _advance :: AlexInput -> Bool
     _advance !ai' =
       case advanceWithoutContinuation ai' of
-        Just ai'' -> _isContinuation ai'' 1
+        Just ai'' -> _isContinuation ai'' (1::Integer)
         Nothing -> False
 
 -- Here's the skip continuation automaton:
@@ -851,7 +851,7 @@ isContinuation !ai =
 -- This version is more permissive than the specification
 -- as it allows empty lines to be used between continuations.
 skipContinuation :: AlexInput -> AlexInput
-skipContinuation ai' = _skipCont ai' 0
+skipContinuation ai' = _skipCont ai' (0::Integer)
   where
     _skipCont ai 0 =
       if currentChar ai == '&'
