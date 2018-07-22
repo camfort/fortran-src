@@ -16,6 +16,7 @@ import qualified Data.ByteString.Char8 as B
 inferTable :: Data a => ProgramFile a -> TypeEnv
 inferTable = underRenaming (snd . analyseTypes)
 
+fortran90Parser :: String -> String -> ProgramFile A0
 fortran90Parser src file = fromParseResultUnsafe $ F90.fortran90Parser (B.pack src) file
 
 spec :: Spec
@@ -63,21 +64,31 @@ spec = do
         idCType (mapping ! "dabs") `shouldBe` Just CTFunction
         idCType (mapping ! "cabs") `shouldBe` Just CTArray
 
+ex1 :: ProgramFile ()
 ex1 = ProgramFile mi77 [ ex1pu1 ]
+ex1pu1 :: ProgramUnit ()
 ex1pu1 = PUFunction () u (Just $ TypeSpec () u TypeInteger Nothing) (None () u False) "f1" Nothing Nothing [] Nothing
 
+ex2 :: ProgramFile ()
 ex2 = ProgramFile mi77 [ ex2pu1, ex1pu1 ]
+ex2pu1 :: ProgramUnit ()
 ex2pu1 = PUSubroutine () u (None () u False) "s1" Nothing [] Nothing
 
+ex3 :: ProgramFile ()
 ex3 = ProgramFile mi77 [ ex3pu1 ]
+ex3pu1 :: ProgramUnit ()
 ex3pu1 = PUSubroutine () u (None () u False) "s1" Nothing ex3pu1bs Nothing
+ex3pu1bs :: [Block ()]
 ex3pu1bs =
   [ BlStatement () u Nothing (StEntry () u (ExpValue () u (ValVariable "e1")) Nothing Nothing)
   , BlStatement () u Nothing (StEntry () u (ExpValue () u (ValVariable "e2")) Nothing Nothing)
   , BlStatement () u Nothing (StEntry () u (ExpValue () u (ValVariable "e3")) Nothing Nothing) ]
 
+ex4 :: ProgramFile ()
 ex4 = ProgramFile mi77 [ ex4pu1 ]
+ex4pu1 :: ProgramUnit ()
 ex4pu1 = PUMain () u Nothing ex4pu1bs Nothing
+ex4pu1bs :: [Block ()]
 ex4pu1bs =
   [ BlStatement () u Nothing (StDeclaration () u (TypeSpec () u TypeInteger Nothing) Nothing
       (AList () u
@@ -89,8 +100,11 @@ ex4pu1bs =
   , BlStatement () u Nothing (StDeclaration () u (TypeSpec () u TypeLogical Nothing) Nothing
       (AList () u [ DeclVariable () u (varGen "log") Nothing Nothing ])) ]
 
+ex5 :: ProgramFile ()
 ex5 = ProgramFile mi77 [ ex5pu1 ]
+ex5pu1 :: ProgramUnit ()
 ex5pu1 = PUBlockData () u (Just "bd") ex5pu1bs
+ex5pu1bs :: [Block ()]
 ex5pu1bs =
   [ BlStatement () u Nothing (StDimension () u (AList () u
       [ DeclArray () u (varGen "x") (AList () u [ DimensionDeclarator () u Nothing (Just $ intGen 1) ]) Nothing Nothing
@@ -106,8 +120,11 @@ ex5pu1bs =
 - d(x) = 1
 - end
 -}
+ex6 :: ProgramFile ()
 ex6 = ProgramFile mi77 [ ex6pu1 ]
+ex6pu1 :: ProgramUnit ()
 ex6pu1 = PUMain () u (Just "main") ex6pu1bs Nothing
+ex6pu1bs :: [Block ()]
 ex6pu1bs =
   [ BlStatement () u Nothing (StDeclaration () u (TypeSpec () u TypeInteger Nothing) Nothing (AList () u
       [ DeclVariable () u (varGen "a") Nothing Nothing
@@ -124,14 +141,17 @@ ex6pu1bs =
   , BlStatement () u Nothing (StExpressionAssign () u
       (ExpSubscript () u (varGen "d") (fromList () [ ixSinGen 1 ])) (intGen 1)) ]
 
+ex11 :: ProgramFile ()
 ex11 = ProgramFile mi77 [ ex11pu1 ]
+ex11pu1 :: ProgramUnit ()
 ex11pu1 = PUFunction () u (Just (TypeSpec () u TypeInteger Nothing)) (None () u False) "f1" Nothing (Just (varGen "r1")) ex11pu1bs Nothing
+ex11pu1bs :: [Block ()]
 ex11pu1bs =
   [ BlStatement () u Nothing (StEntry () u (ExpValue () u (ValVariable "e1")) Nothing Nothing)
   , BlStatement () u Nothing (StEntry () u (ExpValue () u (ValVariable "e2")) Nothing Nothing)
   , BlStatement () u Nothing (StEntry () u (ExpValue () u (ValVariable "e3")) Nothing (Just (varGen "r2"))) ]
 
-
+intrinsics1 :: ProgramFile A0
 intrinsics1 = resetSrcSpan . flip fortran90Parser "" $ unlines [
     "module intrinsics"
   , "contains"

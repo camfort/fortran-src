@@ -41,11 +41,15 @@ pParser version source = rename . analyseBBlocks . analyseRenames . initAnalysis
 withParse :: Data a => Parser t => t -> String -> (ProgramFile (Analysis A0) -> a) -> a
 withParse version source f = underRenaming (f . analyseBBlocks) (parser version source "<unknown>")
 
+testGraph :: Parser t => t -> String -> String -> BBGr (Analysis A0)
 testGraph version f p = fromJust . M.lookup (Named f) . withParse version p $ genBBlockMap
+testPfAndGraph :: Parser t => t -> String -> String -> (ProgramFile (Analysis A0), BBGr (Analysis A0))
 testPfAndGraph version f p = fmap (fromJust . M.lookup (Named f)) . withParse version p $ \ pf -> (pf, genBBlockMap pf)
 
+testGenDefMap :: Parser t => t -> String -> DefMap
 testGenDefMap version = flip (withParse version) (genDefMap . genBlockMap . analyseBBlocks . initAnalysis)
 
+testBackEdges :: Parser t => t -> String -> String -> BackEdgeMap
 testBackEdges version f p = bedges
   where
     gr     = testGraph version f p
@@ -308,6 +312,7 @@ findBBlockBl gr = IS.fromList . mapMaybe (insLabel . getAnnotation) . concat . m
 --------------------------------------------------
 -- Test programs
 
+programLoop4 :: String
 programLoop4 = unlines [
       "      program loop4"
     , " 1    integer r, i, j"
@@ -330,6 +335,7 @@ programLoop4 = unlines [
     , "      end"
   ]
 
+programLoop4Alt :: String
 programLoop4Alt = unlines [
       "      module loopMod"
     , "      implicit none"
@@ -360,6 +366,7 @@ programLoop4Alt = unlines [
     , "      end module"
   ]
 
+programRd3 :: String
 programRd3 = unlines [
       "      function f(x)"
     , "      integer i, a, b, x, f"
@@ -380,6 +387,7 @@ programRd3 = unlines [
     , ""
     ]
 
+programRd4 :: String
 programRd4 = unlines [
       "      function f(x)"
     , "      integer i, j, a, b, x, f"
@@ -403,6 +411,7 @@ programRd4 = unlines [
     ]
 
 -- do not use line numbers
+programBug36 :: String
 programBug36 = unlines [
       "program foo"
     , "  implicit none"
@@ -416,6 +425,7 @@ programBug36 = unlines [
     , "end program"
     ]
 
+programFuncFlow1 :: String
 programFuncFlow1 = unlines [
       "      program main"
     , "        integer :: i, j"
@@ -429,6 +439,7 @@ programFuncFlow1 = unlines [
     , "      end program main"
     ]
 
+programFuncFlow2 :: String
 programFuncFlow2 = unlines [
       "      program main"
     , "        integer :: i, j"
@@ -443,6 +454,7 @@ programFuncFlow2 = unlines [
     , "      end program main"
     ]
 
+programDefUse1 :: String
 programDefUse1 = unlines [
       "program defUse1"
     , "1 integer :: x = 1"
@@ -454,6 +466,7 @@ programDefUse1 = unlines [
     , "end program defUse1"
     ]
 
+programDefUse2 :: String
 programDefUse2 = unlines [
       "program defUse2"
     , "1 integer :: x = 1"

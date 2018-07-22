@@ -88,6 +88,7 @@ findSuccsBB gr = IS.fromList . concatMap (suc gr) . mapMaybe (flip findLabeledBB
 --------------------------------------------------
 -- Test programs
 
+programLoop4 :: String
 programLoop4 = unlines [
       "      program loop4"
     , "      integer r, i, j"
@@ -114,6 +115,7 @@ programLoop4 = unlines [
     , "      end"
   ]
 
+programArithIf :: String
 programArithIf = unlines [
     "      program arithif"
   , "      integer n"

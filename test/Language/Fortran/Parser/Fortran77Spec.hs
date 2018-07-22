@@ -290,11 +290,13 @@ spec =
         let st = StExpressionAssign () u tgt (ExpValue () u (ValInteger "0"))
         resetSrcSpan (slParser src) `shouldBe` st
 
+exampleProgram1 :: String
 exampleProgram1 = unlines
   [ "      program hello"
   , "      integer x"
   , "      end" ]
 
+exampleProgram2 :: String
 exampleProgram2 = unlines
   [ "      block data hello"
   , "      integer x"
