@@ -314,7 +314,7 @@ perBlock b@(BlIf _ _ _ _ exps bss _) = do
   -- go through nested AST-blocks
   startEnds <- forM bss $ \ bs -> do
     (thenN, endN) <- processBlocks bs
-    genBBlock
+    _ <- genBBlock
     return (thenN, endN)
 
   -- connect all the new bblocks with edges, link to subsequent bblock labeled nxtN
@@ -331,7 +331,7 @@ perBlock b@(BlCase _ _ _ _ _ inds bss _) = do
   -- go through nested AST-blocks
   startEnds <- forM bss $ \ bs -> do
     (caseN, endN) <- processBlocks bs
-    genBBlock
+    _ <- genBBlock
     return (caseN, endN)
 
   -- connect all the new bblocks with edges, link to subsequent bblock labeled nxtN
@@ -349,7 +349,7 @@ perBlock b@(BlStatement a ss _ (StIfLogical _ _ exp stm)) = do
   (ifN, thenN) <- closeBBlock
 
   -- build pseudo-AST-block to contain nested statement
-  processBlocks [BlStatement a ss Nothing stm]
+  _ <- processBlocks [BlStatement a ss Nothing stm]
   _ <- gets curNode
 
   -- connect all the new bblocks with edges, link to subsequent bblock labeled nxtN
@@ -428,7 +428,7 @@ perDoBlock repeatExpr b bs = do
     _                                  -> return ()
   case repeatExpr of Just e -> processFunctionCalls e >> return (); Nothing -> return ()
   addToBBlock $ stripNestedBlocks b
-  closeBBlock
+  _ <- closeBBlock
   -- process nested bblocks inside of do-statement
   (startN, endN) <- processBlocks bs
   n' <- genBBlock
@@ -683,7 +683,7 @@ bbgrToDOT' clusters' gr = execWriter $ do
   tell "node [shape=box,fontname=\"Courier New\"]\n"
   let entryNodes = filter (\ n -> null (pre gr n)) (nodes gr)
   let nodes' = bfsn entryNodes gr
-  forM nodes' $ \ n -> do
+  _ <- forM nodes' $ \ n -> do
     let Just bs = lab gr n
     let mname = IM.lookup n clusters'
     case mname of Just name -> do tell $ "subgraph \"cluster " ++ showPUName name ++ "\" {\n"
@@ -693,7 +693,7 @@ bbgrToDOT' clusters' gr = execWriter $ do
     tell $ "bb" ++ show n ++ "[label=\"" ++ show n ++ "\\l" ++ concatMap showBlock bs ++ "\"]\n"
     when (null bs) . tell $ "bb" ++ show n ++ "[shape=circle]\n"
     tell $ "bb" ++ show n ++ " -> {"
-    forM (suc gr n) $ \ m -> tell (" bb" ++ show m)
+    _ <- forM (suc gr n) $ \ m -> tell (" bb" ++ show m)
     tell "}\n"
     when (isJust mname) $ tell "}\n"
   tell "}\n"
