@@ -334,10 +334,10 @@ genVarFlowsToMap dm fg = M.fromListWith S.union [ (conv u, sconv v) | (u, v) <- 
 
 -- conservative assumption: stay within bounds of signed 32-bit integer
 minConst :: Integer
-minConst = -2 ^ 31
+minConst = (-2::Integer) ^ (31::Integer)
 
 maxConst :: Integer
-maxConst = 2 ^ 31 - 1
+maxConst = (2::Integer) ^ (31::Integer) - (1::Integer)
 
 inBounds :: Integer -> Bool
 inBounds x = minConst <= x && x <= maxConst

@@ -177,8 +177,8 @@ insEntryEdges pu = insEdge (0, 1, ()) . insNode (0, bs)
 -- entry/exit bblocks.
 genInOutAssignments :: Data a => ProgramUnit (Analysis a) -> Bool -> [Block (Analysis a)]
 genInOutAssignments pu exit
-  | exit, PUFunction{} <- pu = zipWith genAssign (genVar a0 noSrcSpan fn:vs) [0..]
-  | otherwise                = zipWith genAssign vs [1..]
+  | exit, PUFunction{} <- pu = zipWith genAssign (genVar a0 noSrcSpan fn:vs) [(0::Integer)..]
+  | otherwise                = zipWith genAssign vs [(1::Integer)..]
   where
     Named fn      = puName pu
     name i        = fn ++ "[" ++ show i ++ "]"
@@ -389,7 +389,7 @@ perBlock (BlStatement a s l (StCall a' s' cn@ExpValue{} (Just aargs))) = do
   let formal (ExpValue a'' s'' (ValVariable _)) i = ExpValue a'' s'' (ValVariable (name i))
       formal e i                              = ExpValue a'' s'' (ValVariable (name i))
         where a'' = getAnnotation e; s'' = getSpan e
-  forM_ (zip exps [1..]) $ \ (e, i) -> do
+  forM_ (zip exps [(1::Integer)..]) $ \ (e, i) -> do
     e' <- processFunctionCalls e
     addToBBlock . analyseAllLhsVars1 $ BlStatement a s Nothing (StExpressionAssign a' s' (formal e' i) e')
   (_, dummyCallN) <- closeBBlock
@@ -400,7 +400,7 @@ perBlock (BlStatement a s l (StCall a' s' cn@ExpValue{} (Just aargs))) = do
 
   -- re-assign the variables using the values of the formal parameters, if possible
   -- (because call-by-reference)
-  forM_ (zip exps [1..]) $ \ (e, i) ->
+  forM_ (zip exps [(1::Integer)..]) $ \ (e, i) ->
     -- this is only possible for l-expressions
     if isLExpr e then
       addToBBlock . analyseAllLhsVars1 $ BlStatement a s Nothing (StExpressionAssign a' s' e (formal e i))
@@ -519,12 +519,12 @@ processFunctionCall (ExpFunctionCall a s fn@(ExpValue a' s' _) aargs) = do
         where n = name i
       formal e i                              = setName n $ ExpValue a0 s'' (ValVariable n)
         where s'' = getSpan e; n = name i
-  forM_ (zip exps [1..]) $ \ (e, i) ->
+  forM_ (zip exps [(1::Integer)..]) $ \ (e, i) ->
     addToBBlock . analyseAllLhsVars1 $ BlStatement a0 s Nothing (StExpressionAssign a' s' (formal e i) e)
   (_, dummyCallN) <- closeBBlock
 
-  let retV = setName (name 0) $ ExpValue a0 s (ValVariable (name 0))
-  let dummyArgs = map (Argument a0 s' Nothing) (retV:map (uncurry formal) (zip exps [1..]))
+  let retV = setName (name (0::Integer)) $ ExpValue a0 s (ValVariable (name (0::Integer)))
+  let dummyArgs = map (Argument a0 s' Nothing) (retV:map (uncurry formal) (zip exps [(1::Integer)..]))
 
   -- create "dummy call" bblock with dummy arguments in the StCall AST-node.
   addToBBlock . analyseAllLhsVars1 $ BlStatement a s Nothing (StCall a' s' fn (Just $ fromList a0 dummyArgs))
@@ -532,7 +532,7 @@ processFunctionCall (ExpFunctionCall a s fn@(ExpValue a' s' _) aargs) = do
 
   -- re-assign the variables using the values of the formal parameters, if possible
   -- (because call-by-reference)
-  forM_ (zip exps [1..]) $ \ (e, i) ->
+  forM_ (zip exps [(1::Integer)..]) $ \ (e, i) ->
     -- this is only possible for l-expressions
     if isLExpr e then
       addToBBlock . analyseAllLhsVars1 $ BlStatement a0 s Nothing (StExpressionAssign a' s' e (formal e i))
