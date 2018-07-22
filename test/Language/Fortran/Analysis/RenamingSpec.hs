@@ -4,7 +4,7 @@ import Test.Hspec
 import TestUtil
 
 import Data.Map (elems)
-import Data.Data (Data)
+--import Data.Data (Data)
 import qualified Data.Map as M
 
 import Language.Fortran.ParserMonad
@@ -15,14 +15,14 @@ import Language.Fortran.Analysis.Renaming
 import Data.Generics.Uniplate.Data
 import qualified Data.ByteString.Char8 as B
 
-testF90 :: Data a => ProgramFile a -> ProgramFile (Analysis a)
-testF90 pf = (resetSrcSpan . analyseRenames . initAnalysis) $ pf
+--testF90 :: Data a => ProgramFile a -> ProgramFile (Analysis a)
+--testF90 pf = (resetSrcSpan . analyseRenames . initAnalysis) $ pf
 extractNameMap' :: ProgramFile () -> M.Map String String
 extractNameMap' = extractNameMap . analyseRenames . initAnalysis
 unrename' :: ProgramFile () -> ProgramFile ()
 unrename' = stripAnalysis . unrename . rename . analyseRenames . initAnalysis
-renameAndStrip' :: Data a => ProgramFile a -> ProgramFile a
-renameAndStrip' x = stripAnalysis . rename . analyseRenames . initAnalysis $ x
+--renameAndStrip' :: Data a => ProgramFile a -> ProgramFile a
+--renameAndStrip' x = stripAnalysis . rename . analyseRenames . initAnalysis $ x
 
 countUnrenamed :: ProgramFile (Analysis ()) -> Int
 countUnrenamed e = length [ () | ExpValue (Analysis { uniqueName = Nothing }) _ (ValVariable {}) <- uniE_PF e ]
@@ -214,8 +214,8 @@ ex6pu2bs = []
 ex6pu2pu1 :: ProgramUnit ()
 ex6pu2pu1 = PUFunction () u (Just $ TypeSpec () u TypeInteger Nothing) (None () u False) "f1" (Just $ AList () u [ varGen "x"]) Nothing [ BlStatement () u Nothing (StExpressionAssign () u (varGen "f1") (ExpFunctionCall () u (ExpValue () u (ValVariable "f1")) (Just $ AList () u [Argument () u Nothing (varGen "x")]))) ] (Just [ex5pu2pu1])
 
-parseF90 :: [String] -> ProgramFile A0
-parseF90 = resetSrcSpan . flip fortran90Parser "" . unlines
+--parseF90 :: [String] -> ProgramFile A0
+--parseF90 = resetSrcSpan . flip fortran90Parser "" . unlines
 
 ex8 :: ProgramFile A0
 ex8 = resetSrcSpan . flip fortran90Parser "" $ unlines [
