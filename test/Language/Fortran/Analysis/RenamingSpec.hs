@@ -110,6 +110,12 @@ spec = do
       length (filter (=="s1") (elems entry)) `shouldBe` 1
       length (filter (=="s2") (elems entry)) `shouldBe` 1
 
+  describe "Common blocks" $ do
+    it "common1" $ do
+      let entry = extractNameMap' common1
+      length (filter (=="x") (elems entry)) `shouldBe` 2
+      M.lookup "c_x_common" entry `shouldBe` Just "x"
+
 --------------------------------------------------
 
 ex1 = ProgramFile mi77 [ ex1pu1 ]
@@ -363,6 +369,22 @@ exScope3 = resetSrcSpan . flip fortran90Parser "" $ unlines [
   , "  integer :: x, f2"
   , "  f2 = x + 1"
   , "end function f2"
+  ]
+
+common1 = resetSrcSpan . flip fortran90Parser "" $ unlines [
+    "program p1"
+  , "  implicit none"
+  , "  integer :: x"
+  , "  common /c/ x"
+  , "contains"
+  , "  subroutine s1 ()"
+  , "    call s2 (f1(x))"
+  , "  end subroutine s1"
+  , "  integer function f1(x)"
+  , "    integer :: x, f2"
+  , "    f1 = f2(x)"
+  , "  end function f1"
+  , "end program p1"
   ]
 
 -- Local variables:
