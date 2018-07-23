@@ -149,7 +149,7 @@ ex3pu1bs =
       (StExpressionAssign () u (varGen "i")
         (ExpSubscript () u (varGen "abs")
           (AList () u [
-            (IxSingle () u Nothing (ExpSubscript () u (varGen "f") (AList () u [ ixSinGen 1 ])))]))) ]
+            IxSingle () u Nothing (ExpSubscript () u (varGen "f") (AList () u [ ixSinGen 1 ]))]))) ]
 
 expectedEx3 :: ProgramFile ()
 expectedEx3 = ProgramFile mi77 [ expectedEx3pu1, ex3pu2 ]

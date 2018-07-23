@@ -25,7 +25,7 @@ unrename' = stripAnalysis . unrename . rename . analyseRenames . initAnalysis
 --renameAndStrip' x = stripAnalysis . rename . analyseRenames . initAnalysis $ x
 
 countUnrenamed :: ProgramFile (Analysis ()) -> Int
-countUnrenamed e = length [ () | ExpValue (Analysis { uniqueName = Nothing }) _ (ValVariable {}) <- uniE_PF e ]
+countUnrenamed e = length [ () | ExpValue Analysis { uniqueName = Nothing } _ ValVariable {} <- uniE_PF e ]
   where uniE_PF :: ProgramFile (Analysis ()) -> [Expression (Analysis ())]
         uniE_PF = universeBi
 
@@ -44,32 +44,32 @@ spec = do
                ( 1, 2, 2, 2 )
 
     -- Test that every symbol that is supposed to be renamed is renamed.
-    it "complete ex1" $ do
+    it "complete ex1" $
       countUnrenamed (analyseRenames . initAnalysis $ ex1) `shouldBe` 0
-    it "complete ex2" $ do
+    it "complete ex2" $
       countUnrenamed (analyseRenames . initAnalysis $ ex2) `shouldBe` 0
-    it "complete ex3" $ do
+    it "complete ex3" $
       countUnrenamed (analyseRenames . initAnalysis $ ex3) `shouldBe` 0
-    it "complete ex4" $ do
+    it "complete ex4" $
       countUnrenamed (analyseRenames . initAnalysis $ ex4) `shouldBe` 0
-    it "complete ex5" $ do
+    it "complete ex5" $
       countUnrenamed (analyseRenames . initAnalysis $ ex5) `shouldBe` 0
-    it "complete ex6" $ do
+    it "complete ex6" $
       countUnrenamed (analyseRenames . initAnalysis $ ex6) `shouldBe` 0
-    it "complete ex8" $ do
+    it "complete ex8" $
       countUnrenamed (analyseRenames . initAnalysis $ ex8) `shouldBe` 0
-    it "complete ex9" $ do
+    it "complete ex9" $
       countUnrenamed (analyseRenames . initAnalysis $ ex9) `shouldBe` 0
-    it "complete ex10" $ do
+    it "complete ex10" $
       countUnrenamed (analyseRenames . initAnalysis $ ex10) `shouldBe` 0
-    it "complete ex11" $ do
+    it "complete ex11" $
       countUnrenamed (analyseRenames . initAnalysis $ ex11) `shouldBe` 0
-    it "complete ex12" $ do
+    it "complete ex12" $
       countUnrenamed (analyseRenames . initAnalysis $ ex12) `shouldBe` 0
 
-    it "complete exScope1" $ do
+    it "complete exScope1" $
       countUnrenamed (analyseRenames . initAnalysis $ exScope1) `shouldBe` 0
-    it "complete exScope2" $ do
+    it "complete exScope2" $
       countUnrenamed (analyseRenames . initAnalysis $ exScope2) `shouldBe` 0
 
     it "functions 1" $ do
@@ -103,7 +103,7 @@ spec = do
       let entry = extractNameMap' exScope2
       length (filter (=="x") (elems entry)) `shouldBe` 2
 
-  describe "Ordering" $ do
+  describe "Ordering" $
     it "exScope3 testing out-of-order definitions" $ do
       let entry = extractNameMap' exScope3
       length (filter (=="f1") (elems entry)) `shouldBe` 1
@@ -111,7 +111,7 @@ spec = do
       length (filter (=="s1") (elems entry)) `shouldBe` 1
       length (filter (=="s2") (elems entry)) `shouldBe` 1
 
-  describe "Common blocks" $ do
+  describe "Common blocks" $
     it "common1" $ do
       let entry = extractNameMap' common1
       length (filter (=="x") (elems entry)) `shouldBe` 2

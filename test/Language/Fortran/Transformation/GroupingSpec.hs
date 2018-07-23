@@ -60,9 +60,9 @@ spec = do
   let name = Just "name"
   let endName = Just "endName"
   describe "Block FORALL statements" $ do
-    it "groups unlabelled FORALL blocks" $ do
+    it "groups unlabelled FORALL blocks" $
       groupForall (exampleForall Nothing Nothing) `shouldBe'` expectedForall Nothing
-    it "groups unlabelled FORALL blocks" $ do
+    it "groups unlabelled FORALL blocks" $
       groupForall (exampleForall name name) `shouldBe'` expectedForall name
     it "groups unlabelled FORALL blocks" $ do
       let lhs = (evaluate . force) (groupForall $ exampleForall name endName)
@@ -89,14 +89,14 @@ exampleComment = BlComment () u $ Comment "comment"
 exampleHeader :: ForallHeader a
 exampleHeader = ForallHeader [] Nothing
 exampleForall :: Maybe String -> Maybe String -> ProgramFile ()
-exampleForall name nameEnd = buildExampleProgram "forall" $
+exampleForall name nameEnd = buildExampleProgram "forall"
   [ BlStatement () u Nothing $ StForall () u name exampleHeader
   , exampleComment
   , BlStatement () u Nothing $ StEndForall () u nameEnd
   ]
 
 expectedForall :: Maybe String -> ProgramFile ()
-expectedForall name  = buildExampleProgram "forall" $
+expectedForall name  = buildExampleProgram "forall"
     [BlForall () u Nothing name exampleHeader [exampleComment] Nothing]
 
 
