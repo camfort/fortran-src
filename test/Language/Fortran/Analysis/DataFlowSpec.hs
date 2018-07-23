@@ -23,6 +23,7 @@ import Data.List
 import Data.Data
 import Data.Generics.Uniplate.Operations
 import qualified Data.ByteString.Char8 as B
+import Control.Arrow ((&&&))
 
 data F77 = F77
 data F90 = F90
@@ -67,9 +68,9 @@ spec =
 
       it "loopNodes" $ do
         let pf = pParser F77 programLoop4
-        let gr = fromJust . M.lookup (Named "loop4") $ genBBlockMap pf
-        let domMap = dominators gr
-        let bedges = genBackEdgeMap domMap gr
+            gr = fromJust . M.lookup (Named "loop4") $ genBBlockMap pf
+            domMap = dominators gr
+            bedges = genBackEdgeMap domMap gr
         S.fromList (loopNodes bedges gr) `shouldBe`
           S.fromList [findLabelsBB gr [5,6,7,20], IS.unions [findLabelsBB gr [4,5,6,7,8,10,20,30], findSuccsBB gr [20]]]
 
@@ -80,17 +81,17 @@ spec =
 
       it "reachingDefinitions" $ do
         let pf = pParser F77 programLoop4
-        let gr = fromJust . M.lookup (Named "loop4") $ genBBlockMap pf
-        let bm = genBlockMap pf
-        let dm = genDefMap bm
+            gr = fromJust . M.lookup (Named "loop4") $ genBBlockMap pf
+            bm = genBlockMap pf
+            dm = genDefMap bm
         IM.lookup (findLabelBB gr 5) (reachingDefinitions dm gr) `shouldBe`
           Just (findLabelsBl pf [2,3,4,5,6,30], findLabelsBl pf [3,4,5,6,30])
 
       it "flowsTo" $ do
         let pf = pParser F77 programLoop4
-        let gr = fromJust . M.lookup (Named "loop4") $ genBBlockMap pf
-        let bm = genBlockMap pf
-        let dm = genDefMap bm
+            gr = fromJust . M.lookup (Named "loop4") $ genBBlockMap pf
+            bm = genBlockMap pf
+            dm = genDefMap bm
         (S.fromList . edges . genFlowsToGraph bm dm gr $ reachingDefinitions dm gr) `shouldBe`
           -- Find the flows of the assignment statements in the program.
           findLabelsBlEdges pf [(2,5),(2,40)            -- r = 0
@@ -157,23 +158,23 @@ spec =
 
       it "loopNodes" $ do
         let (_, gr) = testPfAndGraph F77 "f" programRd3
-        let domMap = dominators gr
-        let bedges = genBackEdgeMap domMap gr
+            domMap = dominators gr
+            bedges = genBackEdgeMap domMap gr
         S.fromList (loopNodes bedges gr) `shouldBe`
           S.fromList [findLabelsBB gr [1,2,3,4]]
 
       it "reachingDefinitions" $ do
         let (pf, gr) = testPfAndGraph F77 "f" programRd3
-        let bm = genBlockMap pf
-        let dm = genDefMap bm
+            bm = genBlockMap pf
+            dm = genDefMap bm
         IM.lookup (findLabelBB gr 5) (reachingDefinitions dm gr) `shouldBe`
           Just (IS.unions [findBBlockBl gr 0, findLabelsBl pf [1,2,3]]
                ,IS.unions [findBBlockBl gr 0, findLabelsBl pf [1,2,3,5]])
 
       it "flowsTo" $ do
         let (pf, gr) = testPfAndGraph F77 "f" programRd3
-        let bm = genBlockMap pf
-        let dm = genDefMap bm
+            bm = genBlockMap pf
+            dm = genDefMap bm
         (S.fromList . edges . genFlowsToGraph bm dm gr $ reachingDefinitions dm gr) `shouldSatisfy`
           -- Find the flows of the assignment statements in the program.
           S.isSubsetOf (findLabelsBlEdges pf [(1,2),(1,3) -- do 4  i = 2, 10
@@ -181,52 +182,52 @@ spec =
                                              ,(3,2),(3,5) -- a(i) = b(i)
                                              ])
 
-    describe "rd4" $ do
+    describe "rd4" $
       it "ivMapByASTBlock" $ do
         let (_, gr) = testPfAndGraph F77 "f" programRd4
-        let domMap = dominators gr
-        let bedges = genBackEdgeMap domMap gr
-        let ivMap  = genInductionVarMapByASTBlock bedges gr
-        (sort . map (\ x -> (head x, length x)) . group . sort . map S.size $ IM.elems ivMap) `shouldBe` [(1,3),(2,3)]
+            domMap = dominators gr
+            bedges = genBackEdgeMap domMap gr
+            ivMap  = genInductionVarMapByASTBlock bedges gr
+        (sort . map (head &&& length) . group . sort . map S.size $ IM.elems ivMap) `shouldBe` [(1,3),(2,3)]
 
     describe "bug36" $ do
       let pf = pParser F90 programBug36
-      let sgr = genSuperBBGr (genBBlockMap pf)
-      let gr = superBBGrGraph sgr
-      let domMap = dominators gr
-      let bedges = genBackEdgeMap domMap gr
-      it "loopNodes" $ do
+          sgr = genSuperBBGr (genBBlockMap pf)
+          gr = superBBGrGraph sgr
+          domMap = dominators gr
+          bedges = genBackEdgeMap domMap gr
+      it "loopNodes" $
         length (loopNodes bedges gr) `shouldBe` 2
 
     describe "funcflow1" $ do
       let pf = pParser F90 programFuncFlow1
-      let sgr = genSuperBBGr (genBBlockMap pf)
-      let gr = superBBGrGraph sgr
-      let bm = genBlockMap pf
-      let dm = genDefMap bm
-      let rDefs = reachingDefinitions dm gr
-      let flTo = genFlowsToGraph bm dm gr rDefs
-      it "flowsTo" $ do
+          sgr = genSuperBBGr (genBBlockMap pf)
+          gr = superBBGrGraph sgr
+          bm = genBlockMap pf
+          dm = genDefMap bm
+          rDefs = reachingDefinitions dm gr
+          flTo = genFlowsToGraph bm dm gr rDefs
+      it "flowsTo" $
         (S.fromList . edges . trc $ flTo) `shouldSatisfy`
           -- Find the flows of the assignment statements in the program.
           S.isSubsetOf (findLabelsBlEdges pf [(1,2),(1,3),(3,2)])
 
     describe "funcflow2" $ do
       let pf = pParser F90 programFuncFlow2
-      let sgr = genSuperBBGr (genBBlockMap pf)
-      let gr = superBBGrGraph sgr
-      let bm = genBlockMap pf
-      let dm = genDefMap bm
-      let rDefs = reachingDefinitions dm gr
-      let flTo = genFlowsToGraph bm dm gr rDefs
-      let domMap = dominators gr
-      let bedges = genBackEdgeMap domMap gr
-      let diMap = genDerivedInductionMap bedges gr
-      let (iLabel, iName):_ = [ (fromJust (insLabel a), varName e)
+          sgr = genSuperBBGr (genBBlockMap pf)
+          gr = superBBGrGraph sgr
+          bm = genBlockMap pf
+          dm = genDefMap bm
+          rDefs = reachingDefinitions dm gr
+          flTo = genFlowsToGraph bm dm gr rDefs
+          domMap = dominators gr
+          bedges = genBackEdgeMap domMap gr
+          diMap = genDerivedInductionMap bedges gr
+          (iLabel, iName):_ = [ (fromJust (insLabel a), varName e)
                               | e@(ExpValue a _ (ValVariable _)) <- rhsExprs pf, srcName e == "i" ]
-      let (jLabel, _):_ = [ (fromJust (insLabel a), varName e)
+          (jLabel, _):_ = [ (fromJust (insLabel a), varName e)
                               | e@(ExpValue a _ (ValVariable _)) <- lhsExprs pf, srcName e == "j" ]
-      it "flowsTo" $ do
+      it "flowsTo" $
         (S.fromList . edges . trc $ flTo) `shouldSatisfy`
           -- Find the flows of the assignment statements in the program.
           S.isSubsetOf (findLabelsBlEdges pf [(1,2),(1,3),(3,2)])
@@ -236,40 +237,40 @@ spec =
 
     describe "defUse1" $ do
       let pf = pParser F90 programDefUse1
-      let sgr = genSuperBBGr (genBBlockMap pf)
-      let gr = superBBGrGraph sgr
-      let bm = genBlockMap pf
-      let dm = genDefMap bm
-      let rDefs = reachingDefinitions dm gr
-      let flTo = genFlowsToGraph bm dm gr rDefs
-      let domMap = dominators gr
-      let bedges = genBackEdgeMap domMap gr
-      it "backEdges" $ do
+          sgr = genSuperBBGr (genBBlockMap pf)
+          gr = superBBGrGraph sgr
+          bm = genBlockMap pf
+          dm = genDefMap bm
+          rDefs = reachingDefinitions dm gr
+          flTo = genFlowsToGraph bm dm gr rDefs
+          domMap = dominators gr
+          bedges = genBackEdgeMap domMap gr
+      it "backEdges" $
         bedges `shouldBe` IM.fromList [(findLabelBB gr 5, findLabelBB gr 4)]
-      it "flowsTo" $ do
+      it "flowsTo" $
         (S.fromList . edges $ flTo) `shouldBe`
           -- Find the flows of the assignment statements in the program.
           findLabelsBlEdges pf [(1,2),(1,3),(1,5),(2,3),(3,4),(4,5),(5,5)]
 
     describe "defUse2" $ do
       let pf = pParser F90 programDefUse2
-      let sgr = genSuperBBGr (genBBlockMap pf)
-      let gr = superBBGrGraph sgr
-      let bm = genBlockMap pf
-      let dm = genDefMap bm
-      let rDefs = reachingDefinitions dm gr
-      let flTo = genFlowsToGraph bm dm gr rDefs
-      let domMap = dominators gr
-      let bedges = genBackEdgeMap domMap gr
-      it "backEdges" $ do
+          sgr = genSuperBBGr (genBBlockMap pf)
+          gr = superBBGrGraph sgr
+          bm = genBlockMap pf
+          dm = genDefMap bm
+          rDefs = reachingDefinitions dm gr
+          flTo = genFlowsToGraph bm dm gr rDefs
+          domMap = dominators gr
+          bedges = genBackEdgeMap domMap gr
+      it "backEdges" $
         bedges `shouldBe` IM.fromList [(findLabelBB gr 12, findLabelBB gr 11)]
-      it "flowsTo" $ do
+      it "flowsTo" $
         (S.fromList . edges $ flTo) `shouldSatisfy`
           -- Find the flows of the assignment statements in the program.
           S.isSubsetOf (findLabelsBlEdges pf [(1,2),(1,3),(1,4),(2,3),(3,11),(4,4),(11,12),(12,12)])
 
-    describe "other" $ do
-      it "dominators on disconnected graph" $ do
+    describe "other" $
+      it "dominators on disconnected graph" $
         dominators (nmap (const []) (mkUGraph [0,1,3,4,5,6,7,8,9] [(0,3) ,(3,1) ,(5,6) ,(6,7) ,(7,4) ,(7,8) ,(8,7) ,(8,9) ,(9,8)] :: Gr () ())) `shouldBe` IM.fromList [(0,IS.fromList [0]),(1,IS.fromList [0,1,3]),(3,IS.fromList [0,3]),(4,IS.fromList [4,5,6,7]),(5,IS.fromList [5]),(6,IS.fromList [5,6]),(7,IS.fromList [5,6,7]),(8,IS.fromList [5,6,7,8]),(9,IS.fromList [5,6,7,8,9])]
 
 --------------------------------------------------

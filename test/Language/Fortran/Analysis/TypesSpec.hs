@@ -57,7 +57,7 @@ spec = do
       mapping ! "c" `shouldBe` IDType (Just TypeInteger) (Just CTFunction)
       mapping ! "d" `shouldBe` IDType Nothing (Just CTFunction)
 
-    describe "Intrinsics type analysis" $ do
+    describe "Intrinsics type analysis" $
       it "disambiguates intrinsics from functions and variables" $ do
         let mapping = inferTable intrinsics1
         idCType (mapping ! "abs") `shouldBe` Just CTIntrinsic
