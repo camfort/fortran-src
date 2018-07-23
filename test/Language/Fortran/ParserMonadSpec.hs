@@ -50,15 +50,15 @@ spec :: Spec
 spec =
   describe "ParserMonad" $ do
     describe "Parse" $ do
-      it "should give out correct version" $ do
+      it "should give out correct version" $
         evalParse getVersion vanillaParseState `shouldBe` Fortran66
 
-      it "satisfies read after write equals to what is written" $ do
+      it "satisfies read after write equals to what is written" $
         let ai = evalParse (putAlex "l'enfer" >> getAlex) vanillaParseState in
           ai `shouldBe` "l'enfer"
 
       describe "Obtaining locations" $ do
-        it "getPosition returns correct location" $ do
+        it "getPosition returns correct location" $
           let _expPosition = Position 6 2 3
               _exampleM = do
                 _ai <- getAlex
@@ -67,7 +67,7 @@ spec =
               _loc = evalParse _exampleM vanillaSomeInput in
             _loc `shouldBe` _expPosition
 
-        it "getSrcSpan return correct location span" $ do
+        it "getSrcSpan return correct location span" $
           let _loc2 = Position 6 2 3
               _exampleM = do
                 _ai <- getAlex
@@ -79,13 +79,13 @@ spec =
             _span `shouldBe` _expectation
 
     describe "Lex" $ do
-      it "reads the state correctly" $ do
+      it "reads the state correctly" $
         evalParse getAlex vanillaParseState `shouldBe` ""
 
-      it "overrides the state correctly" $ do
+      it "overrides the state correctly" $
         let ai = evalParse (putAlex "c'est" >> getAlex) vanillaParseState in
             ai `shouldBe` "c'est"
 
-      it "mixes operations correctly" $ do
-       let ai = evalParse (putAlex "hello" >> getAlex >>= \s -> (putAlex $ take 4 s) >> getAlex) vanillaParseState in
+      it "mixes operations correctly" $
+       let ai = evalParse (putAlex "hello" >> getAlex >>= \s -> putAlex (take 4 s) >> getAlex) vanillaParseState in
              ai `shouldBe` "hell"

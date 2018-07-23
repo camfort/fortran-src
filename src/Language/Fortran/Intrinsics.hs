@@ -20,7 +20,7 @@ data IntrinsicsEntry = IEntry { iType :: IntrinsicType, iDefsUses :: ([Int], [In
   deriving (Show, Eq, Ord, Typeable, Generic)
 
 mkIEntry :: IntrinsicType -> ([Int], [Int]) -> IntrinsicsEntry
-mkIEntry ty du = IEntry ty du
+mkIEntry = IEntry
 
 type IntrinsicsTable = M.Map String IntrinsicsEntry
 

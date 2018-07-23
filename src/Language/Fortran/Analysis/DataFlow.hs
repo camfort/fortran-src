@@ -24,6 +24,7 @@ import Data.Generics.Uniplate.Data
 import GHC.Generics
 import Data.Data
 import Control.Monad.State.Lazy
+import Control.Arrow ((&&&))
 import Text.PrettyPrint.GenericPretty (Out)
 import Language.Fortran.Parser.Utils
 import Language.Fortran.Analysis
@@ -185,7 +186,7 @@ bblockKill = S.fromList . concatMap blockKill
 
 -- | Iterate "GEN" set through a single basic block.
 bblockGen :: Data a => [Block (Analysis a)] -> S.Set Name
-bblockGen bs = S.fromList . fst . foldl' f ([], []) $ zip (map blockGen bs) (map blockKill bs)
+bblockGen bs = S.fromList . fst . foldl' f ([], []) $ map (blockGen &&& blockKill) bs
   where
     f (bbgen, bbkill) (gen, kill) = ((gen \\ bbkill) `union` bbgen, kill `union` bbkill)
 
@@ -230,7 +231,7 @@ reachingDefinitions dm gr = dataFlowSolver gr (const (IS.empty, IS.empty)) revPo
 
 -- Compute the "GEN" and "KILL" sets for a given basic block.
 rdBblockGenKill :: Data a => DefMap -> [Block (Analysis a)] -> (IS.IntSet, IS.IntSet)
-rdBblockGenKill dm bs = foldl' f (IS.empty, IS.empty) $ zip (map gen bs) (map kill bs)
+rdBblockGenKill dm bs = foldl' f (IS.empty, IS.empty) $ map (gen &&& kill) bs
   where
     gen b | null (allLhsVars b) = IS.empty
           | otherwise           = IS.singleton . fromJustMsg "rdBblockGenKill" . insLabel . getAnnotation $ b

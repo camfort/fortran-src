@@ -14,6 +14,7 @@ module Language.Fortran.Analysis
 where
 
 import Prelude hiding (exp)
+import Control.Monad (void)
 import Language.Fortran.Util.Position (SrcSpan)
 import Data.Generics.Uniplate.Data
 import Data.Data
@@ -40,7 +41,7 @@ type BBGr a = Gr (BB a) ()
 -- Allow graphs to reside inside of annotations
 deriving instance (Typeable a, Typeable b) => Typeable (Gr a b)
 instance (Typeable a, Typeable b) => Data (Gr a b) where
-    gfoldl _k z v = z v -- make graphs opaque to Uniplate
+    gfoldl _k z   = z -- make graphs opaque to Uniplate
     toConstr _    = error "toConstr"
     gunfold _ _   = error "gunfold"
     dataTypeOf _  = mkNoRepType "Gr"
@@ -173,7 +174,7 @@ lvVarName _                                                   = error "Use of lv
 
 -- | Obtain the source name from an LvSimpleVar variable.
 lvSrcName :: LValue (Analysis a) -> String
-lvSrcName (LvSimpleVar (Analysis { sourceName = Just n }) _ _) = n
+lvSrcName (LvSimpleVar Analysis { sourceName = Just n } _ _) = n
 lvSrcName (LvSimpleVar _ _ n) = n
 lvSrcName _ = error "Use of lvSrcName on a non-variable"
 
@@ -294,7 +295,7 @@ computeAllLhsVars = concatMap lhsOfStmt . universeBi
     match' v@(ExpValue _ _ ValVariable{}) = varName v
     match' (ExpSubscript _ _ v@(ExpValue _ _ ValVariable{}) _) = varName v
     match' (ExpDataRef _ _ v _) = match' v
-    match' e = error $ "An unexpected LHS to an expression assign: " ++ show (fmap (const ()) e)
+    match' e = error $ "An unexpected LHS to an expression assign: " ++ show (void (const ()) e)
 
     -- Match and give the varname of LHSes which occur in subroutine calls
     match'' v@(ExpValue _ _ ValVariable{})                      = [varName v]

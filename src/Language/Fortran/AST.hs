@@ -134,15 +134,15 @@ data PUFunctionOpt a =
 buildPUFunctionOpt :: PUFunctionOpt () -> PUFunctionOpt () -> Either String (PUFunctionOpt ())
 buildPUFunctionOpt a b =
   case (a, b) of
-    ((None () _ False ), _)         -> Right $ setSpan (getTransSpan a b) b
-    (_, (None () _ False))          -> Right $ setSpan (getTransSpan a b) a
-    ((Elemental () _), _)           -> if functionIsRecursive b
+    (None () _ False , _)         -> Right $ setSpan (getTransSpan a b) b
+    (_, None () _ False)          -> Right $ setSpan (getTransSpan a b) a
+    (Elemental () _, _)          -> if functionIsRecursive b
                                          then Left "Function cannot be both elemental and recursive. "
                                          else Right . Elemental () $ getTransSpan a b
-    (_, (Elemental () _))           -> buildPUFunctionOpt b a
-    ((Pure () _ r), b')              -> Right $ Pure () (getTransSpan a b') (r || functionIsRecursive b')
-    (a', (Pure () _ r))              -> Right $ Pure () (getTransSpan a' b) (r || functionIsRecursive a')
-    ((None () _ r), (None () _ r')) -> Right $ None () (getTransSpan a b) (r || r')
+    (_, Elemental () _)           -> buildPUFunctionOpt b a
+    (Pure () _ r, b')              -> Right $ Pure () (getTransSpan a b') (r || functionIsRecursive b')
+    (a', Pure () _ r)              -> Right $ Pure () (getTransSpan a' b) (r || functionIsRecursive a')
+    (None () _ r, None () _ r') -> Right $ None () (getTransSpan a b) (r || r')
 -- Should parse: "elemental pure recursive function f()\nend": Right (Elemental ()) FAILED [4]
 
 buildPUFunctionOpts :: [PUFunctionOpt ()] -> Either String (PUFunctionOpt())

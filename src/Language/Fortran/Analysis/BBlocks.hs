@@ -194,7 +194,7 @@ genInOutAssignments pu exit
         (vl, vr) = if exit then (v', v) else (v, v')
         v'       = case v of
           ExpValue _ s' (ValVariable _) -> genVar a0 s' (name i)
-          _               -> error $ "unhandled genAssign case: " ++ show (fmap (const ()) v)
+          _               -> error $ "unhandled genAssign case: " ++ show (void (const ()) v)
 
 -- Remove exit edges for bblocks where standard construction doesn't apply.
 delInvalidExits :: DynGraph gr => gr [Block a] b -> gr [Block a] b
@@ -307,7 +307,7 @@ perBlock :: Data a => Block (Analysis a) -> BBlocker (Analysis a) ()
 -- invariant: curBB is in reverse order
 perBlock b@(BlIf _ _ _ _ exps bss _) = do
   processLabel b
-  _ <- forM (map fromJust . filter isJust $ exps) processFunctionCalls
+  _ <- forM (catMaybes . filter isJust $ exps) processFunctionCalls
   addToBBlock $ stripNestedBlocks b
   (ifN, _) <- closeBBlock
 
@@ -402,9 +402,8 @@ perBlock (BlStatement a s l (StCall a' s' cn@ExpValue{} (Just aargs))) = do
   -- (because call-by-reference)
   forM_ (zip exps [(1::Integer)..]) $ \ (e, i) ->
     -- this is only possible for l-expressions
-    if isLExpr e then
-      addToBBlock . analyseAllLhsVars1 $ BlStatement a s Nothing (StExpressionAssign a' s' e (formal e i))
-    else return ()
+    (when (isLExpr e) $
+      addToBBlock . analyseAllLhsVars1 $ BlStatement a s Nothing (StExpressionAssign a' s' e (formal e i)))
   (_, nextN) <- closeBBlock
 
   -- connect the bblocks
@@ -426,7 +425,7 @@ perDoBlock repeatExpr b bs = do
   case getLabel b of
     Just (ExpValue _ _ (ValInteger l)) -> insertLabel l doN
     _                                  -> return ()
-  case repeatExpr of Just e -> processFunctionCalls e >> return (); Nothing -> return ()
+  case repeatExpr of Just e -> void (processFunctionCalls e); Nothing -> return ()
   addToBBlock $ stripNestedBlocks b
   _ <- closeBBlock
   -- process nested bblocks inside of do-statement
@@ -460,7 +459,7 @@ closeBBlock = do
   n' <- genBBlock
   return (n, n')
 closeBBlock_ :: StateT (BBState a) Identity ()
-closeBBlock_ = closeBBlock >> return ()
+closeBBlock_ = void closeBBlock
 
 -- Starts up a new bblock.
 genBBlock :: BBlocker a Int
@@ -524,7 +523,7 @@ processFunctionCall (ExpFunctionCall a s fn@(ExpValue a' s' _) aargs) = do
   (_, dummyCallN) <- closeBBlock
 
   let retV = setName (name (0::Integer)) $ ExpValue a0 s (ValVariable (name (0::Integer)))
-  let dummyArgs = map (Argument a0 s' Nothing) (retV:map (uncurry formal) (zip exps [(1::Integer)..]))
+  let dummyArgs = map (Argument a0 s' Nothing) (retV:zipWith formal exps [(1::Integer)..])
 
   -- create "dummy call" bblock with dummy arguments in the StCall AST-node.
   addToBBlock . analyseAllLhsVars1 $ BlStatement a s Nothing (StCall a' s' fn (Just $ fromList a0 dummyArgs))
@@ -534,9 +533,8 @@ processFunctionCall (ExpFunctionCall a s fn@(ExpValue a' s' _) aargs) = do
   -- (because call-by-reference)
   forM_ (zip exps [(1::Integer)..]) $ \ (e, i) ->
     -- this is only possible for l-expressions
-    if isLExpr e then
-      addToBBlock . analyseAllLhsVars1 $ BlStatement a0 s Nothing (StExpressionAssign a' s' e (formal e i))
-    else return ()
+    (when (isLExpr e) $
+      addToBBlock . analyseAllLhsVars1 $ BlStatement a0 s Nothing (StExpressionAssign a' s' e (formal e i)))
   tempName <- genTemp (varName fn)
   let temp = setName tempName $ ExpValue a0 s (ValVariable tempName)
 
@@ -681,7 +679,7 @@ bbgrToDOT' :: IM.IntMap ProgramUnitName -> BBGr a -> String
 bbgrToDOT' clusters' gr = execWriter $ do
   tell "strict digraph {\n"
   tell "node [shape=box,fontname=\"Courier New\"]\n"
-  let entryNodes = filter (\ n -> null (pre gr n)) (nodes gr)
+  let entryNodes = filter (null . pre gr) (nodes gr)
   let nodes' = bfsn entryNodes gr
   _ <- forM nodes' $ \ n -> do
     let Just bs = lab gr n

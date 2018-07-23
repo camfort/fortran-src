@@ -23,6 +23,7 @@ import Data.Maybe (maybe, fromMaybe)
 import qualified Data.List as L
 import Data.Map (insert, empty, lookup, Map)
 import qualified Data.Map.Strict as M
+import Control.Monad (void)
 import Control.Monad.State.Strict
 import Data.Generics.Uniplate.Data
 import Data.Data
@@ -331,7 +332,7 @@ addUnique v nt = do
   return v'
 
 addUnique_ :: String -> NameType -> Renamer ()
-addUnique_ v nt = addUnique v nt >> return ()
+addUnique_ v nt = void (addUnique v nt)
 
 -- This function will be invoked by occurrences of
 -- declarations. First, search to see if v is a subprogram name that
