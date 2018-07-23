@@ -86,8 +86,8 @@ underRenaming f pf = tryUnrename `descendBi` f pf'
 extractNameMap :: Data a => ProgramFile (Analysis a) -> M.Map String String
 extractNameMap pf = eMap `M.union` puMap
   where
-    eMap  = M.fromList [ (un, n) | ExpValue (Analysis { uniqueName = Just un, sourceName = Just n }) _ _ <- uniE pf ]
-    puMap = M.fromList [ (un, n) | pu <- uniPU pf, (Analysis { uniqueName = Just un, sourceName = Just n }) <- [getAnnotation pu] ]
+    eMap  = M.fromList [ (un, n) | ExpValue Analysis { uniqueName = Just un, sourceName = Just n } _ _ <- uniE pf ]
+    puMap = M.fromList [ (un, n) | pu <- uniPU pf, Analysis { uniqueName = Just un, sourceName = Just n } <- [getAnnotation pu] ]
     uniE :: Data a => ProgramFile a -> [Expression a]
     uniE = universeBi
     uniPU :: Data a => ProgramFile a -> [ProgramUnit a]

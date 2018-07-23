@@ -232,7 +232,7 @@ throwIOerror s = throw
           , ioe_filename    = Nothing }
 
 runParse :: (Loc b, LastToken b c, Show c) => Parse b c a -> ParseState b -> ParseResult b c a
-runParse lexer initState = unParse lexer initState
+runParse = unParse
 
 runParseUnsafe :: (Loc b, LastToken b c, Show c) => Parse b c a -> ParseState b -> (a, ParseState b)
 runParseUnsafe lexer initState =

@@ -16,8 +16,8 @@ pParser source = initAnalysis
 
 spec :: Spec
 spec =
-  describe "Analysis" $ do
-    describe "anal1" $ do
+  describe "Analysis" $
+    describe "anal1" $
       it "lhsExprs" $ do
         let pf = stripAnalysis $ pParser programAnal1
         lhsExprs pf `shouldMatchList'` programAnal1LhsExprs
