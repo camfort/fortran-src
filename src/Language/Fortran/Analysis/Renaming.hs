@@ -218,7 +218,7 @@ isUseID UseID {} = True; isUseID _ = False
 
 -- Generate an initial environment for a scope based upon any Use
 -- statements in the blocks.
-initialEnv :: Data a => [Block (Analysis a)] -> Renamer ModEnv
+initialEnv :: forall a. Data a => [Block (Analysis a)] -> Renamer ModEnv
 initialEnv blocks = do
   -- FIXME: add "use renaming" declarations (requires change in
   -- NameMap because it would be possible for the same program object
@@ -237,8 +237,20 @@ initialEnv blocks = do
       return $ M.filterWithKey (\ k _ -> k `elem` onlyNames) env
     _ -> trace "WARNING: USE renaming not supported (yet)" $ return empty
 
-  -- include any global names from program units defined outside of modules as well
-  return . M.union modEnv . fromMaybe M.empty $ M.lookup NamelessMain mMap
+  -- Include any global names from program units defined outside of
+  -- modules as well.
+  let global = fromMaybe M.empty $ M.lookup NamelessMain mMap
+
+  -- Include any mappings defined by COMMON blocks: use variable
+  -- source name prefixed by name of COMMON block.
+  let common = M.fromList [ (v, (v', NTVariable))
+                          | CommonGroup _ _ me1 alist <- universeBi blocks :: [CommonGroup (Analysis a)]
+                          , let prefix = case me1 of Just e1 -> srcName e1; _ -> ""
+                          , e <- aStrip alist
+                          , let v = srcName e
+                          , let v' = prefix ++ "_" ++ v ++ "_common" ]
+
+  return $ M.unions [modEnv,  global, common]
 
 -- Get the current scope name.
 --getScope :: Renamer String
