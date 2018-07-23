@@ -193,6 +193,15 @@ instance IndentablePretty [Block a] where
     pprint v bs i = foldl' (\b a -> b <> pprint v a i) empty bs
 
 instance IndentablePretty (Block a) where
+    pprint v (BlForall _ _ mLabel mName _ body mel) i =
+      labeledIndent mLabel (pprint' v mName) <> newline <>
+      pprint v body nextI <>
+      labeledIndent mel ("end forall" <+> pprint' v mName <> newline)
+      where
+        nextI = incIndentation i
+        labeledIndent label stDoc =
+          pprint' v label `overlay` indent i stDoc
+
     pprint v (BlStatement _ _ mLabel st) i =
       if v >= Fortran90
         then indent i (pprint' v mLabel <+> pprint' v st <> newline)
@@ -354,6 +363,7 @@ instance Pretty (Selector a) where
         (Just lenDev, Nothing) -> parens $ len lenDev
         _ -> error "No way for both kind and length selectors to be empty in \
                    \Fortran 90 onwards."
+    | otherwise = error "unhandled version"
     where
       len e  = "len=" <> pprint' Fortran90 e
       kind e = "kind=" <> pprint' Fortran90 e
@@ -367,6 +377,7 @@ instance Pretty (Statement a) where
           pprint' v mAttrList <+>
           text "::" <+>
           pprint' v declList
+      | otherwise = error "unhandled version"
 
     pprint' v (StStructure _ _ mName itemList)
       | v /= Fortran77Extended = tooOld v "Structure" Fortran77Extended
@@ -658,6 +669,9 @@ instance Pretty (Statement a) where
       | otherwise = tooOld v "Sequence" Fortran90
 
     pprint' v (StFormatBogus _ _ blob) = "format" <+> pprint' v blob
+    pprint' _ StForall{} = error "unhandled pprint StForall"
+    pprint' _ StForallStatement{} = error "unhandled pprint StForallStatement"
+    pprint' _ StEndForall{} = error "unhandled pprint StEndForall"
 
 instance Pretty Only where
     pprint' _ Exclusive = "only" <> colon
@@ -670,6 +684,7 @@ instance Pretty (Use a) where
           UseRename _ _ uSrc uDst -> pprint' v uSrc <+> "=>" <+> pprint' v uDst
           UseID _ _ u -> pprint' v u
       | v < Fortran90 = tooOld v "Module system" Fortran90
+      | otherwise = error "unhandled version"
 
 instance Pretty (Argument a) where
     pprint' v (Argument _ _ key e) =

@@ -478,6 +478,11 @@ setInitialisation (DeclVariable a s v l Nothing) init =
   DeclVariable a (getTransSpan s init) v l (Just init)
 setInitialisation (DeclArray a s v ds l Nothing) init =
   DeclArray a (getTransSpan s init) v ds l (Just init)
+-- do nothing when there is already a value
+setInitialisation (DeclVariable a s v l (Just i)) _ =
+  DeclVariable a s v l (Just i)
+setInitialisation (DeclArray a s v ds l (Just i)) _ =
+  DeclArray a s v ds l (Just i)
 
 data DimensionDeclarator a =
   DimensionDeclarator a SrcSpan (Maybe (Expression a)) (Maybe (Expression a))
@@ -771,6 +776,12 @@ instance Named (ProgramUnit a) where
     PUFunction a s r rec n p res b subs
   setName (Named n) (PUBlockData  a s _ b) = PUBlockData  a s (Just n) b
   setName _         (PUBlockData  a s _ b) = PUBlockData  a s Nothing b
+  -- comments don't have names
+  setName (Named _) PUComment{} = PUComment{}
+  -- nameless do noop
+  setName NamelessBlockData a = a
+  setName NamelessComment a = a
+  setName NamelessMain a = a
 
 instance Out FortranVersion
 instance Out MetaInfo

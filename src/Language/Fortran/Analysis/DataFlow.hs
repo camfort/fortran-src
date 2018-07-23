@@ -685,6 +685,8 @@ converge :: (a -> a -> Bool) -> [a] -> a
 converge p (x:ys@(y:_))
   | p x y     = y
   | otherwise = converge p ys
+converge _ [] = error "empty list"
+converge _ [_] = error ""
 
 fromJustMsg :: String -> Maybe a -> a
 fromJustMsg _ (Just x) = x

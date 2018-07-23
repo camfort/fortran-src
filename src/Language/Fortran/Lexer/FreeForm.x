@@ -651,6 +651,7 @@ lexCharacter = do
       match <- getMatch
       putMatch . init . tail $ match
       addSpanAndMatch TString
+    _lexChar _ _ = do fail "unhandled lexCharacter"
 
 toSC :: Int -> LexAction ()
 toSC startCode = do
@@ -823,6 +824,7 @@ isContinuation !ai =
         '!' -> True
         '\n' -> True
         _ -> False
+    _isContinuation _ _ = False
     _advance :: AlexInput -> Bool
     _advance !ai' =
       case advanceWithoutContinuation ai' of
@@ -889,6 +891,7 @@ skipContinuation ai' = _skipCont ai' (0::Integer)
         -- previous ai, which either has whitespace or newline, so it will
         -- nicely delimit.
         else ai
+    _skipCont _ _ = error "unhandled _skipCont in skipContinuation"
     _advance ai state =
       case advanceWithoutContinuation ai of
         Just ai'' -> _skipCont ai'' state
@@ -902,6 +905,8 @@ advance move position =
         { posAbsoluteOffset = _absl + 1 , posColumn = 1 , posLine = _line + 1 }
     Char ->
       position { posAbsoluteOffset = _absl + 1 , posColumn = _col + 1 }
+-- for now just return the original position
+    _ -> position { posAbsoluteOffset = _absl, posColumn = _col }
   where
     _col = posColumn position
     _line = posLine position
