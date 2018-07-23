@@ -133,6 +133,7 @@ decomposeIf blocks@(BlStatement _ _ _ (StIfThen _ _ mTargetName _):_) =
           | otherwise -> error $ "If statement name does not match that of " ++
                                    "the corresponding end if statement."
         _ -> error "Block with non-if related statement. Should never occur."
+    decomposeIf' _ = error "can't decompose block"
     go maybeCondition blocks' =
       let (nonConditionBlocks, rest') = collectNonConditionalBlocks blocks'
           (conditions, listOfBlocks, rest'', endLabel) = decomposeIf' rest'
@@ -140,6 +141,7 @@ decomposeIf blocks@(BlStatement _ _ _ (StIfThen _ _ mTargetName _):_) =
          , nonConditionBlocks : listOfBlocks
          , rest''
          , endLabel )
+decomposeIf _ = error "can't decompose block"
 
 -- This compiles the executable blocks under various if conditions.
 collectNonConditionalBlocks :: ABlocks a -> (ABlocks a, ABlocks a)
@@ -306,6 +308,7 @@ decomposeCase (BlStatement _ _ mLabel st:rest) mTargetName =
       in ( mCondition : conditions
          , nonCaseBlocks : listOfBlocks
          , rest'', endLabel )
+decomposeCase _ _ = error "can't decompose case"
 
 -- This compiles the executable blocks under various if conditions.
 collectNonCaseBlocks :: ABlocks a -> (ABlocks a, ABlocks a)
@@ -332,6 +335,7 @@ containsGroups b =
     BlDoWhile{} -> True
     BlInterface{} -> False
     BlComment{} -> False
+    BlForall{}  -> True
 
 applyGroupingToSubblocks :: (ABlocks a -> ABlocks a) -> Block (Analysis a) -> Block (Analysis a)
 applyGroupingToSubblocks f b
@@ -345,7 +349,9 @@ applyGroupingToSubblocks f b
   | BlInterface{} <- b =
       error "Interface blocks do not have groupable subblocks. Must not occur."
   | BlComment{} <- b =
-    error "Comment statements do not have subblocks. Must not occur."
+      error "Comment statements do not have subblocks. Must not occur."
+  | BlForall a s ml mn h blocks mel <- b =
+     BlForall a s ml mn h (f blocks) mel
 
 --------------------------------------------------
 

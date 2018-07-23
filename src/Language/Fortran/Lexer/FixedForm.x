@@ -383,6 +383,7 @@ equalFollowsP fv ai =
         TDot{} -> lexer $ f False 0
         TId{} -> lexer $ f False 0
         _ -> return False
+    f False _ _ = return False
     f True 0 t =
       case t of
         TOpAssign{} -> return True
@@ -641,7 +642,7 @@ strAutomaton _ 2 = do
   resetWhiteSensitiveCharCount
   setCaseInsensitive
   return $ Just $ TString s $ (init . tail) m
-strAutomaton _ 3 = fail "Unmatched string."
+strAutomaton _ _ = fail "Unmatched string."
 
 lexHollerith :: LexAction (Maybe Token)
 lexHollerith = do

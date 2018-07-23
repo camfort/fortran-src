@@ -53,17 +53,6 @@ main = do
   args <- getArgs
   (opts, parsedArgs) <- compileArgs args
   case (parsedArgs, action opts) of
-    ([path], DumpModFile) -> do
-      let path' = if modFileSuffix `isSuffixOf` path then path else path <.> modFileSuffix
-      contents <- B.readFile path'
-      case decodeModFile contents of
-        Left msg -> putStrLn $ "Error: " ++ msg
-        Right mf -> putStrLn $ "Filename: " ++ moduleFilename mf ++
-                               "\n\nModuleMap:\n" ++ showModuleMap (combinedModuleMap [mf]) ++
-                               "\n\nTypeEnv:\n" ++ showTypes (combinedTypeEnv [mf]) ++
-                               "\n\nDeclMap:\n" ++ showGenericMap (combinedDeclMap [mf]) ++
-                               "\n\nOther Data Labels: " ++ show (getLabelsModFileData mf)
-
     ([path], actionOpt) -> do
       contents <- flexReadFile path
       let version = fromMaybe (deduceVersion path) (fortranVersion opts)
@@ -101,7 +90,16 @@ main = do
           let bytes = runCompile $ parserF mods contents path
           let fspath = path <.> modFileSuffix
           B.writeFile fspath bytes
-
+        DumpModFile -> do
+          let path' = if modFileSuffix `isSuffixOf` path then path else path <.> modFileSuffix
+          contents' <- B.readFile path'
+          case decodeModFile contents' of
+            Left msg -> putStrLn $ "Error: " ++ msg
+            Right mf -> putStrLn $ "Filename: " ++ moduleFilename mf ++
+                                   "\n\nModuleMap:\n" ++ showModuleMap (combinedModuleMap [mf]) ++
+                                   "\n\nTypeEnv:\n" ++ showTypes (combinedTypeEnv [mf]) ++
+                                   "\n\nDeclMap:\n" ++ showGenericMap (combinedDeclMap [mf]) ++
+                                   "\n\nOther Data Labels: " ++ show (getLabelsModFileData mf)
     _ -> fail $ usageInfo programName options
 
 -- List files in dir recursively

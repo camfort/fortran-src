@@ -238,9 +238,12 @@ isFinalBlockCtrlXfer bs@(_:_)
 isFinalBlockCtrlXfer _                                    = False
 
 lookupBBlock :: Num a1 => M.Map String a1 -> Expression a2 -> a1
-lookupBBlock lm (ExpValue _ _ (ValInteger l)) = (-1) `fromMaybe` M.lookup l lm
+lookupBBlock lm a =
+  case a of
+    ExpValue _ _ (ValInteger l) -> (-1) `fromMaybe` M.lookup l lm
 -- This occurs if a variable is being used for a label, e.g., from a Fortran 77 ASSIGN statement
-lookupBBlock lm (ExpValue _ _ (ValVariable l)) = (-1) `fromMaybe` M.lookup l lm
+    ExpValue _ _ (ValVariable l) -> (-1) `fromMaybe` M.lookup l lm
+    _ -> error "unhandled lookupBBlock"
 
 -- Seek out empty bblocks with a single entrance and a single exit
 -- edge, and remove them, re-establishing the edges without them.
@@ -700,6 +703,7 @@ showPUName :: ProgramUnitName -> String
 showPUName (Named n) = n
 showPUName NamelessBlockData = ".blockdata."
 showPUName NamelessMain = ".main."
+showPUName NamelessComment = ".comment."
 
 -- Some helper functions to output some pseudo-code for readability
 showBlock :: Block a -> String
@@ -750,8 +754,11 @@ showAttr (AttrSave _ _) = "save"
 showAttr (AttrTarget _ _) = "target"
 
 showLab :: Maybe (Expression a) -> String
-showLab Nothing = replicate 6 ' '
-showLab (Just (ExpValue _ _ (ValInteger l))) = ' ':l ++ replicate (5 - length l) ' '
+showLab a =
+  case a of
+    Nothing -> replicate 6 ' '
+    Just (ExpValue _ _ (ValInteger l)) -> ' ':l ++ replicate (5 - length l) ' '
+    _ -> error "unhandled showLab"
 
 showValue :: Value a -> Name
 showValue (ValVariable v)       = v
@@ -780,6 +787,8 @@ showUOp :: UnaryOp -> String
 showUOp Plus = "+"
 showUOp Minus = "-"
 showUOp Not = "!"
+-- needs a custom instance
+showUOp (UnCustom x) = show x
 
 showOp :: BinaryOp -> String
 showOp Addition = " + "
@@ -801,6 +810,7 @@ showBaseType TypeDoubleComplex   = "doublecomplex"
 showBaseType TypeLogical         = "logical"
 showBaseType TypeCharacter       = "character"
 showBaseType (TypeCustom s)      = s
+showBaseType TypeByte            = "byte"
 
 showDecl :: Declarator a -> String
 showDecl (DeclArray _ _ e adims length' initial) =
