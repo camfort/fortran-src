@@ -29,12 +29,13 @@ spec = do
 
 {-
 - program Main
-- integer a, b(1), c
+- integer a, b(1), c, e
 - dimension a(1)
 - a(1) = 1
 - b(1) = 1
 - c(x) = 1
 - d(x) = 1
+- e() = 1
 - end
 -}
 ex1 :: ProgramFile ()
@@ -56,7 +57,9 @@ ex1pu1bs =
   , BlStatement () u Nothing (StExpressionAssign () u
       (ExpSubscript () u (varGen "c") (AList () u [ IxSingle () u Nothing $ varGen "x" ])) (intGen 1))
   , BlStatement () u Nothing (StExpressionAssign () u
-      (ExpSubscript () u (varGen "d") (AList () u [ IxSingle () u Nothing $ varGen "x" ])) (intGen 1)) ]
+      (ExpSubscript () u (varGen "d") (AList () u [ IxSingle () u Nothing $ varGen "x" ])) (intGen 1))
+  , BlStatement () u Nothing (StExpressionAssign () u
+      (ExpFunctionCall () u (varGen "e") Nothing) (intGen 1)) ]
 
 expectedEx1 :: ProgramFile ()
 expectedEx1 = ProgramFile mi77 [ expectedEx1pu1 ]
@@ -77,7 +80,9 @@ expectedEx1pu1bs =
   , BlStatement () u Nothing (StFunction () u
       (ExpValue () u $ ValVariable "c") (AList () u [ varGen "x" ]) (intGen 1))
   , BlStatement () u Nothing (StFunction () u
-      (ExpValue () u $ ValVariable "d") (AList () u [ varGen "x" ]) (intGen 1)) ]
+      (ExpValue () u $ ValVariable "d") (AList () u [ varGen "x" ]) (intGen 1))
+  , BlStatement () u Nothing (StFunction () u
+      (ExpValue () u $ ValVariable "e") (AList () u []) (intGen 1)) ]
 
 {-
 - program
