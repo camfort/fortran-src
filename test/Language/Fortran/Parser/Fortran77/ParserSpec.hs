@@ -1,4 +1,4 @@
-module Language.Fortran.Parser.Fortran77Spec where
+module Language.Fortran.Parser.Fortran77.ParserSpec where
 
 import Test.Hspec
 import TestUtil
