@@ -27,6 +27,7 @@ import Control.Monad (void)
 import Control.Monad.State.Strict
 import Data.Generics.Uniplate.Data
 import Data.Data
+import Data.Functor.Identity (Identity)
 
 --------------------------------------------------
 
@@ -117,9 +118,7 @@ programUnit (PUModule a s name blocks m_contains) = do
 
 programUnit (PUFunction a s ty rec name args res blocks m_contains) = do
   Just name'  <- getFromEnv name                  -- get renamed function name
-  blocks1     <- mapM renameEntryPointDecl blocks -- rename any entry points
-  env0        <- initialEnv blocks1
-  pushScope name env0
+  (blocks1, _) <- returnBlocksEnv blocks name
   blocks2     <- mapM renameEntryPointResultDecl blocks1 -- rename the result
   res'        <- mapM renameGenericDecls res             -- variable(s) if needed
   args'       <- mapM renameGenericDecls args -- rename arguments
@@ -134,9 +133,7 @@ programUnit (PUFunction a s ty rec name args res blocks m_contains) = do
 
 programUnit (PUSubroutine a s rec name args blocks m_contains) = do
   Just name'  <- getFromEnv name                  -- get renamed subroutine name
-  blocks1     <- mapM renameEntryPointDecl blocks -- rename any entry points
-  env0        <- initialEnv blocks1
-  pushScope name env0
+  (blocks1, _) <- returnBlocksEnv blocks name
   args'       <- mapM renameGenericDecls args -- rename arguments
   blocks2     <- mapM renameDeclDecls blocks1 -- handle declarations
   m_contains' <- renameSubPUs m_contains      -- handle contained program units
@@ -157,6 +154,15 @@ programUnit (PUMain a s n blocks m_contains) = do
   return (PUMain a s n blocks'' m_contains')
 
 programUnit pu = return pu
+
+returnBlocksEnv :: Data a => [Block (Analysis a)]
+                          -> String
+                          -> StateT RenameState Identity ([Block (Analysis a)], ModEnv)
+returnBlocksEnv bs n = do
+  bs1 <- mapM renameEntryPointDecl bs
+  e0 <- initialEnv bs1
+  pushScope n e0
+  return (bs1, e0)
 
 declarator :: forall a. Data a => RenamerFunc (Declarator (Analysis a))
 declarator (DeclVariable a s e1 me2 me3) = do
