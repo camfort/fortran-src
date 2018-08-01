@@ -155,6 +155,8 @@ statement (StExpressionAssign _ _ (ExpSubscript _ _ v ixAList) _)
 -- is complete and disambiguation is performed, then how do we get
 -- them in the first place? (iterate until fixed point?)
 statement (StFunction _ _ v _ _) = recordCType CTFunction (varName v)
+-- (part of answer to above is) nullary function statement: foo() = ...
+statement (StExpressionAssign _ _ (ExpFunctionCall _ _ v Nothing) _) = recordCType CTFunction (varName v)
 
 statement (StDimension _ _ declAList) = do
   let decls = aStrip declAList
