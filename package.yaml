@@ -1,0 +1,77 @@
+name: fortran-src
+version: '0.2.2.0'
+synopsis: Parser and anlyses for Fortran standards 66, 77, 90 and 95.
+description: ! 'Provides lexing, parsing, and basic analyses of Fortran code covering
+  standards: FORTRAN 66, FORTRAN 77, Fortran 90, and Fortran 95 and some legacy extensions.
+  Includes data flow and basic block analysis, a renamer, and type analysis. For example
+  usage, see the ''camfort'' project, which uses fortran-src as its front end.'
+category: Language
+author: Mistral Contrastin, Matthew Danish, Dominic Orchard, Andrew Rice
+maintainer: me@madgen.net
+license: Apache-2.0
+github: camfort/fortran-src
+extra-source-files:
+- CHANGELOG.md
+dependencies:
+- base >=4.6 && <5
+- mtl >=2.2 && <3
+- array >=0.5 && <0.6
+- uniplate >=1.6 && <2
+- GenericPretty >=1.2.2 && <2
+- pretty >=1.1 && <2
+- containers >=0.5 && <0.6
+- text >=1.2 && <2
+- bytestring >=0.10 && <0.11
+- binary >=0.8.3.0 && <0.9
+- filepath >=1.4 && <2
+- directory >=1.2 && <2
+- fgl >=5 && <6
+library:
+  source-dirs: src
+  ghc-options: -fno-warn-tabs
+  build-tools:
+  - alex >=3.1
+  - happy >=1.19
+  other-modules: []
+  exposed-modules:
+  - Language.Fortran.Analysis
+  - Language.Fortran.Analysis.Renaming
+  - Language.Fortran.Analysis.Types
+  - Language.Fortran.Analysis.BBlocks
+  - Language.Fortran.Analysis.DataFlow
+  - Language.Fortran.AST
+  - Language.Fortran.LValue
+  - Language.Fortran.Intrinsics
+  - Language.Fortran.Lexer.FixedForm
+  - Language.Fortran.Lexer.FreeForm
+  - Language.Fortran.ParserMonad
+  - Language.Fortran.Parser.Any
+  - Language.Fortran.Parser.Fortran66
+  - Language.Fortran.Parser.Fortran77
+  - Language.Fortran.Parser.Fortran90
+  - Language.Fortran.Parser.Fortran95
+  - Language.Fortran.Parser.Utils
+  - Language.Fortran.PrettyPrint
+  - Language.Fortran.Transformation.Disambiguation.Function
+  - Language.Fortran.Transformation.Disambiguation.Intrinsic
+  - Language.Fortran.Transformation.Grouping
+  - Language.Fortran.Transformation.TransformMonad
+  - Language.Fortran.Transformer
+  - Language.Fortran.Util.Position
+  - Language.Fortran.Util.FirstParameter
+  - Language.Fortran.Util.SecondParameter
+  - Language.Fortran.Util.ModFile
+executables:
+  fortran-src:
+    main: src/Main.hs
+    ghc-options: -fno-warn-tabs
+    dependencies:
+    - fortran-src
+tests:
+  spec:
+    main: Spec.hs
+    source-dirs: test
+    dependencies:
+    - deepseq
+    - hspec >=2.2 && <3
+    - fortran-src
