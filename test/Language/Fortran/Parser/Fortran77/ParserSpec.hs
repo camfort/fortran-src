@@ -14,6 +14,7 @@ eParser :: String -> Expression ()
 eParser sourceCode =
   case evalParse statementParser parseState of
     (StExpressionAssign _ _ _ e) -> e
+    _ -> error "unhandled evalParse"
   where
     paddedSourceCode = B.pack $ "      a = " ++ sourceCode
     parseState =  initParseState paddedSourceCode Fortran77 "<unknown>"
