@@ -773,12 +773,8 @@ instance Named (ProgramUnit a) where
     PUFunction a s r rec n p res b subs
   setName (Named n) (PUBlockData  a s _ b) = PUBlockData  a s (Just n) b
   setName _         (PUBlockData  a s _ b) = PUBlockData  a s Nothing b
-  -- comments don't have names
-  setName (Named _) PUComment{} = PUComment{}
-  -- nameless do noop
-  setName NamelessBlockData a = a
-  setName NamelessComment a = a
-  setName NamelessMain a = a
+  -- Identity function if first arg is nameless or second arg is comment.
+  setName _ a = a
 
 instance Out FortranVersion
 instance Out MetaInfo
