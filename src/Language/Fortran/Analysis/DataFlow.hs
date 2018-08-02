@@ -680,13 +680,13 @@ genCallMap pf = flip execState M.empty $ do
 --    newEdges = [ toLEdge (u, v) () | (u, _) <- ln, (_, v) <- bfen (outU g u) g ]
 --    outU gr  = map toEdge . out gr
 
--- helper: iterate until predicate is satisfied.
+-- helper: iterate until predicate is satisfied; expects infinite list.
 converge :: (a -> a -> Bool) -> [a] -> a
 converge p (x:ys@(y:_))
   | p x y     = y
   | otherwise = converge p ys
-converge _ [] = error "empty list"
-converge _ [_] = error ""
+converge _ [] = error "converge: empty list"
+converge _ [_] = error "converge: finite list"
 
 fromJustMsg :: String -> Maybe a -> a
 fromJustMsg _ (Just x) = x
