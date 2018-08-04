@@ -22,27 +22,20 @@ spec :: Spec
 spec =
   describe "Basic Blocks" $ do
     describe "loop4" $ do
-      it "nodes and edges length" $ do
-        let pf = pParser programLoop4
-        let gr = fromJust . M.lookup (Named "loop4") $ genBBlockMap pf
-        let ns = nodes gr
-        let es = edges gr
+      let pf = pParser programLoop4
+          gr = fromJust . M.lookup (Named "loop4") $ genBBlockMap pf
+          ns = nodes gr
+          es = edges gr
+          nodeSet = IS.fromList $ nodes gr
+      it "nodes and edges length" $
         (length ns, length es) `shouldBe` (11, 12)
-      it "branching nodes" $ do
-        let pf = pParser programLoop4
-        let gr = fromJust . M.lookup (Named "loop4") $ genBBlockMap pf
+      it "branching nodes" $
         (IS.size (findSuccsBB gr [10]), IS.size (findSuccsBB gr [20])) `shouldBe` (2, 2)
       it "all reachable" $ do
-        let pf = pParser programLoop4
-        let gr = fromJust . M.lookup (Named "loop4") $ genBBlockMap pf
         let reached = IS.fromList $ dfs [0] gr
-        let nodeSet = IS.fromList $ nodes gr
         reached `shouldBe` nodeSet
       it "all terminate" $ do
-        let pf = pParser programLoop4
-        let gr = fromJust . M.lookup (Named "loop4") $ genBBlockMap pf
         let reached = IS.fromList $ rdfs [-1] gr
-        let nodeSet = IS.fromList $ nodes gr
         reached `shouldBe` nodeSet
     describe "if arith" $ do
       it "nodes and edges length" $ do

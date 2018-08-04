@@ -61,37 +61,30 @@ spec :: Spec
 spec =
   describe "Dataflow" $ do
     describe "loop4" $ do
+      let pf = pParser F77 programLoop4
+          bm = genBlockMap pf
+          dm = genDefMap bm
       it "genBackEdgeMap" $ do
         let gr = testGraph F77 "loop4" programLoop4
         testBackEdges F77 "loop4" programLoop4 `shouldBe`
           IM.fromList [(findLabelBB gr 8, findLabelBB gr 10), (findLabelBB gr 7, findLabelBB gr 20)]
 
+      let gr = fromJust . M.lookup (Named "loop4") $ genBBlockMap pf
       it "loopNodes" $ do
-        let pf = pParser F77 programLoop4
-            gr = fromJust . M.lookup (Named "loop4") $ genBBlockMap pf
-            domMap = dominators gr
+        let domMap = dominators gr
             bedges = genBackEdgeMap domMap gr
         S.fromList (loopNodes bedges gr) `shouldBe`
           S.fromList [findLabelsBB gr [5,6,7,20], IS.unions [findLabelsBB gr [4,5,6,7,8,10,20,30], findSuccsBB gr [20]]]
 
-      it "genDefMap" $ do
-        let pf = pParser F77 programLoop4
+      it "genDefMap" $
         testGenDefMap F77 programLoop4 `shouldBe`
           M.fromList [("i",findLabelsBl pf [3,30]),("j",findLabelsBl pf [4,6]),("r",findLabelsBl pf [2,5])]
 
-      it "reachingDefinitions" $ do
-        let pf = pParser F77 programLoop4
-            gr = fromJust . M.lookup (Named "loop4") $ genBBlockMap pf
-            bm = genBlockMap pf
-            dm = genDefMap bm
+      it "reachingDefinitions" $
         IM.lookup (findLabelBB gr 5) (reachingDefinitions dm gr) `shouldBe`
           Just (findLabelsBl pf [2,3,4,5,6,30], findLabelsBl pf [3,4,5,6,30])
 
-      it "flowsTo" $ do
-        let pf = pParser F77 programLoop4
-            gr = fromJust . M.lookup (Named "loop4") $ genBBlockMap pf
-            bm = genBlockMap pf
-            dm = genDefMap bm
+      it "flowsTo" $
         (S.fromList . edges . genFlowsToGraph bm dm gr $ reachingDefinitions dm gr) `shouldBe`
           -- Find the flows of the assignment statements in the program.
           findLabelsBlEdges pf [(2,5),(2,40)            -- r = 0
@@ -105,40 +98,31 @@ spec =
   ----------------------------------------------
 
     describe "loop4 alt (module)" $ do
+      let pf = pParser F90 programLoop4Alt
+          sgr = genSuperBBGr (genBBlockMap pf)
+          bm = genBlockMap pf
+          dm = genDefMap bm
+          gr = superBBGrGraph sgr
+          domMap = dominators gr
+          bedges = genBackEdgeMap domMap gr
       it "genBackEdgeMap" $ do
-        let gr = testGraph F90 "loop4" programLoop4Alt
+        let gr' = testGraph F90 "loop4" programLoop4Alt
         testBackEdges F90 "loop4" programLoop4Alt `shouldBe`
-          IM.fromList [(findLabelBB gr 22, findLabelBB gr 20), (findLabelBB gr 31, findLabelBB gr 10)]
+          IM.fromList [(findLabelBB gr' 22, findLabelBB gr' 20), (findLabelBB gr' 31, findLabelBB gr' 10)]
 
-      it "loopNodes" $ do
-        let pf = pParser F90 programLoop4Alt
-            sgr = genSuperBBGr (genBBlockMap pf)
-            gr = superBBGrGraph sgr
-            domMap = dominators gr
-            bedges = genBackEdgeMap domMap gr
+      it "loopNodes" $
         S.fromList (loopNodes bedges gr) `shouldBe`
           S.fromList [findLabelsBB gr [20,21,22], findLabelsBB gr [10,11,20,21,22,31,40]]
 
-      it "genDefMap" $ do
-        let pf = pParser F90 programLoop4Alt
+      it "genDefMap" $
         testGenDefMap F90 programLoop4Alt `shouldBe`
           M.fromList [("i",findLabelsBl pf [2,31]),("j",findLabelsBl pf [11,22]),("r",findLabelsBl pf [1,21])]
 
-      it "reachingDefinitions" $ do
-        let pf = pParser F90 programLoop4Alt
-            sgr = genSuperBBGr (genBBlockMap pf)
-            gr = superBBGrGraph sgr
-            bm = genBlockMap pf
-            dm = genDefMap bm
+      it "reachingDefinitions" $
         IM.lookup (findLabelBB gr 21) (reachingDefinitions dm gr) `shouldBe`
           Just (findLabelsBl pf [1,2,11,21,22,31], findLabelsBl pf [2,11,21,22,31])
 
-      it "flowsTo" $ do
-        let pf = pParser F90 programLoop4Alt
-            sgr = genSuperBBGr (genBBlockMap pf)
-            gr = superBBGrGraph sgr
-            bm = genBlockMap pf
-            dm = genDefMap bm
+      it "flowsTo" $
         (S.fromList . edges . genFlowsToGraph bm dm gr $ reachingDefinitions dm gr) `shouldBe`
           -- Find the flows of the assignment statements in the program.
           findLabelsBlEdges pf [(1,21),(1,41)           -- r = 0
@@ -152,29 +136,25 @@ spec =
     -----------------------------------------------
 
     describe "rd3" $ do
+      let (pf, gr) = testPfAndGraph F77 "f" programRd3
+          bm = genBlockMap pf
+          dm = genDefMap bm
       it "genBackEdgeMap" $ do
-        let gr = testGraph F77 "f" programRd3
-        testBackEdges F77 "f" programRd3 `shouldBe` IM.singleton (findLabelBB gr 4) (findLabelBB gr 1)
+        let gr' = testGraph F77 "f" programRd3
+        testBackEdges F77 "f" programRd3 `shouldBe` IM.singleton (findLabelBB gr 4) (findLabelBB gr' 1)
 
       it "loopNodes" $ do
-        let (_, gr) = testPfAndGraph F77 "f" programRd3
-            domMap = dominators gr
+        let domMap = dominators gr
             bedges = genBackEdgeMap domMap gr
         S.fromList (loopNodes bedges gr) `shouldBe`
           S.fromList [findLabelsBB gr [1,2,3,4]]
 
-      it "reachingDefinitions" $ do
-        let (pf, gr) = testPfAndGraph F77 "f" programRd3
-            bm = genBlockMap pf
-            dm = genDefMap bm
+      it "reachingDefinitions" $
         IM.lookup (findLabelBB gr 5) (reachingDefinitions dm gr) `shouldBe`
           Just (IS.unions [findBBlockBl gr 0, findLabelsBl pf [1,2,3]]
                ,IS.unions [findBBlockBl gr 0, findLabelsBl pf [1,2,3,5]])
 
-      it "flowsTo" $ do
-        let (pf, gr) = testPfAndGraph F77 "f" programRd3
-            bm = genBlockMap pf
-            dm = genDefMap bm
+      it "flowsTo" $
         (S.fromList . edges . genFlowsToGraph bm dm gr $ reachingDefinitions dm gr) `shouldSatisfy`
           -- Find the flows of the assignment statements in the program.
           S.isSubsetOf (findLabelsBlEdges pf [(1,2),(1,3) -- do 4  i = 2, 10
