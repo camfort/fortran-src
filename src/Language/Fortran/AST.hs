@@ -5,6 +5,8 @@
 {-# LANGUAGE DeriveFunctor #-}
 {-# LANGUAGE DefaultSignatures #-}
 {-# LANGUAGE FlexibleContexts #-}
+-- orphans are instances of package-natives
+{-# OPTIONS_GHC -Wno-orphans #-}
 
 module Language.Fortran.AST where
 
