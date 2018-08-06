@@ -1,4 +1,5 @@
 {-# LANGUAGE ScopedTypeVariables, DeriveDataTypeable, StandaloneDeriving, DeriveGeneric, TupleSections #-}
+{-# OPTIONS_GHC -Wno-orphans #-}
 
 -- |
 -- Common data structures and functions supporting analysis of the AST.
