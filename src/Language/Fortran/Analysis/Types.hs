@@ -7,6 +7,7 @@ import Prelude hiding (lookup)
 import Data.Map (insert)
 import qualified Data.Map as M
 import Data.Maybe (maybeToList)
+import Data.List (find)
 import Control.Monad.State.Strict
 import Data.Generics.Uniplate.Data
 import Data.Data
@@ -115,26 +116,33 @@ programUnit pu@(PUSubroutine _ _ _ _ _ blocks _) | Named n <- puName pu = do
 programUnit _                                           = return ()
 
 declarator :: Data a => InferFunc (Declarator (Analysis a))
-declarator (DeclArray _ _ v _ _ _) = recordCType CTArray (varName v)
-declarator _                       = return ()
+declarator (DeclArray _ _ v ddAList _ _) = recordCType (CTArray $ dimDeclarator ddAList) (varName v)
+declarator _ = return ()
+
+dimDeclarator ddAList = [ (lb, ub) | DimensionDeclarator _ _ lbExp ubExp <- aStrip ddAList
+                                   , let lb = do ExpValue _ _ (ValInteger i) <- lbExp
+                                                 return $ read i
+                                   , let ub = do ExpValue _ _ (ValInteger i) <- ubExp
+                                                 return $ read i ]
 
 statement :: Data a => InferFunc (Statement (Analysis a))
 -- maybe FIXME: should Kind Selectors be part of types?
 statement (StDeclaration _ _ (TypeSpec _ _ baseType _) mAttrAList declAList)
   | mAttrs  <- maybe [] aStrip mAttrAList
-  , isArray <- any isAttrDimension mAttrs
+  , attrDim <- find isAttrDimension mAttrs
   , isParam <- any isAttrParameter mAttrs
   , isExtrn <- any isAttrExternal mAttrs
   , decls   <- aStrip declAList = do
     env <- gets environ
     forM_ decls $ \ decl -> case decl of
-      DeclArray _ _ v _ _ _         -> recordType baseType CTArray (varName v)
-      DeclVariable _ _ v (Just _) _ -> recordType baseType CTArray (varName v)
+      DeclArray _ _ v ddAList _ _   -> recordType baseType (CTArray $ dimDeclarator ddAList) (varName v)
+      -- FIXME: strings should probably be a basetype or parameter to TypeCharacter
+      DeclVariable _ _ v (Just _) _ -> recordType baseType (CTArray [(Nothing, Nothing)]) (varName v)
       DeclVariable _ _ v Nothing _  -> recordType baseType cType n
         where
           n = varName v
           cType | isExtrn                                     = CTExternal
-                | isArray                                     = CTArray
+                | Just (AttrDimension _ _ ddAList) <- attrDim = CTArray (dimDeclarator ddAList)
                 | isParam                                     = CTParameter
                 | Just (IDType _ (Just ct)) <- M.lookup n env
                 , ct /= CTIntrinsic                           = ct
@@ -148,7 +156,7 @@ statement (StExpressionAssign _ _ (ExpSubscript _ _ v ixAList) _)
     let n = varName v
     mIDType <- getRecordedType n
     case mIDType of
-      Just (IDType _ (Just CTArray)) -> return ()                -- do nothing, it's already known to be an array
+      Just (IDType _ (Just CTArray{})) -> return ()                -- do nothing, it's already known to be an array
       _                                -> recordCType CTFunction n -- assume it's a function statement
 
 -- FIXME: if StFunctions can only be identified after types analysis
@@ -161,8 +169,8 @@ statement (StExpressionAssign _ _ (ExpFunctionCall _ _ v Nothing) _) = recordCTy
 statement (StDimension _ _ declAList) = do
   let decls = aStrip declAList
   forM_ decls $ \ decl -> case decl of
-    DeclArray _ _ v _ _ _ -> recordCType CTArray (varName v)
-    _                     -> return ()
+    DeclArray _ _ v ddAList _ _ -> recordCType (CTArray $ dimDeclarator ddAList) (varName v)
+    _                           -> return ()
 
 statement _ = return ()
 
@@ -239,7 +247,7 @@ allExpressions = universeBi
 
 isAttrDimension :: Attribute a -> Bool
 isAttrDimension AttrDimension {} = True
-isAttrDimension _                  = False
+isAttrDimension _                = False
 
 isAttrParameter :: Attribute a -> Bool
 isAttrParameter AttrParameter {} = True

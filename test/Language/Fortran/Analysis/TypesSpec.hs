@@ -41,19 +41,19 @@ spec = do
     it "infers from type declarations" $ do
       let mapping = inferTable ex4
       mapping ! "x" `shouldBe` IDType (Just TypeInteger) (Just CTVariable)
-      mapping ! "y" `shouldBe` IDType (Just TypeInteger) (Just CTArray)
+      mapping ! "y" `shouldBe` IDType (Just TypeInteger) (Just $ CTArray [(Nothing, Just 10)])
       mapping ! "c" `shouldBe` IDType (Just TypeCharacter) (Just CTVariable)
       mapping ! "log" `shouldBe` IDType (Just TypeLogical) (Just CTVariable)
 
     it "infers from dimension declarations" $ do
       let mapping = inferTable ex5
-      mapping ! "x" `shouldBe` IDType Nothing (Just CTArray)
-      mapping ! "y" `shouldBe` IDType Nothing (Just CTArray)
+      mapping ! "x" `shouldBe` IDType Nothing (Just $ CTArray [(Nothing, Just 1)])
+      mapping ! "y" `shouldBe` IDType Nothing (Just $ CTArray [(Nothing, Just 1)])
 
     it "infers from function statements" $ do
       let mapping = inferTable ex6
-      mapping ! "a" `shouldBe` IDType (Just TypeInteger) (Just CTArray)
-      mapping ! "b" `shouldBe` IDType (Just TypeInteger) (Just CTArray)
+      mapping ! "a" `shouldBe` IDType (Just TypeInteger) (Just $ CTArray [(Nothing, Just 1)])
+      mapping ! "b" `shouldBe` IDType (Just TypeInteger) (Just $ CTArray [(Nothing, Just 1)])
       mapping ! "c" `shouldBe` IDType (Just TypeInteger) (Just CTFunction)
       mapping ! "d" `shouldBe` IDType Nothing (Just CTFunction)
 
@@ -62,7 +62,7 @@ spec = do
         let mapping = inferTable intrinsics1
         idCType (mapping ! "abs") `shouldBe` Just CTIntrinsic
         idCType (mapping ! "dabs") `shouldBe` Just CTFunction
-        idCType (mapping ! "cabs") `shouldBe` Just CTArray
+        idCType (mapping ! "cabs") `shouldBe` Just (CTArray [(Nothing, Just 3)])
 
 ex1 :: ProgramFile ()
 ex1 = ProgramFile mi77 [ ex1pu1 ]

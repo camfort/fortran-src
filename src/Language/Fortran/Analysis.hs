@@ -68,7 +68,7 @@ data ConstructType =
   | CTSubroutine
   | CTExternal
   | CTVariable
-  | CTArray
+  | CTArray [(Maybe Int, Maybe Int)]
   | CTParameter
   | CTIntrinsic
   deriving (Ord, Eq, Show, Data, Typeable, Generic)
