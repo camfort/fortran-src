@@ -119,6 +119,7 @@ declarator :: Data a => InferFunc (Declarator (Analysis a))
 declarator (DeclArray _ _ v ddAList _ _) = recordCType (CTArray $ dimDeclarator ddAList) (varName v)
 declarator _ = return ()
 
+dimDeclarator :: AList DimensionDeclarator a -> [(Maybe Int, Maybe Int)]
 dimDeclarator ddAList = [ (lb, ub) | DimensionDeclarator _ _ lbExp ubExp <- aStrip ddAList
                                    , let lb = do ExpValue _ _ (ValInteger i) <- lbExp
                                                  return $ read i
