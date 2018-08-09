@@ -116,6 +116,7 @@ spec = do
       let entry = extractNameMap' common1
       length (filter (=="x") (elems entry)) `shouldBe` 2
       M.lookup "c_x_common" entry `shouldBe` Just "x"
+      M.lookup "c_y_common" entry `shouldBe` Just "y"
 
 --------------------------------------------------
 
@@ -413,8 +414,8 @@ common1 :: ProgramFile A0
 common1 = resetSrcSpan . flip fortran90Parser "" $ unlines [
     "program p1"
   , "  implicit none"
-  , "  integer :: x"
-  , "  common /c/ x"
+  , "  integer :: x, y"
+  , "  common /c/ x, y(10)"
   , "contains"
   , "  subroutine s1 ()"
   , "    call s2 (f1(x))"
