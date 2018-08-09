@@ -154,7 +154,7 @@ spec =
       it "parses 'implicit character*30 (a, b, c), integer (a-z, l)" $ do
         let impEls = [ImpCharacter () u "a", ImpCharacter () u "b", ImpCharacter () u "c"]
             selector = Selector () u (Just $ intGen 30) Nothing
-            imp1 = ImpList () u (TypeSpec () u TypeCharacter (Just selector)) $ AList () u impEls
+            imp1 = ImpList () u (TypeSpec () u (TypeCharacter (Just $ CharLenInt 30) Nothing) (Just selector)) $ AList () u impEls
             imp2 = ImpList () u (TypeSpec () u TypeInteger Nothing) $ AList () u [ImpRange () u "a" "z", ImpCharacter () u "l"]
             st = StImplicit () u $ Just $ AList () u [imp1, imp2]
         sParser "      implicit character*30 (a, b, c), integer (a-z, l)" `shouldBe'` st
@@ -195,7 +195,7 @@ spec =
 
     it "parses 'character a*8'" $ do
       let decl = DeclVariable () u (varGen "a") (Just $ intGen 8) Nothing
-          typeSpec = TypeSpec () u TypeCharacter Nothing
+          typeSpec = TypeSpec () u (TypeCharacter Nothing Nothing) Nothing
           st = StDeclaration () u typeSpec Nothing (AList () u [ decl ])
       sParser "      character a*8" `shouldBe'` st
 
@@ -231,7 +231,7 @@ spec =
 
       it "parses character declarations with unspecfied lengths" $ do
         let src = "      character s*(*)"
-            st = StDeclaration () u (TypeSpec () u TypeCharacter Nothing) Nothing $
+            st = StDeclaration () u (TypeSpec () u (TypeCharacter Nothing Nothing) Nothing) Nothing $
                  AList () u [DeclVariable () u
                                (ExpValue () u (ValVariable "s"))
                                (Just (ExpValue () u ValStar))
@@ -251,7 +251,7 @@ spec =
 
         let src1 = "      character xs(2)*5 / 'hello', 'world' /"
             inits1 = [ExpValue () u (ValString "hello"), ExpValue () u (ValString "world")]
-            st1 = StDeclaration () u (TypeSpec () u TypeCharacter Nothing) Nothing $
+            st1 = StDeclaration () u (TypeSpec () u (TypeCharacter Nothing Nothing) Nothing) Nothing $
                  AList () u [DeclArray () u
                                (ExpValue () u (ValVariable "xs"))
                                (AList () u [DimensionDeclarator () u Nothing (Just (ExpValue () u (ValInteger "2")))])
@@ -261,7 +261,7 @@ spec =
 
         let src2 = "      character xs*5(2) / 'hello', 'world' /"
             inits2 = [ExpValue () u (ValString "hello"), ExpValue () u (ValString "world")]
-            st2 = StDeclaration () u (TypeSpec () u TypeCharacter Nothing) Nothing $
+            st2 = StDeclaration () u (TypeSpec () u (TypeCharacter Nothing Nothing) Nothing) Nothing $
                  AList () u [DeclArray () u
                                (ExpValue () u (ValVariable "xs"))
                                (AList () u [DimensionDeclarator () u Nothing (Just (ExpValue () u (ValInteger "2")))])

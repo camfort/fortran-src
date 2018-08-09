@@ -21,6 +21,7 @@ instance NFData MetaInfo
 instance NFData FortranVersion
 instance NFData SrcSpan
 instance NFData Position
+instance NFData CharacterLen
 instance NFData BaseType
 instance NFData UnaryOp
 instance NFData BinaryOp

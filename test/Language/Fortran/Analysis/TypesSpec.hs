@@ -42,7 +42,7 @@ spec = do
       let mapping = inferTable ex4
       mapping ! "x" `shouldBe` IDType (Just TypeInteger) (Just CTVariable)
       mapping ! "y" `shouldBe` IDType (Just TypeInteger) (Just $ CTArray [(Nothing, Just 10)])
-      mapping ! "c" `shouldBe` IDType (Just TypeCharacter) (Just CTVariable)
+      mapping ! "c" `shouldBe` IDType (Just $ TypeCharacter Nothing Nothing) (Just CTVariable)
       mapping ! "log" `shouldBe` IDType (Just TypeLogical) (Just CTVariable)
 
     it "infers from dimension declarations" $ do
@@ -63,6 +63,17 @@ spec = do
         idCType (mapping ! "abs") `shouldBe` Just CTIntrinsic
         idCType (mapping ! "dabs") `shouldBe` Just CTFunction
         idCType (mapping ! "cabs") `shouldBe` Just (CTArray [(Nothing, Just 3)])
+
+    describe "Character string types" $
+      it "examples of various character variables" $ do
+        let mapping = inferTable teststrings1
+        idVType (mapping ! "a") `shouldBe` Just (TypeCharacter (Just (CharLenInt 5)) (Just "1"))
+        idVType (mapping ! "b") `shouldBe` Just (TypeCharacter (Just (CharLenInt 10)) Nothing)
+        idVType (mapping ! "c") `shouldBe` Just (TypeCharacter (Just (CharLenInt 3)) (Just "1"))
+        idVType (mapping ! "d") `shouldBe` Just (TypeCharacter (Just CharLenExp) Nothing)
+        idCType (mapping ! "d") `shouldBe` Just (CTArray [(Nothing, Just 10)])
+        idVType (mapping ! "e") `shouldBe` Just (TypeCharacter (Just (CharLenInt 10)) Nothing)
+        idCType (mapping ! "e") `shouldBe` Just (CTArray [(Nothing, Just 20)])
 
 ex1 :: ProgramFile ()
 ex1 = ProgramFile mi77 [ ex1pu1 ]
@@ -95,7 +106,7 @@ ex4pu1bs =
         [ DeclVariable () u (varGen "x") Nothing Nothing
         , DeclArray () u (varGen "y")
             (AList () u [ DimensionDeclarator () u Nothing (Just $ intGen 10) ]) Nothing Nothing ]))
-  , BlStatement () u Nothing (StDeclaration () u (TypeSpec () u TypeCharacter Nothing) Nothing
+  , BlStatement () u Nothing (StDeclaration () u (TypeSpec () u (TypeCharacter Nothing Nothing) Nothing) Nothing
       (AList () u [ DeclVariable () u (varGen "c") Nothing Nothing ]))
   , BlStatement () u Nothing (StDeclaration () u (TypeSpec () u TypeLogical Nothing) Nothing
       (AList () u [ DeclVariable () u (varGen "log") Nothing Nothing ])) ]
@@ -169,6 +180,18 @@ intrinsics1 = resetSrcSpan . flip fortran90Parser "" $ unlines [
   , "    dabs = a"
   , "  end function dabs"
   , "end module intrinsics"
+  ]
+
+teststrings1 :: ProgramFile A0
+teststrings1 = resetSrcSpan . flip fortran90Parser "" $ unlines [
+    "program teststrings"
+  , "  character(5,1) :: a"
+  , "  character :: b*10"
+  , "  character(kind=1,len=3) :: c"
+  , "  integer, parameter :: k = 8"
+  , "  character(k), dimension(10) :: d"
+  , "  character :: e(20)*10"
+  , "end program teststrings"
   ]
 
 -- Local variables:

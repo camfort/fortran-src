@@ -875,7 +875,7 @@ TYPE_SPEC :: { TypeSpec A0 }
 | real    KIND_SELECTOR   { TypeSpec () (getSpan ($1, $2)) TypeReal $2 }
 | doublePrecision { TypeSpec () (getSpan $1) TypeDoublePrecision Nothing }
 | complex KIND_SELECTOR   { TypeSpec () (getSpan ($1, $2)) TypeComplex $2 }
-| character CHAR_SELECTOR { TypeSpec () (getSpan ($1, $2)) TypeCharacter $2 }
+| character CHAR_SELECTOR { TypeSpec () (getSpan ($1, $2)) (uncurry TypeCharacter $ charLenSelector $2) $2 }
 | logical KIND_SELECTOR   { TypeSpec () (getSpan ($1, $2)) TypeLogical $2 }
 | type '(' id ')'
   { let TId _ id = $3

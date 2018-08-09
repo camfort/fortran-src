@@ -1003,7 +1003,7 @@ TYPE_SPEC
 | complex KIND_SELECTOR { TypeSpec () (getSpan ($1, $2)) TypeComplex $2 }
 | doubleComplex KIND_SELECTOR
   { TypeSpec () (getSpan ($1, $2)) TypeDoubleComplex $2 }
-| character CHAR_SELECTOR { TypeSpec () (getSpan ($1, $2)) TypeCharacter $2 }
+| character CHAR_SELECTOR { TypeSpec () (getSpan ($1, $2)) (uncurry TypeCharacter $ charLenSelector $2) $2 }
 | byte KIND_SELECTOR { TypeSpec () (getSpan ($1, $2)) TypeByte $2 }
 | record '/' NAME '/' { TypeSpec () (getSpan ($1, $4)) (TypeCustom $3) Nothing }
 

@@ -135,19 +135,23 @@ statement (StDeclaration _ _ (TypeSpec _ _ baseType _) mAttrAList declAList)
   , isExtrn <- any isAttrExternal mAttrs
   , decls   <- aStrip declAList = do
     env <- gets environ
-    forM_ decls $ \ decl -> case decl of
-      DeclArray _ _ v ddAList _ _   -> recordType baseType (CTArray $ dimDeclarator ddAList) (varName v)
-      -- FIXME: strings should probably be a basetype or parameter to TypeCharacter
-      DeclVariable _ _ v (Just _) _ -> recordType baseType (CTArray [(Nothing, Nothing)]) (varName v)
-      DeclVariable _ _ v Nothing _  -> recordType baseType cType n
-        where
-          n = varName v
-          cType | isExtrn                                     = CTExternal
+    let cType n | isExtrn                                     = CTExternal
                 | Just (AttrDimension _ _ ddAList) <- attrDim = CTArray (dimDeclarator ddAList)
                 | isParam                                     = CTParameter
                 | Just (IDType _ (Just ct)) <- M.lookup n env
                 , ct /= CTIntrinsic                           = ct
                 | otherwise                                   = CTVariable
+    let charLen (ExpValue _ _ (ValInteger i)) = CharLenInt (read i)
+        charLen (ExpValue _ _ ValStar)        = CharLenStar
+        charLen _                             = CharLenExp
+    let bType (Just e)
+          | TypeCharacter _ kind <- baseType = TypeCharacter (Just $ charLen e) kind
+          | otherwise                        = TypeCharacter (Just $ charLen e) Nothing
+        bType Nothing  = baseType
+    forM_ decls $ \ decl -> case decl of
+      DeclArray _ _ v ddAList e _ -> recordType (bType e) (CTArray $ dimDeclarator ddAList) (varName v)
+      DeclVariable _ _ v e _      -> recordType (bType e) (cType n) n where n = varName v
+
 statement (StExternal _ _ varAList) = do
   let vars = aStrip varAList
   mapM_ (recordCType CTExternal . varName) vars

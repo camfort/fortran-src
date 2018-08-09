@@ -99,7 +99,7 @@ spec =
       describe "Declaration" $ do
         it "prints 90 style with attributes" $ do
           let sel = Selector () u (Just $ intGen 3) Nothing
-          let typeSpec = TypeSpec () u TypeCharacter (Just sel)
+          let typeSpec = TypeSpec () u (TypeCharacter Nothing Nothing) (Just sel)
           let attrs = [ AttrIntent () u In , AttrPointer () u ]
           let declList =
                 [ DeclVariable () u (varGen "x") Nothing (Just $ intGen 42)

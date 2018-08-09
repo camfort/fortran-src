@@ -330,7 +330,7 @@ spec =
           sParser "implicit none" `shouldBe'` st
 
         it "parses implicit with single" $ do
-          let typeSpec = TypeSpec () u TypeCharacter Nothing
+          let typeSpec = TypeSpec () u (TypeCharacter Nothing Nothing) Nothing
               impEls = [ ImpCharacter () u "k" ]
               impLists = [ ImpList () u typeSpec (fromList () impEls) ]
               st = StImplicit () u (Just $ fromList () impLists)
@@ -344,7 +344,7 @@ spec =
           sParser "implicit logical (x-z)" `shouldBe'` st
 
         it "parses implicit statement" $ do
-          let typeSpec1 = TypeSpec () u TypeCharacter Nothing
+          let typeSpec1 = TypeSpec () u (TypeCharacter Nothing Nothing) Nothing
               typeSpec2 = TypeSpec () u TypeInteger Nothing
               impEls1 = [ ImpCharacter () u "s", ImpCharacter () u "a" ]
               impEls2 = [ ImpRange () u "x" "z" ]

@@ -63,12 +63,32 @@ data BaseType =
   | TypeComplex
   | TypeDoubleComplex
   | TypeLogical
-  | TypeCharacter
+  | TypeCharacter (Maybe CharacterLen) (Maybe String) -- ^ len and kind, if specified
   | TypeCustom String
   | TypeByte
   deriving (Ord, Eq, Show, Data, Typeable, Generic)
 
 instance Binary BaseType
+
+data CharacterLen = CharLenStar    -- ^ specified with a *
+                    -- FIXME, possibly, with a more robust const-exp:
+                  | CharLenExp     -- ^ specified with a non-trivial expression
+                  | CharLenInt Int -- ^ specified with a constant integer
+  deriving (Ord, Eq, Show, Data, Typeable, Generic)
+
+instance Binary CharacterLen
+
+charLenSelector :: Maybe (Selector a) -> (Maybe CharacterLen, Maybe String)
+charLenSelector Nothing                          = (Nothing, Nothing)
+charLenSelector (Just (Selector _ _ mlen mkind)) = (l, k)
+  where
+    l | Just (ExpValue _ _ ValStar) <- mlen        = Just CharLenStar
+      | Just (ExpValue _ _ (ValInteger i)) <- mlen = Just $ CharLenInt (read i)
+      | Nothing <- mlen                            = Nothing
+      | otherwise                                  = Just CharLenExp
+    k | Just (ExpValue _ _ (ValInteger i)) <- mkind = Just i
+      -- FIXME: some references refer to things like kind=kanji but I can't find any spec for it
+      | otherwise                                   = Nothing
 
 data TypeSpec a = TypeSpec a SrcSpan BaseType (Maybe (Selector a))
   deriving (Eq, Show, Data, Typeable, Generic, Functor)
@@ -804,6 +824,7 @@ instance Out a => Out (DoSpecification a)
 instance Out a => Out (Value a)
 instance Out a => Out (TypeSpec a)
 instance Out a => Out (Selector a)
+instance Out CharacterLen
 instance Out BaseType
 instance Out a => Out (Declarator a)
 instance Out a => Out (DimensionDeclarator a)
