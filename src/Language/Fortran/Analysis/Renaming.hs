@@ -253,7 +253,7 @@ initialEnv blocks = do
   let common = M.fromList [ (v, (v', NTVariable))
                           | CommonGroup _ _ me1 alist <- universeBi blocks :: [CommonGroup (Analysis a)]
                           , let prefix = case me1 of Just e1 -> srcName e1; _ -> ""
-                          , e <- aStrip alist
+                          , e@(ExpValue _ _ ValVariable{}) <- universeBi (aStrip alist) :: [Expression (Analysis a)]
                           , let v = srcName e
                           , let v' = prefix ++ "_" ++ v ++ "_common" ]
 
