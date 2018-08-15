@@ -710,7 +710,7 @@ instance Pretty (Attribute a) where
           AttrPrivate _ _ -> "private"
           AttrAllocatable _ _ -> "allocatable"
           AttrDimension _ _ dims ->
-            "dimesion" <> parens (pprint' v dims)
+            "dimension" <> parens (pprint' v dims)
           AttrExternal _ _ -> "external"
           AttrIntent _ _ intent ->
             "intent" <> parens (pprint' v intent)
