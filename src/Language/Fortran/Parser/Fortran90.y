@@ -755,7 +755,7 @@ ATTRIBUTE_SPEC :: { Attribute A0 }
 | private { AttrPrivate () (getSpan $1) }
 | allocatable { AttrAllocatable () (getSpan $1) }
 | dimension '(' DIMENSION_DECLARATORS ')'
-  { AttrDimension () (getTransSpan $1 $4) $3 }
+  { AttrDimension () (getTransSpan $1 $4) (aReverse $3) }
 | external { AttrExternal () (getSpan $1) }
 | intent '(' INTENT_CHOICE ')' { AttrIntent () (getTransSpan $1 $4) $3 }
 | intrinsic { AttrIntrinsic () (getSpan $1) }
@@ -811,12 +811,12 @@ DECLARATOR :: { Declarator A0 }
   { let star = ExpValue () (getSpan $4) ValStar
     in DeclVariable () (getTransSpan $1 $5) $1 (Just star) Nothing }
 | VARIABLE '(' DIMENSION_DECLARATORS ')'
-  { DeclArray () (getTransSpan $1 $4) $1 $3 Nothing Nothing }
+  { DeclArray () (getTransSpan $1 $4) $1 (aReverse $3) Nothing Nothing }
 | VARIABLE '(' DIMENSION_DECLARATORS ')' '*' EXPRESSION
-  { DeclArray () (getTransSpan $1 $6) $1 $3 (Just $6) Nothing }
+  { DeclArray () (getTransSpan $1 $6) $1 (aReverse $3) (Just $6) Nothing }
 | VARIABLE '(' DIMENSION_DECLARATORS ')' '*' '(' '*' ')'
   { let star = ExpValue () (getSpan $7) ValStar
-    in DeclArray () (getTransSpan $1 $8) $1 $3 (Just star) Nothing }
+    in DeclArray () (getTransSpan $1 $8) $1 (aReverse $3) (Just star) Nothing }
 
 DIMENSION_DECLARATORS :: { AList DimensionDeclarator A0 }
 : DIMENSION_DECLARATORS ',' DIMENSION_DECLARATOR
