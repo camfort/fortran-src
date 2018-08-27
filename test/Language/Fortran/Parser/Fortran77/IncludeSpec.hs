@@ -13,8 +13,8 @@ import Language.Fortran.Util.Position
 iParser :: [String] -> String -> IO (ParseResult AlexInput Token (ProgramFile A0))
 iParser incs src = legacy77ParserWithIncludes incs (B.pack src) "<unknown>"
 
-makeSrcR :: (Int, Int, Int) -> (Int, Int, Int) -> SrcSpan
-makeSrcR (i1, i2, i3) (j1, j2, j3) = SrcSpan (Position i1 i2 i3) (Position j1 j2 j3)
+makeSrcR :: (Int, Int, Int, String) -> (Int, Int, Int, String) -> SrcSpan
+makeSrcR (i1, i2, i3, s) (j1, j2, j3, s') = SrcSpan (Position i1 i2 i3 s) (Position j1 j2 j3 s')
 
 spec :: SpecWith ()
 spec =
@@ -26,16 +26,16 @@ spec =
         incs = ["./test/Language/Fortran/Parser"]
         name = "bar"
         pf = ProgramFile mi77 [pu]
-        puSpan = makeSrcR (6,7,1) (48,9,3)
-        st1Span = makeSrcR (24,7,2) (38,21,2)
-        expSpan = makeSrcR (32,15,2) (38,21,2)
+        puSpan = makeSrcR (6,7,1,"<unknown>") (48,9,3,"<unknown>")
+        st1Span = makeSrcR (24,7,2,"<unknown>") (38,21,2,"<unknown>")
+        expSpan = makeSrcR (32,15,2,"<unknown>") (38,21,2,"<unknown>")
 
         -- the expansion returns the span in the included file
         -- it should return the span at the inclusion
-        st2Span = makeSrcR (6,7,1) (14,15,1)
-        declSpan = makeSrcR (6,7,1) (14,15,1)
-        typeSpan = makeSrcR (6,7,1) (12,13,1)
-        blockSpan = makeSrcR (14,15,1) (14,15,1)
+        st2Span = makeSrcR (6,7,1,"foo.f") (14,15,1,"foo.f")
+        declSpan = makeSrcR (6,7,1,"foo.f") (14,15,1,"foo.f")
+        typeSpan = makeSrcR (6,7,1,"foo.f") (12,13,1,"foo.f")
+        blockSpan = makeSrcR (14,15,1,"foo.f") (14,15,1,"foo.f")
         varGen' str =  ExpValue () blockSpan $ ValVariable str
 
         pu = PUMain () puSpan (Just name) blocks Nothing

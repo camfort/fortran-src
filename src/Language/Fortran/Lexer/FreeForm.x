@@ -677,7 +677,7 @@ normaliseStartCode = do
 --------------------------------------------------------------------------------
 
 invalidPosition :: Position
-invalidPosition = Position 0 0 0
+invalidPosition = Position 0 0 0 ""
 
 {-# INLINE isValidPosition #-}
 isValidPosition :: Position -> Bool
@@ -1164,7 +1164,8 @@ initParseState srcBytes fortranVersion filename =
       , psContext = [ ConStart ] }
     _vanillaAlexInput = vanillaAlexInput
       { aiSourceBytes = srcBytes
-      , aiEndOffset   = B.length srcBytes }
+      , aiEndOffset   = B.length srcBytes
+      , aiPosition    = initPosition {filePath = filename} }
 
 collectFreeTokens :: FortranVersion -> B.ByteString -> [Token]
 collectFreeTokens version srcInput =

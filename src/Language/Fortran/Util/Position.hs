@@ -19,18 +19,20 @@ data Position = Position
   { posAbsoluteOffset   :: {-# UNPACK #-} !Int
   , posColumn           :: {-# UNPACK #-} !Int
   , posLine             :: {-# UNPACK #-} !Int
+  , filePath            :: !String
   } deriving (Eq, Ord, Data, Typeable, Generic)
 
 instance Binary Position
 
 instance Show Position where
-  show (Position _ c l) = show l ++ ':' : show c
+  show (Position _ c l f) = show f ++ ':' : show l ++ ':' : show c
 
 initPosition :: Position
 initPosition = Position
   { posAbsoluteOffset = 0
   , posColumn = 1
   , posLine = 1
+  , filePath = ""
   }
 
 lineCol :: Position -> (Int, Int)
@@ -49,11 +51,11 @@ instance Out SrcSpan where
 
 -- Difference between the column of the upper and lower positions in a span
 columnDistance :: SrcSpan -> Int
-columnDistance (SrcSpan (Position _ c1 _) (Position _ c2 _)) = c2 - c1
+columnDistance (SrcSpan (Position _ c1 _ _) (Position _ c2 _ _)) = c2 - c1
 
 -- Difference between the lines of the upper and lower positions in a span
 lineDistance :: SrcSpan -> Int
-lineDistance (SrcSpan (Position _ _ l1) (Position _ _ l2)) = l2 - l1
+lineDistance (SrcSpan (Position _ _ l1 _) (Position _ _ l2 _)) = l2 - l1
 
 initSrcSpan :: SrcSpan
 initSrcSpan = SrcSpan initPosition initPosition
