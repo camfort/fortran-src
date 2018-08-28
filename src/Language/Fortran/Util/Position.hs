@@ -25,7 +25,7 @@ data Position = Position
 instance Binary Position
 
 instance Show Position where
-  show (Position _ c l f) = show f ++ ':' : show l ++ ':' : show c
+  show (Position _ c l _) = show l ++ ':' : show c
 
 initPosition :: Position
 initPosition = Position
