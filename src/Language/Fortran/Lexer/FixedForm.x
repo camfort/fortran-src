@@ -1111,7 +1111,8 @@ initParseState srcBytes fortranVersion filename =
     _vanillaAlexInput = vanillaAlexInput
       { aiSourceBytes = srcBytes
       , aiEndOffset   = fromIntegral $ B.length srcBytes
-      , aiFortranVersion = fortranVersion }
+      , aiFortranVersion = fortranVersion
+      , aiPosition = initPosition {filePath = filename} }
 
 collectFixedTokens :: FortranVersion -> B.ByteString -> [Token]
 collectFixedTokens version srcInput =

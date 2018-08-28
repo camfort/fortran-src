@@ -26,7 +26,7 @@ instance LastToken String String where
 data SomeInput = SomeInput { p :: Position }
 
 initPos :: Position
-initPos = Position 5 1 2
+initPos = Position 5 1 2 ""
 
 initSomeInput :: SomeInput
 initSomeInput = SomeInput { p = initPos }
@@ -59,7 +59,7 @@ spec =
 
       describe "Obtaining locations" $ do
         it "getPosition returns correct location" $
-          let _expPosition = Position 6 2 3
+          let _expPosition = Position 6 2 3 "some.f"
               _exampleM = do
                 _ai <- getAlex
                 putAlex $ _ai { p = _expPosition }
@@ -68,7 +68,7 @@ spec =
             _loc `shouldBe` _expPosition
 
         it "getSrcSpan return correct location span" $
-          let _loc2 = Position 6 2 3
+          let _loc2 = Position 6 2 3 "some.f"
               _exampleM = do
                 _ai <- getAlex
                 _loc1 <- getPosition
