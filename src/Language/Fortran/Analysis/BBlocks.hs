@@ -2,7 +2,7 @@
 
 {-# LANGUAGE FlexibleContexts, PatternGuards, ScopedTypeVariables #-}
 module Language.Fortran.Analysis.BBlocks
-  ( analyseBBlocks, genBBlockMap, showBBGr, showAnalysedBBGr, showBBlocks, bbgrToDOT, BBlockMap
+  ( analyseBBlocks, analyseBBlocksWithoutRewritingFunctionCall, genBBlockMap, showBBGr, showAnalysedBBGr, showBBlocks, bbgrToDOT, BBlockMap
   , genSuperBBGr, SuperBBGr, showSuperBBGr, superBBGrToDOT, superBBGrGraph, superBBGrClusters, superBBGrEntries
   , findLabeledBBlock )
 where
@@ -31,7 +31,16 @@ import Data.Functor.Identity
 analyseBBlocks :: Data a => ProgramFile (Analysis a) -> ProgramFile (Analysis a)
 analyseBBlocks pf = evalState (analyse (analyseAllLhsVars pf)) 1
   where
-    analyse = labelExprsInBBGr <=< labelBlocksInBBGr <=< return . trans toBBlocksPerPU <=< labelExprs <=< labelBlocks
+    analyse = labelExprsInBBGr <=< labelBlocksInBBGr <=< return . trans (toBBlocksPerPU True) <=< labelExprs <=< labelBlocks
+    trans :: Data a => TransFunc ProgramUnit ProgramFile a
+    trans = transformBi
+-- | 'analyseBBlocks' rewrites function calls in AST to model Fortran's call by reference
+-- symantics. 'analyseBBlocksWithoutRewritingFunctionCall' does the same as 'analyseBBlocks'
+-- except it keeps the function calls in AST intact.
+analyseBBlocksWithoutRewritingFunctionCall :: Data a => ProgramFile (Analysis a) -> ProgramFile (Analysis a)
+analyseBBlocksWithoutRewritingFunctionCall pf = evalState (analyse (analyseAllLhsVars pf)) 1
+  where
+    analyse = labelExprsInBBGr <=< labelBlocksInBBGr <=< return . trans (toBBlocksPerPU False)<=< labelExprs <=< labelBlocks
     trans :: Data a => TransFunc ProgramUnit ProgramFile a
     trans = transformBi
 
@@ -149,8 +158,8 @@ labelExprsInBBGr = transformBB (nmapM' (transformExpr eachExpr))
 --------------------------------------------------
 
 -- Analyse each program unit
-toBBlocksPerPU :: Data a => ProgramUnit (Analysis a) -> ProgramUnit (Analysis a)
-toBBlocksPerPU pu
+toBBlocksPerPU :: Data a => Bool -> ProgramUnit (Analysis a) -> ProgramUnit (Analysis a)
+toBBlocksPerPU rewriteFunCall pu
   | null bs   = pu
   | otherwise = pu'
   where
@@ -160,7 +169,7 @@ toBBlocksPerPU pu
         PUSubroutine _ _ _ _ _ bs' _ -> bs';
         PUFunction _ _ _ _ _ _ _ bs' _ -> bs'
         _ -> []
-    bbs = execBBlocker (processBlocks bs)
+    bbs = execBBlocker (processBlocks rewriteFunCall bs)
     fix = delEmptyBBlocks . delUnreachable . insExitEdges pu lm . delInvalidExits . insEntryEdges pu
     gr  = fix (insEdges (newEdges bbs) (bbGraph bbs))
     pu' = setAnnotation ((getAnnotation pu) { bBlocks = Just gr }) pu
@@ -290,13 +299,13 @@ execBBlocker = flip execState bbs0
 --------------------------------------------------
 
 -- Handle a list of blocks (typically from ProgramUnit or nested inside a BlDo, BlIf, etc).
-processBlocks :: Data a => [Block (Analysis a)] -> BBlocker (Analysis a) (Node, Node)
+processBlocks :: Data a => Bool -> [Block (Analysis a)] -> BBlocker (Analysis a) (Node, Node)
 -- precondition: curNode is not yet in the graph && will label the first block
 -- postcondition: final bblock is in the graph labeled as endN && curNode == endN
 -- returns start and end nodes for basic block graph corresponding to parameter bs
-processBlocks bs = do
+processBlocks rewriteFunCall bs = do
   startN <- gets curNode
-  mapM_ perBlock bs
+  mapM_ (perBlock rewriteFunCall) bs
   endN   <- gets curNode
   modify $ \ st -> st { bbGraph = insNode (endN, reverse (curBB st)) (bbGraph st)
                       , curBB   = [] }
@@ -305,134 +314,137 @@ processBlocks bs = do
 --------------------------------------------------
 
 -- Handle an AST-block element
-perBlock :: Data a => Block (Analysis a) -> BBlocker (Analysis a) ()
+perBlock :: Data a => Bool -> Block (Analysis a) -> BBlocker (Analysis a) ()
 -- invariant: curNode corresponds to curBB, and is not yet in the graph
 -- invariant: curBB is in reverse order
-perBlock b@(BlIf _ _ _ _ exps bss _) = do
-  processLabel b
-  _ <- forM (catMaybes . filter isJust $ exps) processFunctionCalls
-  addToBBlock $ stripNestedBlocks b
-  (ifN, _) <- closeBBlock
+perBlock rewriteFunCall b = case b of
+  BlIf _ _ _ _ exps bss _ -> do
+    processLabel b
+    _ <- forM (catMaybes . filter isJust $ exps) (processFunctionCalls rewriteFunCall)
+    addToBBlock $ stripNestedBlocks b
+    (ifN, _) <- closeBBlock
 
-  -- go through nested AST-blocks
-  startEnds <- forM bss $ \ bs -> do
-    (thenN, endN) <- processBlocks bs
-    _ <- genBBlock
-    return (thenN, endN)
+    -- go through nested AST-blocks
+    startEnds <- forM bss $ \ bs -> do
+      (thenN, endN) <- processBlocks rewriteFunCall bs
+      _ <- genBBlock
+      return (thenN, endN)
 
-  -- connect all the new bblocks with edges, link to subsequent bblock labeled nxtN
-  nxtN   <- gets curNode
-  let es  = startEnds >>= \ (thenN, endN) -> [(ifN, thenN, ()), (endN, nxtN, ())]
-  -- if there is no "Else"-statement then we need an edge from ifN -> nxtN
-  createEdges $ if any isNothing exps then es else (ifN, nxtN, ()):es
+    -- connect all the new bblocks with edges, link to subsequent bblock labeled nxtN
+    nxtN   <- gets curNode
+    let es  = startEnds >>= \ (thenN, endN) -> [(ifN, thenN, ()), (endN, nxtN, ())]
+    -- if there is no "Else"-statement then we need an edge from ifN -> nxtN
+    createEdges $ if any isNothing exps then es else (ifN, nxtN, ()):es
 
-perBlock b@(BlCase _ _ _ _ _ inds bss _) = do
-  processLabel b
-  addToBBlock $ stripNestedBlocks b
-  (selectN, _) <- closeBBlock
+  BlCase _ _ _ _ _ inds bss _ -> do
+    processLabel b
+    addToBBlock $ stripNestedBlocks b
+    (selectN, _) <- closeBBlock
 
-  -- go through nested AST-blocks
-  startEnds <- forM bss $ \ bs -> do
-    (caseN, endN) <- processBlocks bs
-    _ <- genBBlock
-    return (caseN, endN)
+    -- go through nested AST-blocks
+    startEnds <- forM bss $ \ bs -> do
+      (caseN, endN) <- processBlocks rewriteFunCall bs
+      _ <- genBBlock
+      return (caseN, endN)
 
-  -- connect all the new bblocks with edges, link to subsequent bblock labeled nxtN
-  nxtN   <- gets curNode
-  let es  = startEnds >>= \ (caseN, endN) -> [(selectN, caseN, ()), (endN, nxtN, ())]
-  -- if there is no "CASE DEFAULT"-statement then we need an edge from selectN -> nxtN
-  createEdges $ if any isNothing inds then es else (selectN, nxtN, ()):es
+    -- connect all the new bblocks with edges, link to subsequent bblock labeled nxtN
+    nxtN   <- gets curNode
+    let es  = startEnds >>= \ (caseN, endN) -> [(selectN, caseN, ()), (endN, nxtN, ())]
+    -- if there is no "CASE DEFAULT"-statement then we need an edge from selectN -> nxtN
+    createEdges $ if any isNothing inds then es else (selectN, nxtN, ()):es
 
-perBlock b@(BlStatement a ss _ (StIfLogical _ _ exp stm)) = do
-  processLabel b
-  _ <- processFunctionCalls exp
-  addToBBlock $ stripNestedBlocks b
+  BlStatement a ss _ (StIfLogical _ _ exp stm) -> do
+    processLabel b
+    _ <- processFunctionCalls rewriteFunCall exp
+    addToBBlock $ stripNestedBlocks b
 
-  -- start a bblock for the nested statement inside the If
-  (ifN, thenN) <- closeBBlock
+    -- start a bblock for the nested statement inside the If
+    (ifN, thenN) <- closeBBlock
 
-  -- build pseudo-AST-block to contain nested statement
-  _ <- processBlocks [BlStatement a ss Nothing stm]
-  _ <- gets curNode
+    -- build pseudo-AST-block to contain nested statement
+    _ <- processBlocks rewriteFunCall [BlStatement a ss Nothing stm]
+    _ <- gets curNode
 
-  -- connect all the new bblocks with edges, link to subsequent bblock labeled nxtN
-  nxtN <- genBBlock
-  createEdges [(ifN, thenN, ()), (ifN, nxtN, ()), (thenN, nxtN, ())]
+    -- connect all the new bblocks with edges, link to subsequent bblock labeled nxtN
+    nxtN <- genBBlock
+    createEdges [(ifN, thenN, ()), (ifN, nxtN, ()), (thenN, nxtN, ())]
 
-perBlock b@(BlStatement _ _ _ StIfArithmetic{}) =
-  -- Treat an arithmetic if similarly to a goto
-  processLabel b >> addToBBlock b >> closeBBlock_
-perBlock b@(BlDo _ _ _ _ _ (Just spec) bs _) = do
-  let DoSpecification _ _ (StExpressionAssign _ _ _ e1) e2 me3 = spec
-  _  <- processFunctionCalls e1
-  _  <- processFunctionCalls e2
-  _  <- case me3 of Just e3 -> Just `fmap` processFunctionCalls e3; Nothing -> return Nothing
-  perDoBlock Nothing b bs
-perBlock b@(BlDo _ _ _ _ _ Nothing bs _) = perDoBlock Nothing b bs
-perBlock b@(BlDoWhile _ _ _ _ _ exp bs _) = perDoBlock (Just exp) b bs
-perBlock b@(BlStatement _ _ _ StReturn{}) =
-  processLabel b >> addToBBlock b >> closeBBlock_
-perBlock b@(BlStatement _ _ _ StGotoUnconditional{}) =
-  processLabel b >> addToBBlock b >> closeBBlock_
-perBlock b@(BlStatement _ _ _ (StCall _ _ ExpValue{} Nothing)) = do
-  (prevN, callN) <- closeBBlock
-  -- put StCall in a bblock by itself
-  addToBBlock b
-  (_, nextN) <- closeBBlock
-  createEdges [ (prevN, callN, ()), (callN, nextN, ()) ]
-perBlock (BlStatement a s l (StCall a' s' cn@ExpValue{} (Just aargs))) = do
-  let exps = map extractExp . aStrip $ aargs
-  (prevN, formalN) <- closeBBlock
+  BlStatement _ _ _ StIfArithmetic{} -> do
+    -- Treat an arithmetic if similarly to a goto
+    processLabel b >> addToBBlock b >> closeBBlock_
 
-  -- create bblock that assigns formal parameters (n[1], n[2], ...)
-  case l of
-    Just (ExpValue _ _ (ValInteger l')) -> insertLabel l' formalN -- label goes here, if present
-    _                                -> return ()
-  let name i   = varName cn ++ "[" ++ show i ++ "]"
-  let formal (ExpValue a'' s'' (ValVariable _)) i = ExpValue a'' s'' (ValVariable (name i))
-      formal e i                              = ExpValue a'' s'' (ValVariable (name i))
-        where a'' = getAnnotation e; s'' = getSpan e
-  forM_ (zip exps [(1::Integer)..]) $ \ (e, i) -> do
-    e' <- processFunctionCalls e
-    addToBBlock . analyseAllLhsVars1 $ BlStatement a s Nothing (StExpressionAssign a' s' (formal e' i) e')
-  (_, dummyCallN) <- closeBBlock
+  BlDo _ _ _ _ _ (Just spec) bs _ -> do
+    let DoSpecification _ _ (StExpressionAssign _ _ _ e1) e2 me3 = spec
+    _  <- processFunctionCalls rewriteFunCall e1
+    _  <- processFunctionCalls rewriteFunCall e2
+    _  <- case me3 of Just e3 -> Just `fmap` processFunctionCalls rewriteFunCall e3; Nothing -> return Nothing
+    perDoBlock rewriteFunCall Nothing b bs
 
-  -- create "dummy call" bblock with no parameters in the StCall AST-node.
-  addToBBlock . analyseAllLhsVars1 $ BlStatement a s Nothing (StCall a' s' cn Nothing)
-  (_, returnedN) <- closeBBlock
+  BlDo _ _ _ _ _ Nothing bs _ -> perDoBlock rewriteFunCall Nothing b bs
+  BlDoWhile _ _ _ _ _ exp bs _ -> perDoBlock rewriteFunCall (Just exp) b bs
+  BlStatement _ _ _ StReturn{} ->
+    processLabel b >> addToBBlock b >> closeBBlock_
+  BlStatement _ _ _ StGotoUnconditional{} ->
+    processLabel b >> addToBBlock b >> closeBBlock_
+  BlStatement _ _ _ (StCall _ _ ExpValue{} Nothing) -> do
+    (prevN, callN) <- closeBBlock
+    -- put StCall in a bblock by itself
+    addToBBlock b
+    (_, nextN) <- closeBBlock
+    createEdges [ (prevN, callN, ()), (callN, nextN, ()) ]
+  BlStatement a s l (StCall a' s' cn@ExpValue{} (Just aargs)) -> do
+    let exps = map extractExp . aStrip $ aargs
+    (prevN, formalN) <- closeBBlock
 
-  -- re-assign the variables using the values of the formal parameters, if possible
-  -- (because call-by-reference)
-  forM_ (zip exps [(1::Integer)..]) $ \ (e, i) ->
-    -- this is only possible for l-expressions
-    (when (isLExpr e) $
-      addToBBlock . analyseAllLhsVars1 $ BlStatement a s Nothing (StExpressionAssign a' s' e (formal e i)))
-  (_, nextN) <- closeBBlock
+    -- create bblock that assigns formal parameters (n[1], n[2], ...)
+    case l of
+      Just (ExpValue _ _ (ValInteger l')) -> insertLabel l' formalN -- label goes here, if present
+      _                                -> return ()
+    let name i   = varName cn ++ "[" ++ show i ++ "]"
+    let formal (ExpValue a'' s'' (ValVariable _)) i = ExpValue a'' s'' (ValVariable (name i))
+        formal e i                              = ExpValue a'' s'' (ValVariable (name i))
+          where a'' = getAnnotation e; s'' = getSpan e
+    forM_ (zip exps [(1::Integer)..]) $ \ (e, i) -> do
+      e' <- processFunctionCalls rewriteFunCall e
+      addToBBlock . analyseAllLhsVars1 $ BlStatement a s Nothing (StExpressionAssign a' s' (formal e' i) e')
+    (_, dummyCallN) <- closeBBlock
 
-  -- connect the bblocks
-  createEdges [ (prevN, formalN, ()), (formalN, dummyCallN, ())
-              , (dummyCallN, returnedN, ()), (returnedN, nextN, ()) ]
+    -- create "dummy call" bblock with no parameters in the StCall AST-node.
+    addToBBlock . analyseAllLhsVars1 $ BlStatement a s Nothing (StCall a' s' cn Nothing)
+    (_, returnedN) <- closeBBlock
 
-perBlock b = do
-  processLabel b
-  b' <- descendBiM processFunctionCalls b
-  addToBBlock b'
+    -- re-assign the variables using the values of the formal parameters, if possible
+    -- (because call-by-reference)
+    forM_ (zip exps [(1::Integer)..]) $ \ (e, i) ->
+      -- this is only possible for l-expressions
+      (when (isLExpr e) $
+        addToBBlock . analyseAllLhsVars1 $ BlStatement a s Nothing (StExpressionAssign a' s' e (formal e i)))
+    (_, nextN) <- closeBBlock
+
+    -- connect the bblocks
+    createEdges [ (prevN, formalN, ()), (formalN, dummyCallN, ())
+                , (dummyCallN, returnedN, ()), (returnedN, nextN, ()) ]
+
+  _ -> do
+    processLabel b
+    b' <- descendBiM (processFunctionCalls rewriteFunCall) b
+    addToBBlock b'
 
 --------------------------------------------------
 -- helper monadic combinators
 
 -- Do-block helper
-perDoBlock :: Data a => Maybe (Expression (Analysis a)) -> Block (Analysis a) -> [Block (Analysis a)] -> BBlocker (Analysis a) ()
-perDoBlock repeatExpr b bs = do
+perDoBlock :: Data a => Bool -> Maybe (Expression (Analysis a)) -> Block (Analysis a) -> [Block (Analysis a)] -> BBlocker (Analysis a) ()
+perDoBlock rewriteFunCall repeatExpr b bs = do
   (n, doN) <- closeBBlock
   case getLabel b of
     Just (ExpValue _ _ (ValInteger l)) -> insertLabel l doN
     _                                  -> return ()
-  case repeatExpr of Just e -> void (processFunctionCalls e); Nothing -> return ()
+  case repeatExpr of Just e -> void (processFunctionCalls rewriteFunCall e); Nothing -> return ()
   addToBBlock $ stripNestedBlocks b
   _ <- closeBBlock
   -- process nested bblocks inside of do-statement
-  (startN, endN) <- processBlocks bs
+  (startN, endN) <- processBlocks rewriteFunCall bs
   n' <- genBBlock
   -- connect all the new bblocks with edges, link to subsequent bblock labeled n'
   createEdges [(n, doN, ()), (doN, n', ()), (doN, startN, ()), (endN, doN, ())]
@@ -502,8 +514,13 @@ stripNestedBlocks b                              = b
 -- Flatten out function calls within the expression, returning an
 -- expression that replaces the original expression (probably becoming
 -- a temporary variable).
-processFunctionCalls :: Data a => Expression (Analysis a) -> BBlocker (Analysis a) (Expression (Analysis a))
-processFunctionCalls = transformBiM processFunctionCall -- work bottom-up
+processFunctionCalls :: Data a => Bool -> Expression (Analysis a) -> BBlocker (Analysis a) (Expression (Analysis a))
+processFunctionCalls rewriteFunCall e =
+    if rewriteFunCall
+    then
+      transformBiM processFunctionCall e -- work bottom-up
+    else
+      return e
 
 -- Flatten out a single function call.
 processFunctionCall :: Data a => Expression (Analysis a) -> BBlocker (Analysis a) (Expression (Analysis a))
