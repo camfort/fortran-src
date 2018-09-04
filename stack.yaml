@@ -1,6 +1,4 @@
 resolver: lts-11.9
 packages:
 - '.'
-extra-deps: []
-flags: {}
-extra-package-dbs: []
+save-hackage-creds: false
