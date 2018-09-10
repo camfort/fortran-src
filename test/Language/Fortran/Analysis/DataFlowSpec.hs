@@ -25,6 +25,8 @@ import Data.Generics.Uniplate.Operations
 import qualified Data.ByteString.Char8 as B
 import Control.Arrow ((&&&))
 
+{-# ANN module "HLint: ignore Reduce duplication" #-}
+
 data F77 = F77
 data F90 = F90
 
