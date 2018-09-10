@@ -1,3 +1,4 @@
+{-# OPTIONS_GHC -Wno-orphans #-}
 module Language.Fortran.Transformation.GroupingSpec where
 
 import Test.Hspec hiding (Selector)
