@@ -12,6 +12,8 @@ import Language.Fortran.Parser.Fortran90
 --import qualified Data.List as List
 import qualified Data.ByteString.Char8 as B
 
+{-# ANN module "HLint: ignore Reduce duplication" #-}
+
 eParser :: String -> Expression ()
 eParser sourceCode =
   case evalParse statementParser parseState of
