@@ -372,7 +372,6 @@ data Attribute a =
   | AttrExternal a SrcSpan
   | AttrIntent a SrcSpan Intent
   | AttrIntrinsic a SrcSpan
-  | AttrNonIntrinsic a SrcSpan
   | AttrOptional a SrcSpan
   | AttrPointer a SrcSpan
   | AttrSave a SrcSpan
