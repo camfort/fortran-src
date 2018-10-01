@@ -50,6 +50,7 @@ library:
   - Language.Fortran.Parser.Fortran77
   - Language.Fortran.Parser.Fortran90
   - Language.Fortran.Parser.Fortran95
+  - Language.Fortran.Parser.Fortran2003
   - Language.Fortran.Parser.Utils
   - Language.Fortran.PrettyPrint
   - Language.Fortran.Transformation.Disambiguation.Function

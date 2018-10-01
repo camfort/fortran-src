@@ -329,7 +329,7 @@ data Statement a  =
   | StWhereConstruct      a SrcSpan (Expression a)
   | StElsewhere           a SrcSpan
   | StEndWhere            a SrcSpan
-  | StUse                 a SrcSpan (Expression a) Only (Maybe (AList Use a))
+  | StUse                 a SrcSpan (Expression a) (Maybe ModuleNature) Only (Maybe (AList Use a))
   | StModuleProcedure     a SrcSpan (AList Expression a)
   | StType                a SrcSpan (Maybe (AList Attribute a)) String
   | StEndType             a SrcSpan (Maybe String)
@@ -352,6 +352,9 @@ data ForallHeader a = ForallHeader
 data Only = Exclusive | Permissive
   deriving (Eq, Show, Data, Typeable, Generic)
 
+data ModuleNature = ModIntrinsic | ModNonIntrinsic
+  deriving (Eq, Show, Data, Typeable, Generic)
+
 data Use a =
     UseRename a SrcSpan (Expression a) (Expression a)
   | UseID a SrcSpan (Expression a)
@@ -369,6 +372,7 @@ data Attribute a =
   | AttrExternal a SrcSpan
   | AttrIntent a SrcSpan Intent
   | AttrIntrinsic a SrcSpan
+  | AttrNonIntrinsic a SrcSpan
   | AttrOptional a SrcSpan
   | AttrPointer a SrcSpan
   | AttrSave a SrcSpan
@@ -804,6 +808,7 @@ instance Out a => Out (PUFunctionOpt a)
 instance (Out a, Out (t a)) => Out (AList t a)
 instance Out a => Out (Statement a)
 instance Out Only
+instance Out ModuleNature
 instance Out a => Out (Argument a)
 instance Out a => Out (Use a)
 instance Out a => Out (Attribute a)

@@ -217,8 +217,8 @@ uniquify scope var = do
 --isModule (PUModule {}) = True; isModule _             = False
 
 isUseStatement :: Block a -> Bool
-isUseStatement (BlStatement _ _ _ (StUse _ _ (ExpValue _ _ (ValVariable _)) _ _)) = True
-isUseStatement _                                                                  = False
+isUseStatement (BlStatement _ _ _ (StUse _ _ (ExpValue _ _ (ValVariable _)) _ _ _)) = True
+isUseStatement _                                                                    = False
 
 isUseID :: Use a -> Bool
 isUseID UseID {} = True; isUseID _ = False
@@ -234,9 +234,9 @@ initialEnv blocks = do
   let uses = filter isUseStatement blocks
   mMap <- gets moduleMap
   modEnv <- fmap M.unions . forM uses $ \ use -> case use of
-    (BlStatement _ _ _ (StUse _ _ (ExpValue _ _ (ValVariable m)) _ Nothing)) ->
+    (BlStatement _ _ _ (StUse _ _ (ExpValue _ _ (ValVariable m)) _ _ Nothing)) ->
       return $ fromMaybe empty (Named m `lookup` mMap)
-    (BlStatement _ _ _ (StUse _ _ (ExpValue _ _ (ValVariable m)) _ (Just onlyAList)))
+    (BlStatement _ _ _ (StUse _ _ (ExpValue _ _ (ValVariable m)) _ _ (Just onlyAList)))
       | only <- aStrip onlyAList, all isUseID only -> do
       let env = fromMaybe empty (Named m `lookup` mMap)
       let onlyNames = map (\ (UseID _ _ v) -> varName v) only

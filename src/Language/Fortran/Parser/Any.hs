@@ -10,6 +10,7 @@ import Language.Fortran.Parser.Fortran77 ( fortran77Parser, fortran77ParserWithM
                                          , legacy77Parser, legacy77ParserWithModFiles )
 import Language.Fortran.Parser.Fortran90 ( fortran90Parser, fortran90ParserWithModFiles )
 import Language.Fortran.Parser.Fortran95 ( fortran95Parser, fortran95ParserWithModFiles )
+import Language.Fortran.Parser.Fortran2003 ( fortran2003Parser, fortran2003ParserWithModFiles )
 
 import qualified Data.ByteString.Char8 as B
 import Data.Char (toLower)
@@ -39,7 +40,8 @@ parserVersions =
   , (Fortran77Extended, fromParseResult `after` extended77Parser)
   , (Fortran77Legacy, fromParseResult `after` legacy77Parser)
   , (Fortran90, fromParseResult `after` fortran90Parser)
-  , (Fortran95, fromParseResult `after` fortran95Parser) ]
+  , (Fortran95, fromParseResult `after` fortran95Parser)
+  , (Fortran2003, fromParseResult `after` fortran2003Parser) ]
 
 type ParserWithModFiles = ModFiles -> B.ByteString -> String -> Either ParseErrorSimple (ProgramFile A0)
 parserWithModFilesVersions :: [(FortranVersion, ParserWithModFiles)]
@@ -49,7 +51,8 @@ parserWithModFilesVersions =
   , (Fortran77Extended, \m s -> fromParseResult . extended77ParserWithModFiles m s)
   , (Fortran77Legacy, \m s -> fromParseResult . legacy77ParserWithModFiles m s)
   , (Fortran90, \m s -> fromParseResult . fortran90ParserWithModFiles m s)
-  , (Fortran95, \m s -> fromParseResult . fortran95ParserWithModFiles m s) ]
+  , (Fortran95, \m s -> fromParseResult . fortran95ParserWithModFiles m s)
+  , (Fortran2003, \m s -> fromParseResult . fortran2003ParserWithModFiles m s) ]
 
 after :: (b -> c) -> (t -> a -> b) -> t -> a -> c
 after g f x = g . f x

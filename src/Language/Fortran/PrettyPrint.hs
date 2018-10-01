@@ -654,11 +654,19 @@ instance Pretty (Statement a) where
       | v >= Fortran90 = "end where"
       | otherwise = tooOld v "End where" Fortran90
 
-    pprint' v (StUse _ _ moduleName only mappings)
+    pprint' v (StUse _ _ moduleName mIntrinsic only mappings)
+      | v >= Fortran2003 =
+        "use" <> (comma <?+> intrinsic <?+> "::") <+> pprint' v moduleName <>
+        (comma <?+> (pprint' v only <+> pprint' v mappings))
       | v >= Fortran90 =
         "use" <+> pprint' v moduleName <>
         (comma <?+> (pprint' v only <+> pprint' v mappings))
       | otherwise = tooOld v "Module system" Fortran90
+      where
+        intrinsic = case mIntrinsic of
+          Just ModIntrinsic    -> "intrinsic"
+          Just ModNonIntrinsic -> "non_intrinsic"
+          Nothing              -> empty
 
     pprint' v (StModuleProcedure _ _ procedures)
       | v >= Fortran90 =

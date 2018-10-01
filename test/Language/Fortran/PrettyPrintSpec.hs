@@ -249,11 +249,21 @@ spec =
           let stWhere = StWhere () u valTrue stAssign
           pprint Fortran90 stWhere Nothing `shouldBe` "where (.true.) x = 42"
 
-      describe "Use" $
-        it "prints exlusive use statement" $ do
+      describe "Use" $ do
+        it "prints exclusive use statement" $ do
           let aRenames = AList () u [ UseRename () u (varGen "x") (varGen "y") ]
-          let st = StUse () u (varGen "my_mod") Exclusive (Just aRenames)
+          let st = StUse () u (varGen "my_mod") Nothing Exclusive (Just aRenames)
           pprint Fortran90 st Nothing `shouldBe` "use my_mod, only: x => y"
+
+        it "prints intrinsic use statement" $ do
+          let aRenames = AList () u [ UseRename () u (varGen "x") (varGen "y") ]
+          let st = StUse () u (varGen "my_mod") (Just ModIntrinsic) Exclusive (Just aRenames)
+          pprint Fortran2003 st Nothing `shouldBe` "use, intrinsic :: my_mod, only: x => y"
+
+        it "prints non_intrinsic use statement" $ do
+          let aRenames = AList () u [ UseRename () u (varGen "x") (varGen "y") ]
+          let st = StUse () u (varGen "my_mod") (Just ModNonIntrinsic) Exclusive (Just aRenames)
+          pprint Fortran2003 st Nothing `shouldBe` "use, non_intrinsic :: my_mod, only: x => y"
 
     let decrementRHS = ExpBinary () u Subtraction (varGen "i") (intGen 1)
     let st1 = StPrint () u starVal (Just $ AList () u [ varGen "i" ])

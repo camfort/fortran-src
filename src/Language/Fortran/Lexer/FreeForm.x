@@ -164,6 +164,8 @@ tokens :-
 <scN> "intent" / { attributeP }                   { addSpan TIntent }
 <0> "intrinsic"                                   { addSpan TIntrinsic }
 <scN> "intrinsic" / { attributeP }                { addSpan TIntrinsic }
+<0> "non_intrinsic"                               { addSpan TNonIntrinsic }
+<scN> "non_intrinsic" / { attributeP }            { addSpan TNonIntrinsic }
 <0> "optional"                                    { addSpan TOptional }
 <scN> "optional" / { attributeP }                 { addSpan TOptional }
 <0> "pointer"                                     { addSpan TPointer }
@@ -376,7 +378,7 @@ attributeP _ _ _ ai =  followsComma && precedesDoubleColon ai && startsWithTypeS
       | otherwise = False
     startsWithTypeSpec
       | (token:_) <- prevTokens =
-        isTypeSpec token || fillConstr TType == toConstr token
+        isTypeSpec token || fillConstr TType == toConstr token || fillConstr TUse == toConstr token
       | otherwise = False
     prevTokens = reverse . aiPreviousTokensInLine $ ai
 
@@ -1033,6 +1035,7 @@ data Token =
   | TExternal           SrcSpan
   | TIntent             SrcSpan
   | TIntrinsic          SrcSpan
+  | TNonIntrinsic       SrcSpan
   | TOptional           SrcSpan
   | TPointer            SrcSpan
   | TSave               SrcSpan

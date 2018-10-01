@@ -26,6 +26,7 @@ instance NFData BaseType
 instance NFData UnaryOp
 instance NFData BinaryOp
 instance NFData Only
+instance NFData ModuleNature
 instance NFData Intent
 instance (NFData a, NFData (t a)) => NFData (AList t a)
 instance NFData a => NFData (ProgramFile a)
