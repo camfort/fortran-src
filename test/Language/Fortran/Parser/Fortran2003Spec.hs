@@ -11,8 +11,6 @@ import Language.Fortran.AST
 import Language.Fortran.ParserMonad
 import Language.Fortran.Lexer.FreeForm
 import Language.Fortran.Parser.Fortran2003
-import qualified Data.List as List
-import Data.Foldable(forM_)
 import qualified Data.ByteString.Char8 as B
 
 eParser :: String -> Expression ()
