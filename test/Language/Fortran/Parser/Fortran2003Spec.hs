@@ -5,7 +5,6 @@ import Prelude hiding (GT, EQ, exp, pred)
 
 import TestUtil
 import Test.Hspec
-import Control.Exception (evaluate)
 
 import Language.Fortran.AST
 import Language.Fortran.ParserMonad
