@@ -8,7 +8,6 @@ import Data.Text.Encoding (encodeUtf8, decodeUtf8With)
 import Data.Text.Encoding.Error (replace)
 
 import Text.PrettyPrint (render)
-import Text.Read
 
 import System.Console.GetOpt
 
@@ -16,7 +15,7 @@ import System.Environment
 import System.Directory
 import System.FilePath
 import Text.PrettyPrint.GenericPretty (pp, pretty, Out)
-import Data.List (isInfixOf, intercalate, (\\), isSuffixOf)
+import Data.List (intercalate, (\\), isSuffixOf)
 import Data.Char (toLower)
 import Data.Maybe (fromMaybe, maybeToList)
 import Data.Data
