@@ -70,3 +70,16 @@ fortranParserWithModFiles :: ParserWithModFiles
 fortranParserWithModFiles mods contents filename = do
    let Just parserF = lookup (deduceVersion filename) parserWithModFilesVersions
    parserF mods contents filename
+
+-- | Given a FortranVersion, parse the contents of the file.
+fortranParserWithVersion :: FortranVersion -> Parser
+fortranParserWithVersion v contents filename = do
+   let Just parserF = lookup v parserVersions
+   parserF contents filename
+
+-- | Given a FortranVersion, parse the contents of the file, within
+-- the context of given "mod files".
+fortranParserWithModFilesAndVersion :: FortranVersion -> ParserWithModFiles
+fortranParserWithModFilesAndVersion v mods contents filename = do
+   let Just parserF = lookup v parserWithModFilesVersions
+   parserF mods contents filename

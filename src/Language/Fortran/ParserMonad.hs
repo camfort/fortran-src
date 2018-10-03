@@ -18,6 +18,8 @@ import Data.Typeable
 import Data.Data
 import GHC.Generics (Generic)
 import Language.Fortran.Util.Position
+import Data.Char (toLower)
+import Data.List (isInfixOf, find)
 
 -------------------------------------------------------------------------------
 -- Helper datatype definitions
@@ -42,6 +44,19 @@ instance Show FortranVersion where
   show Fortran95 = "Fortran 95"
   show Fortran2003 = "Fortran 2003"
   show Fortran2008 = "Fortran 2008"
+
+fortranVersionAliases :: [(String, FortranVersion)]
+fortranVersionAliases = [ ("66" , Fortran66)
+                        , ("77e", Fortran77Extended)
+                        , ("77l", Fortran77Legacy)
+                        , ("77" , Fortran77)
+                        , ("90" , Fortran90)
+                        , ("95" , Fortran95)
+                        , ("03" , Fortran2003)
+                        , ("08" , Fortran2008) ]
+
+selectFortranVersion :: String -> Maybe FortranVersion
+selectFortranVersion alias = snd <$> find (\ entry -> fst entry `isInfixOf` map toLower alias) fortranVersionAliases
 
 data ParanthesesCount = ParanthesesCount
   { pcActual :: Integer

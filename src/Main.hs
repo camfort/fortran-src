@@ -23,7 +23,7 @@ import Data.Data
 import Data.Binary
 import Data.Generics.Uniplate.Data
 
-import Language.Fortran.ParserMonad (FortranVersion(..), fromRight)
+import Language.Fortran.ParserMonad (selectFortranVersion, FortranVersion(..), fromRight)
 import qualified Language.Fortran.Lexer.FixedForm as FixedForm (collectFixedTokens, Token(..))
 import qualified Language.Fortran.Lexer.FreeForm as FreeForm (collectFreeTokens, Token(..))
 
@@ -222,9 +222,9 @@ initOptions = Options Nothing Parse Default []
 
 options :: [OptDescr (Options -> Options)]
 options =
-  [ Option ['v']
+  [ Option ['v','F']
       ["fortranVersion"]
-      (ReqArg (\v opts -> opts { fortranVersion = readMaybe v }) "VERSION")
+      (ReqArg (\v opts -> opts { fortranVersion = selectFortranVersion v }) "VERSION")
       "Fortran version to use, format: Fortran[66/77/77Legacy/77Extended/90]"
   , Option ['a']
       ["action"]
@@ -275,23 +275,6 @@ compileArgs args =
     (_, _, errors) -> ioError $ userError $ concat errors ++ usageInfo header options
   where
     header = "Usage: " ++ programName ++ " [OPTION...] <file>"
-
-instance Read FortranVersion where
-  readsPrec _ value = tryTypes options'
-    where
-      value' = map toLower value
-      options' = [ ("66" , Fortran66)
-                , ("77e", Fortran77Extended)
-                , ("77l", Fortran77Legacy)
-                , ("77" , Fortran77)
-                , ("90" , Fortran90)
-                , ("95" , Fortran95)
-                , ("03" , Fortran2003)
-                , ("08" , Fortran2008) ]
-      tryTypes [] = []
-      tryTypes ((attempt,result):xs)
-          | attempt `isInfixOf` value' = [(result, "")]
-          | otherwise = tryTypes xs
 
 instance {-# OVERLAPPING #-} Show [ FixedForm.Token ] where
   show = unlines . lines'
