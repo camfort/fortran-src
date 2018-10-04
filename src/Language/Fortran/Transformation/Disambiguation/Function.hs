@@ -42,6 +42,9 @@ disambiguateFunctionCalls = modifyProgramFile (trans expression)
     expression (ExpSubscript a1 s v@(ExpValue a _ (ValIntrinsic _)) indicies)
       | Just (IDType _ (Just CTIntrinsic)) <- idType a
       , indiciesRangeFree indicies = ExpFunctionCall a1 s v (Just $ aMap fromIndex indicies)
+    expression (ExpSubscript a1 s v@(ExpValue a _ (ValVariable _)) indicies)
+      | Just (IDType _ (Just CTVariable)) <- idType a
+      , indiciesRangeFree indicies = ExpFunctionCall a1 s v (Just $ aMap fromIndex indicies)
     expression e                                      = e
 
 -- BEGIN: TODO STRICTLY TO BE REMOVED LATER TODO
