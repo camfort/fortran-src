@@ -27,6 +27,10 @@ spec = do
       let pf = disambiguateFunction $ resetSrcSpan ex3
       pf `shouldBe'` expectedEx3
 
+  describe "Function call / Variable disambiguation" $
+    it "disambiguates function calls in example 4" $ do
+      let pf = disambiguateFunction $ resetSrcSpan ex4
+      pf `shouldBe'` expectedEx4
 {-
 - program Main
 - integer a, b(1), c, e
@@ -173,6 +177,41 @@ expectedEx3pu1bs =
           (Just $ AList () u [ Argument () u Nothing
             (ExpFunctionCall () u (ExpValue () u $ ValVariable "f")
                                   (Just $ AList () u [ Argument () u Nothing (intGen 1) ])) ]))) ]
+
+
+{-
+- program Main
+- integer a, f
+- a = f(1)
+- end
+-}
+
+ex4 :: ProgramFile ()
+ex4 = ProgramFile mi77 [ ex4pu1 ]
+ex4pu1 :: ProgramUnit ()
+ex4pu1 = PUMain () u (Just "main") ex4pu1bs Nothing
+ex4pu1bs :: [Block ()]
+ex4pu1bs =
+  [ BlStatement () u Nothing (StDeclaration () u (TypeSpec () u TypeInteger Nothing) Nothing (AList () u
+      [ DeclVariable () u (varGen "a") Nothing Nothing
+      , DeclVariable () u (varGen "f") Nothing Nothing ]))
+  , BlStatement () u Nothing
+      (StExpressionAssign () u (varGen "a") (ExpSubscript () u (varGen "f") (AList () u [ ixSinGen 1 ]))) ]
+
+expectedEx4 :: ProgramFile ()
+expectedEx4 = ProgramFile mi77 [ expectedEx4pu1 ]
+expectedEx4pu1 :: ProgramUnit ()
+expectedEx4pu1 = PUMain () u (Just "main") expectedEx4pu1bs Nothing
+
+expectedEx4pu1bs :: [Block ()]
+expectedEx4pu1bs =
+  [ BlStatement () u Nothing (StDeclaration () u (TypeSpec () u TypeInteger Nothing) Nothing (AList () u
+      [ DeclVariable () u (varGen "a") Nothing Nothing
+      , DeclVariable () u (varGen "f") Nothing Nothing ]))
+  , BlStatement () u Nothing
+      (StExpressionAssign () u (varGen "a")
+       (ExpFunctionCall () u (ExpValue () u $ ValVariable "f")
+                                  (Just $ AList () u [ Argument () u Nothing (intGen 1) ] ))) ]
 
 -- Local variables:
 -- mode: haskell
