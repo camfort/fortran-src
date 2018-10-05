@@ -46,17 +46,20 @@ instance Show FortranVersion where
   show Fortran2008 = "Fortran 2008"
 
 fortranVersionAliases :: [(String, FortranVersion)]
-fortranVersionAliases = [ ("66" , Fortran66)
-                        , ("77e", Fortran77Extended)
-                        , ("77l", Fortran77Legacy)
-                        , ("77" , Fortran77)
-                        , ("90" , Fortran90)
-                        , ("95" , Fortran95)
-                        , ("03" , Fortran2003)
-                        , ("08" , Fortran2008) ]
+fortranVersionAliases =
+  [ ("66" , Fortran66)
+  , ("77e", Fortran77Extended)
+  , ("77l", Fortran77Legacy)
+  , ("77" , Fortran77)
+  , ("90" , Fortran90)
+  , ("95" , Fortran95)
+  , ("03" , Fortran2003)
+  , ("08" , Fortran2008)
+  ]
 
 selectFortranVersion :: String -> Maybe FortranVersion
-selectFortranVersion alias = snd <$> find (\ entry -> fst entry `isInfixOf` map toLower alias) fortranVersionAliases
+selectFortranVersion alias =
+  snd <$> find (\entry -> fst entry `isInfixOf` map toLower alias) fortranVersionAliases
 
 data ParanthesesCount = ParanthesesCount
   { pcActual :: Integer
@@ -94,7 +97,7 @@ instance Show b => Show (ParseError a b) where
 
 tokenMsg :: Show a => Maybe a -> String
 tokenMsg (Just a) = "Last parsed token: " ++ show a ++ "."
-tokenMsg Nothing = "No token had been lexed."
+tokenMsg Nothing  = "No token had been lexed."
 
 instance Functor (ParseResult b c) where
     fmap f (ParseOk a s) = ParseOk (f a) s
@@ -112,20 +115,20 @@ data ParseErrorSimple = ParseErrorSimple
   , errorMsg      :: String }
 
 fromParseResultUnsafe :: (Show c) => ParseResult b c a -> a
-fromParseResultUnsafe (ParseOk a _) = a
+fromParseResultUnsafe (ParseOk a _    ) = a
 fromParseResultUnsafe (ParseFailed err) = throwIOerror $ show err
 
 fromRight :: Show a => Either a b -> b
-fromRight (Left x)  = throwIOerror . show $ x
+fromRight (Left  x) = throwIOerror . show $ x
 fromRight (Right x) = x
 
 fromParseResult :: (Show c) => ParseResult b c a -> Either ParseErrorSimple a
-fromParseResult (ParseOk a _)     = Right a
-fromParseResult (ParseFailed err) =
-    Left ParseErrorSimple
-      { errorPos = errPos err
-      , errorFilename = errFilename err
-      , errorMsg = errMsg err ++ "\n" ++ tokenMsg (errLastToken err)  }
+fromParseResult (ParseOk a _    ) = Right a
+fromParseResult (ParseFailed err) = Left ParseErrorSimple
+  { errorPos      = errPos err
+  , errorFilename = errFilename err
+  , errorMsg      = errMsg err ++ "\n" ++ tokenMsg (errLastToken err)
+  }
 
 instance Show ParseErrorSimple where
   show err = errorFilename err ++ ", " ++ show (errorPos err) ++ ": " ++ errorMsg err
@@ -221,14 +224,14 @@ resetPar = do
 incPar :: (Loc a, LastToken a b, Show b) => Parse a b ()
 incPar = do
   ps <- get
-  let pc = psParanthesesCount ps
+  let pc    = psParanthesesCount ps
   let count = pcActual pc
   put $ ps { psParanthesesCount = pc { pcActual = count + 1 } }
 
 decPar :: (Loc a, LastToken a b, Show b) => Parse a b ()
 decPar = do
   ps <- get
-  let pc = psParanthesesCount ps
+  let pc       = psParanthesesCount ps
   let newCount = pcActual pc - 1
   let reached0 = pcHasReached0 pc || newCount == 0
   put $ ps { psParanthesesCount = ParanthesesCount newCount reached0 }
@@ -238,22 +241,22 @@ decPar = do
 -------------------------------------------------------------------------------
 
 throwIOerror :: String -> a
-throwIOerror s = throw
-  IOError { ioe_handle      = Nothing
-          , ioe_type        = UserError
-          , ioe_location    = "fortran-src"
-          , ioe_description = s
-          , ioe_errno       = Nothing
-          , ioe_filename    = Nothing }
+throwIOerror s = throw IOError
+  { ioe_handle      = Nothing
+  , ioe_type        = UserError
+  , ioe_location    = "fortran-src"
+  , ioe_description = s
+  , ioe_errno       = Nothing
+  , ioe_filename    = Nothing
+  }
 
 runParse :: (Loc b, LastToken b c, Show c) => Parse b c a -> ParseState b -> ParseResult b c a
 runParse = unParse
 
 runParseUnsafe :: (Loc b, LastToken b c, Show c) => Parse b c a -> ParseState b -> (a, ParseState b)
-runParseUnsafe lexer initState =
-  case unParse lexer initState of
-    ParseOk a s -> (a, s)
-    ParseFailed e -> throwIOerror $ show e
+runParseUnsafe lexer initState = case unParse lexer initState of
+  ParseOk a s   -> (a, s)
+  ParseFailed e -> throwIOerror $ show e
 
 evalParse :: (Loc b, LastToken b c, Show c) => Parse b c a -> ParseState b -> a
 evalParse m s = fst (runParseUnsafe m s)
@@ -264,32 +267,30 @@ execParse m s = snd (runParseUnsafe m s)
 class Tok a where
   eofToken :: a -> Bool
 
-collectTokens :: forall a b . (Loc b, Tok a, LastToken b a, Show a) => Parse b a a -> ParseState b -> [a]
-collectTokens lexer initState =
-    evalParse (_collectTokens initState) undefined
-  where
-    _collectTokens :: (Loc b, Tok a, LastToken b a, Show a) => ParseState b -> Parse b a [a]
-    _collectTokens state = do
-      let (_token, _state) = runParseUnsafe lexer state
-      if eofToken _token
+collectTokens
+  :: forall a b . (Loc b, Tok a, LastToken b a, Show a) => Parse b a a -> ParseState b -> [a]
+collectTokens lexer initState = evalParse (_collectTokens initState) undefined
+ where
+  _collectTokens :: (Loc b, Tok a, LastToken b a, Show a) => ParseState b -> Parse b a [a]
+  _collectTokens state = do
+    let (_token, _state) = runParseUnsafe lexer state
+    if eofToken _token
       then return [_token]
       else do
         _tokens <- _collectTokens _state
-        return $ _token:_tokens
+        return $ _token : _tokens
 
-collectTokensSafe :: forall a b . (Loc b, Tok a, LastToken b a, Show a) => Parse b a a -> ParseState b -> Maybe [a]
-collectTokensSafe lexer initState =
-    evalParse (_collectTokens initState) undefined
-  where
-    _collectTokens :: (Loc b, Tok a, LastToken b a, Show a) => ParseState b -> Parse b a (Maybe [a])
-    _collectTokens state =
-      case unParse lexer state of
-        ParseOk _token _state ->
-          if eofToken _token
-          then return $ Just [_token]
-          else do
-            _mTokens <- _collectTokens _state
-            case _mTokens of
-              Just _tokens -> return $ Just $ _token:_tokens
-              _ -> return Nothing
-        _ -> return Nothing
+collectTokensSafe
+  :: forall a b . (Loc b, Tok a, LastToken b a, Show a) => Parse b a a -> ParseState b -> Maybe [a]
+collectTokensSafe lexer initState = evalParse (_collectTokens initState) undefined
+ where
+  _collectTokens :: (Loc b, Tok a, LastToken b a, Show a) => ParseState b -> Parse b a (Maybe [a])
+  _collectTokens state = case unParse lexer state of
+    ParseOk _token _state -> if eofToken _token
+      then return $ Just [_token]
+      else do
+        _mTokens <- _collectTokens _state
+        case _mTokens of
+          Just _tokens -> return $ Just $ _token : _tokens
+          _            -> return Nothing
+    _ -> return Nothing

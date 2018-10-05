@@ -23,10 +23,9 @@ type Transform a = State (TransformationState a)
 
 runTransform :: Data a => TypeEnv -> ModuleMap -> Transform a () -> ProgramFile a -> ProgramFile a
 runTransform env mmap trans pf = stripAnalysis . transProgramFile . execState trans $ initState
-  where
-    (pf', _) = analyseTypesWithEnv env . analyseRenamesWithModuleMap mmap . initAnalysis $ pf
-    initState = TransformationState
-      { transProgramFile = pf' }
+ where
+  (pf', _)  = analyseTypesWithEnv env . analyseRenamesWithModuleMap mmap . initAnalysis $ pf
+  initState = TransformationState {transProgramFile = pf'}
 
 getProgramFile :: Transform a (ProgramFile (Analysis a))
 getProgramFile = gets transProgramFile
@@ -37,4 +36,4 @@ putProgramFile pf = do
   put $ state { transProgramFile = pf }
 
 modifyProgramFile :: (ProgramFile (Analysis a) -> ProgramFile (Analysis a)) -> Transform a ()
-modifyProgramFile f = modify $ \ s -> s { transProgramFile = f (transProgramFile s) }
+modifyProgramFile f = modify $ \s -> s { transProgramFile = f (transProgramFile s) }

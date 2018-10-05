@@ -108,16 +108,16 @@ emptyModFile = ModFile "" M.empty M.empty M.empty M.empty
 -- | Extracts the module map, declaration map and type analysis from
 -- an analysed and renamed ProgramFile, then inserts it into the
 -- ModFile.
-regenModFile :: forall a. Data a => F.ProgramFile (FA.Analysis a) -> ModFile -> ModFile
-regenModFile pf mf = mf
-  { mfModuleMap = extractModuleMap pf
-  , mfDeclMap   = extractDeclMap pf
-  , mfTypeEnv   = FAT.extractTypeEnv pf
-  , mfFilename  = F.pfGetFilename pf }
+regenModFile :: forall a . Data a => F.ProgramFile (FA.Analysis a) -> ModFile -> ModFile
+regenModFile pf mf = mf { mfModuleMap = extractModuleMap pf
+                        , mfDeclMap   = extractDeclMap pf
+                        , mfTypeEnv   = FAT.extractTypeEnv pf
+                        , mfFilename  = F.pfGetFilename pf
+                        }
 
 -- | Generate a fresh ModFile from the module map, declaration map and
 -- type analysis of a given analysed and renamed ProgramFile.
-genModFile :: forall a. Data a => F.ProgramFile (FA.Analysis a) -> ModFile
+genModFile :: forall a . Data a => F.ProgramFile (FA.Analysis a) -> ModFile
 genModFile = flip regenModFile emptyModFile
 
 -- | Looks up the raw "other data" that may be stored in a ModFile by
@@ -148,7 +148,7 @@ encodeModFile = LB.toStrict . encode
 -- | Convert a strict ByteString to a ModFile, if possible
 decodeModFile :: Binary a => B.ByteString -> Either String a
 decodeModFile bs = case decodeOrFail (LB.fromStrict bs) of
-  Left (_, _, s) -> Left s
+  Left  (_, _, s ) -> Left s
   Right (_, _, mf) -> Right mf
 
 -- | Extract the combined module map from a set of ModFiles. Useful
@@ -178,60 +178,74 @@ moduleFilename = mfFilename
 -- ModFiles to their corresponding filename.
 genUniqNameToFilenameMap :: ModFiles -> M.Map F.Name String
 genUniqNameToFilenameMap = M.unions . map perMF
-  where
-    perMF mf = M.fromList [ (n, fname) | modEnv <- M.elems (mfModuleMap mf)
-                                       , (n, _) <- M.elems modEnv ]
-      where
-        fname = mfFilename mf
+ where
+  perMF mf = M.fromList
+    [ (n, fname) | modEnv <- M.elems (mfModuleMap mf), (n, _) <- M.elems modEnv ]
+    where fname = mfFilename mf
 
 --------------------------------------------------
 
 -- | Extract all module maps (name -> environment) by collecting all
 -- of the stored module maps within the PUModule annotation.
-extractModuleMap :: forall a. Data a => F.ProgramFile (FA.Analysis a) -> FAR.ModuleMap
-extractModuleMap pf
+extractModuleMap :: forall a . Data a => F.ProgramFile (FA.Analysis a) -> FAR.ModuleMap
+extractModuleMap pf |
   -- in case there are no modules, store global program unit names under the name 'NamelessMain'
-  | null mmap = M.singleton F.NamelessMain $ M.unions combinedEnv
-  | otherwise = M.fromList mmap
-  where
-    mmap = [ (n, env) | pu@F.PUModule{} <- childrenBi pf :: [F.ProgramUnit (FA.Analysis a)]
-                      , let a = F.getAnnotation pu
-                      , let n = F.getName pu
-                      , env <- maybeToList (FA.moduleEnv a) ]
-    combinedEnv = [ env | pu <- childrenBi pf :: [F.ProgramUnit (FA.Analysis a)]
-                        , let a = F.getAnnotation pu
-                        , env <- maybeToList (FA.moduleEnv a) ]
+                      null mmap = M.singleton F.NamelessMain $ M.unions combinedEnv
+                    | otherwise = M.fromList mmap
+ where
+  mmap =
+    [ (n, env)
+    | pu@F.PUModule{} <- childrenBi pf :: [F.ProgramUnit (FA.Analysis a)]
+    , let a = F.getAnnotation pu
+    , let n = F.getName pu
+    , env <- maybeToList (FA.moduleEnv a)
+    ]
+  combinedEnv =
+    [ env
+    | pu <- childrenBi pf :: [F.ProgramUnit (FA.Analysis a)]
+    , let a = F.getAnnotation pu
+    , env <- maybeToList (FA.moduleEnv a)
+    ]
 
 -- | Extract map of declared variables with their associated program
 -- unit and source span.
-extractDeclMap :: forall a. Data a => F.ProgramFile (FA.Analysis a) -> DeclMap
+extractDeclMap :: forall a . Data a => F.ProgramFile (FA.Analysis a) -> DeclMap
 extractDeclMap pf = M.fromList . concatMap (blockDecls . nameAndBlocks) $ universeBi pf
-  where
+ where
     -- Extract variable names, source spans from declarations (and
     -- from function return variable if present)
-    blockDecls :: (DeclContext, Maybe (F.Name, P.SrcSpan), [F.Block (FA.Analysis a)]) -> [(F.Name, (DeclContext, P.SrcSpan))]
-    blockDecls (dc, mret, bs)
-      | Nothing        <- mret = map decls (universeBi bs)
-      | Just (ret, ss) <- mret = (ret, (dc, ss)):map decls (universeBi bs)
-      where
-        decls d = let (v, ss) = declVarName d in (v, (dc, ss))
+  blockDecls
+    :: (DeclContext, Maybe (F.Name, P.SrcSpan), [F.Block (FA.Analysis a)])
+    -> [(F.Name, (DeclContext, P.SrcSpan))]
+  blockDecls (dc, mret, bs) | Nothing <- mret        = map decls (universeBi bs)
+                            | Just (ret, ss) <- mret = (ret, (dc, ss)) : map decls (universeBi bs)
+    where decls d = let (v, ss) = declVarName d in (v, (dc, ss))
 
-    -- Extract variable name and source span from declaration
-    declVarName :: F.Declarator (FA.Analysis a) -> (F.Name, P.SrcSpan)
-    declVarName (F.DeclVariable _ _ e _ _) = (FA.varName e, P.getSpan e)
-    declVarName (F.DeclArray _ _ e _ _ _)  = (FA.varName e, P.getSpan e)
+  -- Extract variable name and source span from declaration
+  declVarName :: F.Declarator (FA.Analysis a) -> (F.Name, P.SrcSpan)
+  declVarName (F.DeclVariable _ _ e _ _) = (FA.varName e, P.getSpan e)
+  declVarName (F.DeclArray _ _ e _ _ _ ) = (FA.varName e, P.getSpan e)
 
-    -- Extract context identifier, a function return value (+ source
-    -- span) if present, and a list of contained blocks
-    nameAndBlocks :: F.ProgramUnit (FA.Analysis a) -> (DeclContext, Maybe (F.Name, P.SrcSpan), [F.Block (FA.Analysis a)])
-    nameAndBlocks pu = case pu of
-      F.PUMain       _ _ _ b _            -> (DCMain, Nothing, b)
-      F.PUModule     _ _ _ b _            -> (DCModule $ FA.puName pu, Nothing, b)
-      F.PUSubroutine _ _ _ _ _ b _        -> (DCSubroutine (FA.puName pu, FA.puSrcName pu), Nothing, b)
-      F.PUFunction   _ _ _ _ _ _ mret b _
-        | Nothing   <- mret
-        , F.Named n <- FA.puName pu       -> (DCFunction (FA.puName pu, FA.puSrcName pu), Just (n, P.getSpan pu), b)
-        | Just ret <- mret                -> (DCFunction (FA.puName pu, FA.puSrcName pu), Just (FA.varName ret, P.getSpan ret), b)
-        | otherwise                       -> error $ "nameAndBlocks: un-named function with no return value! " ++ show (FA.puName pu) ++ " at source-span " ++ show (P.getSpan pu)
-      F.PUBlockData  _ _ _ b              -> (DCBlockData, Nothing, b)
-      F.PUComment    {}                   -> (DCBlockData, Nothing, []) -- no decls inside of comments, so ignore it
+  -- Extract context identifier, a function return value (+ source
+  -- span) if present, and a list of contained blocks
+  nameAndBlocks
+    :: F.ProgramUnit (FA.Analysis a)
+    -> (DeclContext, Maybe (F.Name, P.SrcSpan), [F.Block (FA.Analysis a)])
+  nameAndBlocks pu = case pu of
+    F.PUMain   _ _ _ b _         -> (DCMain, Nothing, b)
+    F.PUModule _ _ _ b _         -> (DCModule $ FA.puName pu, Nothing, b)
+    F.PUSubroutine _ _ _ _ _ b _ -> (DCSubroutine (FA.puName pu, FA.puSrcName pu), Nothing, b)
+    F.PUFunction _ _ _ _ _ _ mret b _
+      | Nothing <- mret
+      , F.Named n <- FA.puName pu
+      -> (DCFunction (FA.puName pu, FA.puSrcName pu), Just (n, P.getSpan pu), b)
+      | Just ret <- mret
+      -> (DCFunction (FA.puName pu, FA.puSrcName pu), Just (FA.varName ret, P.getSpan ret), b)
+      | otherwise
+      -> error
+        $  "nameAndBlocks: un-named function with no return value! "
+        ++ show (FA.puName pu)
+        ++ " at source-span "
+        ++ show (P.getSpan pu)
+    F.PUBlockData _ _ _ b -> (DCBlockData, Nothing, b)
+    F.PUComment{}         -> (DCBlockData, Nothing, []) -- no decls inside of comments, so ignore it

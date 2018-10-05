@@ -27,8 +27,8 @@ data LValue a
 -- | If the expression can be seen as an lvalue, convert it to an 'LValue'.
 toLValue :: Expression a -> Maybe (LValue a)
 toLValue (ExpValue ann sp (ValVariable nm)) = Just (LvSimpleVar ann sp nm)
-toLValue (ExpSubscript ann sp exp ixs) = LvSubscript ann sp <$> toLValue exp <*> pure ixs
-toLValue (ExpDataRef ann sp lhs rhs) = LvDataRef ann sp <$> toLValue lhs <*> toLValue rhs
+toLValue (ExpSubscript ann sp exp ixs     ) = LvSubscript ann sp <$> toLValue exp <*> pure ixs
+toLValue (ExpDataRef   ann sp lhs rhs     ) = LvDataRef ann sp <$> toLValue lhs <*> toLValue rhs
 toLValue _ = Nothing
 
 instance FirstParameter (LValue a) a
