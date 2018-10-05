@@ -38,13 +38,13 @@ instance (GSecondParameter a e, GSecondParameter b e) => GSecondParameter (a :+:
   setSecondParameter' e (R1 a) = R1 $ setSecondParameter' e a
 
 instance (ParameterLeaf a, GSecondParameter a e, GSecondParameter' b e) => GSecondParameter (a :*: b) e where
-  getSecondParameter' (a :*: b) = 
-    if isLeaf a 
+  getSecondParameter' (a :*: b) =
+    if isLeaf a
     then getSecondParameter'' b
     else getSecondParameter' a
 
-  setSecondParameter' e (a :*: b) = 
-    if isLeaf a 
+  setSecondParameter' e (a :*: b) =
+    if isLeaf a
     then a :*: setSecondParameter'' e b
     else setSecondParameter' e a :*: b
 

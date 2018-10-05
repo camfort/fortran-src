@@ -22,23 +22,21 @@ data Transformation =
   | DisambiguateIntrinsic
   deriving (Eq)
 
-transformationMapping :: Data a => [ (Transformation, Transform a ()) ]
+transformationMapping :: Data a => [(Transformation, Transform a ())]
 transformationMapping =
-  [ (GroupForall, groupForall)
-  , (GroupIf, groupIf)
-  , (GroupCase, groupCase)
-  , (GroupDo, groupDo)
-  , (GroupLabeledDo, groupLabeledDo)
-  , (DisambiguateFunction, disambiguateFunction)
+  [ (GroupForall          , groupForall)
+  , (GroupIf              , groupIf)
+  , (GroupCase            , groupCase)
+  , (GroupDo              , groupDo)
+  , (GroupLabeledDo       , groupLabeledDo)
+  , (DisambiguateFunction , disambiguateFunction)
   , (DisambiguateIntrinsic, disambiguateIntrinsic)
   ]
 
-transformWithModFiles :: Data a => ModFiles -> [ Transformation ] -> ProgramFile a -> ProgramFile a
+transformWithModFiles :: Data a => ModFiles -> [Transformation] -> ProgramFile a -> ProgramFile a
 transformWithModFiles mods trs = runTransform (combinedTypeEnv mods) (combinedModuleMap mods) trans
-  where
-    trans = mapM_ (\t -> fromJust $ lookup t transformationMapping) trs
+  where trans = mapM_ (\t -> fromJust $ lookup t transformationMapping) trs
 
-transform :: Data a => [ Transformation ] -> ProgramFile a -> ProgramFile a
+transform :: Data a => [Transformation] -> ProgramFile a -> ProgramFile a
 transform trs = runTransform empty empty trans
-  where
-    trans = mapM_ (\t -> fromJust $ lookup t transformationMapping) trs
+  where trans = mapM_ (\t -> fromJust $ lookup t transformationMapping) trs

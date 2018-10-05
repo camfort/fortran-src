@@ -28,15 +28,10 @@ instance Show Position where
   show (Position _ c l _) = show l ++ ':' : show c
 
 initPosition :: Position
-initPosition = Position
-  { posAbsoluteOffset = 0
-  , posColumn = 1
-  , posLine = 1
-  , filePath = ""
-  }
+initPosition = Position {posAbsoluteOffset = 0, posColumn = 1, posLine = 1, filePath = ""}
 
 lineCol :: Position -> (Int, Int)
-lineCol p  = (fromIntegral $ posLine p, fromIntegral $ posColumn p)
+lineCol p = (fromIntegral $ posLine p, fromIntegral $ posColumn p)
 
 data SrcSpan = SrcSpan Position Position deriving (Eq, Ord, Typeable, Data, Generic)
 
