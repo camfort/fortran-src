@@ -13,7 +13,7 @@ install:
 - stack --no-terminal --install-ghc test --only-dependencies
 script:
 - echo $TRAVIS_TAG
-- ./brittany_test.sh
+- ./scripts/brittany_test.sh
 - "GHC_OPTIONS=\"--ghc-options=\"$(ruby -e 'print (ENV[%q|TRAVIS_TAG|] =~ /v/ ? %q|-O3| : %q|-O0|)')\"\""
 - echo $GHC_OPTIONS
 - stack --no-terminal haddock --test --no-haddock-deps --pedantic --ghc-options='-Wno-orphans' -j 4 $GHC_OPTIONS
