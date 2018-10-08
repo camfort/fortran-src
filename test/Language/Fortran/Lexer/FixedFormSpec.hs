@@ -218,21 +218,21 @@ spec = describe "Fortran Fixed Form Lexer" $ do
       `shouldBe` resetSrcSpan [TType u "integer", TId u "foo", TEOF u]
 
     it "lexes continuation lines separated by comments" $ do
-      let src = unlines ["      integer foo,", "C hello", "     +        bar"]
-      resetSrcSpan (collectFixedTokens' Fortran77Legacy src) `shouldBe` resetSrcSpan
+      let src1 = unlines ["      integer foo,", "C hello", "     +        bar"]
+      resetSrcSpan (collectFixedTokens' Fortran77Legacy src1) `shouldBe` resetSrcSpan
         [TType u "integer", TId u "foo", TComma u, TId u "bar", TNewline u, TEOF u]
-      let src = unlines ["      integer foo, ! hello", "     +        bar"]
-      resetSrcSpan (collectFixedTokens' Fortran77Legacy src) `shouldBe` resetSrcSpan
+      let src2 = unlines ["      integer foo, ! hello", "     +        bar"]
+      resetSrcSpan (collectFixedTokens' Fortran77Legacy src2) `shouldBe` resetSrcSpan
         [TType u "integer", TId u "foo", TComma u, TId u "bar", TNewline u, TEOF u]
-      let src = unlines ["      integer foo,", "", "     +        bar"]
-      resetSrcSpan (collectFixedTokens' Fortran77Legacy src) `shouldBe` resetSrcSpan
+      let src3 = unlines ["      integer foo,", "", "     +        bar"]
+      resetSrcSpan (collectFixedTokens' Fortran77Legacy src3) `shouldBe` resetSrcSpan
         [TType u "integer", TId u "foo", TComma u, TId u "bar", TNewline u, TEOF u]
-      let src = unlines
+      let src4 = unlines
             [ "      integer foo,"
             , "  " -- the space is intentional
             , "     +        bar"
             ]
-      resetSrcSpan (collectFixedTokens' Fortran77Legacy src) `shouldBe` resetSrcSpan
+      resetSrcSpan (collectFixedTokens' Fortran77Legacy src4) `shouldBe` resetSrcSpan
         [TType u "integer", TId u "foo", TComma u, TId u "bar", TNewline u, TEOF u]
 
     it "lexes the older TYPE statement"
