@@ -12,9 +12,10 @@ fi
 
 for file in `$cmd | grep "\\.hs$"`; do
     echo "Checking file $file"
-    diff <(brittany --config-file brittany.yaml "$file") "$file" > /dev/null
+    diff "$file" <(brittany --config-file brittany.yaml "$file") > /dev/null
     if [ "$?" != "0" ]; then
         echo "File $file is not formatted properly."
+        diff -u "$file" <(brittany --config-file brittany.yaml "$file")
         exit 1
     fi
 done
