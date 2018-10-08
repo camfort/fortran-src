@@ -4,9 +4,9 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE FunctionalDependencies #-}
 
-module Language.Fortran.Util.FirstParameter(FirstParameter(..), GFirstParameter(..)) where
+module Language.Fortran.Util.FirstParameter (FirstParameter(..), GFirstParameter(..)) where
 
-import GHC.Generics
+import           GHC.Generics
 
 class FirstParameter a e | a -> e where
   getFirstParameter :: a -> e

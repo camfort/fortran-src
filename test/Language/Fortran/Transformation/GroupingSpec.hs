@@ -1,21 +1,23 @@
 module Language.Fortran.Transformation.GroupingSpec where
 
-import Test.Hspec hiding (Selector)
-import TestUtil
-import Control.Exception (evaluate)
-import Control.DeepSeq (force, NFData)
+import           Test.Hspec                        hiding ( Selector )
+import           TestUtil
+import           Control.Exception                        ( evaluate )
+import           Control.DeepSeq                          ( force
+                                                          , NFData
+                                                          )
 
-import Language.Fortran.Transformer
-import Language.Fortran.AST
-import Language.Fortran.Util.Position
-import Language.Fortran.ParserMonad
+import           Language.Fortran.Transformer
+import           Language.Fortran.AST
+import           Language.Fortran.Util.Position
+import           Language.Fortran.ParserMonad
 
 groupIf :: ProgramFile () -> ProgramFile ()
-groupIf = transform [ GroupIf ]
+groupIf = transform [GroupIf]
 groupDo :: ProgramFile () -> ProgramFile ()
-groupDo = transform [ GroupLabeledDo ]
+groupDo = transform [GroupLabeledDo]
 groupForall :: ProgramFile () -> ProgramFile ()
-groupForall = transform [ GroupForall ]
+groupForall = transform [GroupForall]
 
 instance NFData MetaInfo
 instance NFData FortranVersion
@@ -59,62 +61,62 @@ instance NFData a => NFData (UnionMap a)
 
 spec :: Spec
 spec = do
-  let name = Just "name"
+  let name    = Just "name"
   let endName = Just "endName"
   describe "Block FORALL statements" $ do
-    it "groups unlabelled FORALL blocks" $
-      groupForall (exampleForall Nothing Nothing) `shouldBe'` expectedForall Nothing
-    it "groups unlabelled FORALL blocks" $
-      groupForall (exampleForall name name) `shouldBe'` expectedForall name
+    it "groups unlabelled FORALL blocks"
+      $           groupForall (exampleForall Nothing Nothing)
+      `shouldBe'` expectedForall Nothing
+    it "groups unlabelled FORALL blocks"
+      $           groupForall (exampleForall name name)
+      `shouldBe'` expectedForall name
     it "groups unlabelled FORALL blocks" $ do
       let lhs = (evaluate . force) (groupForall $ exampleForall name endName)
       lhs `shouldThrow` anyErrorCall
   describe "Block IF-THEN and related statements" $ do
-    it "groups example1" $
-      groupIf example1 `shouldBe'` expectedExample1
+    it "groups example1" $ groupIf example1 `shouldBe'` expectedExample1
 
-    it "groups example2" $
-      groupIf example2 `shouldBe'` expectedExample2
+    it "groups example2" $ groupIf example2 `shouldBe'` expectedExample2
 
   describe "Block DO statements" $ do
-    it "do group example1" $
-      groupDo example1do `shouldBe` expectedExample1do
+    it "do group example1" $ groupDo example1do `shouldBe` expectedExample1do
 
-    it "do group example2 with common end-point" $
-      groupDo example2do `shouldBe` expectedExample2do
+    it "do group example2 with common end-point" $ groupDo example2do `shouldBe` expectedExample2do
 
 buildExampleProgram :: Name -> [Block ()] -> ProgramFile ()
-buildExampleProgram name blocks = ProgramFile mi77 [ PUMain () u (Just name) blocks Nothing ]
+buildExampleProgram name blocks = ProgramFile mi77 [PUMain () u (Just name) blocks Nothing]
 
 exampleComment :: Block ()
 exampleComment = BlComment () u $ Comment "comment"
 exampleHeader :: ForallHeader a
 exampleHeader = ForallHeader [] Nothing
 exampleForall :: Maybe String -> Maybe String -> ProgramFile ()
-exampleForall name nameEnd = buildExampleProgram "forall"
+exampleForall name nameEnd = buildExampleProgram
+  "forall"
   [ BlStatement () u Nothing $ StForall () u name exampleHeader
   , exampleComment
   , BlStatement () u Nothing $ StEndForall () u nameEnd
   ]
 
 expectedForall :: Maybe String -> ProgramFile ()
-expectedForall name  = buildExampleProgram "forall"
-    [BlForall () u Nothing name exampleHeader [exampleComment] Nothing]
+expectedForall name =
+  buildExampleProgram "forall" [BlForall () u Nothing name exampleHeader [exampleComment] Nothing]
 
 
 -- if (.true.) then
 -- end if
 example1 :: ProgramFile ()
-example1 = ProgramFile mi77 [ PUMain () u (Just "example1") example1Blocks Nothing ]
+example1 = ProgramFile mi77 [PUMain () u (Just "example1") example1Blocks Nothing]
 example1Blocks :: [Block ()]
 example1Blocks =
   [ BlStatement () u Nothing (StIfThen () u Nothing valTrue)
-  , BlStatement () u Nothing (StEndif () u Nothing) ]
+  , BlStatement () u Nothing (StEndif () u Nothing)
+  ]
 
 expectedExample1 :: ProgramFile ()
-expectedExample1 = ProgramFile mi77 [ PUMain () u (Just "example1") expectedExample1Blocks Nothing ]
+expectedExample1 = ProgramFile mi77 [PUMain () u (Just "example1") expectedExample1Blocks Nothing]
 expectedExample1Blocks :: [Block ()]
-expectedExample1Blocks = [ BlIf () u Nothing Nothing [ Just valTrue ] [ [ ] ] Nothing ]
+expectedExample1Blocks = [BlIf () u Nothing Nothing [Just valTrue] [[]] Nothing]
 
 -- if (.true.) then
 --   integer x
@@ -126,31 +128,53 @@ expectedExample1Blocks = [ BlIf () u Nothing Nothing [ Just valTrue ] [ [ ] ] No
 --   endif
 -- end if
 example2 :: ProgramFile ()
-example2 = ProgramFile mi77 [ PUMain () u (Just "example2") example2Blocks Nothing ]
+example2 = ProgramFile mi77 [PUMain () u (Just "example2") example2Blocks Nothing]
 example2Blocks :: [Block ()]
 example2Blocks =
   [ BlStatement () u Nothing (StIfThen () u Nothing valTrue)
-  , BlStatement () u Nothing (StDeclaration () u (TypeSpec () u TypeInteger Nothing) Nothing (AList () u [ DeclVariable () u (varGen "x") Nothing Nothing ]))
+  , BlStatement
+    ()
+    u
+    Nothing
+    (StDeclaration ()
+                   u
+                   (TypeSpec () u TypeInteger Nothing)
+                   Nothing
+                   (AList () u [DeclVariable () u (varGen "x") Nothing Nothing])
+    )
   , BlStatement () u Nothing (StIfThen () u Nothing valFalse)
   , BlStatement () u Nothing (StEndif () u Nothing)
   , BlStatement () u Nothing (StElsif () u Nothing valTrue)
   , BlStatement () u Nothing (StElse () u Nothing)
   , BlStatement () u Nothing (StIfThen () u Nothing valFalse)
   , BlStatement () u Nothing (StEndif () u Nothing)
-  , BlStatement () u Nothing (StEndif () u Nothing) ]
+  , BlStatement () u Nothing (StEndif () u Nothing)
+  ]
 
 expectedExample2 :: ProgramFile ()
-expectedExample2 = ProgramFile mi77 [ PUMain () u (Just "example2") expectedExample2Blocks Nothing ]
+expectedExample2 = ProgramFile mi77 [PUMain () u (Just "example2") expectedExample2Blocks Nothing]
 expectedExample2Blocks :: [Block ()]
-expectedExample2Blocks = [ BlIf () u Nothing Nothing [ Just valTrue, Just valTrue, Nothing ] blockGroups Nothing ]
+expectedExample2Blocks =
+  [BlIf () u Nothing Nothing [Just valTrue, Just valTrue, Nothing] blockGroups Nothing]
 blockGroups :: [[Block ()]]
 blockGroups =
-  [ [ BlStatement () u Nothing (StDeclaration () u (TypeSpec () u TypeInteger Nothing) Nothing (AList () u [ DeclVariable () u (varGen "x") Nothing Nothing ]))
-    , innerIf ]
-  , [ ]
-  , [ innerIf ] ]
+  [ [ BlStatement
+      ()
+      u
+      Nothing
+      (StDeclaration ()
+                     u
+                     (TypeSpec () u TypeInteger Nothing)
+                     Nothing
+                     (AList () u [DeclVariable () u (varGen "x") Nothing Nothing])
+      )
+    , innerIf
+    ]
+  , []
+  , [innerIf]
+  ]
 innerIf :: Block ()
-innerIf = BlIf () u Nothing Nothing [ Just valFalse ] [ [ ] ] Nothing
+innerIf = BlIf () u Nothing Nothing [Just valFalse] [[]] Nothing
 
 
 -- do 10 i = 0, 10
@@ -158,23 +182,28 @@ innerIf = BlIf () u Nothing Nothing [ Just valFalse ] [ [ ] ] Nothing
 label10 :: Maybe (Expression ())
 label10 = Just (ExpValue () u (ValInteger "10"))
 example1do :: ProgramFile ()
-example1do = ProgramFile mi77 [ PUMain () u (Just "example1") example1doblocks Nothing ]
+example1do = ProgramFile mi77 [PUMain () u (Just "example1") example1doblocks Nothing]
 example1doblocks :: [Block ()]
 example1doblocks =
   [ BlStatement () u Nothing (StDo () u Nothing label10 dospec)
-  , BlStatement () u label10 (StContinue () u) ]
+  , BlStatement () u label10 (StContinue () u)
+  ]
 dospec :: Maybe (DoSpecification ())
-dospec = Just (DoSpecification () u
-           (StExpressionAssign () u (ExpValue () u (ValVariable "i"))
-                                    (ExpValue () u (ValInteger "0")))
-                                    (ExpValue () u (ValInteger "10")) Nothing)
+dospec = Just
+  (DoSpecification
+    ()
+    u
+    (StExpressionAssign () u (ExpValue () u (ValVariable "i")) (ExpValue () u (ValInteger "0")))
+    (ExpValue () u (ValInteger "10"))
+    Nothing
+  )
 
 expectedExample1do :: ProgramFile ()
-expectedExample1do = ProgramFile mi77 [ PUMain () u (Just "example1") expectedExample1doBlocks Nothing ]
+expectedExample1do =
+  ProgramFile mi77 [PUMain () u (Just "example1") expectedExample1doBlocks Nothing]
 expectedExample1doBlocks :: [Block ()]
 expectedExample1doBlocks =
-  [ BlDo () u Nothing Nothing label10 dospec
-     [BlStatement () u label10 (StContinue () u)] label10 ]
+  [BlDo () u Nothing Nothing label10 dospec [BlStatement () u label10 (StContinue () u)] label10]
 
 label20 :: Maybe (Expression ())
 label20 = Just (ExpValue () u (ValInteger "20"))
@@ -184,7 +213,7 @@ label20 = Just (ExpValue () u (ValInteger "20"))
 -- do 20 i = 0, 10
 -- 20   continue
 example2do :: ProgramFile ()
-example2do = ProgramFile mi77 [ PUMain () u (Just "example2") example2doblocks Nothing ]
+example2do = ProgramFile mi77 [PUMain () u (Just "example2") example2doblocks Nothing]
 example2doblocks :: [Block ()]
 example2doblocks =
   [ BlStatement () u Nothing (StDo () u Nothing label10 dospec)
@@ -195,13 +224,18 @@ example2doblocks =
   ]
 
 expectedExample2do :: ProgramFile ()
-expectedExample2do = ProgramFile mi77 [ PUMain () u (Just "example2") expectedExample2doBlocks Nothing ]
+expectedExample2do =
+  ProgramFile mi77 [PUMain () u (Just "example2") expectedExample2doBlocks Nothing]
 expectedExample2doBlocks :: [Block ()]
 expectedExample2doBlocks =
-  [ BlDo () u Nothing Nothing label10 dospec
-      [ BlDo () u Nothing Nothing label10 dospec
-          [ BlStatement () u label10 (StContinue () u) ] label10
-      ] label10
-  , BlDo () u Nothing Nothing label20 dospec
-      [ BlStatement () u label20 (StContinue () u) ] label20
+  [ BlDo
+    ()
+    u
+    Nothing
+    Nothing
+    label10
+    dospec
+    [BlDo () u Nothing Nothing label10 dospec [BlStatement () u label10 (StContinue () u)] label10]
+    label10
+  , BlDo () u Nothing Nothing label20 dospec [BlStatement () u label20 (StContinue () u)] label20
   ]

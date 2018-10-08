@@ -8,18 +8,18 @@
 
 module Language.Fortran.AST where
 
-import Prelude hiding (init)
-import Data.Data
-import Data.Generics.Uniplate.Data ()
-import Data.Typeable ()
-import Data.Binary
-import GHC.Generics (Generic)
-import Text.PrettyPrint.GenericPretty
-import Language.Fortran.ParserMonad (FortranVersion(..))
+import           Prelude                           hiding ( init )
+import           Data.Data
+import           Data.Generics.Uniplate.Data              ( )
+import           Data.Typeable                            ( )
+import           Data.Binary
+import           GHC.Generics                             ( Generic )
+import           Text.PrettyPrint.GenericPretty
+import           Language.Fortran.ParserMonad             ( FortranVersion(..) )
 
-import Language.Fortran.Util.Position
-import Language.Fortran.Util.FirstParameter
-import Language.Fortran.Util.SecondParameter
+import           Language.Fortran.Util.Position
+import           Language.Fortran.Util.FirstParameter
+import           Language.Fortran.Util.SecondParameter
 
 
 type A0 = ()
@@ -35,14 +35,14 @@ data AList t a = AList a SrcSpan [t a] deriving (Eq, Show, Data, Typeable, Gener
 instance Functor t => Functor (AList t) where
   fmap f (AList a s xs) = AList (f a) s (map (fmap f) xs)
 
-fromList :: Spanned (t a) => a -> [ t a ] -> AList t a
+fromList :: Spanned (t a) => a -> [t a] -> AList t a
 fromList a xs = AList a (getSpan xs) xs
 
-fromReverseList :: Spanned (t ()) => [ t () ] -> AList t ()
+fromReverseList :: Spanned (t ()) => [t ()] -> AList t ()
 fromReverseList = fromList () . reverse
 
 aCons :: t a -> AList t a -> AList t a
-aCons x (AList a s xs) = AList a s $ x:xs
+aCons x (AList a s xs) = AList a s $ x : xs
 
 infixr 5 `aCons`
 
@@ -81,14 +81,15 @@ instance Binary CharacterLen
 charLenSelector :: Maybe (Selector a) -> (Maybe CharacterLen, Maybe String)
 charLenSelector Nothing                          = (Nothing, Nothing)
 charLenSelector (Just (Selector _ _ mlen mkind)) = (l, k)
-  where
-    l | Just (ExpValue _ _ ValStar) <- mlen        = Just CharLenStar
-      | Just (ExpValue _ _ (ValInteger i)) <- mlen = Just $ CharLenInt (read i)
-      | Nothing <- mlen                            = Nothing
-      | otherwise                                  = Just CharLenExp
-    k | Just (ExpValue _ _ (ValInteger i)) <- mkind = Just i
-      -- FIXME: some references refer to things like kind=kanji but I can't find any spec for it
-      | otherwise                                   = Nothing
+ where
+  l | Just (ExpValue _ _ ValStar) <- mlen        = Just CharLenStar
+    | Just (ExpValue _ _ (ValInteger i)) <- mlen = Just $ CharLenInt (read i)
+    | Nothing <- mlen                            = Nothing
+    | otherwise                                  = Just CharLenExp
+  k | Just (ExpValue _ _ (ValInteger i)) <- mkind = Just i
+    |
+    -- FIXME: some references refer to things like kind=kanji but I can't find any spec for it
+      otherwise                                   = Nothing
 
 data TypeSpec a = TypeSpec a SrcSpan BaseType (Maybe (Selector a))
   deriving (Eq, Show, Data, Typeable, Generic, Functor)
@@ -152,57 +153,51 @@ data PUFunctionOpt a =
   deriving (Eq, Show, Data, Typeable, Generic, Functor)
 
 buildPUFunctionOpt :: PUFunctionOpt () -> PUFunctionOpt () -> Either String (PUFunctionOpt ())
-buildPUFunctionOpt a b =
-  case (a, b) of
-    (None () _ False , _)         -> Right $ setSpan (getTransSpan a b) b
-    (_, None () _ False)          -> Right $ setSpan (getTransSpan a b) a
-    (Elemental () _, _)          -> if functionIsRecursive b
-                                         then Left "Function cannot be both elemental and recursive. "
-                                         else Right . Elemental () $ getTransSpan a b
-    (_, Elemental () _)           -> buildPUFunctionOpt b a
-    (Pure () _ r, b')              -> Right $ Pure () (getTransSpan a b') (r || functionIsRecursive b')
-    (a', Pure () _ r)              -> Right $ Pure () (getTransSpan a' b) (r || functionIsRecursive a')
-    (None () _ r, None () _ r') -> Right $ None () (getTransSpan a b) (r || r')
+buildPUFunctionOpt a b = case (a, b) of
+  (None () _ False, _              ) -> Right $ setSpan (getTransSpan a b) b
+  (_              , None () _ False) -> Right $ setSpan (getTransSpan a b) a
+  (Elemental () _ , _              ) -> if functionIsRecursive b
+    then Left "Function cannot be both elemental and recursive. "
+    else Right . Elemental () $ getTransSpan a b
+  (_              , Elemental () _ ) -> buildPUFunctionOpt b a
+  (Pure () _ r    , b'             ) -> Right $ Pure () (getTransSpan a b') (r || functionIsRecursive b')
+  (a'             , Pure () _ r    ) -> Right $ Pure () (getTransSpan a' b) (r || functionIsRecursive a')
+  (None () _ r    , None () _ r'   ) -> Right $ None () (getTransSpan a b) (r || r')
 -- Should parse: "elemental pure recursive function f()\nend": Right (Elemental ()) FAILED [4]
 
-buildPUFunctionOpts :: [PUFunctionOpt ()] -> Either String (PUFunctionOpt())
-buildPUFunctionOpts =
-  foldr merge . Right $ None () initSrcSpan False
+buildPUFunctionOpts :: [PUFunctionOpt ()] -> Either String (PUFunctionOpt ())
+buildPUFunctionOpts = foldr merge . Right $ None () initSrcSpan False
   where merge a = either Left $ buildPUFunctionOpt a
 
 functionIsRecursive :: PUFunctionOpt a -> Bool
 functionIsRecursive (Elemental _ _) = False
-functionIsRecursive (Pure _ _ r)    = r
-functionIsRecursive (None _ _ r)    = r
+functionIsRecursive (Pure _ _ r   ) = r
+functionIsRecursive (None _ _ r   ) = r
 
 programUnitBody :: ProgramUnit a -> [Block a]
-programUnitBody (PUMain _ _ _ bs _)              = bs
-programUnitBody (PUModule _ _ _ bs _)            = bs
-programUnitBody (PUSubroutine _ _ _ _ _ bs _)    = bs
-programUnitBody (PUFunction _ _ _ _ _ _ _ bs _)  = bs
-programUnitBody (PUBlockData _ _ _ bs)           = bs
-programUnitBody PUComment{}                   = []
+programUnitBody (PUMain   _ _ _ bs _          ) = bs
+programUnitBody (PUModule _ _ _ bs _          ) = bs
+programUnitBody (PUSubroutine _ _ _ _ _ bs _  ) = bs
+programUnitBody (PUFunction _ _ _ _ _ _ _ bs _) = bs
+programUnitBody (PUBlockData _ _ _ bs         ) = bs
+programUnitBody PUComment{}                     = []
 
 updateProgramUnitBody :: ProgramUnit a -> [Block a] -> ProgramUnit a
-updateProgramUnitBody (PUMain a s n _ pu)   bs' =
-    PUMain a s n bs' pu
-updateProgramUnitBody (PUModule a s n _ pu) bs' =
-    PUModule a s n bs' pu
-updateProgramUnitBody (PUSubroutine a s f n args _ pu) bs' =
-    PUSubroutine a s f n args bs' pu
+updateProgramUnitBody (PUMain   a s n _ pu           ) bs' = PUMain a s n bs' pu
+updateProgramUnitBody (PUModule a s n _ pu           ) bs' = PUModule a s n bs' pu
+updateProgramUnitBody (PUSubroutine a s f n args _ pu) bs' = PUSubroutine a s f n args bs' pu
 updateProgramUnitBody (PUFunction a s t f n args res _ pu) bs' =
-    PUFunction a s t f n args res bs' pu
-updateProgramUnitBody (PUBlockData a s n _) bs' =
-    PUBlockData a s n bs'
-updateProgramUnitBody p@PUComment{} _ = p
+  PUFunction a s t f n args res bs' pu
+updateProgramUnitBody (PUBlockData a s n _) bs' = PUBlockData a s n bs'
+updateProgramUnitBody p@PUComment{}         _   = p
 
 programUnitSubprograms :: ProgramUnit a -> Maybe [ProgramUnit a]
-programUnitSubprograms (PUMain _ _ _ _ s)             = s
-programUnitSubprograms (PUModule _ _ _ _ s)           = s
-programUnitSubprograms (PUSubroutine _ _ _ _ _ _ s)   = s
+programUnitSubprograms (PUMain   _ _ _ _ s          ) = s
+programUnitSubprograms (PUModule _ _ _ _ s          ) = s
+programUnitSubprograms (PUSubroutine _ _ _ _ _ _ s  ) = s
 programUnitSubprograms (PUFunction _ _ _ _ _ _ _ _ s) = s
-programUnitSubprograms PUBlockData{}               = Nothing
-programUnitSubprograms PUComment{}                 = Nothing
+programUnitSubprograms PUBlockData{}                  = Nothing
+programUnitSubprograms PUComment{}                    = Nothing
 
 newtype Comment a = Comment String
   deriving (Eq, Show, Data, Typeable, Generic, Functor)
@@ -841,47 +836,47 @@ instance Out a => Out (ForallHeader a)
 
 nonExecutableStatement :: FortranVersion -> Statement a -> Bool
 nonExecutableStatement _ s = case s of
-    StIntent {}      -> True
-    StOptional {}    -> True
-    StPublic {}      -> True
-    StPrivate {}     -> True
-    StSave {}        -> True
-    StDimension {}   -> True
-    StAllocatable {} -> True
-    StPointer {}     -> True
-    StTarget {}      -> True
-    StData {}        -> True
-    StParameter {}   -> True
-    StImplicit {}    -> True
-    StNamelist {}    -> True
-    StEquivalence {} -> True
-    StCommon {}      -> True
-    StExternal {}    -> True
-    StIntrinsic {}   -> True
-    StUse {}         -> True
-    StEntry {}       -> True
-    StSequence {}    -> True
-    StType {}        -> True
-    StEndType {}     -> True
-    StFormat {}      -> True
-    StFormatBogus {} -> True
-    StInclude {}     -> True
-    StDeclaration {} -> True
-    StStructure {}   -> True
-    _                -> False
+  StIntent{}      -> True
+  StOptional{}    -> True
+  StPublic{}      -> True
+  StPrivate{}     -> True
+  StSave{}        -> True
+  StDimension{}   -> True
+  StAllocatable{} -> True
+  StPointer{}     -> True
+  StTarget{}      -> True
+  StData{}        -> True
+  StParameter{}   -> True
+  StImplicit{}    -> True
+  StNamelist{}    -> True
+  StEquivalence{} -> True
+  StCommon{}      -> True
+  StExternal{}    -> True
+  StIntrinsic{}   -> True
+  StUse{}         -> True
+  StEntry{}       -> True
+  StSequence{}    -> True
+  StType{}        -> True
+  StEndType{}     -> True
+  StFormat{}      -> True
+  StFormatBogus{} -> True
+  StInclude{}     -> True
+  StDeclaration{} -> True
+  StStructure{}   -> True
+  _               -> False
 
 executableStatement :: FortranVersion -> Statement a -> Bool
 -- Some statements are both executable and non-executable in Fortran 90 upwards
 executableStatement v StFormat{} | v >= Fortran90 = True
-executableStatement v StEntry{}  | v >= Fortran90 = True
-executableStatement v StData{}   | v >= Fortran90 = True
-executableStatement v s = not $ nonExecutableStatement v s
+executableStatement v StEntry{} | v >= Fortran90  = True
+executableStatement v StData{} | v >= Fortran90   = True
+executableStatement v s                           = not $ nonExecutableStatement v s
 
 executableStatementBlock :: FortranVersion -> Block a -> Bool
 executableStatementBlock v (BlStatement _ _ _ s) = executableStatement v s
-executableStatementBlock _ _ = False
+executableStatementBlock _ _                     = False
 
 nonExecutableStatementBlock :: FortranVersion -> Block a -> Bool
 nonExecutableStatementBlock v (BlStatement _ _ _ s) = nonExecutableStatement v s
-nonExecutableStatementBlock _ BlInterface{} = True
-nonExecutableStatementBlock _ _ = False
+nonExecutableStatementBlock _ BlInterface{}         = True
+nonExecutableStatementBlock _ _                     = False

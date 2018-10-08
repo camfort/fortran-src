@@ -1,19 +1,20 @@
 module Language.Fortran.Analysis.RenamingSpec (spec) where
 
-import Test.Hspec
-import TestUtil
+import           Test.Hspec
+import           TestUtil
 
-import Data.Map (elems)
+import           Data.Map                                 ( elems )
 --import Data.Data (Data)
-import qualified Data.Map as M
+import qualified Data.Map                      as M
 
-import Language.Fortran.ParserMonad
-import Language.Fortran.AST
-import qualified Language.Fortran.Parser.Fortran90 as F90
-import Language.Fortran.Analysis
-import Language.Fortran.Analysis.Renaming
-import Data.Generics.Uniplate.Data
-import qualified Data.ByteString.Char8 as B
+import           Language.Fortran.ParserMonad
+import           Language.Fortran.AST
+import qualified Language.Fortran.Parser.Fortran90
+                                               as F90
+import           Language.Fortran.Analysis
+import           Language.Fortran.Analysis.Renaming
+import           Data.Generics.Uniplate.Data
+import qualified Data.ByteString.Char8         as B
 
 --testF90 :: Data a => ProgramFile a -> ProgramFile (Analysis a)
 --testF90 pf = (resetSrcSpan . analyseRenames . initAnalysis) $ pf
@@ -25,9 +26,11 @@ unrename' = stripAnalysis . unrename . rename . analyseRenames . initAnalysis
 --renameAndStrip' x = stripAnalysis . rename . analyseRenames . initAnalysis $ x
 
 countUnrenamed :: ProgramFile (Analysis ()) -> Int
-countUnrenamed e = length [ () | ExpValue Analysis { uniqueName = Nothing } _ ValVariable {} <- uniE_PF e ]
-  where uniE_PF :: ProgramFile (Analysis ()) -> [Expression (Analysis ())]
-        uniE_PF = universeBi
+countUnrenamed e = length
+  [ () | ExpValue Analysis { uniqueName = Nothing } _ ValVariable{} <- uniE_PF e ]
+ where
+  uniE_PF :: ProgramFile (Analysis ()) -> [Expression (Analysis ())]
+  uniE_PF = universeBi
 
 fortran90Parser :: String -> String -> ProgramFile A0
 fortran90Parser src file = fromParseResultUnsafe $ F90.fortran90Parser (B.pack src) file
@@ -37,44 +40,33 @@ spec = do
   describe "Basic" $ do
     it "num-entries 1" $ do
       let entry = extractNameMap' ex3
-      shouldBe ( length (filter (=="f1") (elems entry))
-               , length (filter (=="a") (elems entry))
-               , length (filter (=="b") (elems entry))
-               , length (filter (=="d") (elems entry)) )
-               ( 1, 2, 2, 2 )
+      shouldBe
+        ( length (filter (== "f1") (elems entry))
+        , length (filter (== "a") (elems entry))
+        , length (filter (== "b") (elems entry))
+        , length (filter (== "d") (elems entry))
+        )
+        (1, 2, 2, 2)
 
     -- Test that every symbol that is supposed to be renamed is renamed.
-    it "complete ex1" $
-      countUnrenamed (analyseRenames . initAnalysis $ ex1) `shouldBe` 0
-    it "complete ex2" $
-      countUnrenamed (analyseRenames . initAnalysis $ ex2) `shouldBe` 0
-    it "complete ex3" $
-      countUnrenamed (analyseRenames . initAnalysis $ ex3) `shouldBe` 0
-    it "complete ex4" $
-      countUnrenamed (analyseRenames . initAnalysis $ ex4) `shouldBe` 0
-    it "complete ex5" $
-      countUnrenamed (analyseRenames . initAnalysis $ ex5) `shouldBe` 0
-    it "complete ex6" $
-      countUnrenamed (analyseRenames . initAnalysis $ ex6) `shouldBe` 0
-    it "complete ex8" $
-      countUnrenamed (analyseRenames . initAnalysis $ ex8) `shouldBe` 0
-    it "complete ex9" $
-      countUnrenamed (analyseRenames . initAnalysis $ ex9) `shouldBe` 0
-    it "complete ex10" $
-      countUnrenamed (analyseRenames . initAnalysis $ ex10) `shouldBe` 0
-    it "complete ex11" $
-      countUnrenamed (analyseRenames . initAnalysis $ ex11) `shouldBe` 0
-    it "complete ex12" $
-      countUnrenamed (analyseRenames . initAnalysis $ ex12) `shouldBe` 0
+    it "complete ex1" $ countUnrenamed (analyseRenames . initAnalysis $ ex1) `shouldBe` 0
+    it "complete ex2" $ countUnrenamed (analyseRenames . initAnalysis $ ex2) `shouldBe` 0
+    it "complete ex3" $ countUnrenamed (analyseRenames . initAnalysis $ ex3) `shouldBe` 0
+    it "complete ex4" $ countUnrenamed (analyseRenames . initAnalysis $ ex4) `shouldBe` 0
+    it "complete ex5" $ countUnrenamed (analyseRenames . initAnalysis $ ex5) `shouldBe` 0
+    it "complete ex6" $ countUnrenamed (analyseRenames . initAnalysis $ ex6) `shouldBe` 0
+    it "complete ex8" $ countUnrenamed (analyseRenames . initAnalysis $ ex8) `shouldBe` 0
+    it "complete ex9" $ countUnrenamed (analyseRenames . initAnalysis $ ex9) `shouldBe` 0
+    it "complete ex10" $ countUnrenamed (analyseRenames . initAnalysis $ ex10) `shouldBe` 0
+    it "complete ex11" $ countUnrenamed (analyseRenames . initAnalysis $ ex11) `shouldBe` 0
+    it "complete ex12" $ countUnrenamed (analyseRenames . initAnalysis $ ex12) `shouldBe` 0
 
-    it "complete exScope1" $
-      countUnrenamed (analyseRenames . initAnalysis $ exScope1) `shouldBe` 0
-    it "complete exScope2" $
-      countUnrenamed (analyseRenames . initAnalysis $ exScope2) `shouldBe` 0
+    it "complete exScope1" $ countUnrenamed (analyseRenames . initAnalysis $ exScope1) `shouldBe` 0
+    it "complete exScope2" $ countUnrenamed (analyseRenames . initAnalysis $ exScope2) `shouldBe` 0
 
     it "functions 1" $ do
       let entry = extractNameMap' ex3
-      length (filter (=="f1") (elems entry)) `shouldBe'` 1
+      length (filter (== "f1") (elems entry)) `shouldBe'` 1
 
   describe "Identity" $ do
     it "unrename-rename 1" $ do
@@ -96,101 +88,256 @@ spec = do
   describe "Shadowing" $ do
     it "exScope1 testing non-shadowing of subprogram names" $ do
       let entry = extractNameMap' exScope1
-      let keys = M.keys entry
+      let keys  = M.keys entry
       length keys `shouldBe` 1
 
     it "exScope2 testing shadowing of variables" $ do
       let entry = extractNameMap' exScope2
-      length (filter (=="x") (elems entry)) `shouldBe` 2
+      length (filter (== "x") (elems entry)) `shouldBe` 2
 
-  describe "Ordering" $
-    it "exScope3 testing out-of-order definitions" $ do
-      let entry = extractNameMap' exScope3
-      length (filter (=="f1") (elems entry)) `shouldBe` 1
-      length (filter (=="f2") (elems entry)) `shouldBe` 1
-      length (filter (=="s1") (elems entry)) `shouldBe` 1
-      length (filter (=="s2") (elems entry)) `shouldBe` 1
+  describe "Ordering" $ it "exScope3 testing out-of-order definitions" $ do
+    let entry = extractNameMap' exScope3
+    length (filter (== "f1") (elems entry)) `shouldBe` 1
+    length (filter (== "f2") (elems entry)) `shouldBe` 1
+    length (filter (== "s1") (elems entry)) `shouldBe` 1
+    length (filter (== "s2") (elems entry)) `shouldBe` 1
 
-  describe "Common blocks" $
-    it "common1" $ do
-      let entry = extractNameMap' common1
-      length (filter (=="x") (elems entry)) `shouldBe` 2
-      M.lookup "c_x_common" entry `shouldBe` Just "x"
-      M.lookup "c_y_common" entry `shouldBe` Just "y"
+  describe "Common blocks" $ it "common1" $ do
+    let entry = extractNameMap' common1
+    length (filter (== "x") (elems entry)) `shouldBe` 2
+    M.lookup "c_x_common" entry `shouldBe` Just "x"
+    M.lookup "c_y_common" entry `shouldBe` Just "y"
 
 --------------------------------------------------
 
 ex1 :: ProgramFile ()
-ex1 = ProgramFile mi77 [ ex1pu1 ]
+ex1 = ProgramFile mi77 [ex1pu1]
 ex1pu1 :: ProgramUnit ()
-ex1pu1 = PUFunction () u (Just $ TypeSpec () u TypeInteger Nothing) (None () u False) "f1" Nothing Nothing [] Nothing
+ex1pu1 = PUFunction ()
+                    u
+                    (Just $ TypeSpec () u TypeInteger Nothing)
+                    (None () u False)
+                    "f1"
+                    Nothing
+                    Nothing
+                    []
+                    Nothing
 
 ex2 :: ProgramFile ()
-ex2 = ProgramFile mi77 [ ex2pu1 ]
+ex2 = ProgramFile mi77 [ex2pu1]
 ex2pu1 :: ProgramUnit ()
 ex2pu1 = PUMain () u (Just "main") ex2pu1bs Nothing
 ex2pu1bs :: [Block ()]
 ex2pu1bs =
-  [ BlStatement () u Nothing (StDeclaration () u (TypeSpec () u TypeInteger Nothing) Nothing (AList () u
-      [ DeclVariable () u (varGen "a") Nothing Nothing
-      , DeclArray () u (varGen "b") (AList () u [ DimensionDeclarator () u Nothing (Just $ intGen 1) ]) Nothing Nothing
-      , DeclVariable () u (varGen "c") Nothing Nothing
-      , DeclVariable () u (varGen "d") Nothing Nothing ]))
-  , BlStatement () u Nothing (StDimension () u (AList () u
-      [ DeclArray () u (varGen "a") (AList () u [ DimensionDeclarator () u Nothing (Just $ intGen 1 ) ]) Nothing Nothing ]))
-  , BlStatement () u Nothing (StExpressionAssign () u
-      (ExpSubscript () u (varGen "a") (AList () u [ ixSinGen 1 ])) (intGen 1))
-  , BlStatement () u Nothing (StExpressionAssign () u
-      (ExpSubscript () u (varGen "b") (AList () u [ ixSinGen 1 ])) (intGen 1))
-  , BlStatement () u Nothing (StExpressionAssign () u
-      (ExpSubscript () u (varGen "c") (AList () u [ ixSinGen 1 ])) (intGen 1))
-  , BlStatement () u Nothing (StExpressionAssign () u
-      (ExpSubscript () u (varGen "d") (AList () u [ ixSinGen 1 ])) (intGen 1)) ]
+  [ BlStatement
+    ()
+    u
+    Nothing
+    (StDeclaration
+      ()
+      u
+      (TypeSpec () u TypeInteger Nothing)
+      Nothing
+      (AList
+        ()
+        u
+        [ DeclVariable () u (varGen "a") Nothing Nothing
+        , DeclArray ()
+                    u
+                    (varGen "b")
+                    (AList () u [DimensionDeclarator () u Nothing (Just $ intGen 1)])
+                    Nothing
+                    Nothing
+        , DeclVariable () u (varGen "c") Nothing Nothing
+        , DeclVariable () u (varGen "d") Nothing Nothing
+        ]
+      )
+    )
+  , BlStatement
+    ()
+    u
+    Nothing
+    (StDimension
+      ()
+      u
+      (AList
+        ()
+        u
+        [ DeclArray ()
+                    u
+                    (varGen "a")
+                    (AList () u [DimensionDeclarator () u Nothing (Just $ intGen 1)])
+                    Nothing
+                    Nothing
+        ]
+      )
+    )
+  , BlStatement
+    ()
+    u
+    Nothing
+    (StExpressionAssign () u (ExpSubscript () u (varGen "a") (AList () u [ixSinGen 1])) (intGen 1))
+  , BlStatement
+    ()
+    u
+    Nothing
+    (StExpressionAssign () u (ExpSubscript () u (varGen "b") (AList () u [ixSinGen 1])) (intGen 1))
+  , BlStatement
+    ()
+    u
+    Nothing
+    (StExpressionAssign () u (ExpSubscript () u (varGen "c") (AList () u [ixSinGen 1])) (intGen 1))
+  , BlStatement
+    ()
+    u
+    Nothing
+    (StExpressionAssign () u (ExpSubscript () u (varGen "d") (AList () u [ixSinGen 1])) (intGen 1))
+  ]
 
 ex3 :: ProgramFile ()
-ex3 = ProgramFile mi77 [ ex3pu1, ex3pu2 ]
+ex3 = ProgramFile mi77 [ex3pu1, ex3pu2]
 ex3pu1 :: ProgramUnit ()
 ex3pu1 = PUMain () u (Just "main") ex3pu1bs Nothing
 ex3pu1bs :: [Block ()]
 ex3pu1bs =
-  [ BlStatement () u Nothing (StDeclaration () u (TypeSpec () u TypeInteger Nothing) Nothing (AList () u
-      [ DeclVariable () u (varGen "a") Nothing Nothing
-      , DeclArray () u (varGen "b") (AList () u [ DimensionDeclarator () u Nothing (Just $ intGen 1) ]) Nothing Nothing
-      , DeclVariable () u (varGen "c") Nothing Nothing
-      , DeclVariable () u (varGen "d") Nothing Nothing ]))
-  , BlStatement () u Nothing (StDimension () u (AList () u
-      [ DeclArray () u (varGen "a") (AList () u [ DimensionDeclarator () u Nothing (Just $ intGen 1 ) ]) Nothing Nothing ]))
-  , BlStatement () u Nothing (StDeclaration () u (TypeSpec () u TypeInteger Nothing) Nothing (AList () u
-      [ DeclVariable () u (varGen "c") Nothing Nothing ]))
-  , BlStatement () u Nothing (StExpressionAssign () u
-      (ExpSubscript () u (varGen "a") (AList () u [ ixSinGen 1 ])) (intGen 1))
-  , BlStatement () u Nothing (StExpressionAssign () u
-      (ExpSubscript () u (varGen "b") (AList () u [ ixSinGen 1 ])) (intGen 1))
-  , BlStatement () u Nothing (StExpressionAssign () u
-      (ExpSubscript () u (varGen "c") (AList () u [ ixSinGen 1 ])) (intGen 1))
-  , BlStatement () u Nothing (StExpressionAssign () u
-      (varGen "d") (ExpBinary () u Addition (varGen "d") (intGen 1))) ]
+  [ BlStatement
+    ()
+    u
+    Nothing
+    (StDeclaration
+      ()
+      u
+      (TypeSpec () u TypeInteger Nothing)
+      Nothing
+      (AList
+        ()
+        u
+        [ DeclVariable () u (varGen "a") Nothing Nothing
+        , DeclArray ()
+                    u
+                    (varGen "b")
+                    (AList () u [DimensionDeclarator () u Nothing (Just $ intGen 1)])
+                    Nothing
+                    Nothing
+        , DeclVariable () u (varGen "c") Nothing Nothing
+        , DeclVariable () u (varGen "d") Nothing Nothing
+        ]
+      )
+    )
+  , BlStatement
+    ()
+    u
+    Nothing
+    (StDimension
+      ()
+      u
+      (AList
+        ()
+        u
+        [ DeclArray ()
+                    u
+                    (varGen "a")
+                    (AList () u [DimensionDeclarator () u Nothing (Just $ intGen 1)])
+                    Nothing
+                    Nothing
+        ]
+      )
+    )
+  , BlStatement
+    ()
+    u
+    Nothing
+    (StDeclaration ()
+                   u
+                   (TypeSpec () u TypeInteger Nothing)
+                   Nothing
+                   (AList () u [DeclVariable () u (varGen "c") Nothing Nothing])
+    )
+  , BlStatement
+    ()
+    u
+    Nothing
+    (StExpressionAssign () u (ExpSubscript () u (varGen "a") (AList () u [ixSinGen 1])) (intGen 1))
+  , BlStatement
+    ()
+    u
+    Nothing
+    (StExpressionAssign () u (ExpSubscript () u (varGen "b") (AList () u [ixSinGen 1])) (intGen 1))
+  , BlStatement
+    ()
+    u
+    Nothing
+    (StExpressionAssign () u (ExpSubscript () u (varGen "c") (AList () u [ixSinGen 1])) (intGen 1))
+  , BlStatement
+    ()
+    u
+    Nothing
+    (StExpressionAssign () u (varGen "d") (ExpBinary () u Addition (varGen "d") (intGen 1)))
+  ]
 ex3pu2 :: ProgramUnit ()
-ex3pu2 = PUFunction () u (Just $ TypeSpec () u TypeInteger Nothing) (None () u False) "f1" (Just $ AList () u [ varGen "d", varGen "b"]) Nothing (ex3pu1bs ++ [ BlStatement () u Nothing (StExpressionAssign () u (varGen "f1") (varGen "d")) ]) Nothing
+ex3pu2 = PUFunction
+  ()
+  u
+  (Just $ TypeSpec () u TypeInteger Nothing)
+  (None () u False)
+  "f1"
+  (Just $ AList () u [varGen "d", varGen "b"])
+  Nothing
+  (ex3pu1bs ++ [BlStatement () u Nothing (StExpressionAssign () u (varGen "f1") (varGen "d"))])
+  Nothing
 
 ex4 :: ProgramFile ()
-ex4 = ProgramFile mi77 [ ex4pu1, ex4pu2 ]
+ex4 = ProgramFile mi77 [ex4pu1, ex4pu2]
 ex4pu1 :: ProgramUnit ()
 ex4pu1 = PUMain () u (Just "main") ex4pu1bs Nothing
 ex4pu1bs :: [Block ()]
 ex4pu1bs =
-  [ BlStatement () u Nothing (StDeclaration () u (TypeSpec () u TypeInteger Nothing) Nothing (AList () u
-      [ DeclVariable () u (varGen "f1") Nothing Nothing
-      , DeclVariable () u (varGen "r") Nothing Nothing ]))
-  , BlStatement () u Nothing (StExpressionAssign () u
+  [ BlStatement
+    ()
+    u
+    Nothing
+    (StDeclaration
+      ()
+      u
+      (TypeSpec () u TypeInteger Nothing)
+      Nothing
+      (AList
+        ()
+        u
+        [ DeclVariable () u (varGen "f1") Nothing Nothing
+        , DeclVariable () u (varGen "r")  Nothing Nothing
+        ]
+      )
+    )
+  , BlStatement
+    ()
+    u
+    Nothing
+    (StExpressionAssign
+      ()
+      u
       (ExpValue () u (ValVariable "r"))
-      (ExpFunctionCall () u (ExpValue () u (ValVariable "f1"))
-                            (Just $ AList () u [ Argument () u Nothing $ intGen 1 ]))) ]
+      (ExpFunctionCall ()
+                       u
+                       (ExpValue () u (ValVariable "f1"))
+                       (Just $ AList () u [Argument () u Nothing $ intGen 1])
+      )
+    )
+  ]
 ex4pu2 :: ProgramUnit ()
-ex4pu2 = PUFunction () u (Just $ TypeSpec () u TypeInteger Nothing) (None () u False) "f1" (Just $ AList () u [ varGen "x"]) Nothing [ BlStatement () u Nothing (StExpressionAssign () u (varGen "f1") (varGen "x")) ] Nothing
+ex4pu2 = PUFunction
+  ()
+  u
+  (Just $ TypeSpec () u TypeInteger Nothing)
+  (None () u False)
+  "f1"
+  (Just $ AList () u [varGen "x"])
+  Nothing
+  [BlStatement () u Nothing (StExpressionAssign () u (varGen "f1") (varGen "x"))]
+  Nothing
 
 ex5 :: ProgramFile ()
-ex5 = ProgramFile mi77 [ ex5pu1, ex5pu2 ]
+ex5 = ProgramFile mi77 [ex5pu1, ex5pu2]
 ex5pu1 :: ProgramUnit ()
 ex5pu1 = PUMain () u (Just "main") ex5pu1bs Nothing
 ex5pu1bs :: [a]
@@ -200,10 +347,19 @@ ex5pu2 = PUModule () u "ex5mod" ex5pu2bs (Just [ex5pu2pu1])
 ex5pu2bs :: [a]
 ex5pu2bs = []
 ex5pu2pu1 :: ProgramUnit ()
-ex5pu2pu1 = PUFunction () u (Just $ TypeSpec () u TypeInteger Nothing) (None () u False) "f1" (Just $ AList () u [ varGen "x"]) Nothing [ BlStatement () u Nothing (StExpressionAssign () u (varGen "f1") (varGen "x")) ] Nothing
+ex5pu2pu1 = PUFunction
+  ()
+  u
+  (Just $ TypeSpec () u TypeInteger Nothing)
+  (None () u False)
+  "f1"
+  (Just $ AList () u [varGen "x"])
+  Nothing
+  [BlStatement () u Nothing (StExpressionAssign () u (varGen "f1") (varGen "x"))]
+  Nothing
 
 ex6 :: ProgramFile ()
-ex6 = ProgramFile mi77 [ ex6pu1, ex6pu2 ]
+ex6 = ProgramFile mi77 [ex6pu1, ex6pu2]
 ex6pu1 :: ProgramUnit ()
 ex6pu1 = PUMain () u (Just "main") ex6pu1bs Nothing
 ex6pu1bs :: [a]
@@ -213,14 +369,37 @@ ex6pu2 = PUModule () u "ex6mod" ex6pu2bs (Just [ex6pu2pu1])
 ex6pu2bs :: [a]
 ex6pu2bs = []
 ex6pu2pu1 :: ProgramUnit ()
-ex6pu2pu1 = PUFunction () u (Just $ TypeSpec () u TypeInteger Nothing) (None () u False) "f1" (Just $ AList () u [ varGen "x"]) Nothing [ BlStatement () u Nothing (StExpressionAssign () u (varGen "f1") (ExpFunctionCall () u (ExpValue () u (ValVariable "f1")) (Just $ AList () u [Argument () u Nothing (varGen "x")]))) ] (Just [ex5pu2pu1])
+ex6pu2pu1 = PUFunction
+  ()
+  u
+  (Just $ TypeSpec () u TypeInteger Nothing)
+  (None () u False)
+  "f1"
+  (Just $ AList () u [varGen "x"])
+  Nothing
+  [ BlStatement
+      ()
+      u
+      Nothing
+      (StExpressionAssign
+        ()
+        u
+        (varGen "f1")
+        (ExpFunctionCall ()
+                         u
+                         (ExpValue () u (ValVariable "f1"))
+                         (Just $ AList () u [Argument () u Nothing (varGen "x")])
+        )
+      )
+  ]
+  (Just [ex5pu2pu1])
 
 --parseF90 :: [String] -> ProgramFile A0
 --parseF90 = resetSrcSpan . flip fortran90Parser "" . unlines
 
 ex8 :: ProgramFile A0
-ex8 = resetSrcSpan . flip fortran90Parser "" $ unlines [
-    "module m1"
+ex8 = resetSrcSpan . flip fortran90Parser "" $ unlines
+  [ "module m1"
   , "  implicit none"
   , "contains"
   , "  integer function foo ()"
@@ -254,8 +433,8 @@ ex8 = resetSrcSpan . flip fortran90Parser "" $ unlines [
   ]
 
 ex9 :: ProgramFile A0
-ex9 = resetSrcSpan . flip fortran90Parser "" $ unlines [
-    "module m1"
+ex9 = resetSrcSpan . flip fortran90Parser "" $ unlines
+  [ "module m1"
   , "  implicit none"
   , "  integer :: x"
   , "contains"
@@ -270,28 +449,41 @@ ex9 = resetSrcSpan . flip fortran90Parser "" $ unlines [
   ]
 
 ex10 :: ProgramFile ()
-ex10 = ProgramFile mi77 [ ex10pu1 ]
+ex10 = ProgramFile mi77 [ex10pu1]
 ex10pu1 :: ProgramUnit ()
 ex10pu1 = PUSubroutine () u (None () u False) "s1" Nothing ex10pu1bs Nothing
 ex10pu1bs :: [Block ()]
 ex10pu1bs =
   [ BlStatement () u Nothing (StEntry () u (ExpValue () u (ValVariable "e1")) Nothing Nothing)
   , BlStatement () u Nothing (StEntry () u (ExpValue () u (ValVariable "e2")) Nothing Nothing)
-  , BlStatement () u Nothing (StEntry () u (ExpValue () u (ValVariable "e3")) Nothing Nothing) ]
+  , BlStatement () u Nothing (StEntry () u (ExpValue () u (ValVariable "e3")) Nothing Nothing)
+  ]
 
 ex11 :: ProgramFile ()
-ex11 = ProgramFile mi77 [ ex11pu1 ]
+ex11 = ProgramFile mi77 [ex11pu1]
 ex11pu1 :: ProgramUnit ()
-ex11pu1 = PUFunction () u (Just (TypeSpec () u TypeInteger Nothing)) (None () u False) "f1" Nothing (Just (varGen "r1")) ex11pu1bs Nothing
+ex11pu1 = PUFunction ()
+                     u
+                     (Just (TypeSpec () u TypeInteger Nothing))
+                     (None () u False)
+                     "f1"
+                     Nothing
+                     (Just (varGen "r1"))
+                     ex11pu1bs
+                     Nothing
 ex11pu1bs :: [Block ()]
 ex11pu1bs =
   [ BlStatement () u Nothing (StEntry () u (ExpValue () u (ValVariable "e1")) Nothing Nothing)
   , BlStatement () u Nothing (StEntry () u (ExpValue () u (ValVariable "e2")) Nothing Nothing)
-  , BlStatement () u Nothing (StEntry () u (ExpValue () u (ValVariable "e3")) Nothing (Just (varGen "r2"))) ]
+  , BlStatement ()
+                u
+                Nothing
+                (StEntry () u (ExpValue () u (ValVariable "e3")) Nothing (Just (varGen "r2")))
+  ]
 
 ex12 :: ProgramFile A0
-ex12 = resetSrcSpan . flip fortran90Parser "" $ unlines [
-    "module m1"
+ex12 = resetSrcSpan . flip fortran90Parser "" $ unlines
+  [ "module m1"
   , "  implicit none"
   , "  integer :: z"
   , "contains"
@@ -328,8 +520,8 @@ ex12 = resetSrcSpan . flip fortran90Parser "" $ unlines [
 
 
 exScope1 :: ProgramFile A0
-exScope1 = resetSrcSpan . flip fortran90Parser "" $ unlines [
-    "program scope1"
+exScope1 = resetSrcSpan . flip fortran90Parser "" $ unlines
+  [ "program scope1"
   -- local variables cannot take on the name of subprogram, therefore
   -- this declaration must be simply redeclaring the function x.
   , "  integer :: x"
@@ -344,8 +536,8 @@ exScope1 = resetSrcSpan . flip fortran90Parser "" $ unlines [
   ]
 
 exScope2 :: ProgramFile A0
-exScope2 = resetSrcSpan . flip fortran90Parser "" $ unlines [
-    "module scope2"
+exScope2 = resetSrcSpan . flip fortran90Parser "" $ unlines
+  [ "module scope2"
   , "  integer :: x"
   , "contains"
   , "  subroutine s1 ()"
@@ -374,8 +566,8 @@ exScope2 = resetSrcSpan . flip fortran90Parser "" $ unlines [
   ]
 
 exScope3 :: ProgramFile A0
-exScope3 = resetSrcSpan . flip fortran90Parser "" $ unlines [
-    "module m1"
+exScope3 = resetSrcSpan . flip fortran90Parser "" $ unlines
+  [ "module m1"
   , "  implicit none"
   , "  integer :: x"
   , "contains"
@@ -411,8 +603,8 @@ exScope3 = resetSrcSpan . flip fortran90Parser "" $ unlines [
   ]
 
 common1 :: ProgramFile A0
-common1 = resetSrcSpan . flip fortran90Parser "" $ unlines [
-    "program p1"
+common1 = resetSrcSpan . flip fortran90Parser "" $ unlines
+  [ "program p1"
   , "  implicit none"
   , "  integer :: x, y"
   , "  common /c/ x, y(10)"

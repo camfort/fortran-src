@@ -5,21 +5,33 @@
 
 module Language.Fortran.PrettyPrint where
 
-import Data.Maybe (isJust, isNothing)
-import Data.List (foldl')
+import           Data.Maybe                               ( isJust
+                                                          , isNothing
+                                                          )
+import           Data.List                                ( foldl' )
 
-import Prelude hiding (EQ,LT,GT,pred,exp)
+import           Prelude                           hiding ( EQ
+                                                          , LT
+                                                          , GT
+                                                          , pred
+                                                          , exp
+                                                          )
 
-import Language.Fortran.AST
-import Language.Fortran.ParserMonad
-import Language.Fortran.Util.FirstParameter
+import           Language.Fortran.AST
+import           Language.Fortran.ParserMonad
+import           Language.Fortran.Util.FirstParameter
 
-import Text.PrettyPrint
+import           Text.PrettyPrint
 
 tooOld :: FortranVersion -> String -> FortranVersion -> a
-tooOld currentVersion featureName featureVersion = error $
-    featureName ++ " was introduced in " ++ show featureVersion ++
-    ". You called pretty print with " ++ show currentVersion ++ "."
+tooOld currentVersion featureName featureVersion =
+  error
+    $  featureName
+    ++ " was introduced in "
+    ++ show featureVersion
+    ++ ". You called pretty print with "
+    ++ show currentVersion
+    ++ "."
 
 (<?>) :: Doc -> Doc -> Doc
 doc1 <?> doc2 = if doc1 == empty || doc2 == empty then empty else doc1 <> doc2
@@ -35,15 +47,14 @@ newline = char '\n'
 type Indentation = Maybe Int
 
 incIndentation :: Indentation -> Indentation
-incIndentation indentation = (+2) <$> indentation
+incIndentation indentation = (+ 2) <$> indentation
 
 indent :: Indentation -> Doc -> Doc
-indent Nothing d = d
+indent Nothing  d = d
 indent (Just i) d = text (replicate i ' ') <> d
 
 overlay :: Doc -> Doc -> Doc
-overlay top bottom = text $ top' ++ drop (length top') (render bottom)
-  where top' = render top
+overlay top bottom = text $ top' ++ drop (length top') (render bottom) where top' = render top
 
 fixedForm :: Maybe Int
 fixedForm = Just 6
@@ -183,11 +194,10 @@ instance IndentablePretty (ProgramUnit a) where
 
 endGen :: Pretty a => FortranVersion -> Doc -> a -> Indentation -> Doc
 endGen v constructName name i = indent i $ "end" <+> middle <> newline
-  where
-    middle
-      | v < Fortran77 = empty
-      | v < Fortran90 = constructName
-      | otherwise = constructName <?+> pprint' v name
+ where
+  middle | v < Fortran77 = empty
+         | v < Fortran90 = constructName
+         | otherwise     = constructName <?+> pprint' v name
 
 instance IndentablePretty [Block a] where
     pprint v bs i = foldl' (\b a -> b <> pprint v a i) empty bs
