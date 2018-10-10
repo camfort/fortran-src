@@ -752,6 +752,8 @@ showAttr (AttrOptional _ _) = "optional"
 showAttr (AttrPointer _ _) = "pointer"
 showAttr (AttrSave _ _) = "save"
 showAttr (AttrTarget _ _) = "target"
+showAttr (AttrBind _ _ Nothing) = "bind(c)"
+showAttr (AttrBind _ _ (Just e)) = "bind(c,name=" ++ showExpr e ++ ")"
 
 showLab :: Maybe (Expression a) -> String
 showLab a =
@@ -766,6 +768,7 @@ showValue (ValIntrinsic v)      = v
 showValue (ValInteger v)        = v
 showValue (ValReal v)           = v
 showValue (ValComplex e1 e2)    = "( " ++ showExpr e1 ++ " , " ++ showExpr e2 ++ " )"
+showValue (ValString s)         = '\"':s ++ "\"" -- FIXME: need escaping for strings
 showValue _                     = ""
 
 showExpr :: Expression a -> String
@@ -813,8 +816,10 @@ showBaseType (TypeCharacter l k) = case (l, k) of
   (Just cl, Nothing) -> "character(" ++ showCharLen cl ++ ")"
   (Nothing, Just ki) -> "character(kind=" ++ ki ++ ")"
   (Nothing, Nothing) -> "character"
-showBaseType (TypeCustom s)      = s
+showBaseType (TypeCustom s)      = "type(" ++ s ++ ")"
 showBaseType TypeByte            = "byte"
+showBaseType ClassStar           = "class(*)"
+showBaseType (ClassCustom s)     = "class(" ++ s ++ ")"
 
 showCharLen :: CharacterLen -> String
 showCharLen CharLenStar = "*"
