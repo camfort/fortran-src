@@ -65,6 +65,8 @@ data BaseType =
   | TypeLogical
   | TypeCharacter (Maybe CharacterLen) (Maybe String) -- ^ len and kind, if specified
   | TypeCustom String
+  | ClassStar
+  | ClassCustom String
   | TypeByte
   deriving (Ord, Eq, Show, Data, Typeable, Generic)
 
@@ -252,6 +254,7 @@ data Block a =
 
   | BlInterface a SrcSpan
                 (Maybe (Expression a))       -- label
+                Bool                         -- abstract?
                 [ ProgramUnit a ]            -- Routine decls. in the interface
                 [ Block a ]                  -- Module procedures
 
@@ -331,6 +334,7 @@ data Statement a  =
   | StEndWhere            a SrcSpan
   | StUse                 a SrcSpan (Expression a) (Maybe ModuleNature) Only (Maybe (AList Use a))
   | StModuleProcedure     a SrcSpan (AList Expression a)
+  | StProcedure           a SrcSpan (Maybe (ProcInterface a)) (Maybe (Attribute a)) (AList ProcDecl a)
   | StType                a SrcSpan (Maybe (AList Attribute a)) String
   | StEndType             a SrcSpan (Maybe String)
   | StSequence            a SrcSpan
@@ -340,6 +344,15 @@ data Statement a  =
   -- Following is a temporary solution to a complicated FORMAT statement
   -- parsing problem.
   | StFormatBogus         a SrcSpan String
+  deriving (Eq, Show, Data, Typeable, Generic, Functor)
+
+-- R1214 proc-decl is procedure-entity-name [=> null-init]
+data ProcDecl a = ProcDecl a SrcSpan (Expression a) (Maybe (Expression a))
+  deriving (Eq, Show, Data, Typeable, Generic, Functor)
+
+-- R1212 proc-interface is interface-name or declaration-type-spec
+data ProcInterface a = ProcInterfaceName a SrcSpan (Expression a)
+                     | ProcInterfaceType a SrcSpan (TypeSpec a)
   deriving (Eq, Show, Data, Typeable, Generic, Functor)
 
 data ForallHeader a = ForallHeader
@@ -376,6 +389,7 @@ data Attribute a =
   | AttrPointer a SrcSpan
   | AttrSave a SrcSpan
   | AttrTarget a SrcSpan
+  | AttrBind a SrcSpan (Maybe (Expression a))
   deriving (Eq, Show, Data, Typeable, Generic, Functor)
 
 data Intent = In | Out | InOut
@@ -561,6 +575,8 @@ instance FirstParameter (Statement a) a
 instance FirstParameter (Argument a) a
 instance FirstParameter (Use a) a
 instance FirstParameter (TypeSpec a) a
+instance FirstParameter (ProcDecl a) a
+instance FirstParameter (ProcInterface a) a
 instance FirstParameter (Selector a) a
 instance FirstParameter (Attribute a) a
 instance FirstParameter (ImpList a) a
@@ -586,6 +602,8 @@ instance SecondParameter (Statement a) SrcSpan
 instance SecondParameter (Argument a) SrcSpan
 instance SecondParameter (Use a) SrcSpan
 instance SecondParameter (TypeSpec a) SrcSpan
+instance SecondParameter (ProcDecl a) SrcSpan
+instance SecondParameter (ProcInterface a) SrcSpan
 instance SecondParameter (Selector a) SrcSpan
 instance SecondParameter (Attribute a) SrcSpan
 instance SecondParameter (ImpList a) SrcSpan
@@ -610,6 +628,8 @@ instance Annotated Statement
 instance Annotated Argument
 instance Annotated Use
 instance Annotated TypeSpec
+instance Annotated ProcDecl
+instance Annotated ProcInterface
 instance Annotated Selector
 instance Annotated Attribute
 instance Annotated ImpList
@@ -635,6 +655,8 @@ instance Spanned (Argument a)
 instance Spanned (Use a)
 instance Spanned (Attribute a)
 instance Spanned (TypeSpec a)
+instance Spanned (ProcDecl a)
+instance Spanned (ProcInterface a)
 instance Spanned (Selector a)
 instance Spanned (ImpList a)
 instance Spanned (ImpElement a)
@@ -806,6 +828,8 @@ instance Out a => Out (ProgramUnit a)
 instance Out a => Out (PUFunctionOpt a)
 instance (Out a, Out (t a)) => Out (AList t a)
 instance Out a => Out (Statement a)
+instance Out a => Out (ProcDecl a)
+instance Out a => Out (ProcInterface a)
 instance Out Only
 instance Out ModuleNature
 instance Out a => Out (Argument a)

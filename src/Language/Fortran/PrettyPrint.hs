@@ -250,9 +250,9 @@ instance IndentablePretty (Block a) where
           pprint v block (incIndentation nextI)
         nextI = incIndentation i
 
-    pprint v (BlInterface _ _ mLabel pus moduleProcs) i
+    pprint v (BlInterface _ _ mLabel abstractp pus moduleProcs) i
       | v >= Fortran90 =
-        indent i (pprint' v mLabel <+> "interface" <> newline) <>
+        indent i (pprint' v mLabel <+> abstract <>  "interface" <> newline) <>
         pprint v pus nextI <>
         newline <>
         pprint v moduleProcs nextI <>
@@ -260,6 +260,8 @@ instance IndentablePretty (Block a) where
       | otherwise = tooOld v "Interface" Fortran90
       where
         nextI = incIndentation i
+        abstract | v >= Fortran2003 && abstractp = "abstract "
+                 | otherwise = empty
 
     pprint v (BlDo _ _ mLabel mn tl doSpec body el) i
       | v >= Fortran77Extended =
@@ -342,6 +344,12 @@ instance Pretty BaseType where
     pprint' v TypeByte
       | v >= Fortran77Extended = "byte"
       | otherwise = tooOld v "Byte" Fortran77Extended
+    pprint' v ClassStar
+      | v >= Fortran2003 = "class(*)"
+      | otherwise = tooOld v "Class(*)" Fortran2003
+    pprint' v (ClassCustom str)
+      | v >= Fortran2003 = "class" <> parens (text str)
+      | otherwise = tooOld v "Class(spec)" Fortran2003
 
 instance Pretty CharacterLen where
   pprint' _ CharLenStar = "*"
@@ -673,6 +681,13 @@ instance Pretty (Statement a) where
         "module procedure" <+> pprint' v procedures
       | otherwise = tooOld v "Module procedure" Fortran90
 
+    pprint' v (StProcedure _ _ mProcInterface mAttribute (AList _ _ procDecls))
+      | v >= Fortran2003 =
+        "procedure" <> parens (pprint' v mProcInterface) <>
+        comma <?+> pprint' v mAttribute <+> "::" <?+>
+        commaSep (map (pprint' v) procDecls)
+      | otherwise = tooOld v "Procedure" Fortran2003
+
     pprint' v (StType _ _ attrs name)
       | v >= Fortran90 = "type" <+> pprint' v attrs <+> pprint' v name
       | otherwise  = tooOld v "Derived type" Fortran90
@@ -689,6 +704,14 @@ instance Pretty (Statement a) where
     pprint' _ StForall{} = error "unhandled pprint StForall"
     pprint' _ StForallStatement{} = error "unhandled pprint StForallStatement"
     pprint' _ StEndForall{} = error "unhandled pprint StEndForall"
+
+instance Pretty (ProcInterface a) where
+  pprint' v (ProcInterfaceName _ _ e) = pprint' v e
+  pprint' v (ProcInterfaceType _ _ t) = pprint' v t
+
+instance Pretty (ProcDecl a) where
+  pprint' v (ProcDecl _ _ e1 (Just e2)) = pprint' v e1 <+> "=>" <+> pprint' v e2
+  pprint' v (ProcDecl _ _ e1 Nothing)   = pprint' v e1
 
 instance Pretty Only where
     pprint' _ Exclusive = "only" <> colon
@@ -727,6 +750,7 @@ instance Pretty (Attribute a) where
           AttrPointer _ _ -> "pointer"
           AttrSave _ _ -> "save"
           AttrTarget _ _ -> "target"
+          AttrBind _ _ me -> "bind" <> parens ("c" <> comma <?+> pprint' v me)
       | otherwise = tooOld v "Declaration attribute" Fortran90
 
 instance Pretty Intent where

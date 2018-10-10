@@ -288,9 +288,9 @@ BLOCK :: { Block A0 }
   { BlStatement () (getTransSpan $1 $2) (Just $1) $2 }
 | STATEMENT MAYBE_COMMENT NEWLINE { BlStatement () (getSpan $1) Nothing $1 }
 | interface MAYBE_EXPRESSION NEWLINE SUBPROGRAM_UNITS2 MODULE_PROCEDURES endInterface NEWLINE
-  { BlInterface () (getTransSpan $1 $7) $2 $4 $5 }
+  { BlInterface () (getTransSpan $1 $7) $2 False $4 $5 }
 | interface MAYBE_EXPRESSION NEWLINE MODULE_PROCEDURES endInterface NEWLINE
-  { BlInterface () (getTransSpan $1 $6) $2 [ ] $4 }
+  { BlInterface () (getTransSpan $1 $6) $2 False [ ] $4 }
 | COMMENT_BLOCK { $1 }
 
 MAYBE_EXPRESSION :: { Maybe (Expression A0) }

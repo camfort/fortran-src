@@ -93,9 +93,11 @@ import Debug.Trace
   contains                    { TContains _ }
   use                         { TUse _ }
   only                        { TOnly _ }
+  abstract                    { TAbstract _ }
   interface                   { TInterface _ }
   endInterface                { TEndInterface _ }
   moduleProcedure             { TModuleProcedure _ }
+  procedure                   { TProcedure _ }
   assignment                  { TAssignment _ }
   operator                    { TOperator _ }
   call                        { TCall _ }
@@ -115,6 +117,9 @@ import Debug.Trace
   pointer                     { TPointer _ }
   save                        { TSave _ }
   target                      { TTarget _ }
+  bind                        { TBind _ }
+  'c'                         { TC _ }
+  name                        { TName _ }
   in                          { TIn _ }
   out                         { TOut _ }
   inout                       { TInOut _ }
@@ -150,6 +155,7 @@ import Debug.Trace
   endwhere                    { TEndWhere _ }
   type                        { TType _ }
   endType                     { TEndType _ }
+  class                       { TClass _ }
   sequence                    { TSequence _ }
   kind                        { TKind _ }
   len                         { TLen _ }
@@ -322,11 +328,15 @@ BLOCK :: { Block A0 }
 : INTEGER_LITERAL STATEMENT MAYBE_COMMENT NEWLINE
   { BlStatement () (getTransSpan $1 $2) (Just $1) $2 }
 | STATEMENT MAYBE_COMMENT NEWLINE { BlStatement () (getSpan $1) Nothing $1 }
-| interface MAYBE_EXPRESSION NEWLINE SUBPROGRAM_UNITS2 MODULE_PROCEDURES endInterface NEWLINE
-  { BlInterface () (getTransSpan $1 $7) $2 $4 $5 }
-| interface MAYBE_EXPRESSION NEWLINE MODULE_PROCEDURES endInterface NEWLINE
-  { BlInterface () (getTransSpan $1 $6) $2 [ ] $4 }
+| ABSTRACTP interface MAYBE_EXPRESSION NEWLINE SUBPROGRAM_UNITS2 MODULE_PROCEDURES endInterface NEWLINE
+  { BlInterface () (getTransSpan $2 $8) $3 $1 $5 $6 }
+| ABSTRACTP interface MAYBE_EXPRESSION NEWLINE MODULE_PROCEDURES endInterface NEWLINE
+  { BlInterface () (getTransSpan $2 $7) $3 $1 [ ] $5 }
 | COMMENT_BLOCK { $1 }
+
+ABSTRACTP :: { Bool }
+: abstract { True }
+| {- EMPTY -} { False }
 
 MAYBE_EXPRESSION :: { Maybe (Expression A0) }
 : EXPRESSION { Just $1 }
@@ -387,6 +397,12 @@ NONEXECUTABLE_STATEMENT :: { Statement A0 }
   { let saveAList = (fromReverseList $3)
     in StSave () (getTransSpan $1 saveAList) (Just saveAList) }
 | save { StSave () (getSpan $1) Nothing }
+| procedure '(' MAYBE_PROC_INTERFACE ')' ',' ATTRIBUTE_SPEC '::' PROC_DECLS
+  { let declAList = fromReverseList $8
+    in StProcedure () (getTransSpan $1 $8) $3 (Just $6) declAList }
+| procedure '(' MAYBE_PROC_INTERFACE ')' MAYBE_DCOLON PROC_DECLS
+  { let declAList = fromReverseList $6
+    in StProcedure () (getTransSpan $1 $6) $3 Nothing declAList }
 | dimension MAYBE_DCOLON DECLARATOR_LIST
   { let declAList = fromReverseList $3
     in StDimension () (getTransSpan $1 declAList) declAList }
@@ -452,6 +468,19 @@ NONEXECUTABLE_STATEMENT :: { Statement A0 }
 -- Must be fixed in the future. TODO
 | format blob
   { let TBlob s blob = $2 in StFormatBogus () (getTransSpan $1 s) blob }
+
+MAYBE_PROC_INTERFACE :: { Maybe (ProcInterface A0) }
+: TYPE_SPEC             { Just $ ProcInterfaceType () (getSpan $1) $1 }
+| VARIABLE              { Just $ ProcInterfaceName () (getSpan $1) $1 }
+| {- EMPTY -}           { Nothing }
+
+PROC_DECLS :: { [ProcDecl A0] }
+: PROC_DECLS ',' PROC_DECL { $3 : $1 }
+| PROC_DECL                { [ $1 ]  }
+
+PROC_DECL :: { ProcDecl A0 }
+: VARIABLE '=>' EXPRESSION { ProcDecl () (getTransSpan $1 $3) $1 (Just $3) }
+| VARIABLE                 { ProcDecl () (getSpan $1) $1 Nothing }
 
 MODULE_NATURE :: { Maybe ModuleNature }
 : ',' intrinsic    '::' { Just ModIntrinsic }
@@ -798,6 +827,9 @@ ATTRIBUTE_SPEC :: { Attribute A0 }
 | parameter { AttrParameter () (getSpan $1) }
 | save { AttrSave () (getSpan $1) }
 | target { AttrTarget () (getSpan $1) }
+-- R509
+| bind '(' 'c' ',' name '=' EXPRESSION ')' { AttrBind () (getTransSpan $1 $8) (Just $7) }
+| bind '(' 'c' ')' { AttrBind () (getTransSpan $1 $4) Nothing }
 
 INTENT_CHOICE :: { Intent } : in { In } | out { Out } | inout { InOut }
 
@@ -887,6 +919,14 @@ TYPE_SPEC :: { TypeSpec A0 }
 | type '(' id ')'
   { let TId _ id = $3
     in TypeSpec () (getTransSpan $1 $4) (TypeCustom id) Nothing }
+-- R502
+| class '(' '*' ')'       { TypeSpec () (getSpan ($1, $4)) ClassStar Nothing }
+-- FIXME: this (and TypeCustom) can accept parameterised types. See type-param-value.
+-- Needs refactoring as this is used in various parts of the spec to consolidate
+-- uses of ':', '*' and scalar-int-exp.
+| class '(' id ')'
+  { let TId _ id = $3
+    in TypeSpec () (getSpan ($1, $4)) (ClassCustom id) Nothing }
 
 KIND_SELECTOR :: { Maybe (Selector A0) }
 : '(' EXPRESSION ')'

@@ -121,8 +121,11 @@ tokens :-
 <0> "contains"                                    { addSpan TContains }
 <0> "use"                                         { addSpan TUse }
 <scN> "only" / { useStP }                         { addSpan TOnly }
+<0> "abstract"                                    { addSpan TAbstract }
 <0> "interface"                                   { addSpan TInterface }
+<scN> "interface" / { genericSpecP }              { addSpan TInterface }
 <0> "end"\ *"interface"                           { addSpan TEndInterface }
+<0> "procedure"                                   { addSpan TProcedure }
 <0> "module"\ \ *"procedure"                      { addSpan TModuleProcedure }
 <scN> "assignment"\ *"("\ *"="\ *")" / { genericSpecP } { addSpan TAssignment }
 <scN> "operator" / { genericSpecP }               { addSpan TOperator }
@@ -134,6 +137,7 @@ tokens :-
 -- Type def related
 <0,scT> "type"                                    { addSpan TType }
 <0> "end"\ *"type"                                { addSpan TEndType }
+<scN> "class" / { followsProcedureP }             { addSpan TClass }
 <0> "sequence"                                    { addSpan TSequence }
 
 -- Intrinsic types
@@ -174,11 +178,15 @@ tokens :-
 <scN> "save" / { attributeP }                     { addSpan TSave }
 <0> "target"                                      { addSpan TTarget }
 <scN> "target" / { attributeP }                   { addSpan TTarget }
+<0> "bind"                                        { addSpan TBind }
+<scN> "bind" / { attributeP }                     { addSpan TBind }
 
 -- Attribute values
 <scN> "in"\ *"out" / { followsIntentP }           { addSpan TInOut }
 <scN> "in" / { followsIntentP }                   { addSpan TIn }
 <scN> "out" / { followsIntentP }                  { addSpan TOut }
+<scN> "name" / { followsCP }                      { addSpan TName }
+<scN> "c" / { followsBindP }                      { addSpan TC }
 
 -- Control flow
 <0> "do"                                          { addSpan TDo }
@@ -378,7 +386,8 @@ attributeP _ _ _ ai =  followsComma && precedesDoubleColon ai && startsWithTypeS
       | otherwise = False
     startsWithTypeSpec
       | (token:_) <- prevTokens =
-        isTypeSpec token || fillConstr TType == toConstr token || fillConstr TUse == toConstr token
+        isTypeSpec token || fillConstr TType == toConstr token ||
+        fillConstr TUse == toConstr token || fillConstr TProcedure == toConstr token
       | otherwise = False
     prevTokens = reverse . aiPreviousTokensInLine $ ai
 
@@ -391,7 +400,7 @@ constructNameP user _ _ ai =
 genericSpecP :: User -> AlexInput -> Int -> AlexInput -> Bool
 genericSpecP _ _ _ ai = Just True == do
   constr <- prevTokenConstr ai
-  if constr `elem` fmap fillConstr [ TInterface, TPublic, TPrivate ]
+  if constr `elem` fmap fillConstr [ TAbstract, TInterface, TPublic, TPrivate ]
   then return True
   else if constr `elem` fmap fillConstr [ TComma, TDoubleColon ]
   then return $ seenConstr (fillConstr TPublic) ai || seenConstr (fillConstr TPrivate) ai
@@ -433,6 +442,21 @@ followsIntentP :: User -> AlexInput -> Int -> AlexInput -> Bool
 followsIntentP _ _ _ ai =
   (map toConstr . take 2 . aiPreviousTokensInLine) ai ==
   map fillConstr [ TLeftPar, TIntent ]
+
+followsProcedureP :: User -> AlexInput -> Int -> AlexInput -> Bool
+followsProcedureP _ _ _ ai =
+  (map toConstr . take 2 . aiPreviousTokensInLine) ai ==
+  map fillConstr [ TLeftPar, TProcedure ]
+
+followsBindP :: User -> AlexInput -> Int -> AlexInput -> Bool
+followsBindP _ _ _ ai =
+  (map toConstr . take 2 . aiPreviousTokensInLine) ai ==
+  map fillConstr [ TLeftPar, TBind ]
+
+followsCP :: User -> AlexInput -> Int -> AlexInput -> Bool
+followsCP _ _ _ ai =
+  (map toConstr . take 2 . aiPreviousTokensInLine) ai ==
+  map fillConstr [ TComma, TC ]
 
 useStP :: User -> AlexInput -> Int -> AlexInput -> Bool
 useStP _ _ _ ai = seenConstr (toConstr $ TUse undefined) ai
@@ -1017,8 +1041,10 @@ data Token =
   | TContains           SrcSpan
   | TUse                SrcSpan
   | TOnly               SrcSpan
+  | TAbstract           SrcSpan
   | TInterface          SrcSpan
   | TEndInterface       SrcSpan
+  | TProcedure          SrcSpan
   | TModuleProcedure    SrcSpan
   | TAssignment         SrcSpan
   | TOperator           SrcSpan
@@ -1040,6 +1066,9 @@ data Token =
   | TPointer            SrcSpan
   | TSave               SrcSpan
   | TTarget             SrcSpan
+  | TBind               SrcSpan
+  | TName               SrcSpan
+  | TC                  SrcSpan
   -- Attribute values
   | TIn                 SrcSpan
   | TOut                SrcSpan
@@ -1088,6 +1117,7 @@ data Token =
   | TType               SrcSpan
   | TEndType            SrcSpan
   | TSequence           SrcSpan
+  | TClass              SrcSpan
   -- Selector
   | TKind               SrcSpan
   | TLen                SrcSpan

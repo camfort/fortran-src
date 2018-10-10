@@ -11,6 +11,10 @@ import qualified Data.ByteString.Char8 as B
 collectF90 :: String -> [ Token ]
 collectF90 = collectFreeTokens Fortran90 . B.pack
 
+collectF03 :: String -> [ Token ]
+collectF03 = collectFreeTokens Fortran2003 . B.pack
+
+
 pseudoAssign :: (SrcSpan -> Token) -> [Token]
 pseudoAssign token = fmap ($u) [ flip TId "i", TOpAssign, token, TEOF ]
 
@@ -86,6 +90,16 @@ spec =
                               , flip TIntegerLiteral "10" , TStar
                               , flip TIntegerLiteral "2", TRightPar, TFunction
                               , flip TId "x", TEOF ]
+
+        it "lexes class decl (name)" $
+          shouldBe' (collectF03 "procedure (class(c))") $
+                    fmap ($u) [ TProcedure, TLeftPar
+                              , TClass, TLeftPar, flip TId "c", TRightPar, TRightPar, TEOF ]
+
+        it "lexes class decl (*)" $
+          shouldBe' (collectF03 "procedure (class(*))") $
+                    fmap ($u) [ TProcedure, TLeftPar
+                              , TClass, TLeftPar, TStar, TRightPar, TRightPar, TEOF ]
 
       describe "Function" $ do
         it "lexes 'function fx ( a, b, c )'" $
@@ -259,3 +273,9 @@ spec =
         it "Empty comment" $
           shouldBe' (collectF90 "!\n") $
                     ($u) <$> [ flip TComment "", TNewline , TEOF ]
+      describe "Procedure" $ do
+        it "Procedure 1" $
+          shouldBe' (collectF03 "PROCEDURE(a), SAVE :: b => c()") $
+            ($u) <$> [ TProcedure, TLeftPar, flip TId "a", TRightPar
+                     , TComma, TSave, TDoubleColon
+                     , flip TId "b", TArrow, flip TId "c", TLeftPar, TRightPar, TEOF ]
