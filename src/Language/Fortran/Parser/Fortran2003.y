@@ -93,6 +93,7 @@ import Debug.Trace
   contains                    { TContains _ }
   use                         { TUse _ }
   only                        { TOnly _ }
+  import                      { TImport _ }
   abstract                    { TAbstract _ }
   interface                   { TInterface _ }
   endInterface                { TEndInterface _ }
@@ -322,6 +323,10 @@ BLOCK_DATA_END :: { Token }
 
 NAME :: { Name } : id { let (TId _ name) = $1 in name }
 
+IMPORT_NAME_LIST :: { [Expression A0] }
+: IMPORT_NAME_LIST ',' VARIABLE { $3:$1 }
+| VARIABLE { [$1] }
+
 BLOCKS :: { [ Block A0 ] } : BLOCKS BLOCK { $2 : $1 } | {- EMPTY -} { [ ] }
 
 BLOCK :: { Block A0 }
@@ -464,6 +469,9 @@ NONEXECUTABLE_STATEMENT :: { Statement A0 }
 | endType id
   { let TId span id = $2 in StEndType () (getTransSpan $1 span) (Just id) }
 | include STRING { StInclude () (getTransSpan $1 $2) $2 Nothing }
+-- R1209
+| import '::' IMPORT_NAME_LIST { StImport () (getTransSpan $1 $3) (fromReverseList $3) }
+| import IMPORT_NAME_LIST      { StImport () (getTransSpan $1 $2) (fromReverseList $2) }
 -- Following is a fake node to make arbitrary FORMAT statements parsable.
 -- Must be fixed in the future. TODO
 | format blob

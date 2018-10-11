@@ -121,6 +121,7 @@ tokens :-
 <0> "contains"                                    { addSpan TContains }
 <0> "use"                                         { addSpan TUse }
 <scN> "only" / { useStP }                         { addSpan TOnly }
+<0> "import"                                      { addSpan TImport }
 <0> "abstract"                                    { addSpan TAbstract }
 <0> "interface"                                   { addSpan TInterface }
 <scN> "interface" / { genericSpecP }              { addSpan TInterface }
@@ -1029,7 +1030,7 @@ data Token =
   | TFunction           SrcSpan
   | TEndFunction        SrcSpan
   | TResult             SrcSpan
-  | TPure          SrcSpan
+  | TPure               SrcSpan
   | TElemental          SrcSpan
   | TRecursive          SrcSpan
   | TSubroutine         SrcSpan
@@ -1041,6 +1042,7 @@ data Token =
   | TContains           SrcSpan
   | TUse                SrcSpan
   | TOnly               SrcSpan
+  | TImport             SrcSpan
   | TAbstract           SrcSpan
   | TInterface          SrcSpan
   | TEndInterface       SrcSpan

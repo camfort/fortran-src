@@ -78,3 +78,8 @@ spec =
                                   (AList () u [ProcDecl () u (varGen "b") (Just call)
                                               ,ProcDecl () u (varGen "d") (Just call)])
         sParser "PROCEDURE(CLASS(e)), BIND(C) :: b => c(), d => c()" `shouldBe'` st
+
+      it "import statements" $ do
+        let st = StImport () u (AList () u [varGen "a", varGen "b"])
+        sParser "import a, b" `shouldBe'` st
+        sParser "import :: a, b" `shouldBe'` st

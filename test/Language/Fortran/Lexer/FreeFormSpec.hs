@@ -91,16 +91,6 @@ spec =
                               , flip TIntegerLiteral "2", TRightPar, TFunction
                               , flip TId "x", TEOF ]
 
-        it "lexes class decl (name)" $
-          shouldBe' (collectF03 "procedure (class(c))") $
-                    fmap ($u) [ TProcedure, TLeftPar
-                              , TClass, TLeftPar, flip TId "c", TRightPar, TRightPar, TEOF ]
-
-        it "lexes class decl (*)" $
-          shouldBe' (collectF03 "procedure (class(*))") $
-                    fmap ($u) [ TProcedure, TLeftPar
-                              , TClass, TLeftPar, TStar, TRightPar, TRightPar, TEOF ]
-
       describe "Function" $ do
         it "lexes 'function fx ( a, b, c )'" $
           shouldBe' (collectF90 "function fx ( a, b )") $
@@ -273,9 +263,30 @@ spec =
         it "Empty comment" $
           shouldBe' (collectF90 "!\n") $
                     ($u) <$> [ flip TComment "", TNewline , TEOF ]
-      describe "Procedure" $ do
-        it "Procedure 1" $
+
+      describe "Fortran2003" $ do
+        it "lexes procedures" $
           shouldBe' (collectF03 "PROCEDURE(a), SAVE :: b => c()") $
             ($u) <$> [ TProcedure, TLeftPar, flip TId "a", TRightPar
                      , TComma, TSave, TDoubleColon
                      , flip TId "b", TArrow, flip TId "c", TLeftPar, TRightPar, TEOF ]
+
+        it "lexes procedures with bind" $
+          shouldBe' (collectF03 "PROCEDURE(a), BIND(C, NAME=\"d\") :: b => c()") $
+            ($u) <$> [ TProcedure, TLeftPar, flip TId "a", TRightPar
+                     , TComma, TBind, TLeftPar, TC, TComma, TName, TOpAssign, flip TString "d", TRightPar, TDoubleColon
+                     , flip TId "b", TArrow, flip TId "c", TLeftPar, TRightPar, TEOF ]
+
+        it "lexes class decl (name)" $
+          shouldBe' (collectF03 "procedure (class(c))") $
+                    fmap ($u) [ TProcedure, TLeftPar
+                              , TClass, TLeftPar, flip TId "c", TRightPar, TRightPar, TEOF ]
+
+        it "lexes class decl (*)" $
+          shouldBe' (collectF03 "procedure (class(*))") $
+                    fmap ($u) [ TProcedure, TLeftPar
+                              , TClass, TLeftPar, TStar, TRightPar, TRightPar, TEOF ]
+
+        it "lexes import statements" $
+          shouldBe' (collectF03 "import :: a, b") $
+                    fmap ($u) [ TImport, TDoubleColon, flip TId "a", TComma, flip TId "b", TEOF ]

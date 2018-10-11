@@ -700,6 +700,10 @@ instance Pretty (Statement a) where
       | v >= Fortran90 = "sequence"
       | otherwise = tooOld v "Sequence" Fortran90
 
+    pprint' v (StImport _ _ (AList _ _ vs))
+      | v >= Fortran2003 = "import" <+> commaSep (map (pprint' v) vs)
+      | otherwise = tooOld v "Import" Fortran2003
+
     pprint' v (StFormatBogus _ _ blob) = "format" <+> pprint' v blob
     pprint' _ StForall{} = error "unhandled pprint StForall"
     pprint' _ StForallStatement{} = error "unhandled pprint StForallStatement"

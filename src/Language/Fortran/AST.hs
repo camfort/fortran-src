@@ -341,6 +341,7 @@ data Statement a  =
   | StForall              a SrcSpan (Maybe String) (ForallHeader a)
   | StForallStatement     a SrcSpan (ForallHeader a) (Statement a)
   | StEndForall           a SrcSpan (Maybe String)
+  | StImport              a SrcSpan (AList Expression a)
   -- Following is a temporary solution to a complicated FORMAT statement
   -- parsing problem.
   | StFormatBogus         a SrcSpan String
