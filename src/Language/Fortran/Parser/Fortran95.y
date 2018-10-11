@@ -10,7 +10,7 @@ import Prelude hiding (EQ,LT,GT) -- Same constructors exist in the AST
 import Control.Monad.State
 import Data.Maybe (fromMaybe, isJust)
 import Data.List (nub)
-import Data.Either (either, lefts, rights)
+import Data.Either (either, lefts, rights, partitionEithers)
 import Control.Applicative
 import qualified Data.ByteString.Char8 as B
 
@@ -31,7 +31,7 @@ import Debug.Trace
 
 %name programParser PROGRAM
 %name statementParser STATEMENT
-%name functionParser SUBPROGRAM_UNIT 
+%name functionParser SUBPROGRAM_UNIT
 %monad { LexAction }
 %lexer { lexer } { TEOF _ }
 %tokentype { Token }
@@ -240,67 +240,50 @@ SUBPROGRAM_UNITS :: { [ ProgramUnit A0 ] }
 | {- EMPTY -} { [ ] }
 
 SUBPROGRAM_UNIT :: { ProgramUnit A0 }
-: FUNCTION_SPEC function NAME MAYBE_ARGUMENTS MAYBE_COMMENT RESULT NEWLINE BLOCKS MAYBE_SUBPROGRAM_UNITS FUNCTION_END
-  {% do { unitNameCheck $10 $3;
-          let (fSpec, typeSpec) = $1 in
-          return $ PUFunction () (getTransSpan $2 $10) typeSpec fSpec $3 $4 $6 (reverse $8) $9 } }
-| FUNCTION_SPEC subroutine NAME MAYBE_ARGUMENTS MAYBE_COMMENT NEWLINE BLOCKS MAYBE_SUBPROGRAM_UNITS SUBROUTINE_END
+: PREFIXES function NAME MAYBE_ARGUMENTS MAYBE_RESULT NEWLINE BLOCKS MAYBE_SUBPROGRAM_UNITS FUNCTION_END
   {% do { unitNameCheck $9 $3;
-          let (fSpec, _) = $1 in
-          return $ PUSubroutine () (getTransSpan $2 $9) fSpec $3 $4 (reverse $7) $8 } }
+          let (pfxs, typeSpec) = case partitionEithers $1 of
+                                   { (ps, t:_) -> (fromReverseList' ps, Just t)
+                                   ; (ps, [])  -> (fromReverseList' ps, Nothing) } in
+          let sfx = emptySuffixes in
+          let ss = if null $1 then getTransSpan $2 $9 else getTransSpan $1 $9 in
+          if validPrefixSuffix (pfxs, sfx) then
+            return $ PUFunction () ss typeSpec (pfxs, sfx) $3 $4 $5 (reverse $7) $8
+          else fail "Cannot specify elemental along with recursive." } }
+| PREFIXES subroutine NAME MAYBE_ARGUMENTS MAYBE_COMMENT NEWLINE BLOCKS MAYBE_SUBPROGRAM_UNITS SUBROUTINE_END
+  {% do { unitNameCheck $9 $3;
+          (pfxs, typeSpec) <- case partitionEithers $1 of
+                                { (ps, t:_) -> fail "Subroutines cannot have return types."
+                                ; (ps, [])  -> return (fromReverseList' ps, Nothing) };
+          let sfx = emptySuffixes in
+          let ss = if null $1 then getTransSpan $2 $9 else getTransSpan $1 $9 in
+          if validPrefixSuffix (pfxs, sfx) then
+            return $ PUSubroutine () ss (pfxs, sfx) $3 $4 (reverse $7) $8
+          else fail "Cannot specify elemental along with recursive." } }
 | comment { let (TComment s c) = $1 in PUComment () s (Comment c) }
-| recursive RECURSIVE_SUBPROGRAM_UNIT { setSpan (getTransSpan $1 $2) $2 }
 
-RECURSIVE_SUBPROGRAM_UNIT :: { ProgramUnit A0 }
-: FUNCTION_SPEC function NAME MAYBE_ARGUMENTS MAYBE_COMMENT RESULT NEWLINE BLOCKS MAYBE_SUBPROGRAM_UNITS FUNCTION_END
-  {% do
-    unitNameCheck $10 $3
-    fSpec <- either fail return $ fst $1 `buildPUFunctionOpt`  None () (getSpan $ fst $1) True
-    let typeSpec = snd $1
-    return $ PUFunction () (getTransSpan $2 $10) typeSpec fSpec $3 $4 $6 (reverse $8) $9
-  }
-| FUNCTION_SPEC subroutine NAME MAYBE_ARGUMENTS MAYBE_COMMENT NEWLINE BLOCKS MAYBE_SUBPROGRAM_UNITS SUBROUTINE_END
-  {% do
-    unitNameCheck $9 $3
-    fSpec <- either fail return $ fst $1 `buildPUFunctionOpt` None () (getSpan $ fst $1) True
-    return $ PUSubroutine () (getTransSpan $2 $9) fSpec $3 $4 (reverse $7) $8
-  }
+-- (Fortran2003) R1227, Fortran95 (...)
+PREFIXES :: { [Either (Prefix A0) (TypeSpec A0)] }
+: PREFIXES PREFIX { $2:$1 }
+| {- EMPTY -}     { [] }
 
+-- (Fortran2003) R1228, Fortran95 (...)
+PREFIX :: { Either (Prefix A0) (TypeSpec A0) }
+: recursive { Left $ PfxRecursive () (getSpan $1) }
+| elemental { Left $ PfxElemental () (getSpan $1) }
+| pure      { Left $ PfxPure      () (getSpan $1) }
+| TYPE_SPEC { Right $1 }
 
-FUNCTION_SPEC :: { (PUFunctionOpt A0, Maybe (TypeSpec A0)) }
-: PFUNCTION_SPECS {% do
-  let funcSpecs = lefts $1
-  let typeSpecs = rights $1
-  if length typeSpecs > 1
-  then fail "Specified a type spec multiple times in a function spec."
-  else if length (nub funcSpecs) /= length funcSpecs then fail "Specified a function spec multiple times."
-  else do
-    let typeSpec = case typeSpecs of
-                                  [] -> Nothing
-                                  (x:_) -> Just x
-    funcSpec <- either fail return $ buildPUFunctionOpts funcSpecs
-    return (funcSpec, typeSpec)
-  }
+RESULT :: { Expression a }
+: result '(' VARIABLE ')' { $3 }
 
-PFUNCTION_SPECS :: { [Either (PUFunctionOpt A0) (TypeSpec A0)] }
-: {- EMPTY -} { [] }
-| PFUNCTION_SPEC PFUNCTION_SPECS { $1 : $2 }
-
--- crucically, recursive cannot appear first, which is dealt with in SUBPROGRAM_UNIT
-| PFUNCTION_SPEC recursive PFUNCTION_SPECS { $1 : Left (None () (getSpan $2) True) : $3 }
-
-PFUNCTION_SPEC :: { Either (PUFunctionOpt A0) (TypeSpec A0) }
-: pure      { Left $ Pure () (getSpan $1) False }
-| elemental { Left $ Elemental () (getSpan $1) }
-| TYPE_SPEC { Right $ $1 }
+MAYBE_RESULT :: { Maybe (Expression a) }
+: RESULT      { Just $1 }
+| {- empty -} { Nothing}
 
 MAYBE_ARGUMENTS :: { Maybe (AList Expression A0) }
 : '(' MAYBE_VARIABLES ')' { $2 }
 | {- Nothing -} { Nothing }
-
-RESULT :: { Maybe (Expression a) }
-: result '(' VARIABLE ')' { Just $3 }
-| {- EMPTY -} { Nothing }
 
 PROGRAM_END :: { Token }
 : end { $1 } | endProgram { $1 } | endProgram id { $2 }
@@ -430,11 +413,11 @@ NONEXECUTABLE_STATEMENT :: { Statement A0 }
 | use VARIABLE ',' only ':' RENAME_LIST
   { let alist = fromReverseList $6
     in StUse () (getTransSpan $1 alist) $2 Nothing Exclusive (Just alist) }
-| entry VARIABLE RESULT
+| entry VARIABLE MAYBE_RESULT
   { StEntry () (getTransSpan $1 $ maybe (getSpan $2) getSpan $3) $2 Nothing $3 }
-| entry VARIABLE '(' ')' RESULT
+| entry VARIABLE '(' ')' MAYBE_RESULT
   { StEntry () (getTransSpan $1 $ maybe (getSpan $4) getSpan $5) $2 Nothing $5 }
-| entry VARIABLE '(' VARIABLES ')' RESULT
+| entry VARIABLE '(' VARIABLES ')' MAYBE_RESULT
   { StEntry () (getTransSpan $1 $ maybe (getSpan $5) getSpan $6) $2 (Just $ fromReverseList $4) $6 }
 | sequence { StSequence () (getSpan $1) }
 | type ATTRIBUTE_LIST '::' id

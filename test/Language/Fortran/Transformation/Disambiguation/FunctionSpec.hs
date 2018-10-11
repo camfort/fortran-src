@@ -105,7 +105,7 @@ ex2 = ProgramFile mi77 [ ex2pu1, ex2pu2 ]
 ex2pu1 :: ProgramUnit ()
 ex2pu1 = PUMain () u Nothing ex2pu1bs Nothing
 ex2pu2 :: ProgramUnit ()
-ex2pu2 = PUFunction () u Nothing (None () u False) "y" (Just $ AList () u [ varGen "i", varGen "j" ]) Nothing [ ] Nothing
+ex2pu2 = PUFunction () u Nothing emptyPrefixSuffix "y" (Just $ AList () u [ varGen "i", varGen "j" ]) Nothing [ ] Nothing
 ex2pu1bs :: [Block ()]
 ex2pu1bs =
   [ BlStatement () u Nothing
@@ -146,7 +146,7 @@ ex3 = ProgramFile mi77 [ ex3pu1, ex3pu2 ]
 ex3pu1 :: ProgramUnit ()
 ex3pu1 = PUMain () u Nothing ex3pu1bs Nothing
 ex3pu2 :: ProgramUnit ()
-ex3pu2 = PUFunction () u Nothing (None () u False) "y" (Just $ AList () u [ varGen "i", varGen "j" ]) Nothing [ ] Nothing
+ex3pu2 = PUFunction () u Nothing emptyPrefixSuffix "y" (Just $ AList () u [ varGen "i", varGen "j" ]) Nothing [ ] Nothing
 ex3pu1bs :: [Block ()]
 ex3pu1bs =
   [ BlStatement () u Nothing

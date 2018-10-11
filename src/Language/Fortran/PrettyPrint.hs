@@ -5,7 +5,7 @@
 
 module Language.Fortran.PrettyPrint where
 
-import Data.Maybe (isJust, isNothing)
+import Data.Maybe (isJust, isNothing, listToMaybe)
 import Data.List (foldl')
 
 import Prelude hiding (EQ,LT,GT,pred,exp)
@@ -110,60 +110,82 @@ instance IndentablePretty (ProgramUnit a) where
       where
         nextI = incIndentation i
 
-    pprint v (PUSubroutine _ _ funcSpec name mArgs body mSubs) i
-      | Pure{} <- funcSpec, v < Fortran95 = tooOld v "Pure subroutine" Fortran90
-      | Elemental _ _ <- funcSpec, v < Fortran90 = tooOld v "Elemental subroutine" Fortran90
-      | functionIsRecursive funcSpec, v < Fortran90 = tooOld v "Recursive subroutine" Fortran90
-      | isJust mSubs, v < Fortran90 = tooOld v "Subroutine subprogram" Fortran90
-      | otherwise =
+    pprint v (PUSubroutine _ _ (mpfxs, msfxs) name mArgs body mSubs) i =
         indent curI
-          ((case funcSpec of
-            (Elemental _ _) -> "elemental"
-            Pure{} -> "pure"
-            _ -> empty) <+>
-          (if functionIsRecursive funcSpec then "recursive" else empty) <+>
-          "subroutine" <+> text name <>
-          lparen <?> pprint' v mArgs <?> rparen <> newline) <>
+          (prefix <+> "subroutine" <+> text name <>
+          lparen <?> pprint' v mArgs <?> rparen <+> suffix <> newline) <>
         pprint v body nextI <>
         newline <?>
         indent nextI ("contains" <> newline) <?>
         newline <?>
         pprint v mSubs nextI <>
         endGen v "subroutine" name curI
-        where
-          curI = if v >= Fortran90 then i else fixedForm
-          nextI = if v >= Fortran90
-                    then incIndentation i
-                    else incIndentation fixedForm
+      where
+        convPfx (PfxElemental _ _)
+          | v >= Fortran95 = "elemental"
+          | otherwise      = tooOld v "Elemental function" Fortran95
+        convPfx (PfxPure _ _)
+          | v >= Fortran95 = "pure"
+          | otherwise      = tooOld v "Pure function" Fortran95
+        convPfx (PfxRecursive _ _)
+          | v >= Fortran90 = "recursive"
+          | otherwise      = tooOld v "Recursive function" Fortran90
 
-    pprint v (PUFunction _ _ mRetType fSpec name mArgs mRes body mSubs) i
-      | (Elemental _ _) <- fSpec, v < Fortran95 = tooOld v "Elemental function" Fortran90
-      | Pure{} <- fSpec, v < Fortran95 = tooOld v "Pure function" Fortran90
-      | functionIsRecursive fSpec, v < Fortran90 = tooOld v "Recursive function" Fortran90
-      | isJust mRes, v < Fortran90 = tooOld v "Function result" Fortran90
-      | isJust mSubs, v < Fortran90 = tooOld v "Function subprogram" Fortran90
-      | otherwise =
+        prefix = hsep (map convPfx pfxs)
+
+        suffix = pprint' v (listToMaybe sfxs)
+
+        subs
+          | isJust mSubs, v >= Fortran90 = pprint v mSubs nextI
+          | isNothing mSubs              = empty
+          | otherwise                    = tooOld v "Function subprogram" Fortran90
+
+        curI = if v >= Fortran90 then i else fixedForm
+        nextI = if v >= Fortran90 then incIndentation i
+                                  else incIndentation fixedForm
+        pfxs = aStrip' mpfxs
+        sfxs = aStrip' msfxs
+
+    pprint v (PUFunction _ _ mRetType (mpfxs, msfxs) name mArgs mRes body mSubs) i =
         indent curI
-          (pprint' v mRetType <+>
-          (case fSpec of
-            (Elemental _ _) -> "elemental"
-            Pure{} -> "pure"
-            _ -> empty) <+>
-          (if functionIsRecursive fSpec then "recursive" else empty) <+>
-          "function" <+> text name <>
-          lparen <?> pprint' v mArgs <?> rparen <+>
-          "result" <?> lparen <?> pprint' v mRes <?> rparen <> newline) <>
+          (prefix <+> "function" <+> text name <>
+          parens (pprint' v mArgs) <+> suffix <> newline) <>
         pprint v body nextI <>
         newline <?>
         indent nextI ("contains" <> newline) <?>
         newline <?>
-        pprint v mSubs nextI <>
+        subs <>
         endGen v "function" name curI
-        where
-          curI = if v >= Fortran90 then i else fixedForm
-          nextI = if v >= Fortran90
-                    then incIndentation i
-                    else incIndentation fixedForm
+      where
+        convPfx (PfxElemental _ _)
+          | v >= Fortran95 = "elemental"
+          | otherwise      = tooOld v "Elemental function" Fortran95
+        convPfx (PfxPure _ _)
+          | v >= Fortran95 = "pure"
+          | otherwise      = tooOld v "Pure function" Fortran95
+        convPfx (PfxRecursive _ _)
+          | v >= Fortran90 = "recursive"
+          | otherwise      = tooOld v "Recursive function" Fortran90
+
+        prefix = hsep (pprint' v mRetType:map convPfx pfxs)
+
+        result
+          | isJust mRes, v >= Fortran90 = "result" <?> lparen <?> pprint' v mRes <?> rparen
+          | isNothing mRes              = empty
+          | otherwise                   = tooOld v "Function result" Fortran90
+
+        suffix = result <+> pprint' v (listToMaybe sfxs)
+
+        subs
+          | isJust mSubs, v >= Fortran90 = pprint v mSubs nextI
+          | isNothing mSubs              = empty
+          | otherwise                    = tooOld v "Function subprogram" Fortran90
+
+        curI = if v >= Fortran90 then i else fixedForm
+        nextI = if v >= Fortran90 then incIndentation i
+                                  else incIndentation fixedForm
+        pfxs = aStrip' mpfxs
+        sfxs = aStrip' msfxs
 
     pprint v (PUBlockData _ _ mName body) i
       | v < Fortran77, isJust mName = tooOld v "Named block data" Fortran77
@@ -681,10 +703,10 @@ instance Pretty (Statement a) where
         "module procedure" <+> pprint' v procedures
       | otherwise = tooOld v "Module procedure" Fortran90
 
-    pprint' v (StProcedure _ _ mProcInterface mAttribute (AList _ _ procDecls))
+    pprint' v (StProcedure _ _ mProcInterface mSuffix (AList _ _ procDecls))
       | v >= Fortran2003 =
         "procedure" <> parens (pprint' v mProcInterface) <>
-        comma <?+> pprint' v mAttribute <+> "::" <?+>
+        comma <?+> pprint' v mSuffix <+> "::" <?+>
         commaSep (map (pprint' v) procDecls)
       | otherwise = tooOld v "Procedure" Fortran2003
 
@@ -754,8 +776,13 @@ instance Pretty (Attribute a) where
           AttrPointer _ _ -> "pointer"
           AttrSave _ _ -> "save"
           AttrTarget _ _ -> "target"
-          AttrBind _ _ me -> "bind" <> parens ("c" <> comma <?+> pprint' v me)
+          AttrSuffix _ _ s -> pprint' v s
       | otherwise = tooOld v "Declaration attribute" Fortran90
+
+instance Pretty (Suffix a) where
+  pprint' v (SfxBind _ _ mexp)
+    | v >= Fortran2003 = "bind" <> parens ("c" <> comma <?+> pprint' v mexp)
+    | otherwise        = tooOld v "Bind suffix" Fortran2003
 
 instance Pretty Intent where
     pprint' v intent

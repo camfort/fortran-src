@@ -123,7 +123,7 @@ spec = do
 ex1 :: ProgramFile ()
 ex1 = ProgramFile mi77 [ ex1pu1 ]
 ex1pu1 :: ProgramUnit ()
-ex1pu1 = PUFunction () u (Just $ TypeSpec () u TypeInteger Nothing) (None () u False) "f1" Nothing Nothing [] Nothing
+ex1pu1 = PUFunction () u (Just $ TypeSpec () u TypeInteger Nothing) emptyPrefixSuffix "f1" Nothing Nothing [] Nothing
 
 ex2 :: ProgramFile ()
 ex2 = ProgramFile mi77 [ ex2pu1 ]
@@ -171,7 +171,7 @@ ex3pu1bs =
   , BlStatement () u Nothing (StExpressionAssign () u
       (varGen "d") (ExpBinary () u Addition (varGen "d") (intGen 1))) ]
 ex3pu2 :: ProgramUnit ()
-ex3pu2 = PUFunction () u (Just $ TypeSpec () u TypeInteger Nothing) (None () u False) "f1" (Just $ AList () u [ varGen "d", varGen "b"]) Nothing (ex3pu1bs ++ [ BlStatement () u Nothing (StExpressionAssign () u (varGen "f1") (varGen "d")) ]) Nothing
+ex3pu2 = PUFunction () u (Just $ TypeSpec () u TypeInteger Nothing) emptyPrefixSuffix "f1" (Just $ AList () u [ varGen "d", varGen "b"]) Nothing (ex3pu1bs ++ [ BlStatement () u Nothing (StExpressionAssign () u (varGen "f1") (varGen "d")) ]) Nothing
 
 ex4 :: ProgramFile ()
 ex4 = ProgramFile mi77 [ ex4pu1, ex4pu2 ]
@@ -187,7 +187,7 @@ ex4pu1bs =
       (ExpFunctionCall () u (ExpValue () u (ValVariable "f1"))
                             (Just $ AList () u [ Argument () u Nothing $ intGen 1 ]))) ]
 ex4pu2 :: ProgramUnit ()
-ex4pu2 = PUFunction () u (Just $ TypeSpec () u TypeInteger Nothing) (None () u False) "f1" (Just $ AList () u [ varGen "x"]) Nothing [ BlStatement () u Nothing (StExpressionAssign () u (varGen "f1") (varGen "x")) ] Nothing
+ex4pu2 = PUFunction () u (Just $ TypeSpec () u TypeInteger Nothing) emptyPrefixSuffix "f1" (Just $ AList () u [ varGen "x"]) Nothing [ BlStatement () u Nothing (StExpressionAssign () u (varGen "f1") (varGen "x")) ] Nothing
 
 ex5 :: ProgramFile ()
 ex5 = ProgramFile mi77 [ ex5pu1, ex5pu2 ]
@@ -200,7 +200,7 @@ ex5pu2 = PUModule () u "ex5mod" ex5pu2bs (Just [ex5pu2pu1])
 ex5pu2bs :: [a]
 ex5pu2bs = []
 ex5pu2pu1 :: ProgramUnit ()
-ex5pu2pu1 = PUFunction () u (Just $ TypeSpec () u TypeInteger Nothing) (None () u False) "f1" (Just $ AList () u [ varGen "x"]) Nothing [ BlStatement () u Nothing (StExpressionAssign () u (varGen "f1") (varGen "x")) ] Nothing
+ex5pu2pu1 = PUFunction () u (Just $ TypeSpec () u TypeInteger Nothing) emptyPrefixSuffix "f1" (Just $ AList () u [ varGen "x"]) Nothing [ BlStatement () u Nothing (StExpressionAssign () u (varGen "f1") (varGen "x")) ] Nothing
 
 ex6 :: ProgramFile ()
 ex6 = ProgramFile mi77 [ ex6pu1, ex6pu2 ]
@@ -213,7 +213,7 @@ ex6pu2 = PUModule () u "ex6mod" ex6pu2bs (Just [ex6pu2pu1])
 ex6pu2bs :: [a]
 ex6pu2bs = []
 ex6pu2pu1 :: ProgramUnit ()
-ex6pu2pu1 = PUFunction () u (Just $ TypeSpec () u TypeInteger Nothing) (None () u False) "f1" (Just $ AList () u [ varGen "x"]) Nothing [ BlStatement () u Nothing (StExpressionAssign () u (varGen "f1") (ExpFunctionCall () u (ExpValue () u (ValVariable "f1")) (Just $ AList () u [Argument () u Nothing (varGen "x")]))) ] (Just [ex5pu2pu1])
+ex6pu2pu1 = PUFunction () u (Just $ TypeSpec () u TypeInteger Nothing) emptyPrefixSuffix "f1" (Just $ AList () u [ varGen "x"]) Nothing [ BlStatement () u Nothing (StExpressionAssign () u (varGen "f1") (ExpFunctionCall () u (ExpValue () u (ValVariable "f1")) (Just $ AList () u [Argument () u Nothing (varGen "x")]))) ] (Just [ex5pu2pu1])
 
 --parseF90 :: [String] -> ProgramFile A0
 --parseF90 = resetSrcSpan . flip fortran90Parser "" . unlines
@@ -272,7 +272,7 @@ ex9 = resetSrcSpan . flip fortran90Parser "" $ unlines [
 ex10 :: ProgramFile ()
 ex10 = ProgramFile mi77 [ ex10pu1 ]
 ex10pu1 :: ProgramUnit ()
-ex10pu1 = PUSubroutine () u (None () u False) "s1" Nothing ex10pu1bs Nothing
+ex10pu1 = PUSubroutine () u emptyPrefixSuffix "s1" Nothing ex10pu1bs Nothing
 ex10pu1bs :: [Block ()]
 ex10pu1bs =
   [ BlStatement () u Nothing (StEntry () u (ExpValue () u (ValVariable "e1")) Nothing Nothing)
@@ -282,7 +282,7 @@ ex10pu1bs =
 ex11 :: ProgramFile ()
 ex11 = ProgramFile mi77 [ ex11pu1 ]
 ex11pu1 :: ProgramUnit ()
-ex11pu1 = PUFunction () u (Just (TypeSpec () u TypeInteger Nothing)) (None () u False) "f1" Nothing (Just (varGen "r1")) ex11pu1bs Nothing
+ex11pu1 = PUFunction () u (Just (TypeSpec () u TypeInteger Nothing)) emptyPrefixSuffix "f1" Nothing (Just (varGen "r1")) ex11pu1bs Nothing
 ex11pu1bs :: [Block ()]
 ex11pu1bs =
   [ BlStatement () u Nothing (StEntry () u (ExpValue () u (ValVariable "e1")) Nothing Nothing)

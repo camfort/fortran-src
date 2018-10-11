@@ -277,6 +277,17 @@ spec =
                      , TComma, TBind, TLeftPar, TC, TComma, TName, TOpAssign, flip TString "d", TRightPar, TDoubleColon
                      , flip TId "b", TArrow, flip TId "c", TLeftPar, TRightPar, TEOF ]
 
+        it "lexes functions with bind" $
+          shouldBe' (collectF03 "FUNCTION f(a) RESULT(x) BIND(C, NAME=\"d\")") $
+            ($u) <$> [ TFunction, flip TId "f", TLeftPar, flip TId "a", TRightPar
+                     , TResult, TLeftPar, flip TId "x", TRightPar
+                     , TBind, TLeftPar, TC, TComma, TName, TOpAssign, flip TString "d", TRightPar, TEOF ]
+
+        it "lexes subroutines with bind" $
+          shouldBe' (collectF03 "SUBROUTINE s(a) BIND(C, NAME=\"d\")") $
+            ($u) <$> [ TSubroutine, flip TId "s", TLeftPar, flip TId "a", TRightPar
+                     , TBind, TLeftPar, TC, TComma, TName, TOpAssign, flip TString "d", TRightPar, TEOF ]
+
         it "lexes class decl (name)" $
           shouldBe' (collectF03 "procedure (class(c))") $
                     fmap ($u) [ TProcedure, TLeftPar

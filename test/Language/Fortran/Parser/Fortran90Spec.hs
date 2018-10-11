@@ -47,28 +47,31 @@ spec =
     describe "Function" $ do
       let puFunction = PUFunction () u
       let fType = Nothing
-      let fOpt = None () u False
-      let fName = "f"
-      let fArgs = Nothing
-      let fRes = Nothing
-      let fBody = []
-      let fSub = Nothing
+          fPre = emptyPrefixes
+          fPreR = Just $ AList () u [PfxRecursive () u]
+          fSuf = emptySuffixes
+          fPreSuf = (fPre, fSuf)
+          fName = "f"
+          fArgs = Nothing
+          fRes = Nothing
+          fBody = []
+          fSub = Nothing
 
       describe "End" $ do
         it "parses simple functions ending with \"end function [function name]\"" $ do
-          let expected = puFunction fType fOpt fName fArgs fRes fBody fSub
+          let expected = puFunction fType fPreSuf fName fArgs fRes fBody fSub
           let fStr = init $ unlines ["function f()"
                                , "end function f" ]
           fParser fStr `shouldBe'` expected
 
         it "parses simple functions ending with \"end\"" $ do
-          let expected = puFunction fType fOpt fName fArgs fRes fBody fSub
+          let expected = puFunction fType fPreSuf fName fArgs fRes fBody fSub
           let fStr = init $ unlines ["function f()"
                                , "end" ]
           fParser fStr `shouldBe'` expected
 
         it "parses simple functions ending with \"end function\"" $ do
-          let expected = puFunction fType fOpt fName fArgs fRes fBody fSub
+          let expected = puFunction fType fPreSuf fName fArgs fRes fBody fSub
           let fStr = init $ unlines ["function f()"
                                , "end function" ]
           fParser fStr `shouldBe'` expected
@@ -76,28 +79,27 @@ spec =
 
         it "parses functions with return type specs" $ do
           let fType' = Just $ TypeSpec () u TypeInteger Nothing
-          let expected = puFunction fType' fOpt fName fArgs fRes fBody fSub
+          let expected = puFunction fType' fPreSuf fName fArgs fRes fBody fSub
           let fStr = init $ unlines ["integer function f()"
                                , "end function f" ]
           fParser fStr `shouldBe'` expected
 
       it "parses recursive functions" $
-        let fOpt' = None () u True
-            expected = puFunction fType fOpt' fName fArgs fRes fBody fSub
+        let expected = puFunction fType (fPreR, fSuf) fName fArgs fRes fBody fSub
             fStr = init $ unlines ["recursive function f()", "end"]
         in fParser fStr `shouldBe'` expected
 
 
       it "parses functions with a list of arguments" $
         let fArgs' = Just $ AList () u [ varGen "x", varGen "y", varGen "z" ]
-            expected = puFunction fType fOpt fName fArgs' fRes fBody fSub
+            expected = puFunction fType fPreSuf fName fArgs' fRes fBody fSub
             fStr = init $ unlines ["function f(x, y, z)"
                              , "end function f" ]
         in fParser fStr `shouldBe'` expected
 
       it "parses functions with a result variable" $
         let fRes' = Just $ varGen "i"
-            expected = puFunction fType fOpt fName fArgs fRes' fBody fSub
+            expected = puFunction fType fPreSuf fName fArgs fRes' fBody fSub
             fStr = init $ unlines ["function f() result(i)"
                              , "end function f" ]
         in fParser fStr `shouldBe'` expected
@@ -107,7 +109,7 @@ spec =
             f1 = StPrint () u starVal (Just $ AList () u [ varGen "i" ])
             f2 = StExpressionAssign () u (varGen "i") decrementRHS
             fBody' = [ BlStatement () u Nothing f1 , BlStatement () u Nothing f2 ]
-            expected = puFunction fType fOpt fName fArgs fRes fBody' fSub
+            expected = puFunction fType fPreSuf fName fArgs fRes fBody' fSub
             fStr = init $ unlines ["function f()"
                              , "  print *, i"
                              , "  i = (i - 1)"
@@ -122,7 +124,7 @@ spec =
             f1 = StPrint () u starVal (Just $ AList () u [ varGen "i" ])
             f2 = StExpressionAssign () u (varGen "i") decrementRHS
             fBody' = [ BlStatement () u Nothing f1 , BlStatement () u Nothing f2 ]
-            expected = puFunction fType' fOpt fName fArgs' fRes' fBody' fSub
+            expected = puFunction fType' fPreSuf fName fArgs' fRes' fBody' fSub
             fStr = init $ unlines [ "integer function f(x, y, z) result(i)"
                              , "  print *, i"
                              , "  i = (i - 1)"

@@ -78,17 +78,17 @@ spec = do
 ex1 :: ProgramFile ()
 ex1 = ProgramFile mi77 [ ex1pu1 ]
 ex1pu1 :: ProgramUnit ()
-ex1pu1 = PUFunction () u (Just $ TypeSpec () u TypeInteger Nothing) (None () u False) "f1" Nothing Nothing [] Nothing
+ex1pu1 = PUFunction () u (Just $ TypeSpec () u TypeInteger Nothing) emptyPrefixSuffix "f1" Nothing Nothing [] Nothing
 
 ex2 :: ProgramFile ()
 ex2 = ProgramFile mi77 [ ex2pu1, ex1pu1 ]
 ex2pu1 :: ProgramUnit ()
-ex2pu1 = PUSubroutine () u (None () u False) "s1" Nothing [] Nothing
+ex2pu1 = PUSubroutine () u emptyPrefixSuffix "s1" Nothing [] Nothing
 
 ex3 :: ProgramFile ()
 ex3 = ProgramFile mi77 [ ex3pu1 ]
 ex3pu1 :: ProgramUnit ()
-ex3pu1 = PUSubroutine () u (None () u False) "s1" Nothing ex3pu1bs Nothing
+ex3pu1 = PUSubroutine () u emptyPrefixSuffix "s1" Nothing ex3pu1bs Nothing
 ex3pu1bs :: [Block ()]
 ex3pu1bs =
   [ BlStatement () u Nothing (StEntry () u (ExpValue () u (ValVariable "e1")) Nothing Nothing)
@@ -155,7 +155,7 @@ ex6pu1bs =
 ex11 :: ProgramFile ()
 ex11 = ProgramFile mi77 [ ex11pu1 ]
 ex11pu1 :: ProgramUnit ()
-ex11pu1 = PUFunction () u (Just (TypeSpec () u TypeInteger Nothing)) (None () u False) "f1" Nothing (Just (varGen "r1")) ex11pu1bs Nothing
+ex11pu1 = PUFunction () u (Just (TypeSpec () u TypeInteger Nothing)) emptyPrefixSuffix "f1" Nothing (Just (varGen "r1")) ex11pu1bs Nothing
 ex11pu1bs :: [Block ()]
 ex11pu1bs =
   [ BlStatement () u Nothing (StEntry () u (ExpValue () u (ValVariable "e1")) Nothing Nothing)

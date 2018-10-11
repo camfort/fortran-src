@@ -179,8 +179,7 @@ tokens :-
 <scN> "save" / { attributeP }                     { addSpan TSave }
 <0> "target"                                      { addSpan TTarget }
 <scN> "target" / { attributeP }                   { addSpan TTarget }
-<0> "bind"                                        { addSpan TBind }
-<scN> "bind" / { attributeP }                     { addSpan TBind }
+<scN> "bind" / { bindP }                          { addSpan TBind }
 
 -- Attribute values
 <scN> "in"\ *"out" / { followsIntentP }           { addSpan TInOut }
@@ -390,6 +389,22 @@ attributeP _ _ _ ai =  followsComma && precedesDoubleColon ai && startsWithTypeS
         isTypeSpec token || fillConstr TType == toConstr token ||
         fillConstr TUse == toConstr token || fillConstr TProcedure == toConstr token
       | otherwise = False
+    prevTokens = reverse . aiPreviousTokensInLine $ ai
+
+bindP :: User -> AlexInput -> Int -> AlexInput -> Bool
+bindP _ _ _ ai = (followsRightPar && isFunSub) || (followsComma && isProc)
+  where
+    followsComma
+      | Just TComma{} <- aiPreviousToken ai = True
+      | otherwise = False
+    followsRightPar
+      | Just TRightPar{} <- aiPreviousToken ai = True
+      | otherwise = False
+    isFunSub = flip any prevTokens $ \ token ->
+      fillConstr TFunction == toConstr token ||
+      fillConstr TSubroutine == toConstr token
+    isProc = flip any prevTokens $ \ token ->
+               fillConstr TProcedure == toConstr token
     prevTokens = reverse . aiPreviousTokensInLine $ ai
 
 constructNameP :: User -> AlexInput -> Int -> AlexInput -> Bool

@@ -752,8 +752,8 @@ showAttr (AttrOptional _ _) = "optional"
 showAttr (AttrPointer _ _) = "pointer"
 showAttr (AttrSave _ _) = "save"
 showAttr (AttrTarget _ _) = "target"
-showAttr (AttrBind _ _ Nothing) = "bind(c)"
-showAttr (AttrBind _ _ (Just e)) = "bind(c,name=" ++ showExpr e ++ ")"
+showAttr (AttrSuffix _ _ (SfxBind _ _ Nothing)) = "bind(c)"
+showAttr (AttrSuffix _ _ (SfxBind _ _ (Just e))) = "bind(c,name=" ++ showExpr e ++ ")"
 
 showLab :: Maybe (Expression a) -> String
 showLab a =

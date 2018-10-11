@@ -35,11 +35,21 @@ data AList t a = AList a SrcSpan [t a] deriving (Eq, Show, Data, Typeable, Gener
 instance Functor t => Functor (AList t) where
   fmap f (AList a s xs) = AList (f a) s (map (fmap f) xs)
 
+
+-- Convert non-empty list to AList.
 fromList :: Spanned (t a) => a -> [ t a ] -> AList t a
 fromList a xs = AList a (getSpan xs) xs
 
+-- Nothing iff list is empty
+fromList' :: Spanned (t a) => a -> [ t a ] -> Maybe (AList t a)
+fromList' a [] = Nothing
+fromList' a xs = Just $ fromList a xs
+
 fromReverseList :: Spanned (t ()) => [ t () ] -> AList t ()
 fromReverseList = fromList () . reverse
+
+fromReverseList' :: Spanned (t ()) => [ t () ] -> Maybe (AList t ())
+fromReverseList' = fromList' () . reverse
 
 aCons :: t a -> AList t a -> AList t a
 aCons x (AList a s xs) = AList a s $ x:xs
@@ -51,6 +61,10 @@ aReverse (AList a s xs) = AList a s $ reverse xs
 
 aStrip :: AList t a -> [t a]
 aStrip (AList _ _ l) = l
+
+aStrip' :: Maybe (AList t a) -> [t a]
+aStrip' Nothing = []
+aStrip' (Just a) = aStrip a
 
 aMap :: (t a -> r a) -> AList t a -> AList r a
 aMap f (AList a s xs) = AList a s (map f xs)
@@ -125,7 +139,7 @@ data ProgramUnit a =
       (Maybe [ProgramUnit a]) -- Subprograms
   | PUSubroutine
       a SrcSpan
-      (PUFunctionOpt a) -- Subroutine options
+      (PrefixSuffix a) -- Subroutine options
       Name
       (Maybe (AList Expression a)) -- Arguments
       [Block a] -- Body
@@ -133,7 +147,7 @@ data ProgramUnit a =
   | PUFunction
       a SrcSpan
       (Maybe (TypeSpec a)) -- Return type
-      (PUFunctionOpt a) -- Function Options
+      (PrefixSuffix a) -- Function Options
       Name
       (Maybe (AList Expression a)) -- Arguments
       (Maybe (Expression a)) -- Result
@@ -146,36 +160,37 @@ data ProgramUnit a =
   | PUComment a SrcSpan (Comment a)
   deriving (Eq, Show, Data, Typeable, Generic, Functor)
 
-type IsRecursive = Bool
-data PUFunctionOpt a =
-    None a SrcSpan IsRecursive
-  | Pure a SrcSpan IsRecursive
-  | Elemental a SrcSpan
+type Prefixes a = Maybe (AList Prefix a)
+type Suffixes a = Maybe (AList Suffix a)
+type PrefixSuffix a = (Prefixes a, Suffixes a)
+
+emptyPrefixes :: Prefixes a
+emptyPrefixes = Nothing
+
+emptySuffixes :: Suffixes a
+emptySuffixes = Nothing
+
+emptyPrefixSuffix :: PrefixSuffix a
+emptyPrefixSuffix = (emptyPrefixes, emptySuffixes)
+
+data Prefix a = PfxRecursive a SrcSpan
+              | PfxElemental a SrcSpan
+              | PfxPure a SrcSpan
   deriving (Eq, Show, Data, Typeable, Generic, Functor)
 
-buildPUFunctionOpt :: PUFunctionOpt () -> PUFunctionOpt () -> Either String (PUFunctionOpt ())
-buildPUFunctionOpt a b =
-  case (a, b) of
-    (None () _ False , _)         -> Right $ setSpan (getTransSpan a b) b
-    (_, None () _ False)          -> Right $ setSpan (getTransSpan a b) a
-    (Elemental () _, _)          -> if functionIsRecursive b
-                                         then Left "Function cannot be both elemental and recursive. "
-                                         else Right . Elemental () $ getTransSpan a b
-    (_, Elemental () _)           -> buildPUFunctionOpt b a
-    (Pure () _ r, b')              -> Right $ Pure () (getTransSpan a b') (r || functionIsRecursive b')
-    (a', Pure () _ r)              -> Right $ Pure () (getTransSpan a' b) (r || functionIsRecursive a')
-    (None () _ r, None () _ r') -> Right $ None () (getTransSpan a b) (r || r')
--- Should parse: "elemental pure recursive function f()\nend": Right (Elemental ()) FAILED [4]
+-- see C1241 & C1242 (Fortran2003)
+validPrefixSuffix :: PrefixSuffix a -> Bool
+validPrefixSuffix (mpfxs, msfxs) =
+  not (any isElem pfxs) || (not (any isRec pfxs) && not (any isBind sfxs))
+  where
+    isElem (PfxElemental {}) = True; isElem _ = False
+    isRec  (PfxRecursive {}) = True; isRec _  = False
+    isBind (SfxBind {})      = True
+    pfxs = aStrip' mpfxs
+    sfxs = aStrip' msfxs
 
-buildPUFunctionOpts :: [PUFunctionOpt ()] -> Either String (PUFunctionOpt())
-buildPUFunctionOpts =
-  foldr merge . Right $ None () initSrcSpan False
-  where merge a = either Left $ buildPUFunctionOpt a
-
-functionIsRecursive :: PUFunctionOpt a -> Bool
-functionIsRecursive (Elemental _ _) = False
-functionIsRecursive (Pure _ _ r)    = r
-functionIsRecursive (None _ _ r)    = r
+data Suffix a = SfxBind a SrcSpan (Maybe (Expression a))
+  deriving (Eq, Show, Data, Typeable, Generic, Functor)
 
 programUnitBody :: ProgramUnit a -> [Block a]
 programUnitBody (PUMain _ _ _ bs _)              = bs
@@ -390,7 +405,7 @@ data Attribute a =
   | AttrPointer a SrcSpan
   | AttrSave a SrcSpan
   | AttrTarget a SrcSpan
-  | AttrBind a SrcSpan (Maybe (Expression a))
+  | AttrSuffix a SrcSpan (Suffix a)
   deriving (Eq, Show, Data, Typeable, Generic, Functor)
 
 data Intent = In | Out | InOut
@@ -570,7 +585,8 @@ class Annotated f where
 
 instance FirstParameter (AList t a) a
 instance FirstParameter (ProgramUnit a) a
-instance FirstParameter (PUFunctionOpt a) a
+instance FirstParameter (Prefix a) a
+instance FirstParameter (Suffix a) a
 instance FirstParameter (Block a) a
 instance FirstParameter (Statement a) a
 instance FirstParameter (Argument a) a
@@ -597,7 +613,8 @@ instance FirstParameter (ControlPair a) a
 
 instance SecondParameter (AList t a) SrcSpan
 instance SecondParameter (ProgramUnit a) SrcSpan
-instance SecondParameter (PUFunctionOpt a) SrcSpan
+instance SecondParameter (Prefix a) SrcSpan
+instance SecondParameter (Suffix a) SrcSpan
 instance SecondParameter (Block a) SrcSpan
 instance SecondParameter (Statement a) SrcSpan
 instance SecondParameter (Argument a) SrcSpan
@@ -650,7 +667,8 @@ instance Annotated ControlPair
 
 instance Spanned (AList t a)
 instance Spanned (ProgramUnit a)
-instance Spanned (PUFunctionOpt a)
+instance Spanned (Prefix a)
+instance Spanned (Suffix a)
 instance Spanned (Statement a)
 instance Spanned (Argument a)
 instance Spanned (Use a)
@@ -697,6 +715,11 @@ instance (Spanned a, Spanned b) => Spanned (a, Maybe b) where
 instance (Spanned a, Spanned b) => Spanned (Maybe a, b) where
   getSpan (Just x,y) = getTransSpan x y
   getSpan (_,y) = getSpan y
+  setSpan _ = undefined
+
+instance (Spanned a, Spanned b) => Spanned (Either a b) where
+  getSpan (Left x) = getSpan x
+  getSpan (Right x) = getSpan x
   setSpan _ = undefined
 
 instance {-# OVERLAPPABLE #-} (Spanned a, Spanned b) => Spanned (a, b) where
@@ -826,7 +849,8 @@ instance Out FortranVersion
 instance Out MetaInfo
 instance Out a => Out (ProgramFile a)
 instance Out a => Out (ProgramUnit a)
-instance Out a => Out (PUFunctionOpt a)
+instance Out a => Out (Prefix a)
+instance Out a => Out (Suffix a)
 instance (Out a, Out (t a)) => Out (AList t a)
 instance Out a => Out (Statement a)
 instance Out a => Out (ProcDecl a)

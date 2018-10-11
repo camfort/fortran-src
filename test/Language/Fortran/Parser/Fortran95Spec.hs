@@ -49,7 +49,9 @@ spec =
     describe "Function" $ do
       let puFunction = PUFunction () u
           fType = Nothing
-          fOpt = None () u False
+          fPre = emptyPrefixes
+          fSuf = emptySuffixes
+          fPreSuf = emptyPrefixSuffix
           fName = "f"
           fArgs = Nothing
           fRes = Nothing
@@ -58,19 +60,19 @@ spec =
 
       describe "End" $ do
         it "parses simple functions ending with \"end function [function name]\"" $ do
-          let expected = puFunction fType fOpt fName fArgs fRes fBody fSub
+          let expected = puFunction fType fPreSuf fName fArgs fRes fBody fSub
               fStr = init $ unlines ["function f()"
                                , "end function f" ]
           fParser fStr `shouldBe'` expected
 
         it "parses simple functions ending with \"end\"" $ do
-          let expected = puFunction fType fOpt fName fArgs fRes fBody fSub
+          let expected = puFunction fType fPreSuf fName fArgs fRes fBody fSub
               fStr = init $ unlines ["function f()"
                                , "end" ]
           fParser fStr `shouldBe'` expected
 
         it "parses simple functions ending with \"end function\"" $ do
-          let expected = puFunction fType fOpt fName fArgs fRes fBody fSub
+          let expected = puFunction fType fPreSuf fName fArgs fRes fBody fSub
               fStr = init $ unlines ["function f()"
                                , "end function" ]
           fParser fStr `shouldBe'` expected
@@ -78,40 +80,44 @@ spec =
 
         it "parses functions with return type specs" $ do
           let fType' = Just $ TypeSpec () u TypeInteger Nothing
-              expected = puFunction fType' fOpt fName fArgs fRes fBody fSub
+              expected = puFunction fType' fPreSuf fName fArgs fRes fBody fSub
               fStr = init $ unlines ["integer function f()"
                                , "end function f" ]
           fParser fStr `shouldBe'` expected
 
       describe "parses function options (recursive, pure, elemental)" $ do
         let options_list = map unzip $ combination
-                                        [ ("recursive ", None () u True)
-                                        , ("pure ", Pure () u False)
-                                        , ("elemental ", Elemental () u) ]
+                                        [ ("recursive ", PfxRecursive () u)
+                                        , ("pure ", PfxPure () u)
+                                        , ("elemental ", PfxElemental () u) ]
 
         forM_ options_list (\(strs, opts) -> do
-          let str = concat strs
+          let isElem (PfxElemental {}) = True; isElem _ = False
+              isRec  (PfxRecursive {}) = True; isRec _  = False
+              str = concat strs
               fStr = str ++ init (unlines ["function f()", "end"])
-              opt = buildPUFunctionOpts opts
+              pfx = fromList' () opts
           --let expected = puFunction fType
-          case opt of
-            Left _ -> it ("Shouldn't parse: " ++ show fStr ++ ": " ++ show opt) $ evaluate (fParser fStr) `shouldThrow` anyIOException
-            Right fOpt' ->
-              it ("Should parse: " ++ show fStr ++ ": " ++ show opt) $ do
-                let expected' = puFunction fType fOpt' fName fArgs fRes fBody fSub
+          if any isElem opts && any isRec opts
+            then
+              it ("Shouldn't parse: " ++ show fStr ++ ": " ++ show opts) $
+                evaluate (fParser fStr) `shouldThrow` anyIOException
+            else
+              it ("Should parse: " ++ show fStr ++ ": " ++ show opts) $ do
+                let expected' = puFunction fType (pfx, fSuf) fName fArgs fRes fBody fSub
                 fParser fStr `shouldBe'` expected'
           )
 
       it "parses functions with a list of arguments" $ do
         let fArgs' = Just $ AList () u [ varGen "x", varGen "y", varGen "z" ]
-            expected = puFunction fType fOpt fName fArgs' fRes fBody fSub
+            expected = puFunction fType fPreSuf fName fArgs' fRes fBody fSub
             fStr = init $ unlines ["function f(x, y, z)"
                              , "end function f" ]
         fParser fStr `shouldBe'` expected
 
       it "parses functions with a result variable" $ do
         let fRes' = Just $ varGen "i"
-            expected = puFunction fType fOpt fName fArgs fRes' fBody fSub
+            expected = puFunction fType fPreSuf fName fArgs fRes' fBody fSub
             fStr = init $ unlines ["function f() result(i)"
                              , "end function f" ]
         fParser fStr `shouldBe'` expected
@@ -121,7 +127,7 @@ spec =
             f1 = StPrint () u starVal (Just $ AList () u [ varGen "i" ])
             f2 = StExpressionAssign () u (varGen "i") decrementRHS
             fBody' = [ BlStatement () u Nothing f1 , BlStatement () u Nothing f2 ]
-            expected = puFunction fType fOpt fName fArgs fRes fBody' fSub
+            expected = puFunction fType fPreSuf fName fArgs fRes fBody' fSub
             fStr = init $ unlines ["function f()"
                              , "  print *, i"
                              , "  i = (i - 1)"
@@ -136,7 +142,7 @@ spec =
             f1 = StPrint () u starVal (Just $ AList () u [ varGen "i" ])
             f2 = StExpressionAssign () u (varGen "i") decrementRHS
             fBody' = [ BlStatement () u Nothing f1 , BlStatement () u Nothing f2 ]
-            expected = puFunction fType' fOpt fName fArgs' fRes' fBody' fSub
+            expected = puFunction fType' fPreSuf fName fArgs' fRes' fBody' fSub
             fStr = init $ unlines [ "integer function f(x, y, z) result(i)"
                              , "  print *, i"
                              , "  i = (i - 1)"
@@ -297,7 +303,7 @@ spec =
 
         it "parses basic FORALL blocks" $ do
           let stStr = "FORALL (I=1:N, I /= 2)"
-              expected = StForall () u Nothing (ForallHeader tripletSpecList Nothing) 
+              expected = StForall () u Nothing (ForallHeader tripletSpecList Nothing)
           sParser stStr `shouldBe'` expected
 
       describe "FORALL statements" $ do

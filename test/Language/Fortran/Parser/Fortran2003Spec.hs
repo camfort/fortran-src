@@ -65,7 +65,7 @@ spec =
         let call = ExpFunctionCall () u (varGen "c") Nothing
         let clas = TypeSpec () u ClassStar Nothing
         let st = StProcedure () u (Just (ProcInterfaceType () u clas))
-                                  (Just (AttrBind () u (Just (ExpValue () u (ValString "e")))))
+                                  (Just (AttrSuffix () u (SfxBind () u (Just (ExpValue () u (ValString "e"))))))
                                   (AList () u [ProcDecl () u (varGen "b") (Just call)
                                               ,ProcDecl () u (varGen "d") (Just call)])
         sParser "PROCEDURE(CLASS(*)), BIND(C, NAME=\"e\") :: b => c(), d => c()" `shouldBe'` st
@@ -74,7 +74,7 @@ spec =
         let call = ExpFunctionCall () u (varGen "c") Nothing
         let clas = TypeSpec () u (ClassCustom "e") Nothing
         let st = StProcedure () u (Just (ProcInterfaceType () u clas))
-                                  (Just (AttrBind () u Nothing))
+                                  (Just (AttrSuffix () u (SfxBind () u Nothing)))
                                   (AList () u [ProcDecl () u (varGen "b") (Just call)
                                               ,ProcDecl () u (varGen "d") (Just call)])
         sParser "PROCEDURE(CLASS(e)), BIND(C) :: b => c(), d => c()" `shouldBe'` st
@@ -83,3 +83,18 @@ spec =
         let st = StImport () u (AList () u [varGen "a", varGen "b"])
         sParser "import a, b" `shouldBe'` st
         sParser "import :: a, b" `shouldBe'` st
+
+      it "parses function with bind" $ do
+          let puFunction = PUFunction () u
+              fType = Nothing
+              fPre = emptyPrefixes
+              fSuf = fromList' () [SfxBind () u (Just $ ExpValue () u (ValString "f"))]
+              fName = "f"
+              fArgs = Nothing
+              fRes = Nothing
+              fBody = []
+              fSub = Nothing
+              fStr = init $ unlines ["function f() bind(c,name=\"f\")"
+                                    , "end function f" ]
+          let expected = puFunction fType (fPre, fSuf) fName fArgs fRes fBody fSub
+          fParser fStr `shouldBe'` expected
