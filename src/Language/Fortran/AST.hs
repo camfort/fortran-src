@@ -42,7 +42,7 @@ fromList a xs = AList a (getSpan xs) xs
 
 -- Nothing iff list is empty
 fromList' :: Spanned (t a) => a -> [ t a ] -> Maybe (AList t a)
-fromList' a [] = Nothing
+fromList' _ [] = Nothing
 fromList' a xs = Just $ fromList a xs
 
 fromReverseList :: Spanned (t ()) => [ t () ] -> AList t ()

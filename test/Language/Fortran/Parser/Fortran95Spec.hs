@@ -49,7 +49,6 @@ spec =
     describe "Function" $ do
       let puFunction = PUFunction () u
           fType = Nothing
-          fPre = emptyPrefixes
           fSuf = emptySuffixes
           fPreSuf = emptyPrefixSuffix
           fName = "f"

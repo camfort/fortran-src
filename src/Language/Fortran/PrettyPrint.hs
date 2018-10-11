@@ -118,7 +118,7 @@ instance IndentablePretty (ProgramUnit a) where
         newline <?>
         indent nextI ("contains" <> newline) <?>
         newline <?>
-        pprint v mSubs nextI <>
+        subs  <>
         endGen v "subroutine" name curI
       where
         convPfx (PfxElemental _ _)
