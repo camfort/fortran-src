@@ -588,3 +588,29 @@ spec =
             , UseRename () u (varGen "a") (varGen "b") ]
       let st = StUse () u (varGen "stats_lib") Nothing Permissive (Just renames)
       sParser "use stats_lib, sprod => prod, a => b" `shouldBe'` st
+
+    it "parses value decl" $ do
+      let decls = [DeclVariable () u (varGen "a") Nothing Nothing, DeclVariable () u (varGen "b") Nothing Nothing]
+      let st = StValue () u (AList () u decls)
+      sParser "value a, b" `shouldBe'` st
+      sParser "value :: a, b" `shouldBe'` st
+
+    it "parses value attribute" $ do
+      let decls = [DeclVariable () u (varGen "a") Nothing Nothing, DeclVariable () u (varGen "b") Nothing Nothing]
+      let ty = TypeSpec () u TypeInteger Nothing
+      let attrs = [AttrValue () u]
+      let st = StDeclaration () u ty (Just (AList () u attrs)) (AList () u decls)
+      sParser "integer, value :: a, b" `shouldBe'` st
+
+    it "parses volatile decl" $ do
+      let decls = [DeclVariable () u (varGen "a") Nothing Nothing, DeclVariable () u (varGen "b") Nothing Nothing]
+      let st = StVolatile () u (AList () u decls)
+      sParser "volatile a, b" `shouldBe'` st
+      sParser "volatile :: a, b" `shouldBe'` st
+
+    it "parses volatile attribute" $ do
+      let decls = [DeclVariable () u (varGen "a") Nothing Nothing, DeclVariable () u (varGen "b") Nothing Nothing]
+      let ty = TypeSpec () u TypeInteger Nothing
+      let attrs = [AttrVolatile () u]
+      let st = StDeclaration () u ty (Just (AList () u attrs)) (AList () u decls)
+      sParser "integer, volatile :: a, b" `shouldBe'` st

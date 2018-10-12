@@ -98,3 +98,16 @@ spec =
                                     , "end function f" ]
           let expected = puFunction fType (fPre, fSuf) fName fArgs fRes fBody fSub
           fParser fStr `shouldBe'` expected
+
+      it "parses asynchronous decl" $ do
+        let decls = [DeclVariable () u (varGen "a") Nothing Nothing, DeclVariable () u (varGen "b") Nothing Nothing]
+        let st = StAsynchronous () u (AList () u decls)
+        sParser "asynchronous a, b" `shouldBe'` st
+        sParser "asynchronous :: a, b" `shouldBe'` st
+
+      it "parses asynchronous attribute" $ do
+        let decls = [DeclVariable () u (varGen "a") Nothing Nothing, DeclVariable () u (varGen "b") Nothing Nothing]
+        let ty = TypeSpec () u TypeInteger Nothing
+        let attrs = [AttrAsynchronous () u]
+        let st = StDeclaration () u ty (Just (AList () u attrs)) (AList () u decls)
+        sParser "integer, asynchronous :: a, b" `shouldBe'` st

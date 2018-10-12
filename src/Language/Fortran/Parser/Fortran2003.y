@@ -1,5 +1,6 @@
 -- -*- Mode: Haskell -*-
 {
+-- Incomplete work-in-progress.
 module Language.Fortran.Parser.Fortran2003 ( functionParser
                                            , statementParser
                                            , fortran2003Parser
@@ -109,6 +110,7 @@ import Debug.Trace
   private                     { TPrivate _ }
   parameter                   { TParameter _ }
   allocatable                 { TAllocatable _ }
+  asynchronous                { TAsynchronous _ }
   dimension                   { TDimension _ }
   external                    { TExternal _ }
   intent                      { TIntent _ }
@@ -118,6 +120,8 @@ import Debug.Trace
   pointer                     { TPointer _ }
   save                        { TSave _ }
   target                      { TTarget _ }
+  value                       { TValue _ }
+  volatile                    { TVolatile _ }
   bind                        { TBind _ }
   'c'                         { TC _ }
   name                        { TName _ }
@@ -417,12 +421,21 @@ NONEXECUTABLE_STATEMENT :: { Statement A0 }
 | allocatable MAYBE_DCOLON DECLARATOR_LIST
   { let declAList = fromReverseList $3
     in StAllocatable () (getTransSpan $1 declAList) declAList }
+| asynchronous MAYBE_DCOLON DECLARATOR_LIST
+  { let declAList = fromReverseList $3
+    in StAsynchronous () (getTransSpan $1 declAList) declAList }
 | pointer MAYBE_DCOLON DECLARATOR_LIST
   { let declAList = fromReverseList $3
     in StPointer () (getTransSpan $1 declAList) declAList }
 | target MAYBE_DCOLON DECLARATOR_LIST
   { let declAList = fromReverseList $3
     in StTarget () (getTransSpan $1 declAList) declAList }
+| value MAYBE_DCOLON DECLARATOR_LIST
+  { let declAList = fromReverseList $3
+    in StValue () (getTransSpan $1 declAList) declAList }
+| volatile MAYBE_DCOLON DECLARATOR_LIST
+  { let declAList = fromReverseList $3
+    in StVolatile () (getTransSpan $1 declAList) declAList }
 | data cDATA DATA_GROUPS cPOP
   { let dataAList = fromReverseList $3
     in StData () (getTransSpan $1 dataAList) dataAList }
@@ -828,6 +841,7 @@ ATTRIBUTE_SPEC :: { Attribute A0 }
 : public { AttrPublic () (getSpan $1) }
 | private { AttrPrivate () (getSpan $1) }
 | allocatable { AttrAllocatable () (getSpan $1) }
+| asynchronous { AttrAsynchronous () (getSpan $1) }
 | dimension '(' DIMENSION_DECLARATORS ')'
   { AttrDimension () (getTransSpan $1 $4) (aReverse $3) }
 | external { AttrExternal () (getSpan $1) }
@@ -838,6 +852,8 @@ ATTRIBUTE_SPEC :: { Attribute A0 }
 | parameter { AttrParameter () (getSpan $1) }
 | save { AttrSave () (getSpan $1) }
 | target { AttrTarget () (getSpan $1) }
+| value { AttrValue () (getSpan $1) }
+| volatile { AttrVolatile () (getSpan $1) }
 | SUFFIX { AttrSuffix () (getSpan $1) $1 }
 
 INTENT_CHOICE :: { Intent } : in { In } | out { Out } | inout { InOut }

@@ -286,8 +286,11 @@ data Statement a  =
   | StSave                a SrcSpan (Maybe (AList Expression a))
   | StDimension           a SrcSpan (AList Declarator a)
   | StAllocatable         a SrcSpan (AList Declarator a)
+  | StAsynchronous        a SrcSpan (AList Declarator a)
   | StPointer             a SrcSpan (AList Declarator a)
   | StTarget              a SrcSpan (AList Declarator a)
+  | StValue               a SrcSpan (AList Declarator a)
+  | StVolatile            a SrcSpan (AList Declarator a)
   | StData                a SrcSpan (AList DataGroup a)
   | StAutomatic           a SrcSpan (AList Declarator a)
   | StNamelist            a SrcSpan (AList Namelist a)
@@ -393,19 +396,22 @@ data Argument a = Argument a SrcSpan (Maybe String) (Expression a)
   deriving (Eq, Show, Data, Typeable, Generic, Functor)
 
 data Attribute a =
-    AttrParameter a SrcSpan
-  | AttrPublic a SrcSpan
-  | AttrPrivate a SrcSpan
-  | AttrAllocatable a SrcSpan
+    AttrAllocatable a SrcSpan
+  | AttrAsynchronous a SrcSpan
   | AttrDimension a SrcSpan (AList DimensionDeclarator a)
   | AttrExternal a SrcSpan
   | AttrIntent a SrcSpan Intent
   | AttrIntrinsic a SrcSpan
   | AttrOptional a SrcSpan
+  | AttrParameter a SrcSpan
   | AttrPointer a SrcSpan
+  | AttrPrivate a SrcSpan
+  | AttrPublic a SrcSpan
   | AttrSave a SrcSpan
+  | AttrSuffix a SrcSpan (Suffix a)  -- for language-binding-spec
   | AttrTarget a SrcSpan
-  | AttrSuffix a SrcSpan (Suffix a)
+  | AttrValue a SrcSpan
+  | AttrVolatile a SrcSpan
   deriving (Eq, Show, Data, Typeable, Generic, Functor)
 
 data Intent = In | Out | InOut
@@ -890,34 +896,37 @@ instance Out a => Out (ForallHeader a)
 
 nonExecutableStatement :: FortranVersion -> Statement a -> Bool
 nonExecutableStatement _ s = case s of
-    StIntent {}      -> True
-    StOptional {}    -> True
-    StPublic {}      -> True
-    StPrivate {}     -> True
-    StSave {}        -> True
-    StDimension {}   -> True
-    StAllocatable {} -> True
-    StPointer {}     -> True
-    StTarget {}      -> True
-    StData {}        -> True
-    StParameter {}   -> True
-    StImplicit {}    -> True
-    StNamelist {}    -> True
-    StEquivalence {} -> True
-    StCommon {}      -> True
-    StExternal {}    -> True
-    StIntrinsic {}   -> True
-    StUse {}         -> True
-    StEntry {}       -> True
-    StSequence {}    -> True
-    StType {}        -> True
-    StEndType {}     -> True
-    StFormat {}      -> True
-    StFormatBogus {} -> True
-    StInclude {}     -> True
-    StDeclaration {} -> True
-    StStructure {}   -> True
-    _                -> False
+    StIntent {}       -> True
+    StOptional {}     -> True
+    StPublic {}       -> True
+    StPrivate {}      -> True
+    StSave {}         -> True
+    StDimension {}    -> True
+    StAllocatable {}  -> True
+    StAsynchronous {} -> True
+    StPointer {}      -> True
+    StTarget {}       -> True
+    StValue {}        -> True
+    StVolatile {}     -> True
+    StData {}         -> True
+    StParameter {}    -> True
+    StImplicit {}     -> True
+    StNamelist {}     -> True
+    StEquivalence {}  -> True
+    StCommon {}       -> True
+    StExternal {}     -> True
+    StIntrinsic {}    -> True
+    StUse {}          -> True
+    StEntry {}        -> True
+    StSequence {}     -> True
+    StType {}         -> True
+    StEndType {}      -> True
+    StFormat {}       -> True
+    StFormatBogus {}  -> True
+    StInclude {}      -> True
+    StDeclaration {}  -> True
+    StStructure {}    -> True
+    _                 -> False
 
 executableStatement :: FortranVersion -> Statement a -> Bool
 -- Some statements are both executable and non-executable in Fortran 90 upwards

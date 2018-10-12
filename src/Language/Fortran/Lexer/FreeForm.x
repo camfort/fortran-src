@@ -161,6 +161,8 @@ tokens :-
 <scN> "parameter" / { attributeP }                { addSpan TParameter }
 <0> "allocatable"                                 { addSpan TAllocatable }
 <scN> "allocatable" / { attributeP }              { addSpan TAllocatable }
+<0> "asynchronous"                                { addSpan TAsynchronous }
+<scN> "asynchronous" / { attributeP }             { addSpan TAsynchronous }
 <0> "dimension"                                   { addSpan TDimension }
 <scN> "dimension" / { attributeP }                { addSpan TDimension }
 <0> "external"                                    { addSpan TExternal }
@@ -179,12 +181,20 @@ tokens :-
 <scN> "save" / { attributeP }                     { addSpan TSave }
 <0> "target"                                      { addSpan TTarget }
 <scN> "target" / { attributeP }                   { addSpan TTarget }
-<scN> "bind" / { bindP }                          { addSpan TBind }
+<0> "save"                                        { addSpan TSave }
+<scN> "save" / { attributeP }                     { addSpan TSave }
+<0> "value"                                       { addSpan TValue }
+<scN> "value" / { attributeP }                    { addSpan TValue }
+<0> "volatile"                                    { addSpan TVolatile }
+<scN> "volatile" / { attributeP }                 { addSpan TVolatile }
 
 -- Attribute values
 <scN> "in"\ *"out" / { followsIntentP }           { addSpan TInOut }
 <scN> "in" / { followsIntentP }                   { addSpan TIn }
 <scN> "out" / { followsIntentP }                  { addSpan TOut }
+
+-- language-binding-spec
+<scN> "bind" / { bindP }                          { addSpan TBind }
 <scN> "name" / { followsCP }                      { addSpan TName }
 <scN> "c" / { followsBindP }                      { addSpan TC }
 
@@ -1069,23 +1079,27 @@ data Token =
   | TReturn             SrcSpan
   | TEntry              SrcSpan
   | TInclude            SrcSpan
+  -- language-binding-spec
+  | TBind               SrcSpan
+  | TC                  SrcSpan
+  | TName               SrcSpan
   -- Attributes
-  | TPublic             SrcSpan
-  | TPrivate            SrcSpan
-  | TParameter          SrcSpan
   | TAllocatable        SrcSpan
+  | TAsynchronous       SrcSpan
   | TDimension          SrcSpan
   | TExternal           SrcSpan
   | TIntent             SrcSpan
   | TIntrinsic          SrcSpan
   | TNonIntrinsic       SrcSpan
   | TOptional           SrcSpan
+  | TParameter          SrcSpan
   | TPointer            SrcSpan
+  | TPrivate            SrcSpan
+  | TPublic             SrcSpan
   | TSave               SrcSpan
   | TTarget             SrcSpan
-  | TBind               SrcSpan
-  | TName               SrcSpan
-  | TC                  SrcSpan
+  | TValue              SrcSpan
+  | TVolatile           SrcSpan
   -- Attribute values
   | TIn                 SrcSpan
   | TOut                SrcSpan

@@ -264,6 +264,19 @@ spec =
           shouldBe' (collectF90 "!\n") $
                     ($u) <$> [ flip TComment "", TNewline , TEOF ]
 
+      describe "Fortran95" $ do
+        it "lexes value attribute" $ do
+          shouldBe' (collectF03 "value :: a, b") $
+                    fmap ($u) [ TValue, TDoubleColon, flip TId "a", TComma, flip TId "b", TEOF ]
+          shouldBe' (collectF03 "integer, value :: a, b") $
+                    fmap ($u) [ TInteger, TComma, TValue, TDoubleColon, flip TId "a", TComma, flip TId "b", TEOF ]
+
+        it "lexes volatile attribute" $ do
+          shouldBe' (collectF03 "volatile :: a, b") $
+                    fmap ($u) [ TVolatile, TDoubleColon, flip TId "a", TComma, flip TId "b", TEOF ]
+          shouldBe' (collectF03 "integer, volatile :: a, b") $
+                    fmap ($u) [ TInteger, TComma, TVolatile, TDoubleColon, flip TId "a", TComma, flip TId "b", TEOF ]
+
       describe "Fortran2003" $ do
         it "lexes procedures" $
           shouldBe' (collectF03 "PROCEDURE(a), SAVE :: b => c()") $
@@ -301,3 +314,9 @@ spec =
         it "lexes import statements" $
           shouldBe' (collectF03 "import :: a, b") $
                     fmap ($u) [ TImport, TDoubleColon, flip TId "a", TComma, flip TId "b", TEOF ]
+
+        it "lexes asynchronous attribute" $ do
+          shouldBe' (collectF03 "asynchronous :: a, b") $
+                    fmap ($u) [ TAsynchronous, TDoubleColon, flip TId "a", TComma, flip TId "b", TEOF ]
+          shouldBe' (collectF03 "integer, asynchronous :: a, b") $
+                    fmap ($u) [ TInteger, TComma, TAsynchronous, TDoubleColon, flip TId "a", TComma, flip TId "b", TEOF ]

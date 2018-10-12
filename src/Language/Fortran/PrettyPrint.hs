@@ -454,6 +454,10 @@ instance Pretty (Statement a) where
       | v >= Fortran90 = "allocatable ::" <+> pprint' v decls
       | otherwise = tooOld v "Allocatable statement" Fortran90
 
+    pprint' v (StAsynchronous _ _ decls)
+      | v >= Fortran2003 = "asynchronous ::" <+> pprint' v decls
+      | otherwise = tooOld v "Asynchronous statement" Fortran2003
+
     pprint' v (StPointer _ _ decls)
       | v >= Fortran90 = "pointer ::" <+> pprint' v decls
       | otherwise = tooOld v "Pointer statement" Fortran90
@@ -462,13 +466,21 @@ instance Pretty (Statement a) where
       | v >= Fortran90 = "target ::" <+> pprint' v decls
       | otherwise = tooOld v "Target statement" Fortran90
 
+    pprint' v (StValue _ _ decls)
+      | v >= Fortran95 = "value ::" <+> pprint' v decls
+      | otherwise = tooOld v "Value statement" Fortran95
+
+    pprint' v (StVolatile _ _ decls)
+      | v >= Fortran95 = "volatile ::" <+> pprint' v decls
+      | otherwise = tooOld v "Volatile statement" Fortran95
+
     pprint' v (StData _ _ aDataGroups@(AList _ _ dataGroups))
       | v >= Fortran90 = "data" <+> pprint' v aDataGroups
       | otherwise = "data" <+> hsep (map (pprint' v) dataGroups)
 
     pprint' v (StAutomatic _ _ decls)
       | v == Fortran77Extended = "automatic" <+> pprint' v decls
-      | otherwise = tooOld v "Target statement" Fortran90
+      | otherwise = tooOld v "Automatic statement" Fortran90
 
     pprint' v (StNamelist _ _ namelist)
       | v >= Fortran90 = "namelist" <+> pprint' v namelist
@@ -762,6 +774,19 @@ instance Pretty (Attribute a) where
     pprint' v attr
       | v >= Fortran90 =
         case attr of
+          AttrAsynchronous _ _
+            | v >= Fortran2003 -> "asynchronous"
+            | otherwise        -> tooOld v "Asynchronous attribute" Fortran2003
+          AttrValue _ _
+            | v >= Fortran95   -> "value"
+            | otherwise        -> tooOld v "Value attribute" Fortran95
+          AttrVolatile _ _
+            | v >= Fortran95   -> "volatile"
+            | otherwise        -> tooOld v "Volatile attribute" Fortran95
+          AttrSuffix _ _ s
+            | v >= Fortran2003 -> pprint' v s
+            | otherwise        -> tooOld v "Bind (language-binding-spec) attribute" Fortran2003
+
           AttrParameter _ _ -> "parameter"
           AttrPublic _ _ -> "public"
           AttrPrivate _ _ -> "private"
@@ -776,7 +801,6 @@ instance Pretty (Attribute a) where
           AttrPointer _ _ -> "pointer"
           AttrSave _ _ -> "save"
           AttrTarget _ _ -> "target"
-          AttrSuffix _ _ s -> pprint' v s
       | otherwise = tooOld v "Declaration attribute" Fortran90
 
 instance Pretty (Suffix a) where

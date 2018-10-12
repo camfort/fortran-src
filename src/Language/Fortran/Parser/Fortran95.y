@@ -114,6 +114,8 @@ import Debug.Trace
   pointer                     { TPointer _ }
   save                        { TSave _ }
   target                      { TTarget _ }
+  value                       { TValue _ }
+  volatile                    { TVolatile _ }
   in                          { TIn _ }
   out                         { TOut _ }
   inout                       { TInOut _ }
@@ -381,6 +383,12 @@ NONEXECUTABLE_STATEMENT :: { Statement A0 }
 | target MAYBE_DCOLON DECLARATOR_LIST
   { let declAList = fromReverseList $3
     in StTarget () (getTransSpan $1 declAList) declAList }
+| value MAYBE_DCOLON DECLARATOR_LIST
+  { let declAList = fromReverseList $3
+    in StValue () (getTransSpan $1 declAList) declAList }
+| volatile MAYBE_DCOLON DECLARATOR_LIST
+  { let declAList = fromReverseList $3
+    in StVolatile () (getTransSpan $1 declAList) declAList }
 | data cDATA DATA_GROUPS cPOP
   { let dataAList = fromReverseList $3
     in StData () (getTransSpan $1 dataAList) dataAList }
@@ -774,6 +782,8 @@ ATTRIBUTE_SPEC :: { Attribute A0 }
 | parameter { AttrParameter () (getSpan $1) }
 | save { AttrSave () (getSpan $1) }
 | target { AttrTarget () (getSpan $1) }
+| value { AttrValue () (getSpan $1) }
+| volatile { AttrVolatile () (getSpan $1) }
 
 INTENT_CHOICE :: { Intent } : in { In } | out { Out } | inout { InOut }
 
