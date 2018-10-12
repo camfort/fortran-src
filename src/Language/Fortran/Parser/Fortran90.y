@@ -244,7 +244,7 @@ SUBPROGRAM_UNIT :: { ProgramUnit A0 }
                                    { (ps, t:_) -> (fromReverseList' ps, Just t)
                                    ; (ps, [])  -> (fromReverseList' ps, Nothing) } in
           let sfx = emptySuffixes in
-          let ss = if null $1 then getTransSpan $2 $9 else getTransSpan $1 $9 in
+          let ss = if null $1 then getTransSpan $2 $9 else getTransSpan (reverse $1) $9 in
           return $ PUFunction () ss typeSpec (pfxs, sfx) $3 $4 $5 (reverse $7) $8 } }
 | PREFIXES subroutine NAME MAYBE_ARGUMENTS MAYBE_COMMENT NEWLINE BLOCKS MAYBE_SUBPROGRAM_UNITS SUBROUTINE_END
   {% do { unitNameCheck $9 $3;
@@ -252,7 +252,7 @@ SUBPROGRAM_UNIT :: { ProgramUnit A0 }
                                 { (ps, t:_) -> fail "Subroutines cannot have return types."
                                 ; (ps, [])  -> return (fromReverseList' ps, Nothing) };
           let sfx = emptySuffixes in
-          let ss = if null $1 then getTransSpan $2 $9 else getTransSpan $1 $9 in
+          let ss = if null $1 then getTransSpan $2 $9 else getTransSpan (reverse $1) $9 in
           return $ PUSubroutine () ss (pfxs, sfx) $3 $4 (reverse $7) $8 } }
 | comment { let (TComment s c) = $1 in PUComment () s (Comment c) }
 

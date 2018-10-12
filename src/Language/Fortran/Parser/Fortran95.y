@@ -246,7 +246,7 @@ SUBPROGRAM_UNIT :: { ProgramUnit A0 }
                                    { (ps, t:_) -> (fromReverseList' ps, Just t)
                                    ; (ps, [])  -> (fromReverseList' ps, Nothing) } in
           let sfx = emptySuffixes in
-          let ss = if null $1 then getTransSpan $2 $9 else getTransSpan $1 $9 in
+          let ss = if null $1 then getTransSpan $2 $9 else getTransSpan (reverse $1) $9 in
           if validPrefixSuffix (pfxs, sfx) then
             return $ PUFunction () ss typeSpec (pfxs, sfx) $3 $4 $5 (reverse $7) $8
           else fail "Cannot specify elemental along with recursive." } }
@@ -256,7 +256,7 @@ SUBPROGRAM_UNIT :: { ProgramUnit A0 }
                                 { (ps, t:_) -> fail "Subroutines cannot have return types."
                                 ; (ps, [])  -> return (fromReverseList' ps, Nothing) };
           let sfx = emptySuffixes in
-          let ss = if null $1 then getTransSpan $2 $9 else getTransSpan $1 $9 in
+          let ss = if null $1 then getTransSpan $2 $9 else getTransSpan (reverse $1) $9 in
           if validPrefixSuffix (pfxs, sfx) then
             return $ PUSubroutine () ss (pfxs, sfx) $3 $4 (reverse $7) $8
           else fail "Cannot specify elemental along with recursive." } }
