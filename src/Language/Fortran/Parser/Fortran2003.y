@@ -458,11 +458,11 @@ NONEXECUTABLE_STATEMENT :: { Statement A0 }
 | common cCOMMON COMMON_GROUPS cPOP
   { let commonAList = fromReverseList $3
     in StCommon () (getTransSpan $1 commonAList) commonAList }
-| external VARIABLES
-  { let alist = fromReverseList $2
+| external MAYBE_DCOLON VARIABLES
+  { let alist = fromReverseList $3
     in StExternal () (getTransSpan $1 alist) alist }
-| intrinsic VARIABLES
-  { let alist = fromReverseList $2
+| intrinsic MAYBE_DCOLON VARIABLES
+  { let alist = fromReverseList $3
     in StIntrinsic () (getTransSpan $1 alist) alist }
 | use MODULE_NATURE VARIABLE { StUse () (getTransSpan $1 $3) $3 $2 Permissive Nothing }
 | use MODULE_NATURE VARIABLE ',' RENAME_LIST
