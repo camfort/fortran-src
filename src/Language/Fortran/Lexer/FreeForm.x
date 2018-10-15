@@ -140,6 +140,9 @@ tokens :-
 <0> "end"\ *"type"                                { addSpan TEndType }
 <scN> "class" / { followsProcedureP }             { addSpan TClass }
 <0> "sequence"                                    { addSpan TSequence }
+<0> "enum"                                        { addSpan TEnum }
+<0> "end"\ *"enum"                                { addSpan TEndEnum }
+<0> "enumerator"                                  { addSpan TEnumerator }
 
 -- Intrinsic types
 <0,scT> "integer"                                 { addSpan TInteger }
@@ -402,7 +405,7 @@ attributeP _ _ _ ai =  followsComma && precedesDoubleColon ai && startsWithTypeS
     prevTokens = reverse . aiPreviousTokensInLine $ ai
 
 bindP :: User -> AlexInput -> Int -> AlexInput -> Bool
-bindP _ _ _ ai = (followsRightPar && isFunSub) || (followsComma && isProc)
+bindP _ _ _ ai = (followsRightPar && isFunSub) || (followsComma && isProcEnum)
   where
     followsComma
       | Just TComma{} <- aiPreviousToken ai = True
@@ -413,8 +416,9 @@ bindP _ _ _ ai = (followsRightPar && isFunSub) || (followsComma && isProc)
     isFunSub = flip any prevTokens $ \ token ->
       fillConstr TFunction == toConstr token ||
       fillConstr TSubroutine == toConstr token
-    isProc = flip any prevTokens $ \ token ->
-               fillConstr TProcedure == toConstr token
+    isProcEnum = flip any prevTokens $ \ token ->
+      fillConstr TProcedure == toConstr token ||
+      fillConstr TEnum == toConstr token
     prevTokens = reverse . aiPreviousTokensInLine $ ai
 
 constructNameP :: User -> AlexInput -> Int -> AlexInput -> Bool
@@ -1149,6 +1153,9 @@ data Token =
   | TEndType            SrcSpan
   | TSequence           SrcSpan
   | TClass              SrcSpan
+  | TEnum               SrcSpan
+  | TEnumerator         SrcSpan
+  | TEndEnum            SrcSpan
   -- Selector
   | TKind               SrcSpan
   | TLen                SrcSpan

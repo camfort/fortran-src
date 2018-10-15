@@ -111,3 +111,11 @@ spec =
         let attrs = [AttrAsynchronous () u]
         let st = StDeclaration () u ty (Just (AList () u attrs)) (AList () u decls)
         sParser "integer, asynchronous :: a, b" `shouldBe'` st
+
+      it "parses enumerators" $ do
+        let decls = [ DeclVariable () u (varGen "a") Nothing (Just (intGen 1))
+                    , DeclVariable () u (varGen "b") Nothing Nothing ]
+        let st = StEnumerator () u (AList () u decls)
+        sParser "enum, bind(c)" `shouldBe'` StEnum () u
+        sParser "enumerator :: a = 1, b" `shouldBe'` st
+        sParser "end enum" `shouldBe'` StEndEnum () u

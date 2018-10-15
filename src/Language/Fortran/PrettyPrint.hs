@@ -730,6 +730,18 @@ instance Pretty (Statement a) where
       | v >= Fortran90 = "end type" <+> pprint' v name
       | otherwise  = tooOld v "Derived type" Fortran90
 
+    pprint' v (StEnum _ _)
+      | v >= Fortran2003 = "enum, bind(c)"
+      | otherwise  = tooOld v "Enum" Fortran2003
+
+    pprint' v (StEnumerator _ _ decls)
+      | v >= Fortran2003 = "enumerator ::" <+> pprint' v decls
+      | otherwise  = tooOld v "Enumator" Fortran2003
+
+    pprint' v (StEndEnum _ _)
+      | v >= Fortran2003 = "end enum"
+      | otherwise  = tooOld v "End enum" Fortran2003
+
     pprint' v (StSequence _ _)
       | v >= Fortran90 = "sequence"
       | otherwise = tooOld v "Sequence" Fortran90

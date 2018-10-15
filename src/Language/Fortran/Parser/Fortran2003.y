@@ -161,6 +161,9 @@ import Debug.Trace
   type                        { TType _ }
   endType                     { TEndType _ }
   class                       { TClass _ }
+  enum                        { TEnum _ }
+  enumerator                  { TEnumerator _ }
+  endEnum                     { TEndEnum _ }
   sequence                    { TSequence _ }
   kind                        { TKind _ }
   len                         { TLen _ }
@@ -484,6 +487,10 @@ NONEXECUTABLE_STATEMENT :: { Statement A0 }
 | endType { StEndType () (getSpan $1) Nothing }
 | endType id
   { let TId span id = $2 in StEndType () (getTransSpan $1 span) (Just id) }
+-- R461-R464
+| enum ',' bind '(' 'c' ')' { StEnum () (getTransSpan $1 $6) }
+| enumerator MAYBE_DCOLON ENUMERATOR_LIST { StEnumerator () (getTransSpan $1 $3) (fromReverseList $3) }
+| endEnum { StEndEnum () (getSpan $1) }
 | include STRING { StInclude () (getTransSpan $1 $2) $2 Nothing }
 -- R1209
 | import '::' IMPORT_NAME_LIST { StImport () (getTransSpan $1 $3) (fromReverseList $3) }
@@ -492,6 +499,15 @@ NONEXECUTABLE_STATEMENT :: { Statement A0 }
 -- Must be fixed in the future. TODO
 | format blob
   { let TBlob s blob = $2 in StFormatBogus () (getTransSpan $1 s) blob }
+
+ENUMERATOR_LIST :: { [Declarator A0] }
+: ENUMERATOR_LIST ',' ENUMERATOR { $3:$1 }
+| ENUMERATOR { [$1] }
+
+-- R463
+ENUMERATOR :: { Declarator A0 }
+: VARIABLE '=' EXPRESSION { DeclVariable () (getTransSpan $1 $3) $1 Nothing (Just $3) }
+| VARIABLE { DeclVariable () (getSpan $1) $1 Nothing Nothing }
 
 MAYBE_PROC_INTERFACE :: { Maybe (ProcInterface A0) }
 : TYPE_SPEC             { Just $ ProcInterfaceType () (getSpan $1) $1 }
@@ -973,6 +989,8 @@ CHAR_SELECTOR :: { Maybe (Selector A0) }
   { Just $ Selector () (getTransSpan $1 $3) (Just $2) Nothing }
 | '(' len '=' LEN_EXPRESSION ')'
   { Just $ Selector () (getTransSpan $1 $5) (Just $4) Nothing }
+| '(' kind '=' EXPRESSION ')'
+  { Just $ Selector () (getTransSpan $1 $5) Nothing (Just $4) }
 | '(' LEN_EXPRESSION ',' EXPRESSION ')'
   { Just $ Selector () (getTransSpan $1 $5) (Just $2) (Just $4) }
 | '(' LEN_EXPRESSION ',' kind '=' EXPRESSION ')'

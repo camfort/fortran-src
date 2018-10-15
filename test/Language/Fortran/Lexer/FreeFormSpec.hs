@@ -320,3 +320,10 @@ spec =
                     fmap ($u) [ TAsynchronous, TDoubleColon, flip TId "a", TComma, flip TId "b", TEOF ]
           shouldBe' (collectF03 "integer, asynchronous :: a, b") $
                     fmap ($u) [ TInteger, TComma, TAsynchronous, TDoubleColon, flip TId "a", TComma, flip TId "b", TEOF ]
+
+        it "lexes enums" $ do
+          shouldBe' (collectF03 "enum, bind(c)") $ fmap ($u) [ TEnum, TComma, TBind, TLeftPar, TC, TRightPar, TEOF ]
+          shouldBe' (collectF03 "enumerator :: a = 1, b") $
+                    fmap ($u) [ TEnumerator, TDoubleColon, flip TId "a", TOpAssign, flip TIntegerLiteral "1"
+                              , TComma, flip TId "b", TEOF ]
+          shouldBe' (collectF03 "end enum") $ fmap ($u) [ TEndEnum, TEOF ]

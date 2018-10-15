@@ -883,6 +883,8 @@ CHAR_SELECTOR :: { Maybe (Selector A0) }
   { Just $ Selector () (getTransSpan $1 $3) (Just $2) Nothing }
 | '(' len '=' LEN_EXPRESSION ')'
   { Just $ Selector () (getTransSpan $1 $5) (Just $4) Nothing }
+| '(' kind '=' EXPRESSION ')'
+  { Just $ Selector () (getTransSpan $1 $5) Nothing (Just $4) }
 | '(' LEN_EXPRESSION ',' EXPRESSION ')'
   { Just $ Selector () (getTransSpan $1 $5) (Just $2) (Just $4) }
 | '(' LEN_EXPRESSION ',' kind '=' EXPRESSION ')'
