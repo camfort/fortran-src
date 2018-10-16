@@ -16,10 +16,10 @@ class Loc a where
   getPos :: a -> Position
 
 data Position = Position
-  { posAbsoluteOffset   :: {-# UNPACK #-} !Int
-  , posColumn           :: {-# UNPACK #-} !Int
-  , posLine             :: {-# UNPACK #-} !Int
-  , filePath            :: !String
+  { posAbsoluteOffset   :: Int
+  , posColumn           :: Int
+  , posLine             :: Int
+  , filePath            :: String
   } deriving (Eq, Ord, Data, Typeable, Generic)
 
 instance Binary Position
