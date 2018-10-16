@@ -868,6 +868,8 @@ KIND_SELECTOR :: { Maybe (Selector A0) }
   { Just $ Selector () (getTransSpan $1 $3) Nothing (Just $2) }
 | '(' kind '=' EXPRESSION ')'
   { Just $ Selector () (getTransSpan $1 $5) Nothing (Just $4) }
+| '*' EXPRESSION -- non-standard but commonly used extension
+  { Just $ Selector () (getTransSpan $1 $2) Nothing (Just $2) }
 | {- EMPTY -} { Nothing }
 
 CHAR_SELECTOR :: { Maybe (Selector A0) }
