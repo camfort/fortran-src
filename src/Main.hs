@@ -4,6 +4,7 @@ module Main where
 
 import Prelude hiding (readFile)
 import qualified Data.ByteString.Char8 as B
+import qualified Data.ByteString.Lazy.Char8 as LB
 import Data.Text.Encoding (encodeUtf8, decodeUtf8With)
 import Data.Text.Encoding.Error (replace)
 
@@ -88,10 +89,10 @@ main = do
         Compile    -> do
           let bytes = runCompile $ parserF mods contents path
           let fspath = path <.> modFileSuffix
-          B.writeFile fspath bytes
+          LB.writeFile fspath bytes
         DumpModFile -> do
           let path' = if modFileSuffix `isSuffixOf` path then path else path <.> modFileSuffix
-          contents' <- B.readFile path'
+          contents' <- LB.readFile path'
           case decodeModFile contents' of
             Left msg -> putStrLn $ "Error: " ++ msg
             Right mf -> putStrLn $ "Filename: " ++ moduleFilename mf ++

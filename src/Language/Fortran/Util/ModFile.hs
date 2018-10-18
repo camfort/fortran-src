@@ -57,7 +57,7 @@ import Data.Generics.Uniplate.Operations
 import qualified Data.Map.Strict as M
 import Data.Binary
 import GHC.Generics (Generic)
-import qualified Data.ByteString.Char8 as B
+-- import qualified Data.ByteString.Char8 as B
 import qualified Data.ByteString.Lazy.Char8 as LB
 
 import qualified Language.Fortran.Util.Position as P
@@ -89,7 +89,7 @@ data ModFile = ModFile { mfFilename  :: String
                        , mfModuleMap :: FAR.ModuleMap
                        , mfDeclMap   :: DeclMap
                        , mfTypeEnv   :: FAT.TypeEnv
-                       , mfOtherData :: M.Map String B.ByteString }
+                       , mfOtherData :: M.Map String LB.ByteString }
   deriving (Ord, Eq, Show, Data, Typeable, Generic)
 
 instance Binary ModFile
@@ -122,7 +122,7 @@ genModFile = flip regenModFile emptyModFile
 
 -- | Looks up the raw "other data" that may be stored in a ModFile by
 -- applications that make use of fortran-src.
-lookupModFileData :: String -> ModFile -> Maybe B.ByteString
+lookupModFileData :: String -> ModFile -> Maybe LB.ByteString
 lookupModFileData k = M.lookup k . mfOtherData
 
 -- | Get a list of the labels present in the "other data" of a
@@ -134,7 +134,7 @@ getLabelsModFileData = M.keys . mfOtherData
 -- be stored in a ModFile by applications that make use of
 -- fortran-src. See 'Data.Map.Strict.alter' for more information about
 -- the interface of this function.
-alterModFileData :: (Maybe B.ByteString -> Maybe B.ByteString) -> String -> ModFile -> ModFile
+alterModFileData :: (Maybe LB.ByteString -> Maybe LB.ByteString) -> String -> ModFile -> ModFile
 alterModFileData f k mf = mf { mfOtherData = M.alter f k . mfOtherData $ mf }
 
 -- For when stackage gets containers-0.5.8.1:
@@ -142,12 +142,12 @@ alterModFileData f k mf = mf { mfOtherData = M.alter f k . mfOtherData $ mf }
 -- alterModFileDataF f k mf = (\ od -> mf { mfOtherData = od }) <$> M.alterF f k (mfOtherData mf)
 
 -- | Convert ModFile to a strict ByteString for writing to file.
-encodeModFile :: ModFile -> B.ByteString
-encodeModFile = LB.toStrict . encode
+encodeModFile :: ModFile -> LB.ByteString
+encodeModFile = encode
 
 -- | Convert a strict ByteString to a ModFile, if possible
-decodeModFile :: Binary a => B.ByteString -> Either String a
-decodeModFile bs = case decodeOrFail (LB.fromStrict bs) of
+decodeModFile :: Binary a => LB.ByteString -> Either String a
+decodeModFile bs = case decodeOrFail bs of
   Left (_, _, s) -> Left s
   Right (_, _, mf) -> Right mf
 
