@@ -46,8 +46,8 @@ module Language.Fortran.Util.ModFile
   ( modFileSuffix, ModFile, ModFiles, emptyModFile, emptyModFiles
   , lookupModFileData, getLabelsModFileData, alterModFileData -- , alterModFileDataF
   , genModFile, regenModFile, encodeModFile, decodeModFile
-  , DeclMap, DeclContext(..), extractModuleMap, extractDeclMap
-  , moduleFilename, combinedDeclMap, combinedModuleMap, combinedTypeEnv
+  , StringMap, DeclMap, DeclContext(..), extractModuleMap, extractDeclMap
+  , moduleFilename, combinedStringMap, combinedDeclMap, combinedModuleMap, combinedTypeEnv
   , genUniqNameToFilenameMap )
 where
 
@@ -55,7 +55,8 @@ import Data.Data
 import Data.Maybe
 import Data.Generics.Uniplate.Operations
 import qualified Data.Map.Strict as M
-import Data.Binary
+import Data.Binary (Binary, encode, decodeOrFail)
+import Control.Monad.State
 import GHC.Generics (Generic)
 -- import qualified Data.ByteString.Char8 as B
 import qualified Data.ByteString.Lazy.Char8 as LB
@@ -84,8 +85,13 @@ instance Binary DeclContext
 -- unit where it was defined, and the corresponding SrcSpan.
 type DeclMap = M.Map F.Name (DeclContext, P.SrcSpan)
 
+-- | A map of aliases => strings, in order to save space and share
+-- structure for repeated strings.
+type StringMap = M.Map String String
+
 -- | The data stored in the "mod files"
 data ModFile = ModFile { mfFilename  :: String
+                       , mfStringMap :: StringMap
                        , mfModuleMap :: FAR.ModuleMap
                        , mfDeclMap   :: DeclMap
                        , mfTypeEnv   :: FAT.TypeEnv
@@ -103,17 +109,16 @@ emptyModFiles = []
 
 -- | Starting point.
 emptyModFile :: ModFile
-emptyModFile = ModFile "" M.empty M.empty M.empty M.empty
+emptyModFile = ModFile "" M.empty M.empty M.empty M.empty M.empty
 
 -- | Extracts the module map, declaration map and type analysis from
 -- an analysed and renamed ProgramFile, then inserts it into the
 -- ModFile.
 regenModFile :: forall a. Data a => F.ProgramFile (FA.Analysis a) -> ModFile -> ModFile
-regenModFile pf mf = mf
-  { mfModuleMap = extractModuleMap pf
-  , mfDeclMap   = extractDeclMap pf
-  , mfTypeEnv   = FAT.extractTypeEnv pf
-  , mfFilename  = F.pfGetFilename pf }
+regenModFile pf mf = mf { mfModuleMap = extractModuleMap pf
+                        , mfDeclMap   = extractDeclMap pf
+                        , mfTypeEnv   = FAT.extractTypeEnv pf
+                        , mfFilename  = F.pfGetFilename pf }
 
 -- | Generate a fresh ModFile from the module map, declaration map and
 -- type analysis of a given analysed and renamed ProgramFile.
@@ -143,13 +148,17 @@ alterModFileData f k mf = mf { mfOtherData = M.alter f k . mfOtherData $ mf }
 
 -- | Convert ModFile to a strict ByteString for writing to file.
 encodeModFile :: ModFile -> LB.ByteString
-encodeModFile = encode
+encodeModFile mf = encode mf' { mfStringMap = sm }
+  where
+    (mf', sm) = extractStringMap (mf { mfStringMap = M.empty })
 
--- | Convert a strict ByteString to a ModFile, if possible
-decodeModFile :: Binary a => LB.ByteString -> Either String a
+-- | Convert a strict ByteString to a ModFile, if possible. Revert the
+-- String aliases according to the StringMap.
+decodeModFile :: LB.ByteString -> Either String ModFile
 decodeModFile bs = case decodeOrFail bs of
-  Left (_, _, s) -> Left s
-  Right (_, _, mf) -> Right mf
+  Left (_, _, s)   -> Left s
+  Right (_, _, mf) -> Right (revertStringMap sm mf { mfStringMap = M.empty }) { mfStringMap = sm }
+    where sm = mfStringMap mf
 
 -- | Extract the combined module map from a set of ModFiles. Useful
 -- for parsing a Fortran file in a large context of other modules.
@@ -166,6 +175,10 @@ combinedTypeEnv = M.unions . map mfTypeEnv
 -- other modules.
 combinedDeclMap :: ModFiles -> DeclMap
 combinedDeclMap = M.unions . map mfDeclMap
+
+-- | Extract the combined string map of ModFiles. Mainly internal use.
+combinedStringMap :: ModFiles -> StringMap
+combinedStringMap = M.unions . map mfStringMap
 
 -- | Get the associated Fortran filename that was used to compile the
 -- ModFile.
@@ -235,3 +248,24 @@ extractDeclMap pf = M.fromList . concatMap (blockDecls . nameAndBlocks) $ univer
         | otherwise                       -> error $ "nameAndBlocks: un-named function with no return value! " ++ show (FA.puName pu) ++ " at source-span " ++ show (P.getSpan pu)
       F.PUBlockData  _ _ _ b              -> (DCBlockData, Nothing, b)
       F.PUComment    {}                   -> (DCBlockData, Nothing, []) -- no decls inside of comments, so ignore it
+
+-- | Extract a string map from the given data, leaving behind aliased
+-- values in place of strings in the returned version.
+extractStringMap :: Data a => a -> (a, StringMap)
+extractStringMap x = fmap (inv . fst) . flip runState (M.empty, 0) $ descendBiM f x
+  where
+    inv = M.fromList . map (\ (a,b) -> (b,a)) . M.toList
+    f :: String -> State (StringMap, Int) String
+    f s = do
+      (m, n) <- get
+      case M.lookup s m of
+        Just s' -> return s'
+        Nothing -> do
+          let s' = '@':show n
+          put (M.insert s s' m, n + 1)
+          return s'
+
+-- | Rewrite the data with the string map aliases replaced by the
+-- actual values (implicitly sharing structure).
+revertStringMap :: Data a => StringMap -> a -> a
+revertStringMap sm = descendBi (\ s -> s `fromMaybe` M.lookup s sm)
