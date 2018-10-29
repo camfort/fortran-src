@@ -330,6 +330,8 @@ SUBROUTINE_END :: { Token }
 : end { $1 } | endSubroutine { $1 } | endSubroutine id { $2 }
 BLOCK_DATA_END :: { Token }
 : end { $1 } | endBlockData { $1 } | endBlockData id { $2 }
+INTERFACE_END :: { Token }
+: end { $1 } | endInterface { $1 } | endInterface id { $2 }
 
 NAME :: { Name } : id { let (TId _ name) = $1 in name }
 
@@ -343,10 +345,10 @@ BLOCK :: { Block A0 }
 : INTEGER_LITERAL STATEMENT MAYBE_COMMENT NEWLINE
   { BlStatement () (getTransSpan $1 $2) (Just $1) $2 }
 | STATEMENT MAYBE_COMMENT NEWLINE { BlStatement () (getSpan $1) Nothing $1 }
-| ABSTRACTP interface MAYBE_EXPRESSION NEWLINE SUBPROGRAM_UNITS2 MODULE_PROCEDURES endInterface NEWLINE
-  { BlInterface () (getTransSpan $2 $8) $3 $1 $5 $6 }
-| ABSTRACTP interface MAYBE_EXPRESSION NEWLINE MODULE_PROCEDURES endInterface NEWLINE
-  { BlInterface () (getTransSpan $2 $7) $3 $1 [ ] $5 }
+| ABSTRACTP interface MAYBE_EXPRESSION NEWLINE SUBPROGRAM_UNITS2 MODULE_PROCEDURES INTERFACE_END NEWLINE
+  { BlInterface () (getTransSpan $2 $8) $3 $1 (reverse $5) (reverse $6) }
+| ABSTRACTP interface MAYBE_EXPRESSION NEWLINE MODULE_PROCEDURES INTERFACE_END NEWLINE
+  { BlInterface () (getTransSpan $2 $7) $3 $1 [ ] (reverse $5) }
 | COMMENT_BLOCK { $1 }
 
 ABSTRACTP :: { Bool }
@@ -366,6 +368,7 @@ SUBPROGRAM_UNITS2 :: { [ ProgramUnit A0 ] }
 
 MODULE_PROCEDURES :: { [ Block A0 ] }
 : MODULE_PROCEDURES MODULE_PROCEDURE { $2 : $1 }
+| MODULE_PROCEDURES MODULE_PROCEDURE COMMENT_BLOCK { $3 : $2 : $1 }
 | { [ ] }
 
 MODULE_PROCEDURE :: { Block A0 }
