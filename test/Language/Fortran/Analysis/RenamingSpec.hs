@@ -66,6 +66,8 @@ spec = do
       countUnrenamed (analyseRenames . initAnalysis $ ex11) `shouldBe` 0
     it "complete ex12" $
       countUnrenamed (analyseRenames . initAnalysis $ ex12) `shouldBe` 0
+    it "complete ex13" $
+      countUnrenamed (analyseRenames . initAnalysis $ ex13Renames) `shouldBe` 0
 
     it "complete exScope1" $
       countUnrenamed (analyseRenames . initAnalysis $ exScope1) `shouldBe` 0
@@ -323,6 +325,43 @@ ex12 = resetSrcSpan . flip fortran90Parser "" $ unlines [
   , "  use m3, only: foo"
   , "  integer :: x"
   , "  x = foo ()"
+  , "end program main"
+  ]
+
+ex13Renames :: ProgramFile A0
+ex13Renames = resetSrcSpan . flip fortran90Parser "" $ unlines [
+    "module m1"
+  , "  implicit none"
+  , "  integer :: z"
+  , "contains"
+  , "  integer function foo ()"
+  , "    foo = 0"
+  , "  end function foo"
+  , "end module m1"
+  , ""
+  , "module m2"
+  , "  implicit none"
+  , "contains"
+  , "  integer function foo2 (x)"
+  , "    use m1, only: frob => foo"
+  , "    integer :: x"
+  , "    foo2 = frob () + x"
+  , "  end function foo2"
+  , "end module m2"
+  , ""
+  , "module m3"
+  , "  implicit none"
+  , "contains"
+  , "  integer function foo () result (r)"
+  , "    r = 1"
+  , "  end function foo"
+  , "end module m3"
+  , ""
+  , "program main"
+  , "  use m1, only: z, baz => foo"
+  , "  use m3, only: bar => foo"
+  , "  integer :: x"
+  , "  x = bar () + baz () + z"
   , "end program main"
   ]
 

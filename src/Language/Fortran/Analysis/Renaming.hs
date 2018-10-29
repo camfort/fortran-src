@@ -11,8 +11,6 @@ module Language.Fortran.Analysis.Renaming
   ( analyseRenames, analyseRenamesWithModuleMap, rename, unrename, ModuleMap )
 where
 
-import Debug.Trace
-
 import Language.Fortran.AST hiding (fromList)
 import Language.Fortran.Intrinsics
 import Language.Fortran.Analysis
@@ -48,17 +46,15 @@ type RenamerFunc t = t -> Renamer t
 
 -- | Annotate unique names for variable and function declarations and uses.
 analyseRenames :: Data a => ProgramFile (Analysis a) -> ProgramFile (Analysis a)
-analyseRenames (ProgramFile mi pus) = ProgramFile mi pus'
+analyseRenames (ProgramFile mi pus) = cleanupUseRenames $ ProgramFile mi pus'
   where
-    (Just pus', _) = runRenamer (skimProgramUnits pus >> renameSubPUs (Just pus))
-                                (renameState0 (miVersion mi))
+    (Just pus', _) = runRenamer (renameSubPUs (Just pus)) (renameState0 (miVersion mi))
 
 -- | Annotate unique names for variable and function declarations and uses. With external module map.
 analyseRenamesWithModuleMap :: Data a => ModuleMap -> ProgramFile (Analysis a) -> ProgramFile (Analysis a)
-analyseRenamesWithModuleMap mmap (ProgramFile mi pus) = ProgramFile mi pus'
+analyseRenamesWithModuleMap mmap (ProgramFile mi pus) = cleanupUseRenames $ ProgramFile mi pus'
   where
-    (Just pus', _) = runRenamer (skimProgramUnits pus >> renameSubPUs (Just pus))
-                                (renameState0 (miVersion mi)) { moduleMap = mmap }
+    (Just pus', _) = runRenamer (renameSubPUs (Just pus)) (renameState0 (miVersion mi)) { moduleMap = mmap }
 
 -- | Take the unique name annotations and substitute them into the actual AST.
 rename :: Data a => ProgramFile (Analysis a) -> ProgramFile (Analysis a)
@@ -220,9 +216,6 @@ isUseStatement :: Block a -> Bool
 isUseStatement (BlStatement _ _ _ (StUse _ _ (ExpValue _ _ (ValVariable _)) _ _ _)) = True
 isUseStatement _                                                                    = False
 
-isUseID :: Use a -> Bool
-isUseID UseID {} = True; isUseID _ = False
-
 -- Generate an initial environment for a scope based upon any Use
 -- statements in the blocks.
 initialEnv :: forall a. Data a => [Block (Analysis a)] -> Renamer ModEnv
@@ -237,12 +230,19 @@ initialEnv blocks = do
     (BlStatement _ _ _ (StUse _ _ (ExpValue _ _ (ValVariable m)) _ _ Nothing)) ->
       return $ fromMaybe empty (Named m `lookup` mMap)
     (BlStatement _ _ _ (StUse _ _ (ExpValue _ _ (ValVariable m)) _ _ (Just onlyAList)))
-      | only <- aStrip onlyAList, all isUseID only -> do
+      | only <- aStrip onlyAList -> do
       let env = fromMaybe empty (Named m `lookup` mMap)
-      let onlyNames = map (\ (UseID _ _ v) -> varName v) only
-      -- filter for the the mod remappings mentioned in the list, only
-      return $ M.filterWithKey (\ k _ -> k `elem` onlyNames) env
-    _ -> trace "WARNING: USE renaming not supported (yet)" $ return empty
+      -- list of (local name, original name) from USE declaration:
+      let localNamePairs = flip map only $ \ r -> case r of
+            UseID _ _ v       -> (varName v, varName v)
+            UseRename _ _ u v -> (varName u, varName v)
+      -- create environment based on local name written in ONLY list
+      -- (if applicable) and variable information found in imported
+      -- mod env.
+      let re = M.fromList [ (local, info) | (local, orig) <- localNamePairs
+                                          , Just info     <- [M.lookup orig env] ]
+      return re
+    _ -> return empty
 
   -- Include any global names from program units defined outside of
   -- modules as well.
@@ -354,16 +354,16 @@ maybeAddUnique v nt = maybe (addUnique v nt) return =<< getFromEnvsIfSubprogram 
 setUniqueName, setSourceName :: (Annotated f, Data a) => String -> f (Analysis a) -> f (Analysis a)
 setUniqueName un x
   | a@Analysis { uniqueName = Nothing } <- getAnnotation x = setAnnotation (a { uniqueName = Just un }) x
-  | otherwise                                                = x
+  | otherwise                                              = x
 
 setSourceName sn x
   | a@Analysis { sourceName = Nothing } <- getAnnotation x = setAnnotation (a { sourceName = Just sn }) x
-  | otherwise                                                = x
+  | otherwise                                              = x
 
 -- Work recursively into sub-program units.
 renameSubPUs :: Data a => RenamerFunc (Maybe [ProgramUnit (Analysis a)])
 renameSubPUs Nothing = return Nothing
-renameSubPUs (Just pus) = skimProgramUnits pus >> Just `fmap` mapM programUnit pus
+renameSubPUs (Just pus) = skimProgramUnits pus >> Just <$> mapM programUnit pus
 
 -- Go through all program units at the same level and add their names
 -- to the environment.
@@ -443,6 +443,17 @@ renameBlock = trans expression
     trans = transformBiM -- search all expressions, bottom-up
 
 --------------------------------------------------
+
+-- Ensure second part of UseRename has the right uniqueName &
+-- sourceName, since that name does not appear in our mod env, because
+-- it has been given a different local name by the programmer.
+cleanupUseRenames :: forall a. Data a => ProgramFile (Analysis a) -> ProgramFile (Analysis a)
+cleanupUseRenames = transformBi (\ u -> case u :: Use (Analysis a) of
+  UseRename a s e1 e2@(ExpValue _ _ (ValVariable v)) -> UseRename a s e1 $ setUniqueName (varName e1) (setSourceName v e2)
+  _                                                  -> u)
+
+
+
 
 -- Local variables:
 -- mode: haskell
