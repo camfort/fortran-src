@@ -688,8 +688,8 @@ instance Pretty (Statement a) where
       | v >= Fortran90 = "where" <+> parens (pprint' v mask)
       | otherwise = tooOld v "Where construct" Fortran90
 
-    pprint' v (StElsewhere _ _)
-      | v >= Fortran90 = "else where"
+    pprint' v (StElsewhere _ _ mexp)
+      | v >= Fortran90 = "else where" <+> "(" <?> pprint' v mexp <?> ")"
       | otherwise = tooOld v "Else where" Fortran90
 
     pprint' v (StEndWhere _ _)

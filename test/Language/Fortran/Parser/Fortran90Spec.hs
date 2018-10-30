@@ -182,7 +182,7 @@ spec =
         let stPause = StPause () u Nothing
         let stStr = "PAUSE"
         sParser stStr `shouldBe'` stPause
-        
+
       it "parses pause statements with expression" $ do
         let stPause = StPause () u (Just (strGen "MESSAGE"))
         let stStr = "PAUSE \"MESSAGE\""
@@ -420,7 +420,11 @@ spec =
             sParser "where (.true.)" `shouldBe'` StWhereConstruct () u valTrue
 
           it "parses elsewhere statement" $
-            sParser "elsewhere" `shouldBe'` StElsewhere () u
+            sParser "elsewhere" `shouldBe'` StElsewhere () u Nothing
+
+          it "parses elsewhere statement" $ do
+            let exp = ExpBinary () u GT (varGen "a") (varGen "b")
+            sParser "elsewhere (a > b)" `shouldBe'` StElsewhere () u (Just exp)
 
           it "parses endwhere statement" $
             sParser "endwhere" `shouldBe'` StEndWhere () u

@@ -446,7 +446,8 @@ EXECUTABLE_STATEMENT :: { Statement A0 }
 | where '(' EXPRESSION ')' EXPRESSION_ASSIGNMENT_STATEMENT
   { StWhere () (getTransSpan $1 $5) $3 $5 }
 | where '(' EXPRESSION ')' { StWhereConstruct () (getTransSpan $1 $4) $3 }
-| elsewhere { StElsewhere () (getSpan $1) }
+| elsewhere '(' EXPRESSION ')' { StElsewhere () (getTransSpan $1 $4) (Just $3) }
+| elsewhere { StElsewhere () (getSpan $1) Nothing }
 | endwhere { StEndWhere () (getSpan $1) }
 | if '(' EXPRESSION ')' INTEGER_LITERAL ',' INTEGER_LITERAL ',' INTEGER_LITERAL
   { StIfArithmetic () (getTransSpan $1 $9) $3 $5 $7 $9 }

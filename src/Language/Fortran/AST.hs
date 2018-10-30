@@ -348,7 +348,7 @@ data Statement a  =
   | StDeallocate          a SrcSpan (AList Expression a) (Maybe (ControlPair a))
   | StWhere               a SrcSpan (Expression a) (Statement a)
   | StWhereConstruct      a SrcSpan (Expression a)
-  | StElsewhere           a SrcSpan
+  | StElsewhere           a SrcSpan (Maybe (Expression a))
   | StEndWhere            a SrcSpan
   | StUse                 a SrcSpan (Expression a) (Maybe ModuleNature) Only (Maybe (AList Use a))
   | StModuleProcedure     a SrcSpan (AList Expression a)
