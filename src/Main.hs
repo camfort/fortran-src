@@ -100,7 +100,7 @@ main = do
                                    "\n\nModuleMap:\n" ++ showModuleMap (combinedModuleMap [mf]) ++
                                    "\n\nDeclMap:\n" ++ showGenericMap (combinedDeclMap [mf]) ++
                                    "\n\nTypeEnv:\n" ++ showTypes (combinedTypeEnv [mf]) ++
-                                   "\n\nConstVarMap:\n" ++ showGenericMap (combinedConstVarMap [mf]) ++
+                                   "\n\nParamVarMap:\n" ++ showGenericMap (combinedParamVarMap [mf]) ++
                                    "\n\nOther Data Labels: " ++ show (getLabelsModFileData mf)
     _ -> fail $ usageInfo programName options
 

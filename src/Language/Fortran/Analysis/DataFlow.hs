@@ -9,7 +9,7 @@ module Language.Fortran.Analysis.DataFlow
   , genUDMap, genDUMap, duMapToUdMap, UDMap, DUMap
   , genFlowsToGraph, FlowsGraph
   , genVarFlowsToMap, VarFlowsMap
-  , Constant(..), ParameterVarMap, ConstExpMap, genConstExpMap, analyseConstExps
+  , Constant(..), ParameterVarMap, ConstExpMap, genConstExpMap, analyseConstExps, analyseParameterVars
   , genBlockMap, genDefMap, BlockMap, DefMap
   , genCallMap, CallMap
   , loopNodes, genBackEdgeMap, sccWith, BackEdgeMap
@@ -414,6 +414,16 @@ analyseConstExps pf = pf'
     transformExpr :: (Expression (Analysis a) -> Expression (Analysis a)) ->
                      [Block (Analysis a)] -> [Block (Analysis a)]
     transformExpr = transformBi
+
+-- | Annotate AST with constant-expression information based on given
+-- ParameterVarMap.
+analyseParameterVars :: forall a. Data a => ParameterVarMap -> ProgramFile (Analysis a) -> ProgramFile (Analysis a)
+analyseParameterVars pvm = transformBi exp
+  where
+    exp :: Expression (Analysis a) -> Expression (Analysis a)
+    exp e@(ExpValue _ _ ValVariable{})
+      | Just con <- M.lookup (varName e) pvm = flip modifyAnnotation e $ \ a -> a { constExp = Just con }
+    exp e = e
 
 --------------------------------------------------
 

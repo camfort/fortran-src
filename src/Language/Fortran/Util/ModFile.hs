@@ -46,8 +46,8 @@ module Language.Fortran.Util.ModFile
   ( modFileSuffix, ModFile, ModFiles, emptyModFile, emptyModFiles
   , lookupModFileData, getLabelsModFileData, alterModFileData -- , alterModFileDataF
   , genModFile, regenModFile, encodeModFile, decodeModFile
-  , StringMap, DeclMap, DeclContext(..), extractModuleMap, extractDeclMap
-  , moduleFilename, combinedStringMap, combinedDeclMap, combinedModuleMap, combinedTypeEnv, combinedConstVarMap
+  , StringMap, DeclMap, ParamVarMap, DeclContext(..), extractModuleMap, extractDeclMap
+  , moduleFilename, combinedStringMap, combinedDeclMap, combinedModuleMap, combinedTypeEnv, combinedParamVarMap
   , genUniqNameToFilenameMap )
 where
 
@@ -92,7 +92,7 @@ type DeclMap = M.Map F.Name (DeclContext, P.SrcSpan)
 type StringMap = M.Map String String
 
 -- | A map of variables => their constant expression if known
-type ConstVarMap = M.Map String FAD.Constant
+type ParamVarMap = FAD.ParameterVarMap
 
 -- | The data stored in the "mod files"
 data ModFile = ModFile { mfFilename    :: String
@@ -100,7 +100,7 @@ data ModFile = ModFile { mfFilename    :: String
                        , mfModuleMap   :: FAR.ModuleMap
                        , mfDeclMap     :: DeclMap
                        , mfTypeEnv     :: FAT.TypeEnv
-                       , mfConstVarMap :: ConstVarMap
+                       , mfParamVarMap :: ParamVarMap
                        , mfOtherData   :: M.Map String LB.ByteString }
   deriving (Eq, Ord, Show, Data, Typeable, Generic)
 
@@ -124,7 +124,7 @@ regenModFile :: forall a. Data a => F.ProgramFile (FA.Analysis a) -> ModFile -> 
 regenModFile pf mf = mf { mfModuleMap   = extractModuleMap pf
                         , mfDeclMap     = extractDeclMap pf
                         , mfTypeEnv     = FAT.extractTypeEnv pf
-                        , mfConstVarMap = extractConstVarMap pf
+                        , mfParamVarMap = extractParamVarMap pf
                         , mfFilename    = F.pfGetFilename pf }
 
 -- | Generate a fresh ModFile from the module map, declaration map and
@@ -188,8 +188,8 @@ combinedStringMap :: ModFiles -> StringMap
 combinedStringMap = M.unions . map mfStringMap
 
 -- | Extract the combined string map of ModFiles. Mainly internal use.
-combinedConstVarMap :: ModFiles -> ConstVarMap
-combinedConstVarMap = M.unions . map mfConstVarMap
+combinedParamVarMap :: ModFiles -> ParamVarMap
+combinedParamVarMap = M.unions . map mfParamVarMap
 
 -- | Get the associated Fortran filename that was used to compile the
 -- ModFile.
@@ -282,8 +282,8 @@ revertStringMap :: Data a => StringMap -> a -> a
 revertStringMap sm = descendBi (\ s -> s `fromMaybe` M.lookup s sm)
 
 -- | Extract a map of variables assigned to constant values.
-extractConstVarMap :: forall a. Data a => F.ProgramFile (FA.Analysis a) -> ConstVarMap
-extractConstVarMap pf = M.fromList cvm
+extractParamVarMap :: forall a. Data a => F.ProgramFile (FA.Analysis a) -> ParamVarMap
+extractParamVarMap pf = M.fromList cvm
   where
     pf' = FAD.analyseConstExps $ FAB.analyseBBlocks pf
     cvm = [ (FA.varName v, con)
