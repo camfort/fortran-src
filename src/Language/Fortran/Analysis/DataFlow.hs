@@ -407,7 +407,7 @@ analyseConstExps pf = pf'
     -- insert info about constExp into Expression annotation
     insertConstExp :: Expression (Analysis a) -> Expression (Analysis a)
     insertConstExp e = flip modifyAnnotation e $ \ a ->
-      a { constExp = join (flip IM.lookup ceMap =<< insLabel (getAnnotation e)) }
+      a { constExp = constExp a `mplus` join (flip IM.lookup ceMap =<< insLabel (getAnnotation e)) }
     -- utility functions for transforming expressions tucked away inside of the basic block graph
     transformBB :: (BBGr (Analysis a) -> BBGr (Analysis a)) -> ProgramFile (Analysis a) -> ProgramFile (Analysis a)
     transformBB = transformBi
