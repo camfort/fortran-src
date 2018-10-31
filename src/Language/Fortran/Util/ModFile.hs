@@ -47,7 +47,7 @@ module Language.Fortran.Util.ModFile
   , lookupModFileData, getLabelsModFileData, alterModFileData -- , alterModFileDataF
   , genModFile, regenModFile, encodeModFile, decodeModFile
   , StringMap, DeclMap, DeclContext(..), extractModuleMap, extractDeclMap
-  , moduleFilename, combinedStringMap, combinedDeclMap, combinedModuleMap, combinedTypeEnv
+  , moduleFilename, combinedStringMap, combinedDeclMap, combinedModuleMap, combinedTypeEnv, combinedConstVarMap
   , genUniqNameToFilenameMap )
 where
 
@@ -66,6 +66,8 @@ import qualified Language.Fortran.AST as F
 import qualified Language.Fortran.Analysis as FA
 import qualified Language.Fortran.Analysis.Renaming as FAR
 import qualified Language.Fortran.Analysis.Types as FAT
+import qualified Language.Fortran.Analysis.DataFlow as FAD
+import qualified Language.Fortran.Analysis.BBlocks as FAB
 
 --------------------------------------------------
 
@@ -89,14 +91,18 @@ type DeclMap = M.Map F.Name (DeclContext, P.SrcSpan)
 -- structure for repeated strings.
 type StringMap = M.Map String String
 
+-- | A map of variables => their constant expression if known
+type ConstVarMap = M.Map String FAD.Constant
+
 -- | The data stored in the "mod files"
-data ModFile = ModFile { mfFilename  :: String
-                       , mfStringMap :: StringMap
-                       , mfModuleMap :: FAR.ModuleMap
-                       , mfDeclMap   :: DeclMap
-                       , mfTypeEnv   :: FAT.TypeEnv
-                       , mfOtherData :: M.Map String LB.ByteString }
-  deriving (Ord, Eq, Show, Data, Typeable, Generic)
+data ModFile = ModFile { mfFilename    :: String
+                       , mfStringMap   :: StringMap
+                       , mfModuleMap   :: FAR.ModuleMap
+                       , mfDeclMap     :: DeclMap
+                       , mfTypeEnv     :: FAT.TypeEnv
+                       , mfConstVarMap :: ConstVarMap
+                       , mfOtherData   :: M.Map String LB.ByteString }
+  deriving (Eq, Ord, Show, Data, Typeable, Generic)
 
 instance Binary ModFile
 
@@ -109,16 +115,17 @@ emptyModFiles = []
 
 -- | Starting point.
 emptyModFile :: ModFile
-emptyModFile = ModFile "" M.empty M.empty M.empty M.empty M.empty
+emptyModFile = ModFile "" M.empty M.empty M.empty M.empty M.empty M.empty
 
 -- | Extracts the module map, declaration map and type analysis from
 -- an analysed and renamed ProgramFile, then inserts it into the
 -- ModFile.
 regenModFile :: forall a. Data a => F.ProgramFile (FA.Analysis a) -> ModFile -> ModFile
-regenModFile pf mf = mf { mfModuleMap = extractModuleMap pf
-                        , mfDeclMap   = extractDeclMap pf
-                        , mfTypeEnv   = FAT.extractTypeEnv pf
-                        , mfFilename  = F.pfGetFilename pf }
+regenModFile pf mf = mf { mfModuleMap   = extractModuleMap pf
+                        , mfDeclMap     = extractDeclMap pf
+                        , mfTypeEnv     = FAT.extractTypeEnv pf
+                        , mfConstVarMap = extractConstVarMap pf
+                        , mfFilename    = F.pfGetFilename pf }
 
 -- | Generate a fresh ModFile from the module map, declaration map and
 -- type analysis of a given analysed and renamed ProgramFile.
@@ -179,6 +186,10 @@ combinedDeclMap = M.unions . map mfDeclMap
 -- | Extract the combined string map of ModFiles. Mainly internal use.
 combinedStringMap :: ModFiles -> StringMap
 combinedStringMap = M.unions . map mfStringMap
+
+-- | Extract the combined string map of ModFiles. Mainly internal use.
+combinedConstVarMap :: ModFiles -> ConstVarMap
+combinedConstVarMap = M.unions . map mfConstVarMap
 
 -- | Get the associated Fortran filename that was used to compile the
 -- ModFile.
@@ -269,3 +280,20 @@ extractStringMap x = fmap (inv . fst) . flip runState (M.empty, 0) $ descendBiM 
 -- actual values (implicitly sharing structure).
 revertStringMap :: Data a => StringMap -> a -> a
 revertStringMap sm = descendBi (\ s -> s `fromMaybe` M.lookup s sm)
+
+-- | Extract a map of variables assigned to constant values.
+extractConstVarMap :: forall a. Data a => F.ProgramFile (FA.Analysis a) -> ConstVarMap
+extractConstVarMap pf = M.fromList cvm
+  where
+    pf' = FAD.analyseConstExps $ FAB.analyseBBlocks pf
+    cvm = [ (FA.varName v, con)
+          | F.PUModule _ _ _ bs _                             <- universeBi pf' :: [F.ProgramUnit (FA.Analysis a)]
+          , st@(F.StDeclaration _ _ (F.TypeSpec _ _ _ _) _ _) <- universeBi bs  :: [F.Statement (FA.Analysis a)]
+          , F.AttrParameter _ _                               <- universeBi st  :: [F.Attribute (FA.Analysis a)]
+          , (F.DeclVariable _ _ v _ (Just e))                 <- universeBi st  :: [F.Declarator (FA.Analysis a)]
+          , Just con                                          <- [FA.constExp (F.getAnnotation v)] ] ++
+          [ (FA.varName v, con)
+          | F.PUModule _ _ _ bs _                             <- universeBi pf' :: [F.ProgramUnit (FA.Analysis a)]
+          , st@F.StParameter {}                               <- universeBi bs  :: [F.Statement (FA.Analysis a)]
+          , (F.DeclVariable _ _ v _ (Just e))                 <- universeBi st  :: [F.Declarator (FA.Analysis a)]
+          , Just con                                          <- [FA.constExp (F.getAnnotation v)] ]

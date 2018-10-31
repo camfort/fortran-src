@@ -371,7 +371,7 @@ genConstExpMap pf = ceMap
     -- Generate map of 'parameter' variables, obtaining their value from ceMap below, lazily.
     pvMap = M.fromList $
       [ (varName v, getE e)
-      | st@(StDeclaration _ _ (TypeSpec _ _ TypeInteger _) _ _) <- universeBi pf :: [Statement (Analysis a)]
+      | st@(StDeclaration _ _ (TypeSpec _ _ _ _) _ _) <- universeBi pf :: [Statement (Analysis a)]
       , AttrParameter _ _ <- universeBi st :: [Attribute (Analysis a)]
       , (DeclVariable _ _ v _ (Just e)) <- universeBi st ] ++
       [ (varName v, getE e)

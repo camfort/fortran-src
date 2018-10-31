@@ -100,6 +100,7 @@ main = do
                                    "\n\nModuleMap:\n" ++ showModuleMap (combinedModuleMap [mf]) ++
                                    "\n\nDeclMap:\n" ++ showGenericMap (combinedDeclMap [mf]) ++
                                    "\n\nTypeEnv:\n" ++ showTypes (combinedTypeEnv [mf]) ++
+                                   "\n\nConstVarMap:\n" ++ showGenericMap (combinedConstVarMap [mf]) ++
                                    "\n\nOther Data Labels: " ++ show (getLabelsModFileData mf)
     _ -> fail $ usageInfo programName options
 
@@ -190,7 +191,6 @@ superGraphDataFlow pf sgr = showBBGr (nmap (map (fmap insLabel)) gr') ++ "\n\n" 
 
 showGenericMap :: (Show a, Show b) => M.Map a b -> String
 showGenericMap = unlines . map (\ (k, v) -> show k ++ " : " ++ show v) . M.toList
-
 showStringMap :: StringMap -> String
 showStringMap = showGenericMap
 showModuleMap :: ModuleMap -> String

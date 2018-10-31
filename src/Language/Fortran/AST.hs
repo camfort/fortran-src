@@ -575,7 +575,7 @@ data BinaryOp =
   | Equivalent
   | NotEquivalent
   | BinCustom String
-  deriving (Eq, Show, Data, Typeable, Generic)
+  deriving (Eq, Ord, Show, Data, Typeable, Generic)
 
 instance Binary BinaryOp
 

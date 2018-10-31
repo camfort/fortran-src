@@ -90,7 +90,7 @@ data Constant
   | ConstUninterpInt String     -- ^ uninterpreted integer
   | ConstUninterpReal String    -- ^ uninterpreted real
   | ConstBinary BinaryOp Constant Constant -- ^ binary operation on potential constants
-  deriving (Show, Eq, Typeable, Generic, Data)
+  deriving (Show, Ord, Eq, Typeable, Generic, Data)
 
 instance Out Constant
 instance Binary Constant
