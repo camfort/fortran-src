@@ -641,7 +641,13 @@ showDataFlow pf = perPU =<< uni pf
                            bedges = genBackEdgeMap (dominators gr) gr
                            flTo = genFlowsToGraph bm dm gr (rd gr)
 
-    perPU _ = ""
+    perPU pu = dashes ++ "\n" ++ p ++ "\n" ++ dashes ++ "\n" ++ dfStr ++ "\n\n"
+      where p = "| Program Unit " ++ show (puName pu) ++ " |"
+            dashes = replicate (length p) '-'
+            dfStr = (\ (l, x) -> '\n':l ++ ": " ++ x) =<< [
+                      ("constExpMap",  show (genConstExpMap pf))
+                    ]
+
     lva = liveVariableAnalysis
     bm = genBlockMap pf
     dm = genDefMap bm

@@ -664,7 +664,10 @@ showBBlocks pf = perPU =<< getPUs pf
       dashes ++ "\n" ++ p ++ "\n" ++ dashes ++ "\n" ++ showBBGr (nmap strip gr) ++ "\n\n"
       where p = "| Program Unit " ++ show (puName pu) ++ " |"
             dashes = replicate (length p) '-'
-    perPU _ = ""
+    perPU pu =
+      dashes ++ "\n" ++ p ++ "\n" ++ dashes ++ "\n" ++ unlines (map (pretty . fmap insLabel) (programUnitBody pu)) ++ "\n\n"
+      where p = "| Program Unit " ++ show (puName pu) ++ " |"
+            dashes = replicate (length p) '-'
     strip = map (fmap insLabel)
     getPUs :: Data a => ProgramFile (Analysis a) -> [ProgramUnit (Analysis a)]
     getPUs = universeBi
