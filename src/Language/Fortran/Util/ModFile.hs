@@ -290,10 +290,10 @@ extractConstVarMap pf = M.fromList cvm
           | F.PUModule _ _ _ bs _                             <- universeBi pf' :: [F.ProgramUnit (FA.Analysis a)]
           , st@(F.StDeclaration _ _ (F.TypeSpec _ _ _ _) _ _) <- universeBi bs  :: [F.Statement (FA.Analysis a)]
           , F.AttrParameter _ _                               <- universeBi st  :: [F.Attribute (FA.Analysis a)]
-          , (F.DeclVariable _ _ v _ (Just e))                 <- universeBi st  :: [F.Declarator (FA.Analysis a)]
+          , (F.DeclVariable _ _ v _ _)                        <- universeBi st  :: [F.Declarator (FA.Analysis a)]
           , Just con                                          <- [FA.constExp (F.getAnnotation v)] ] ++
           [ (FA.varName v, con)
           | F.PUModule _ _ _ bs _                             <- universeBi pf' :: [F.ProgramUnit (FA.Analysis a)]
           , st@F.StParameter {}                               <- universeBi bs  :: [F.Statement (FA.Analysis a)]
-          , (F.DeclVariable _ _ v _ (Just e))                 <- universeBi st  :: [F.Declarator (FA.Analysis a)]
+          , (F.DeclVariable _ _ v _ _)                        <- universeBi st  :: [F.Declarator (FA.Analysis a)]
           , Just con                                          <- [FA.constExp (F.getAnnotation v)] ]
