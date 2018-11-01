@@ -378,7 +378,7 @@ genConstExpMap pf = ceMap
       | st@StParameter{} <- universeBi pf :: [Statement (Analysis a)]
       , (DeclVariable _ _ v _ (Just e)) <- universeBi st ]
     getV :: Expression (Analysis a) -> Maybe Constant
-    getV = join . flip M.lookup pvMap . varName
+    getV e = constExp (getAnnotation e) `mplus` (join . flip M.lookup pvMap . varName $ e)
 
     -- Generate map of information about 'constant expressions'.
     ceMap = IM.fromList [ (label, doExpr e) | e <- universeBi pf, Just label <- [labelOf e] ]
@@ -418,12 +418,12 @@ analyseConstExps pf = pf'
 -- | Annotate AST with constant-expression information based on given
 -- ParameterVarMap.
 analyseParameterVars :: forall a. Data a => ParameterVarMap -> ProgramFile (Analysis a) -> ProgramFile (Analysis a)
-analyseParameterVars pvm = transformBi exp
+analyseParameterVars pvm = transformBi expr
   where
-    exp :: Expression (Analysis a) -> Expression (Analysis a)
-    exp e@(ExpValue _ _ ValVariable{})
+    expr :: Expression (Analysis a) -> Expression (Analysis a)
+    expr e@(ExpValue _ _ ValVariable{})
       | Just con <- M.lookup (varName e) pvm = flip modifyAnnotation e $ \ a -> a { constExp = Just con }
-    exp e = e
+    expr e = e
 
 --------------------------------------------------
 

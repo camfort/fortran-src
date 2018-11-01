@@ -62,14 +62,15 @@ main = do
       mods <- decodeModFiles $ includeDirs opts
       let mmap = combinedModuleMap mods
       let tenv = combinedTypeEnv mods
+      let pvm = combinedParamVarMap mods
 
       let runInfer = analyseTypesWithEnv tenv . analyseRenamesWithModuleMap mmap . initAnalysis
       let runRenamer = stripAnalysis . rename . analyseRenamesWithModuleMap mmap . initAnalysis
       let runBBlocks pf = showBBlocks pf' ++ "\n\n" ++ showDataFlow pf'
-            where pf' = analyseBBlocks . analyseRenamesWithModuleMap mmap . initAnalysis $ pf
+            where pf' = analyseParameterVars pvm . analyseBBlocks . analyseRenamesWithModuleMap mmap . initAnalysis $ pf
       let runSuperGraph pf | outfmt == DOT = superBBGrToDOT sgr
                            | otherwise     = superGraphDataFlow pf' sgr
-            where pf' = analyseBBlocks . analyseRenamesWithModuleMap mmap . initAnalysis $ pf
+            where pf' = analyseParameterVars pvm . analyseBBlocks . analyseRenamesWithModuleMap mmap . initAnalysis $ pf
                   bbm = genBBlockMap pf'
                   sgr = genSuperBBGr bbm
       let runCompile = encodeModFile . genModFile . fst . analyseTypesWithEnv tenv . analyseRenamesWithModuleMap mmap . initAnalysis
