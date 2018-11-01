@@ -131,10 +131,10 @@ decodeModFiles = foldM (\ modFiles d -> do
       -- Figure out the camfort mod files and parse them.
       modFileNames <- filter isModFile `fmap` getDirContents d
       addedModFiles <- forM modFileNames $ \ modFileName -> do
-        eResult <- decodeFileOrFail (d </> modFileName)
-        case eResult of
-          Left (offset, msg) -> do
-            putStrLn $ modFileName ++ ": Error at offset " ++ show offset ++ ": " ++ msg
+        contents <- LB.readFile (d </> modFileName)
+        case decodeModFile contents of
+          Left msg -> do
+            putStrLn $ modFileName ++ ": Error: " ++ msg
             return emptyModFile
           Right modFile -> do
             putStrLn $ modFileName ++ ": successfully parsed precompiled file."
