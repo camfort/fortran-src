@@ -105,12 +105,13 @@ programUnit (PUModule a s name blocks m_contains) = do
   env0        <- initialEnv blocks
   pushScope name env0
   blocks'     <- mapM renameDeclDecls blocks -- handle declarations
+  blocks''    <- mapM renameUseSt blocks'    -- handle use statements
   m_contains' <- renameSubPUs m_contains     -- handle contained program units
   env         <- getEnv
   addModEnv name env                         -- save the module environment
   let a'      = a { moduleEnv = Just env }   -- also annotate it on the module
   popScope
-  return (PUModule a' s name blocks' m_contains')
+  return (PUModule a' s name blocks'' m_contains')
 
 programUnit (PUFunction a s ty rec name args res blocks m_contains) = do
   Just name'  <- getFromEnv name                  -- get renamed function name
@@ -439,6 +440,14 @@ renameBlock = trans expression
   where
     trans :: Data a => RenamerFunc (Expression a) -> RenamerFunc (Block a)
     trans = transformBiM -- search all expressions, bottom-up
+
+-- Rename the components of a Use statement contained in the block.
+renameUseSt :: Data a => RenamerFunc (Block (Analysis a))
+renameUseSt (BlStatement a s l st@StUse{}) = BlStatement a s l <$> trans expression st
+  where
+    trans :: Data a => RenamerFunc (Expression a) -> RenamerFunc (Statement a)
+    trans = transformBiM -- search all expressions, bottom-up
+renameUseSt b = return b
 
 --------------------------------------------------
 
