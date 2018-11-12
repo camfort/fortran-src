@@ -21,7 +21,6 @@ import Data.List (intercalate, (\\), isSuffixOf)
 import Data.Char (toLower)
 import Data.Maybe (fromMaybe, maybeToList)
 import Data.Data
-import Data.Binary
 import Data.Generics.Uniplate.Data
 
 import Language.Fortran.ParserMonad (selectFortranVersion, FortranVersion(..), fromRight)
