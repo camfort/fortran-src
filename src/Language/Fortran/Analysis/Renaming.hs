@@ -104,14 +104,15 @@ programUnit :: Data a => RenamerFunc (ProgramUnit (Analysis a))
 programUnit (PUModule a s name blocks m_contains) = do
   env0        <- initialEnv blocks
   pushScope name env0
-  blocks'     <- mapM renameDeclDecls blocks -- handle declarations
-  blocks''    <- mapM renameUseSt blocks'    -- handle use statements
+  blocks1     <- mapM renameModDecls blocks  -- handle declarations
+  blocks2     <- mapM renameUseSt blocks1    -- handle use statements
   m_contains' <- renameSubPUs m_contains     -- handle contained program units
+  blocks3     <- mapM renameBlock blocks2    -- process all uses of functions/subroutine names
   env         <- getEnv
   addModEnv name env                         -- save the module environment
   let a'      = a { moduleEnv = Just env }   -- also annotate it on the module
   popScope
-  return (PUModule a' s name blocks'' m_contains')
+  return (PUModule a' s name blocks3 m_contains')
 
 programUnit (PUFunction a s ty rec name args res blocks m_contains) = do
   Just name'  <- getFromEnv name                  -- get renamed function name
@@ -394,6 +395,24 @@ renameExpDecl e@(ExpValue _ _ (ValVariable v))  = flip setUniqueName (setSourceN
 -- Intrinsics get unique names for each use.
 renameExpDecl e@(ExpValue _ _ (ValIntrinsic v)) = flip setUniqueName (setSourceName v e) `fmap` addUnique v NTIntrinsic
 renameExpDecl e                                 = return e
+
+renameInterfaces :: (Data a, Data (f (Analysis a))) => RenamerFunc (f (Analysis a))
+renameInterfaces = trans interface
+  where
+    trans :: (Data a, Data (f (Analysis a))) => RenamerFunc (Block (Analysis a)) -> RenamerFunc (f (Analysis a))
+    trans = transformBiM
+
+interface :: Data a => RenamerFunc (Block (Analysis a))
+interface (BlInterface a s (Just e@(ExpValue _ _ (ValVariable v))) abst pus bs) = do
+  e' <- flip setUniqueName (setSourceName v e) `fmap` maybeAddUnique v NTSubprogram
+  pure $ BlInterface a s (Just e') abst pus bs
+interface b = pure b
+
+-- Handle generic-interfaces as if they were subprograms, then handle
+-- other declarations, assuming they might possibly need the creation
+-- of new unique mappings.
+renameModDecls :: (Data a, Data (f (Analysis a))) => RenamerFunc (f (Analysis a))
+renameModDecls = renameDeclDecls <=< renameInterfaces
 
 -- Find all declarators within a value and then dive within those
 -- declarators to rename any ExpValue variables, assuming they might
