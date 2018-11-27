@@ -220,10 +220,6 @@ isUseStatement _                                                                
 -- statements in the blocks.
 initialEnv :: forall a. Data a => [Block (Analysis a)] -> Renamer ModEnv
 initialEnv blocks = do
-  -- FIXME: add "use renaming" declarations (requires change in
-  -- NameMap because it would be possible for the same program object
-  -- to have two different names used by different parts of the
-  -- program).
   let uses = filter isUseStatement blocks
   mMap <- gets moduleMap
   modEnv <- fmap M.unions . forM uses $ \ use -> case use of

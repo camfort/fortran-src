@@ -95,6 +95,12 @@ spec =
         let ed = FIHollerith () u (ValHollerith "hello darling")
         pprint Fortran77 ed Nothing `shouldBe` "13hhello darling"
 
+    describe "Flush statement" $
+      it "prints flush statement" $ do
+        let f = StFlush () u (AList () u [ FSUnit () u (intGen 1), FSIOStat () u (varGen "x")
+                                         , FSIOMsg () u (varGen "y"), FSErr () u (varGen "z") ])
+        pprint Fortran2003 f Nothing `shouldBe` "flush (unit=1, iostat=x, iomsg=y, err=z)"
+
     describe "Statement" $ do
       describe "Declaration" $ do
         it "prints 90 style with attributes" $ do

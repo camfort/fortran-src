@@ -178,6 +178,11 @@ import Debug.Trace
   read                        { TRead _ }
   write                       { TWrite _ }
   print                       { TPrint _ }
+  flush                       { TFlush _ }
+  unit                        { TUnit _ }
+  iostat                      { TIOStat _ }
+  iomsg                       { TIOMsg _ }
+  err                         { TErr _ }
   backspace                   { TBackspace _ }
   rewind                      { TRewind _ }
   inquire                     { TInquire _ }
@@ -636,6 +641,8 @@ EXECUTABLE_STATEMENT :: { Statement A0 }
 | endfile UNIT { StEndfile2 () (getTransSpan $1 $2) $2 }
 | backspace CILIST { StBackspace () (getTransSpan $1 $2) $2 }
 | backspace UNIT { StBackspace2 () (getTransSpan $1 $2) $2 }
+| flush INTEGER_LITERAL { StFlush () (getTransSpan $1 $2) (AList () (getSpan $2) [FSUnit () (getSpan $2) $2]) }
+| flush '(' FLUSH_SPEC_LIST ')' { StFlush () (getTransSpan $1 $4) (fromReverseList $3) }
 | call VARIABLE { StCall () (getTransSpan $1 $2) $2 Nothing }
 | call VARIABLE '(' ')' { StCall () (getTransSpan $1 $4) $2 Nothing }
 | call VARIABLE '(' ARGUMENTS ')'
@@ -679,6 +686,19 @@ UNIT :: { Expression A0 }
 : INTEGER_LITERAL { $1 }
 | DATA_REF { $1 }
 | '*' { ExpValue () (getSpan $1) ValStar }
+
+{- R928 -}
+FLUSH_SPEC_LIST :: { [ FlushSpec A0 ] }
+: FLUSH_SPEC_LIST ',' FLUSH_SPEC { $3 : $1 }
+| FLUSH_SPEC { [ $1 ] }
+
+{- R928 -}
+FLUSH_SPEC :: { FlushSpec A0 }
+: EXPRESSION { FSUnit () (getSpan $1) $1 }
+| unit '=' EXPRESSION   { FSUnit () (getTransSpan $1 $3) $3 }
+| iostat '=' EXPRESSION { FSIOStat () (getTransSpan $1 $3) $3 }
+| iomsg '=' EXPRESSION  { FSIOMsg () (getTransSpan $1 $3) $3 }
+| err '=' EXPRESSION    { FSErr () (getTransSpan $1 $3) $3 }
 
 CILIST :: { AList ControlPair A0 }
 : '(' CILIST_ELEMENT ',' FORMAT_ID ',' CILIST_PAIRS ')'

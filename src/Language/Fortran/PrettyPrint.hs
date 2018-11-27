@@ -656,6 +656,9 @@ instance Pretty (Statement a) where
 
     pprint' v (StOpen _ _ cilist) = "open" <+> parens (pprint' v cilist)
     pprint' v (StClose _ _ cilist) = "close" <+> parens (pprint' v cilist)
+    pprint' v (StFlush _ _ (AList _ _ fslist))
+      | v >= Fortran2003 = "flush" <+> parens (commaSep $ map (pprint' v) fslist)
+      | otherwise = tooOld v "Flush statement" Fortran2003
     pprint' v (StInquire _ _ cilist) = "inquire" <+> parens (pprint' v cilist)
 
     pprint' v (StRewind _ _ cilist) = "rewind" <+> parens (pprint' v cilist)
@@ -836,6 +839,12 @@ instance Pretty (FormatItem a) where
     pprint' _ (FIHollerith _ _ (ValHollerith s)) =
       text (show $ length s) <> char 'h' <> text s
     pprint' _ _ = error "Not yet supported."
+
+instance Pretty (FlushSpec a) where
+  pprint' v (FSUnit _ _ e)   = "unit=" <> pprint' v e
+  pprint' v (FSIOStat _ _ e) = "iostat=" <> pprint' v e
+  pprint' v (FSIOMsg _ _ e)  = "iomsg=" <> pprint' v e
+  pprint' v (FSErr _ _ e)    = "err=" <> pprint' v e
 
 instance Pretty (DoSpecification a) where
     pprint' v (DoSpecification _ _ s@StExpressionAssign{} limit mStride) =

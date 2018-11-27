@@ -327,3 +327,12 @@ spec =
                     fmap ($u) [ TEnumerator, TDoubleColon, flip TId "a", TOpAssign, flip TIntegerLiteral "1"
                               , TComma, flip TId "b", TEOF ]
           shouldBe' (collectF03 "end enum") $ fmap ($u) [ TEndEnum, TEOF ]
+
+        it "lexes flush" $ do
+          shouldBe' (collectF03 "flush(unit=1)") $
+            fmap ($u) [ TFlush, TLeftPar, TUnit, TOpAssign, flip TIntegerLiteral "1", TRightPar, TEOF ]
+          shouldBe' (collectF03 "flush(unit=1,iomsg=x,iostat=y,err=z)") $
+            fmap ($u) [ TFlush, TLeftPar, TUnit, TOpAssign, flip TIntegerLiteral "1", TComma
+                      , TIOMsg, TOpAssign, flip TId "x", TComma
+                      , TIOStat, TOpAssign, flip TId "y", TComma
+                      , TErr, TOpAssign, flip TId "z", TRightPar, TEOF ]

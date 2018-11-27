@@ -338,6 +338,7 @@ data Statement a  =
   | StTypePrint           a SrcSpan (Expression a) (Maybe (AList Expression a))
   | StOpen                a SrcSpan (AList ControlPair a)
   | StClose               a SrcSpan (AList ControlPair a)
+  | StFlush               a SrcSpan (AList FlushSpec a)
   | StInquire             a SrcSpan (AList ControlPair a)
   | StRewind              a SrcSpan (AList ControlPair a)
   | StRewind2             a SrcSpan (Expression a)
@@ -464,6 +465,13 @@ data FormatItem a =
   | FIFieldDescriptorAIL    a             SrcSpan   (Maybe Integer)   Char          Integer
   | FIBlankDescriptor       a             SrcSpan   Integer
   | FIScaleFactor           a             SrcSpan   Integer
+  deriving (Eq, Show, Data, Typeable, Generic, Functor)
+
+data FlushSpec a =
+    FSUnit a SrcSpan (Expression a)
+  | FSIOStat a SrcSpan (Expression a)
+  | FSIOMsg a SrcSpan (Expression a)
+  | FSErr a SrcSpan (Expression a)
   deriving (Eq, Show, Data, Typeable, Generic, Functor)
 
 data DoSpecification a =
@@ -618,6 +626,7 @@ instance FirstParameter (FormatItem a) a
 instance FirstParameter (Expression a) a
 instance FirstParameter (Index a) a
 instance FirstParameter (DoSpecification a) a
+instance FirstParameter (FlushSpec a) a
 instance FirstParameter (Declarator a) a
 instance FirstParameter (DimensionDeclarator a) a
 instance FirstParameter (ControlPair a) a
@@ -646,6 +655,7 @@ instance SecondParameter (FormatItem a) SrcSpan
 instance SecondParameter (Expression a) SrcSpan
 instance SecondParameter (Index a) SrcSpan
 instance SecondParameter (DoSpecification a) SrcSpan
+instance SecondParameter (FlushSpec a) SrcSpan
 instance SecondParameter (Declarator a) SrcSpan
 instance SecondParameter (DimensionDeclarator a) SrcSpan
 instance SecondParameter (ControlPair a) SrcSpan
@@ -672,6 +682,7 @@ instance Annotated FormatItem
 instance Annotated Expression
 instance Annotated Index
 instance Annotated DoSpecification
+instance Annotated FlushSpec
 instance Annotated Declarator
 instance Annotated DimensionDeclarator
 instance Annotated ControlPair
@@ -700,6 +711,7 @@ instance Spanned (FormatItem a)
 instance Spanned (Expression a)
 instance Spanned (Index a)
 instance Spanned (DoSpecification a)
+instance Spanned (FlushSpec a)
 instance Spanned (Declarator a)
 instance Spanned (DimensionDeclarator a)
 instance Spanned (ControlPair a)
@@ -885,6 +897,7 @@ instance Out a => Out (FormatItem a)
 instance Out a => Out (Expression a)
 instance Out a => Out (Index a)
 instance Out a => Out (DoSpecification a)
+instance Out a => Out (FlushSpec a)
 instance Out a => Out (Value a)
 instance Out a => Out (TypeSpec a)
 instance Out a => Out (Selector a)

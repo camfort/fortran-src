@@ -257,6 +257,11 @@ tokens :-
 <0,scI> "rewind"                                  { addSpan TRewind }
 <0,scI> "inquire"                                 { addSpan TInquire }
 <0,scI> "end"\ *"file"                            { addSpan TEndfile }
+<0> "flush"                                       { addSpan TFlush }
+<scN> "unit" / { followsFlushP }                  { addSpan TUnit }
+<scN> "iostat" / { followsFlushP }                { addSpan TIOStat }
+<scN> "iomsg" / { followsFlushP }                 { addSpan TIOMsg }
+<scN> "err" / { followsFlushP }                   { addSpan TErr }
 
 -- Format
 <0> "format"                                      { addSpan TFormat }
@@ -487,6 +492,10 @@ followsCP :: User -> AlexInput -> Int -> AlexInput -> Bool
 followsCP _ _ _ ai =
   (map toConstr . take 2 . aiPreviousTokensInLine) ai ==
   map fillConstr [ TComma, TC ]
+
+followsFlushP :: User -> AlexInput -> Int -> AlexInput -> Bool
+followsFlushP _ _ _ ai = not (null toks) && fillConstr TFlush == toConstr (last toks)
+  where toks = aiPreviousTokensInLine ai
 
 useStP :: User -> AlexInput -> Int -> AlexInput -> Bool
 useStP _ _ _ ai = seenConstr (toConstr $ TUse undefined) ai
@@ -1180,6 +1189,11 @@ data Token =
   | TEnd                SrcSpan
   | TNewline            SrcSpan
   | TEOF                SrcSpan
+  | TFlush              SrcSpan
+  | TUnit               SrcSpan
+  | TIOStat             SrcSpan
+  | TIOMsg              SrcSpan
+  | TErr                SrcSpan
   deriving (Eq, Show, Data, Typeable, Generic)
 
 instance FirstParameter Token SrcSpan
