@@ -397,16 +397,34 @@ precedesDoubleColon :: AlexInput -> Bool
 precedesDoubleColon ai = not . flip seenConstr ai . fillConstr $ TDoubleColon
 
 attributeP :: User -> AlexInput -> Int -> AlexInput -> Bool
-attributeP _ _ _ ai =  followsComma && precedesDoubleColon ai && startsWithTypeSpec
+attributeP _ _ _ ai = followsComma && precedesDoubleColon ai && lineStartOK
   where
     followsComma
       | Just TComma{} <- aiPreviousToken ai = True
       | otherwise = False
-    startsWithTypeSpec
-      | (token:_) <- prevTokens =
-        isTypeSpec token || fillConstr TType == toConstr token ||
-        fillConstr TUse == toConstr token || fillConstr TProcedure == toConstr token
+
+    lineStartOK
+      -- matches: TYPE (FOO), ATTR
+      | typ:_:_:_:comma:_ <- prevTokens
+      , toConstr typ `elem` [fillConstr TType, fillConstr TClass]
+      = fillConstr TComma == toConstr comma
+
+      -- matches: INTEGER (KIND=...), ATTR
+      -- or: PROCEDURE (...), ATTR
+      | tok:lpar:rest <- prevTokens
+      , isTypeSpec tok || fillConstr TProcedure == toConstr tok
+      , fillConstr TLeftPar == toConstr lpar
+      , (_, rpar:comma:_) <- break ((fillConstr TRightPar ==) . toConstr) rest
+      = fillConstr TComma == toConstr comma
+
+      -- matches: INTEGER, ATTR
+      -- or: USE, ATTR
+      | tok:comma:_ <- prevTokens
+      , isTypeSpec tok || fillConstr TUse == toConstr tok
+      = fillConstr TComma == toConstr comma
+
       | otherwise = False
+
     prevTokens = reverse . aiPreviousTokensInLine $ ai
 
 bindP :: User -> AlexInput -> Int -> AlexInput -> Bool

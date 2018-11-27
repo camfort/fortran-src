@@ -138,6 +138,19 @@ spec =
                               , TDimension, TLeftPar, flip TIntegerLiteral "2"
                               , TRightPar, TComma, TAllocatable, TDoubleColon
                               , flip TId "y", TEOF ]
+
+        it "try to trick lexer into parsing variables as attributes (1)" $
+          shouldBe' (collectF90 "integer save, dimension(10), target") $
+                    fmap ($u) [ TInteger, flip TId "save", TComma
+                              , flip TId "dimension", TLeftPar, flip TIntegerLiteral "10", TRightPar, TComma
+                              , flip TId "target", TEOF ]
+
+        it "try to trick lexer into parsing variables as attributes (2)" $
+          shouldBe' (collectF90 "type(foo) save, dimension(10), target") $
+                    fmap ($u) [ TType, TLeftPar, flip TId "foo", TRightPar, flip TId "save", TComma
+                              , flip TId "dimension", TLeftPar, flip TIntegerLiteral "10", TRightPar, TComma
+                              , flip TId "target", TEOF ]
+
       describe "Character" $ do
         it "lexes single quote literal" $
           shouldBe' (collectF90 "character c = 'heL\"Lo ''daRLing'") $
