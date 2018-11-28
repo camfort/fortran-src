@@ -1124,7 +1124,7 @@ legacy77ParserWithIncludes incs sourceCode filename =
         p' <- descendBiM (inlineInclude Fortran77Legacy incs []) p
         return (ParseOk p' x)
     transform = transformWithModFiles emptyModFiles transformations77Legacy
-    parseState = initParseState sourceCode Fortran77Legacy filename
+    parseState = initParseState (truncateLines sourceCode) Fortran77Legacy filename
 
 includeParser ::
     FortranVersion -> B.ByteString -> String -> ParseResult AlexInput Token [Block A0]
