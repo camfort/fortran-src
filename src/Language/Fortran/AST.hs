@@ -531,6 +531,7 @@ data Value a =
   -- ^ Overloaded assignment in interfaces
   | ValType              String
   | ValStar
+  | ValColon                   -- see R402 / C403 in Fortran2003 spec.
   deriving (Eq, Show, Data, Typeable, Generic, Functor)
 
 data Declarator a =

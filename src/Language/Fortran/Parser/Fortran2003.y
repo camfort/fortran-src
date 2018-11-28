@@ -1027,9 +1027,11 @@ CHAR_SELECTOR :: { Maybe (Selector A0) }
   { Just $ Selector () (getTransSpan $1 $9) (Just $8) (Just $4) }
 | {- EMPTY -} { Nothing }
 
+{- R402 -}
 LEN_EXPRESSION :: { Expression A0 }
 : EXPRESSION { $1 }
 | '*' { ExpValue () (getSpan $1) ValStar }
+| ':' { ExpValue () (getSpan $1) ValColon }
 
 EXPRESSION :: { Expression A0 }
 : EXPRESSION '+' EXPRESSION

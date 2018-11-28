@@ -925,6 +925,7 @@ instance Pretty (Index a) where
 instance FirstParameter (Value a) String
 instance Pretty (Value a) where
     pprint' _ ValStar       = char '*'
+    pprint' _ ValColon      = char ':'
     pprint' v ValAssignment
       | v >= Fortran90 = "assignment (=)"
       -- TODO better error message is needed. Assignment is too vague.
