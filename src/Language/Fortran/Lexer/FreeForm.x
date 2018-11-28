@@ -404,12 +404,12 @@ attributeP _ _ _ ai = followsComma && precedesDoubleColon ai && lineStartOK
       | otherwise = False
 
     lineStartOK
-      -- matches: TYPE (FOO), ATTR
+      -- matches e.g.: TYPE (FOO), ATTR
       | typ:_:_:_:comma:_ <- prevTokens
       , toConstr typ `elem` [fillConstr TType, fillConstr TClass]
       = fillConstr TComma == toConstr comma
 
-      -- matches: INTEGER (KIND=...), ATTR
+      -- matches e.g.: INTEGER (KIND=...), ATTR
       -- or: PROCEDURE (...), ATTR
       | tok:lpar:rest <- prevTokens
       , isTypeSpec tok || fillConstr TProcedure == toConstr tok
@@ -417,7 +417,14 @@ attributeP _ _ _ ai = followsComma && precedesDoubleColon ai && lineStartOK
       , (_, rpar:comma:_) <- break ((fillConstr TRightPar ==) . toConstr) rest
       = fillConstr TComma == toConstr comma
 
-      -- matches: INTEGER, ATTR
+      -- matches e.g.: INTEGER*NUM, ATTR
+      | tok:star:num:comma:_ <- prevTokens
+      , isTypeSpec tok
+      , fillConstr TStar == toConstr star
+      , TIntegerLiteral{} <- num
+      = fillConstr TComma == toConstr comma
+
+      -- matches e.g.: INTEGER, ATTR
       -- or: USE, ATTR
       | tok:comma:_ <- prevTokens
       , isTypeSpec tok || fillConstr TUse == toConstr tok
