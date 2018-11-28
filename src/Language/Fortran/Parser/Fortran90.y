@@ -432,9 +432,9 @@ NONEXECUTABLE_STATEMENT :: { Statement A0 }
 
 EXECUTABLE_STATEMENT :: { Statement A0 }
 : allocate '(' DATA_REFS ')'
-  { StAllocate () (getTransSpan $1 $4) (fromReverseList $3) Nothing }
+  { StAllocate () (getTransSpan $1 $4) Nothing (fromReverseList $3) Nothing }
 | allocate '(' DATA_REFS ',' CILIST_PAIR ')'
-  { StAllocate () (getTransSpan $1 $6) (fromReverseList $3) (Just $5) }
+  { StAllocate () (getTransSpan $1 $6) Nothing (fromReverseList $3) (Just $5) }
 | nullify '(' DATA_REFS ')'
   { StNullify () (getTransSpan $1 $4) (fromReverseList $3) }
 | deallocate '(' DATA_REFS ')'

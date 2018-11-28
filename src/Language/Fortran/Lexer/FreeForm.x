@@ -137,6 +137,7 @@ tokens :-
 
 -- Type def related
 <0,scT> "type"                                    { addSpan TType }
+<scN> "type" / { allocateP }                      { addSpan TType }
 <0> "end"\ *"type"                                { addSpan TEndType }
 <scN> "class" / { followsProcedureP }             { addSpan TClass }
 <0> "sequence"                                    { addSpan TSequence }
@@ -146,11 +147,17 @@ tokens :-
 
 -- Intrinsic types
 <0,scT> "integer"                                 { addSpan TInteger }
+<scN> "integer" / { allocateP }                   { addSpan TInteger }
 <0,scT> "real"                                    { addSpan TReal }
+<scN> "real" / { allocateP }                      { addSpan TReal }
 <0,scT> "double"\ *"precision"                    { addSpan TDoublePrecision }
+<scN> "double"\ *"precision" / { allocateP }      { addSpan TDoublePrecision }
 <0,scT> "logical"                                 { addSpan TLogical }
+<scN> "logical" / { allocateP }                   { addSpan TLogical }
 <0,scT> "character"                               { addSpan TCharacter }
+<scN> "character" / { allocateP }                 { addSpan TCharacter }
 <0,scT> "complex"                                 { addSpan TComplex }
+<scN> "complex" / { allocateP }                   { addSpan TComplex }
 
 <scN> "kind" / { selectorP }                      { addSpan TKind }
 <scN> "len" / { selectorP }                       { addSpan TLen }
@@ -395,6 +402,16 @@ partOfExpOrPointerAssignmentP (User fv pc) _ _ ai =
 
 precedesDoubleColon :: AlexInput -> Bool
 precedesDoubleColon ai = not . flip seenConstr ai . fillConstr $ TDoubleColon
+
+allocateP :: User -> AlexInput -> Int -> AlexInput -> Bool
+allocateP _ _ _ ai
+  | alloc:lpar:_ <- prevTokens
+  , fillConstr TAllocate == toConstr alloc
+  , fillConstr TLeftPar  == toConstr lpar
+  = precedesDoubleColon ai
+  | otherwise = False
+  where
+    prevTokens = reverse . aiPreviousTokensInLine $ ai
 
 attributeP :: User -> AlexInput -> Int -> AlexInput -> Bool
 attributeP _ _ _ ai = followsComma && precedesDoubleColon ai && lineStartOK

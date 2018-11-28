@@ -119,3 +119,8 @@ spec =
         sParser "enum, bind(c)" `shouldBe'` StEnum () u
         sParser "enumerator :: a = 1, b" `shouldBe'` st
         sParser "end enum" `shouldBe'` StEndEnum () u
+
+      it "parses allocate with type_spec" $ do
+        let ty = TypeSpec () u (TypeCharacter (Just $ CharLenInt 3) Nothing) (Just (Selector () u (Just (intGen 3)) Nothing))
+        let st = StAllocate () u (Just ty) (AList () u [varGen "s"]) Nothing
+        sParser "allocate(character(len=3) :: s)" `shouldBe'` st

@@ -389,7 +389,7 @@ spec =
                 [ varGen "x"
                 , ExpDataRef () u (varGen "st") (varGen "part")
                 ]
-          let s = StAllocate () u allocs (Just controlPair)
+          let s = StAllocate () u Nothing allocs (Just controlPair)
           sParser "allocate (x, st % part, STAT = a)" `shouldBe'` s
 
         it "parses deallocate statement" $ do

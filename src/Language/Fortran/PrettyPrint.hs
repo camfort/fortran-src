@@ -671,7 +671,12 @@ instance Pretty (Statement a) where
     pprint' v (StEndfile _ _ cilist) = "endfile" <+> parens (pprint' v cilist)
     pprint' v (StEndfile2 _ _ unit) = "endfile" <+> pprint' v unit
 
-    pprint' v (StAllocate _ _ vars contPair)
+    pprint' v (StAllocate _ _ (Just ty) vars contPair)
+      | v >= Fortran2003 =
+        "allocate" <+> parens (pprint' v ty <+> "::" <+> pprint' v vars <> comma <?+> pprint' v contPair)
+      | otherwise = tooOld v "Allocate with type_spec" Fortran2003
+
+    pprint' v (StAllocate _ _ Nothing vars contPair)
       | v >= Fortran90 =
         "allocate" <+> parens (pprint' v vars <> comma <?+> pprint' v contPair)
       | otherwise = tooOld v "Allocate" Fortran90
