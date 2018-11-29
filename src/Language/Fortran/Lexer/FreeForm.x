@@ -425,8 +425,15 @@ attributeP _ _ _ ai = followsComma && precedesDoubleColon ai && lineStartOK
 
     lineStartOK
       -- matches e.g.: TYPE (FOO), ATTR
-      | typ:_:_:_:com:_ <- prevTokens
+      | typ:lpar:_:rpar:com:_ <- prevTokens
       , toConstr typ `elem` [fillConstr TType, fillConstr TClass]
+      , toConstr lpar == fillConstr TLeftPar
+      , toConstr rpar == fillConstr TRightPar
+      = fillConstr TComma == toConstr com
+
+      -- matches e.g.: TYPE FOO, ATTR
+      | typ:com:_ <- prevTokens
+      , toConstr typ == fillConstr TType
       = fillConstr TComma == toConstr com
 
       -- matches e.g.: INTEGER (KIND=...), ATTR
