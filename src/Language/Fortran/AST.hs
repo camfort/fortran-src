@@ -346,9 +346,9 @@ data Statement a  =
   | StBackspace2          a SrcSpan (Expression a)
   | StEndfile             a SrcSpan (AList ControlPair a)
   | StEndfile2            a SrcSpan (Expression a)
-  | StAllocate            a SrcSpan (Maybe (TypeSpec a)) (AList Expression a) (Maybe (ControlPair a))
+  | StAllocate            a SrcSpan (Maybe (TypeSpec a)) (AList Expression a) (Maybe (AList AllocOpt a))
   | StNullify             a SrcSpan (AList Expression a)
-  | StDeallocate          a SrcSpan (AList Expression a) (Maybe (ControlPair a))
+  | StDeallocate          a SrcSpan (AList Expression a) (Maybe (AList AllocOpt a))
   | StWhere               a SrcSpan (Expression a) (Statement a)
   | StWhereConstruct      a SrcSpan (Expression a)
   | StElsewhere           a SrcSpan (Maybe (Expression a))
@@ -424,6 +424,12 @@ data Intent = In | Out | InOut
   deriving (Eq, Show, Data, Typeable, Generic)
 
 data ControlPair a = ControlPair a SrcSpan (Maybe String) (Expression a)
+  deriving (Eq, Show, Data, Typeable, Generic, Functor)
+
+data AllocOpt a =
+    AOStat a SrcSpan (Expression a)
+  | AOErrMsg a SrcSpan (Expression a)
+  | AOSource a SrcSpan (Expression a)
   deriving (Eq, Show, Data, Typeable, Generic, Functor)
 
 data ImpList a = ImpList a SrcSpan (TypeSpec a) (AList ImpElement a)
@@ -631,6 +637,7 @@ instance FirstParameter (FlushSpec a) a
 instance FirstParameter (Declarator a) a
 instance FirstParameter (DimensionDeclarator a) a
 instance FirstParameter (ControlPair a) a
+instance FirstParameter (AllocOpt a) a
 
 instance SecondParameter (AList t a) SrcSpan
 instance SecondParameter (ProgramUnit a) SrcSpan
@@ -660,6 +667,7 @@ instance SecondParameter (FlushSpec a) SrcSpan
 instance SecondParameter (Declarator a) SrcSpan
 instance SecondParameter (DimensionDeclarator a) SrcSpan
 instance SecondParameter (ControlPair a) SrcSpan
+instance SecondParameter (AllocOpt a) SrcSpan
 
 instance Annotated (AList t)
 instance Annotated ProgramUnit
@@ -687,6 +695,7 @@ instance Annotated FlushSpec
 instance Annotated Declarator
 instance Annotated DimensionDeclarator
 instance Annotated ControlPair
+instance Annotated AllocOpt
 
 instance Spanned (AList t a)
 instance Spanned (ProgramUnit a)
@@ -716,6 +725,7 @@ instance Spanned (FlushSpec a)
 instance Spanned (Declarator a)
 instance Spanned (DimensionDeclarator a)
 instance Spanned (ControlPair a)
+instance Spanned (AllocOpt a)
 
 instance Spanned (ProgramFile a) where
   getSpan (ProgramFile _ pus) =
@@ -907,6 +917,7 @@ instance Out BaseType
 instance Out a => Out (Declarator a)
 instance Out a => Out (DimensionDeclarator a)
 instance Out a => Out (ControlPair a)
+instance Out a => Out (AllocOpt a)
 instance Out UnaryOp
 instance Out BinaryOp
 instance Out a => Out (ForallHeader a)

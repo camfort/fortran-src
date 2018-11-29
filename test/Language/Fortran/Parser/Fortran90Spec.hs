@@ -384,12 +384,12 @@ spec =
 
       describe "Dynamic allocation" $ do
         it "parses allocate statement" $ do
-          let controlPair = ControlPair () u (Just "stat") (varGen "a")
+          let opt = AOStat () u (varGen "a")
           let allocs = fromList ()
                 [ varGen "x"
                 , ExpDataRef () u (varGen "st") (varGen "part")
                 ]
-          let s = StAllocate () u Nothing allocs (Just controlPair)
+          let s = StAllocate () u Nothing allocs (Just (AList () u [opt]))
           sParser "allocate (x, st % part, STAT = a)" `shouldBe'` s
 
         it "parses deallocate statement" $ do

@@ -135,6 +135,9 @@ import Debug.Trace
   common                      { TCommon _ }
   allocate                    { TAllocate _ }
   deallocate                  { TDeallocate _ }
+  stat                        { TStat _ }
+  errmsg                      { TErrMsg _ }
+  source                      { TSource _ }
   nullify                     { TNullify _ }
   none                        { TNone _ }
   goto                        { TGoto _ }
@@ -537,20 +540,12 @@ MODULE_NATURE :: { Maybe ModuleNature }
 | {- empty -}           { Nothing }
 
 EXECUTABLE_STATEMENT :: { Statement A0 }
-: allocate '(' DATA_REFS ')'
-  { StAllocate () (getTransSpan $1 $4) Nothing (fromReverseList $3) Nothing }
-| allocate '(' TYPE_SPEC '::' DATA_REFS ')'
-  { StAllocate () (getTransSpan $1 $6) (Just $3) (fromReverseList $5) Nothing }
-| allocate '(' DATA_REFS ',' CILIST_PAIR ')'
-  { StAllocate () (getTransSpan $1 $6) Nothing (fromReverseList $3) (Just $5) }
-| allocate '(' TYPE_SPEC '::' DATA_REFS ',' CILIST_PAIR ')'
-  { StAllocate () (getTransSpan $1 $8) (Just $3) (fromReverseList $5) (Just $7) }
+: allocate '(' MAYBE_TYPE_SPEC DATA_REFS MAYBE_ALLOC_OPT_LIST ')'
+  { StAllocate () (getTransSpan $1 $6) $3 (fromReverseList $4) $5 }
 | nullify '(' DATA_REFS ')'
   { StNullify () (getTransSpan $1 $4) (fromReverseList $3) }
-| deallocate '(' DATA_REFS ')'
-  { StDeallocate () (getTransSpan $1 $4) (fromReverseList $3) Nothing }
-| deallocate '(' DATA_REFS ',' CILIST_PAIR ')'
-  { StDeallocate () (getTransSpan $1 $6) (fromReverseList $3) (Just $5) }
+| deallocate '(' DATA_REFS MAYBE_ALLOC_OPT_LIST ')'
+  { StDeallocate () (getTransSpan $1 $5) (fromReverseList $3) $4 }
 | EXPRESSION_ASSIGNMENT_STATEMENT { $1 }
 | POINTER_ASSIGNMENT_STMT { $1 }
 | where '(' EXPRESSION ')' EXPRESSION_ASSIGNMENT_STATEMENT
@@ -774,6 +769,20 @@ CI_EXPRESSION :: { Expression A0 }
 | STRING { $1 }
 | DATA_REF { $1 }
 
+MAYBE_ALLOC_OPT_LIST :: { Maybe (AList AllocOpt A0) }
+: ',' ALLOC_OPT_LIST { Just $ fromReverseList $2 }
+| {- empty -}        { Nothing }
+
+ALLOC_OPT_LIST :: { [ AllocOpt A0 ] }
+: ALLOC_OPT_LIST ',' ALLOC_OPT { $3 : $1 }
+| ALLOC_OPT                    { [ $1 ] }
+
+{- R624 -}
+ALLOC_OPT :: { AllocOpt A0 }
+: stat '=' EXPRESSION   { AOStat () (getTransSpan $1 $3) $3 }
+| errmsg '=' EXPRESSION { AOErrMsg () (getTransSpan $1 $3) $3 }
+| source '=' EXPRESSION { AOSource () (getTransSpan $1 $3) $3 }
+
 IN_IOLIST :: { [ Expression A0 ] }
 : IN_IOLIST ',' IN_IO_ELEMENT { $3 : $1}
 | IN_IO_ELEMENT { [ $1 ] }
@@ -977,6 +986,10 @@ DIMENSION_DECLARATOR :: { DimensionDeclarator A0 }
 | ':'
   { let span = getSpan $1
     in DimensionDeclarator () span Nothing Nothing }
+
+MAYBE_TYPE_SPEC :: { Maybe (TypeSpec A0) }
+: TYPE_SPEC '::' { Just $1 }
+| {- empty -}    { Nothing }
 
 TYPE_SPEC :: { TypeSpec A0 }
 : integer KIND_SELECTOR   { TypeSpec () (getSpan ($1, $2)) TypeInteger $2 }

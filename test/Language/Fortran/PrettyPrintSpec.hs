@@ -245,8 +245,8 @@ spec =
       describe "Allocation" $
         describe "Allocate" $
           it "prints allocate statement" $ do
-            let pair = ControlPair () u (Just "stat") (varGen "s")
-            let st = StAllocate () u Nothing (AList () u [ varGen "x" ]) (Just pair)
+            let stat = AOStat () u (varGen "s")
+            let st = StAllocate () u Nothing (AList () u [ varGen "x" ]) (Just (AList () u [stat]))
             pprint Fortran90 st Nothing `shouldBe` "allocate (x, stat=s)"
 
       describe "Where" $

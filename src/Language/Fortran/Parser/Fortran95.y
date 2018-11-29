@@ -125,6 +125,7 @@ import Debug.Trace
   equivalence                 { TEquivalence _ }
   common                      { TCommon _ }
   allocate                    { TAllocate _ }
+  stat                        { TStat _ }
   deallocate                  { TDeallocate _ }
   nullify                     { TNullify _ }
   none                        { TNone _ }
@@ -447,16 +448,12 @@ NONEXECUTABLE_STATEMENT :: { Statement A0 }
   { let TBlob s blob = $2 in StFormatBogus () (getTransSpan $1 s) blob }
 
 EXECUTABLE_STATEMENT :: { Statement A0 }
-: allocate '(' DATA_REFS ')'
-  { StAllocate () (getTransSpan $1 $4) Nothing (fromReverseList $3) Nothing }
-| allocate '(' DATA_REFS ',' CILIST_PAIR ')'
-  { StAllocate () (getTransSpan $1 $6) Nothing (fromReverseList $3) (Just $5) }
+: allocate '(' DATA_REFS MAYBE_ALLOC_OPT_LIST ')'
+  { StAllocate () (getTransSpan $1 $5) Nothing (fromReverseList $3) $4 }
 | nullify '(' DATA_REFS ')'
   { StNullify () (getTransSpan $1 $4) (fromReverseList $3) }
-| deallocate '(' DATA_REFS ')'
-  { StDeallocate () (getTransSpan $1 $4) (fromReverseList $3) Nothing }
-| deallocate '(' DATA_REFS ',' CILIST_PAIR ')'
-  { StDeallocate () (getTransSpan $1 $6) (fromReverseList $3) (Just $5) }
+| deallocate '(' DATA_REFS MAYBE_ALLOC_OPT_LIST ')'
+  { StDeallocate () (getTransSpan $1 $5) (fromReverseList $3) $4 }
 | EXPRESSION_ASSIGNMENT_STATEMENT { $1 }
 | POINTER_ASSIGNMENT_STMT { $1 }
 | where '(' EXPRESSION ')' EXPRESSION_ASSIGNMENT_STATEMENT
@@ -664,6 +661,11 @@ CI_EXPRESSION :: { Expression A0 }
 | LOGICAL_LITERAL { $1 }
 | STRING { $1 }
 | DATA_REF { $1 }
+
+{- p67 ALLOCATE statement -}
+MAYBE_ALLOC_OPT_LIST :: { Maybe (AList AllocOpt A0) }
+: ',' stat '=' EXPRESSION { Just (fromReverseList [AOStat () (getTransSpan $2 $4) $4]) }
+| {- empty -}             { Nothing }
 
 IN_IOLIST :: { [ Expression A0 ] }
 : IN_IOLIST ',' IN_IO_ELEMENT { $3 : $1}

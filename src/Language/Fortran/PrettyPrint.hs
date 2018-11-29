@@ -671,19 +671,19 @@ instance Pretty (Statement a) where
     pprint' v (StEndfile _ _ cilist) = "endfile" <+> parens (pprint' v cilist)
     pprint' v (StEndfile2 _ _ unit) = "endfile" <+> pprint' v unit
 
-    pprint' v (StAllocate _ _ (Just ty) vars contPair)
+    pprint' v (StAllocate _ _ (Just ty) vars opts)
       | v >= Fortran2003 =
-        "allocate" <+> parens (pprint' v ty <+> "::" <+> pprint' v vars <> comma <?+> pprint' v contPair)
+        "allocate" <+> parens (pprint' v ty <+> "::" <+> pprint' v vars <> comma <?+> pprint' v opts)
       | otherwise = tooOld v "Allocate with type_spec" Fortran2003
 
-    pprint' v (StAllocate _ _ Nothing vars contPair)
+    pprint' v (StAllocate _ _ Nothing vars opts)
       | v >= Fortran90 =
-        "allocate" <+> parens (pprint' v vars <> comma <?+> pprint' v contPair)
+        "allocate" <+> parens (pprint' v vars <> comma <?+> pprint' v opts)
       | otherwise = tooOld v "Allocate" Fortran90
 
-    pprint' v (StDeallocate _ _ vars contPair)
+    pprint' v (StDeallocate _ _ vars opts)
       | v >= Fortran90 =
-        "deallocate" <+> parens (pprint' v vars <> comma <?+> pprint' v contPair)
+        "deallocate" <+> parens (pprint' v vars <> comma <?+> pprint' v opts)
       | otherwise = tooOld v "Deallocate" Fortran90
 
     pprint' v (StNullify _ _ vars) = "nullify" <+> pprint' v vars
@@ -869,6 +869,15 @@ instance Pretty (ControlPair a) where
       | v < Fortran77
       , Just _ <- mStr = tooOld v "Named control pair" Fortran77
       | otherwise = pprint' v exp
+
+instance Pretty (AllocOpt a) where
+    pprint' v (AOStat _ _ e) = "stat=" <> pprint' v e
+    pprint' v (AOErrMsg _ _ e)
+      | v >= Fortran2003 = "errmsg=" <> pprint' v e
+      | otherwise        = tooOld v "Allocate errmsg" Fortran2003
+    pprint' v (AOSource _ _ e)
+      | v >= Fortran2003 = "source=" <> pprint' v e
+      | otherwise        = tooOld v "Allocate source" Fortran2003
 
 instance Pretty (ImpList a) where
     pprint' v (ImpList _ _ bt els) = pprint' v bt <+> parens (pprint' v els)

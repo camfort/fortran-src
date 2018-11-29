@@ -244,6 +244,9 @@ tokens :-
 -- Beginning keyword
 <0> "data"                                        { addSpan TData }
 <0,scI> "allocate"                                { addSpan TAllocate }
+<scN> "stat" / { allocateP }                      { addSpan TStat }
+<scN> "errmsg" / { allocateP }                    { addSpan TErrMsg }
+<scN> "source" / { allocateP }                    { addSpan TSource }
 <0,scI> "deallocate"                              { addSpan TDeallocate }
 <0,scI> "nullify"                                 { addSpan TNullify }
 <0> "namelist"                                    { addSpan TNamelist }
@@ -1168,6 +1171,9 @@ data Token =
   | TFormat             SrcSpan
   | TBlob               SrcSpan String
   | TAllocate           SrcSpan
+  | TStat               SrcSpan
+  | TErrMsg             SrcSpan
+  | TSource             SrcSpan
   | TDeallocate         SrcSpan
   | TNullify            SrcSpan
   -- Misc
