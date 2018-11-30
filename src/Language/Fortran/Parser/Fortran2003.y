@@ -479,9 +479,8 @@ NONEXECUTABLE_STATEMENT :: { Statement A0 }
 | use MODULE_NATURE VARIABLE ',' RENAME_LIST
   { let alist = fromReverseList $5
     in StUse () (getTransSpan $1 alist) $3 $2 Permissive (Just alist) }
-| use MODULE_NATURE VARIABLE ',' only ':' RENAME_LIST
-  { let alist = fromReverseList $7
-    in StUse () (getTransSpan $1 alist) $3 $2 Exclusive (Just alist) }
+| use MODULE_NATURE VARIABLE ',' only ':' MAYBE_RENAME_LIST
+  { StUse () (getTransSpan $1 ($6, $7)) $3 $2 Exclusive $7 }
 | entry VARIABLE MAYBE_RESULT
   { StEntry () (getTransSpan $1 $ maybe (getSpan $2) getSpan $3) $2 Nothing $3 }
 | entry VARIABLE '(' ')' MAYBE_RESULT
@@ -662,6 +661,10 @@ ARGUMENT :: { Argument A0 }
     in Argument () (getTransSpan span $3) (Just keyword) $3 }
 | EXPRESSION
   { Argument () (getSpan $1) Nothing $1 }
+
+MAYBE_RENAME_LIST :: { Maybe (AList Use A0) }
+: RENAME_LIST { Just $ fromReverseList $1 }
+| {- empty -} { Nothing }
 
 RENAME_LIST :: { [ Use A0 ] }
 : RENAME_LIST ',' RENAME { $3 : $1 }

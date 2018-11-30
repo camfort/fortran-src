@@ -422,9 +422,8 @@ NONEXECUTABLE_STATEMENT :: { Statement A0 }
 | use VARIABLE ',' RENAME_LIST
   { let alist = fromReverseList $4
     in StUse () (getTransSpan $1 alist) $2 Nothing Permissive (Just alist) }
-| use VARIABLE ',' only ':' RENAME_LIST
-  { let alist = fromReverseList $6
-    in StUse () (getTransSpan $1 alist) $2 Nothing Exclusive (Just alist) }
+| use VARIABLE ',' only ':' MAYBE_RENAME_LIST
+  { StUse () (getTransSpan $1 ($5, $6)) $2 Nothing Exclusive $6 }
 | entry VARIABLE MAYBE_RESULT
   { StEntry () (getTransSpan $1 $ maybe (getSpan $2) getSpan $3) $2 Nothing $3 }
 | entry VARIABLE '(' ')' MAYBE_RESULT
@@ -568,6 +567,10 @@ ARGUMENT :: { Argument A0 }
     in Argument () (getTransSpan span $3) (Just keyword) $3 }
 | EXPRESSION
   { Argument () (getSpan $1) Nothing $1 }
+
+MAYBE_RENAME_LIST :: { Maybe (AList Use A0) }
+: RENAME_LIST { Just $ fromReverseList $1 }
+| {- empty -} { Nothing }
 
 RENAME_LIST :: { [ Use A0 ] }
 : RENAME_LIST ',' RENAME { $3 : $1 }
