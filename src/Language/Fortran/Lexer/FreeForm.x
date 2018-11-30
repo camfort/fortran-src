@@ -87,6 +87,8 @@ tokens :-
 <scN> ")"                                         { decPar >> addSpan TRightPar }
 <scN> "(/" / { notDefinedOperP }                  { addSpan TLeftInitPar }
 <scN> "/)" / { notDefinedOperP }                  { addSpan TRightInitPar }
+<scN> "[" / { notDefinedOperP }                   { addSpan TLeftInitPar }
+<scN> "]" / { notDefinedOperP }                   { addSpan TRightInitPar }
 <scN> ","                                         { comma }
 <scN> ";"                                         { resetPar >> toSC 0 >> addSpan TSemiColon }
 <scN> ":"                                         { addSpan TColon }
