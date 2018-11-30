@@ -151,6 +151,12 @@ spec =
                               , flip TId "dimension", TLeftPar, flip TIntegerLiteral "10", TRightPar, TComma
                               , flip TId "target", TEOF ]
 
+        it "try to trick lexer into parsing variables as attributes (3)" $
+          shouldBe' (collectF90 "allocate(type(foo) :: errmsg(stat, source), source=x)") $
+                    fmap ($u) [ TAllocate, TLeftPar, TType, TLeftPar, flip TId "foo", TRightPar, TDoubleColon
+                              , flip TId "errmsg", TLeftPar, flip TId "stat", TComma, flip TId "source", TRightPar
+                              , TComma, TSource, TOpAssign, flip TId "x", TRightPar, TEOF ]
+
       describe "Character" $ do
         it "lexes single quote literal" $
           shouldBe' (collectF90 "character c = 'heL\"Lo ''daRLing'") $

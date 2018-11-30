@@ -13,6 +13,7 @@ module Language.Fortran.Lexer.FreeForm where
 import Prelude hiding (span)
 import Data.Data
 import Data.Maybe (fromMaybe)
+import Data.List (foldl')
 import Data.Char (toLower)
 import Data.Word (Word8)
 import qualified Data.ByteString.Char8 as B
@@ -407,15 +408,25 @@ partOfExpOrPointerAssignmentP (User fv pc) _ _ ai =
 precedesDoubleColon :: AlexInput -> Bool
 precedesDoubleColon ai = not . flip seenConstr ai . fillConstr $ TDoubleColon
 
+parenLevel :: [Token] -> Int
+parenLevel = foldl' f 0
+  where
+    f n tok | fillConstr TLeftPar == toConstr tok  = n + 1
+            | fillConstr TRightPar == toConstr tok = n - 1
+            | otherwise                            = n
+
 allocateP :: User -> AlexInput -> Int -> AlexInput -> Bool
 allocateP _ _ _ ai
-  | alloc:lpar:_ <- prevTokens
+  | alloc:lpar:rest <- prevTokens
   , fillConstr TAllocate == toConstr alloc
   , fillConstr TLeftPar  == toConstr lpar
-  = precedesDoubleColon ai
+  = null rest || (followsComma && parenLevel prevTokens == 1)
   | otherwise = False
   where
     prevTokens = reverse . aiPreviousTokensInLine $ ai
+    followsComma
+      | Just TComma{} <- aiPreviousToken ai = True
+      | otherwise = False
 
 attributeP :: User -> AlexInput -> Int -> AlexInput -> Bool
 attributeP _ _ _ ai = followsComma && precedesDoubleColon ai && lineStartOK
