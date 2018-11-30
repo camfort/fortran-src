@@ -26,7 +26,6 @@ import Language.Fortran.ParserMonad
 import Language.Fortran.Util.Position
 import Language.Fortran.Util.FirstParameter
 
-
 }
 
 $digit = 0-9
@@ -893,8 +892,10 @@ alexInputPrevChar ai = aiPreviousChar ai
 currentChar :: AlexInput -> Char
 currentChar !ai
   -- case sensitivity matters only in character literals
-  | sCode == scC = _currentChar
-  | otherwise    = {-# SCC toLower_currentChar #-} toLower _currentChar
+  | sCode == scC              = _currentChar
+  | 'A' <= _currentChar &&
+     _currentChar <= 'Z'      = {-# SCC toLower_currentChar #-} toLower _currentChar
+  | otherwise                 = _currentChar
   where
     sCode        = scActual (aiStartCode ai)
     -- _currentChar = w2c (BU.unsafeIndex srcBytes i)
