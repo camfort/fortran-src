@@ -132,3 +132,17 @@ spec =
         let st2 = StProtected () u (Just (AList () u [varGen "x"]))
         sParser "real, protected, public :: x" `shouldBe'` st1
         sParser "protected x" `shouldBe'` st2
+
+      describe "labelled where" $ do
+        it "parses where construct statement" $
+          sParser "foo: where (.true.)" `shouldBe'` StWhereConstruct () u (Just "foo") valTrue
+
+        it "parses elsewhere statement" $
+          sParser "elsewhere ab101" `shouldBe'` StElsewhere () u (Just "ab101") Nothing
+
+        it "parses elsewhere statement" $ do
+          let exp = ExpBinary () u GT (varGen "a") (varGen "b")
+          sParser "elsewhere (a > b) A123" `shouldBe'` StElsewhere () u (Just "a123") (Just exp)
+
+        it "parses endwhere statement" $
+          sParser "endwhere foo1" `shouldBe'` StEndWhere () u (Just "foo1")

@@ -554,10 +554,14 @@ EXECUTABLE_STATEMENT :: { Statement A0 }
 | POINTER_ASSIGNMENT_STMT { $1 }
 | where '(' EXPRESSION ')' EXPRESSION_ASSIGNMENT_STATEMENT
   { StWhere () (getTransSpan $1 $5) $3 $5 }
-| where '(' EXPRESSION ')' { StWhereConstruct () (getTransSpan $1 $4) $3 }
-| elsewhere '(' EXPRESSION ')' { StElsewhere () (getTransSpan $1 $4) (Just $3) }
-| elsewhere { StElsewhere () (getSpan $1) Nothing }
-| endwhere { StEndWhere () (getSpan $1) }
+| id ':' where '(' EXPRESSION ')' { let (TId s1 id) = $1 in StWhereConstruct () (getTransSpan $1 $6) (Just id) $5 }
+| where '(' EXPRESSION ')' { StWhereConstruct () (getTransSpan $1 $4) Nothing $3 }
+| elsewhere '(' EXPRESSION ')' id { let TId _ id = $5 in StElsewhere () (getTransSpan $1 $5) (Just id) (Just $3) }
+| elsewhere '(' EXPRESSION ')' { StElsewhere () (getTransSpan $1 $4) Nothing (Just $3) }
+| elsewhere id { let TId _ id = $2 in StElsewhere () (getTransSpan $1 $2) (Just id) Nothing }
+| elsewhere { StElsewhere () (getSpan $1) Nothing Nothing }
+| endwhere id { let TId _ id = $2 in StEndWhere () (getTransSpan $1 $2) (Just id) }
+| endwhere { StEndWhere () (getSpan $1) Nothing }
 | if '(' EXPRESSION ')' INTEGER_LITERAL ',' INTEGER_LITERAL ',' INTEGER_LITERAL
   { StIfArithmetic () (getTransSpan $1 $9) $3 $5 $7 $9 }
 | if '(' EXPRESSION ')' then { StIfThen () (getTransSpan $1 $5) Nothing $3 }

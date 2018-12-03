@@ -242,6 +242,7 @@ tokens :-
 
 -- Where construct
 <0,scI> "where"                                   { addSpan TWhere }
+<scN> "where" / { labelledWhereP }                { addSpan TWhere }
 <0> "elsewhere"                                   { addSpan TElsewhere }
 <0> "end"\ *"where"                               { addSpan TEndWhere }
 
@@ -335,6 +336,13 @@ followsColonP :: User -> AlexInput -> Int -> AlexInput -> Bool
 followsColonP _ _ _ ai
   | Just TColon{} <- aiPreviousToken ai = True
   | otherwise = False
+
+labelledWhereP :: User -> AlexInput -> Int -> AlexInput -> Bool
+labelledWhereP _ _ _ ai
+  | TId{}:TColon{}:[] <- prevTokens = True
+  | otherwise                       = False
+  where
+    prevTokens = reverse . aiPreviousTokensInLine $ ai
 
 selectorP :: User -> AlexInput -> Int -> AlexInput -> Bool
 selectorP user _ _ ai =

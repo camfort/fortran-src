@@ -471,17 +471,17 @@ spec =
 
         describe "Where block" $ do
           it "parses where construct statement" $
-            sParser "where (.true.)" `shouldBe'` StWhereConstruct () u valTrue
+            sParser "where (.true.)" `shouldBe'` StWhereConstruct () u Nothing valTrue
 
           it "parses elsewhere statement" $
-            sParser "elsewhere" `shouldBe'` StElsewhere () u Nothing
+            sParser "elsewhere" `shouldBe'` StElsewhere () u Nothing Nothing
 
           it "parses elsewhere statement" $ do
             let exp = ExpBinary () u GT (varGen "a") (varGen "b")
-            sParser "elsewhere (a > b)" `shouldBe'` StElsewhere () u (Just exp)
+            sParser "elsewhere (a > b)" `shouldBe'` StElsewhere () u Nothing (Just exp)
 
           it "parses endwhere statement" $
-            sParser "endwhere" `shouldBe'` StEndWhere () u
+            sParser "endwhere" `shouldBe'` StEndWhere () u Nothing
 
     describe "If" $ do
       it "parses if-then statement" $

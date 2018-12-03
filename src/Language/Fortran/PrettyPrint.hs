@@ -697,15 +697,27 @@ instance Pretty (Statement a) where
         "where" <+> parens (pprint' v mask) <+> pprint' v assignment
       | otherwise = tooOld v "Where statement" Fortran90
 
-    pprint' v (StWhereConstruct _ _ mask)
+    pprint' v (StWhereConstruct _ _ (Just lab) mask)
+      | v >= Fortran2003 = text lab <> ":" <+> "where" <+> parens (pprint' v mask)
+      | otherwise = tooOld v "Labelled where construct" Fortran2003
+
+    pprint' v (StWhereConstruct _ _ Nothing mask)
       | v >= Fortran90 = "where" <+> parens (pprint' v mask)
       | otherwise = tooOld v "Where construct" Fortran90
 
-    pprint' v (StElsewhere _ _ mexp)
+    pprint' v (StElsewhere _ _ (Just lab) mexp)
+      | v >= Fortran2003 = "else where" <+> "(" <?> pprint' v mexp <?> ")" <+> text lab
+      | otherwise = tooOld v "Labelled ELSEWHERE" Fortran2003
+
+    pprint' v (StElsewhere _ _ Nothing mexp)
       | v >= Fortran90 = "else where" <+> "(" <?> pprint' v mexp <?> ")"
       | otherwise = tooOld v "Else where" Fortran90
 
-    pprint' v (StEndWhere _ _)
+    pprint' v (StEndWhere _ _ (Just lab))
+      | v >= Fortran2003 = "end where" <+> text lab
+      | otherwise = tooOld v "Labelled END WHERE" Fortran2003
+
+    pprint' v (StEndWhere _ _ Nothing)
       | v >= Fortran90 = "end where"
       | otherwise = tooOld v "End where" Fortran90
 
