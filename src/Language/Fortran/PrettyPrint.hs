@@ -275,7 +275,7 @@ instance IndentablePretty (Block a) where
 
     pprint v (BlInterface _ _ mLabel abstractp pus moduleProcs) i
       | v >= Fortran90 =
-        indent i (pprint' v mLabel <+> abstract <>  "interface" <> newline) <>
+        indent i (abstract <>  "interface" <+> pprint' v mLabel <> newline) <>
         pprint v pus nextI <>
         newline <>
         pprint v moduleProcs nextI <>

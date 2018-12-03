@@ -381,10 +381,10 @@ MODULE_PROCEDURES :: { [ Block A0 ] }
 | { [ ] }
 
 MODULE_PROCEDURE :: { Block A0 }
-: moduleProcedure VARIABLES NEWLINE
+: moduleProcedure VARIABLES MAYBE_COMMENT NEWLINE
   { let { al = fromReverseList $2;
           st = StModuleProcedure () (getTransSpan $1 al) (fromReverseList $2) }
-    in BlStatement () (getTransSpan $1 $3) Nothing st }
+    in BlStatement () (getTransSpan $1 $4) Nothing st }
 
 COMMENT_BLOCK :: { Block A0 }
 : comment NEWLINE { let (TComment s c) = $1 in BlComment () s (Comment c) }
