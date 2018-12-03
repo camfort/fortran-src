@@ -113,7 +113,7 @@ spec =
           let st = StDeclaration () u typeSpec
                                       (Just $ AList () u attrs)
                                       (AList () u declList)
-          let expect = "character (len=3), intent(in), pointer :: x = 42, y*3"
+          let expect = "character(len=3), intent(in), pointer :: x = 42, y*3"
           pprint Fortran90 st Nothing `shouldBe` expect
 
         it "prints 77 style" $ do
@@ -243,11 +243,17 @@ spec =
             pprint Fortran90 st Nothing `shouldBe` "print *, 42"
 
       describe "Allocation" $
-        describe "Allocate" $
+        describe "Allocate" $ do
           it "prints allocate statement" $ do
             let stat = AOStat () u (varGen "s")
             let st = StAllocate () u Nothing (AList () u [ varGen "x" ]) (Just (AList () u [stat]))
             pprint Fortran90 st Nothing `shouldBe` "allocate (x, stat=s)"
+          it "prints allocate statement with type spec" $ do
+            let stat = AOStat () u (varGen "s")
+            let sel = Selector () u (Just (intGen 30)) Nothing
+            let ty = TypeSpec () u (TypeCharacter (Just $ CharLenInt 30) Nothing) (Just sel)
+            let st = StAllocate () u (Just ty) (AList () u [ varGen "x" ]) (Just (AList () u [stat]))
+            pprint Fortran2003 st Nothing `shouldBe` "allocate (character(len=30) :: x, stat=s)"
 
       describe "Where" $
         it "prints statement" $ do

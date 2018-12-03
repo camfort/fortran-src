@@ -830,6 +830,7 @@ showBaseType (ClassCustom s)     = "class(" ++ s ++ ")"
 
 showCharLen :: CharacterLen -> String
 showCharLen CharLenStar = "*"
+showCharLen CharLenColon = ":"
 showCharLen CharLenExp  = "*" -- FIXME, possibly, with a more robust const-exp
 showCharLen (CharLenInt i) = show i
 

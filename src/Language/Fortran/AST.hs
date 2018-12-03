@@ -89,6 +89,7 @@ data BaseType =
 instance Binary BaseType
 
 data CharacterLen = CharLenStar    -- ^ specified with a *
+                  | CharLenColon   -- ^ specified with a : (Fortran2003)
                     -- FIXME, possibly, with a more robust const-exp:
                   | CharLenExp     -- ^ specified with a non-trivial expression
                   | CharLenInt Int -- ^ specified with a constant integer
@@ -101,12 +102,14 @@ charLenSelector Nothing                          = (Nothing, Nothing)
 charLenSelector (Just (Selector _ _ mlen mkind)) = (l, k)
   where
     l | Just (ExpValue _ _ ValStar) <- mlen        = Just CharLenStar
+      | Just (ExpValue _ _ ValColon) <- mlen       = Just CharLenColon
       | Just (ExpValue _ _ (ValInteger i)) <- mlen = Just $ CharLenInt (read i)
       | Nothing <- mlen                            = Nothing
       | otherwise                                  = Just CharLenExp
-    k | Just (ExpValue _ _ (ValInteger i)) <- mkind = Just i
+    k | Just (ExpValue _ _ (ValInteger i)) <- mkind  = Just i
+      | Just (ExpValue _ _ (ValVariable s)) <- mkind = Just s
       -- FIXME: some references refer to things like kind=kanji but I can't find any spec for it
-      | otherwise                                   = Nothing
+      | otherwise                                    = Nothing
 
 data TypeSpec a = TypeSpec a SrcSpan BaseType (Maybe (Selector a))
   deriving (Eq, Show, Data, Typeable, Generic, Functor)

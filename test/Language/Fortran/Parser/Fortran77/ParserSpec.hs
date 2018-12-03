@@ -155,8 +155,8 @@ spec =
 
       it "parses 'implicit character*30 (a, b, c), integer (a-z, l)" $ do
         let impEls = [ImpCharacter () u "a", ImpCharacter () u "b", ImpCharacter () u "c"]
-            selector = Selector () u (Just $ intGen 30) Nothing
-            imp1 = ImpList () u (TypeSpec () u (TypeCharacter (Just $ CharLenInt 30) Nothing) (Just selector)) $ AList () u impEls
+            sel = Selector () u (Just (intGen 30)) Nothing
+            imp1 = ImpList () u (TypeSpec () u (TypeCharacter (Just $ CharLenInt 30) Nothing) (Just sel)) $ AList () u impEls
             imp2 = ImpList () u (TypeSpec () u TypeInteger Nothing) $ AList () u [ImpRange () u "a" "z", ImpCharacter () u "l"]
             st = StImplicit () u $ Just $ AList () u [imp1, imp2]
         sParser "      implicit character*30 (a, b, c), integer (a-z, l)" `shouldBe'` st

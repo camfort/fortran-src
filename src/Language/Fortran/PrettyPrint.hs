@@ -353,12 +353,8 @@ instance Pretty BaseType where
       | v == Fortran77Extended = "double complex"
       | otherwise = tooOld v "Double complex" Fortran77Extended
     pprint' _ TypeLogical = "logical"
-    pprint' v (TypeCharacter l k)
-      | v >= Fortran77 = case (l, k) of
-          (Just cl, Just ki) -> "character(" <+> pprint' v cl <+> "," <+> text ki <+> ")"
-          (Just cl, Nothing) -> "character(" <+> pprint' v cl <+> ")"
-          (Nothing, Just ki) -> "character(kind=" <+> text ki <+> ")"
-          (Nothing, Nothing) -> "character"
+    pprint' v (TypeCharacter _ _)
+      | v >= Fortran77 = "character"
       | otherwise = tooOld v "Character data type" Fortran77
     pprint' v (TypeCustom str)
       | v >= Fortran90 = "type" <+> parens (text str)
@@ -376,12 +372,13 @@ instance Pretty BaseType where
 
 instance Pretty CharacterLen where
   pprint' _ CharLenStar = "*"
+  pprint' _ CharLenColon = ":"
   pprint' _ CharLenExp  = "*" -- FIXME, possibly, with a more robust const-exp
   pprint' _ (CharLenInt i) = text (show i)
 
 instance Pretty (TypeSpec a) where
     pprint' v (TypeSpec _ _ baseType mSelector) =
-      pprint' v baseType <+> pprint' v mSelector
+      pprint' v baseType <> pprint' v mSelector
 
 instance Pretty (Selector a) where
   pprint' v (Selector _ _ mLenSel mKindSel)
@@ -405,8 +402,8 @@ instance Pretty (Selector a) where
                    \Fortran 90 onwards."
     | otherwise = error "unhandled version"
     where
-      len e  = "len=" <> pprint' Fortran90 e
-      kind e = "kind=" <> pprint' Fortran90 e
+      len e  = "len=" <> pprint' v e
+      kind e = "kind=" <> pprint' v e
 
 instance Pretty (Statement a) where
     pprint' v (StDeclaration _ _ typeSpec mAttrList declList)

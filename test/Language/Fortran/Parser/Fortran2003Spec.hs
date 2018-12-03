@@ -121,9 +121,17 @@ spec =
         sParser "end enum" `shouldBe'` StEndEnum () u
 
       it "parses allocate with type_spec" $ do
-        let ty = TypeSpec () u (TypeCharacter (Just $ CharLenInt 3) Nothing) (Just (Selector () u (Just (intGen 3)) Nothing))
+        let sel = Selector () u (Just (ExpValue () u ValColon)) (Just (varGen "foo"))
+        let ty = TypeSpec () u (TypeCharacter (Just $ CharLenColon) (Just "foo")) (Just sel)
+        let decls = [DeclVariable () u (varGen "s") Nothing Nothing]
+        let st = StDeclaration () u ty (Just (AList () u [AttrAllocatable () u])) (AList () u decls)
+        sParser "character(len=:,kind=foo), allocatable :: s" `shouldBe'` st
+
+      it "parses allocate with type_spec" $ do
+        let sel = Selector () u (Just (intGen 3)) (Just (varGen "foo"))
+        let ty = TypeSpec () u (TypeCharacter (Just $ CharLenInt 3) (Just "foo")) (Just sel)
         let st = StAllocate () u (Just ty) (AList () u [varGen "s"]) Nothing
-        sParser "allocate(character(len=3) :: s)" `shouldBe'` st
+        sParser "allocate(character(len=3,kind=foo) :: s)" `shouldBe'` st
 
       it "parses protected" $ do
         let ty = TypeSpec () u TypeReal Nothing
