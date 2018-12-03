@@ -743,6 +743,7 @@ showAttr :: Attribute a -> String
 showAttr (AttrParameter _ _) = "parameter"
 showAttr (AttrPublic _ _) = "public"
 showAttr (AttrPrivate _ _) = "private"
+showAttr (AttrProtected _ _) = "protected"
 showAttr (AttrAllocatable _ _) = "allocatable"
 showAttr (AttrAsynchronous _ _) = "asynchronous"
 showAttr (AttrDimension _ _ aDimDecs) =
