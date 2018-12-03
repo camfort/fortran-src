@@ -355,3 +355,7 @@ spec =
                       , TIOMsg, TOpAssign, flip TId "x", TComma
                       , TIOStat, TOpAssign, flip TId "y", TComma
                       , TErr, TOpAssign, flip TId "z", TRightPar, TEOF ]
+
+        it "lexes protected" $ do
+          shouldBe' (collectF03 "real, protected, public :: x") $
+            fmap ($u) [ TReal, TComma, TProtected, TComma, TPublic, TDoubleColon, flip TId "x", TEOF ]

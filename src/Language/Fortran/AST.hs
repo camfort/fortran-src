@@ -285,6 +285,7 @@ data Statement a  =
   | StOptional            a SrcSpan (AList Expression a)
   | StPublic              a SrcSpan (Maybe (AList Expression a))
   | StPrivate             a SrcSpan (Maybe (AList Expression a))
+  | StProtected           a SrcSpan (Maybe (AList Expression a))
   | StSave                a SrcSpan (Maybe (AList Expression a))
   | StDimension           a SrcSpan (AList Declarator a)
   | StAllocatable         a SrcSpan (AList Declarator a)
@@ -412,6 +413,7 @@ data Attribute a =
   | AttrParameter a SrcSpan
   | AttrPointer a SrcSpan
   | AttrPrivate a SrcSpan
+  | AttrProtected a SrcSpan
   | AttrPublic a SrcSpan
   | AttrSave a SrcSpan
   | AttrSuffix a SrcSpan (Suffix a)  -- for language-binding-spec
@@ -930,6 +932,7 @@ nonExecutableStatement _ s = case s of
     StOptional {}     -> True
     StPublic {}       -> True
     StPrivate {}      -> True
+    StProtected {}    -> True
     StSave {}         -> True
     StDimension {}    -> True
     StAllocatable {}  -> True

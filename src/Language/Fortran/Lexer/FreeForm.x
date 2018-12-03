@@ -169,6 +169,8 @@ tokens :-
 <scN> "public" / { attributeP }                   { addSpan TPublic }
 <0> "private"                                     { addSpan TPrivate }
 <scN> "private" / { attributeP }                  { addSpan TPrivate }
+<0> "protected"                                   { addSpan TProtected }
+<scN> "protected" / { attributeP }                { addSpan TProtected }
 <0> "parameter"                                   { addSpan TParameter }
 <scN> "parameter" / { attributeP }                { addSpan TParameter }
 <0> "allocatable"                                 { addSpan TAllocatable }
@@ -499,10 +501,12 @@ constructNameP user _ _ ai =
 genericSpecP :: User -> AlexInput -> Int -> AlexInput -> Bool
 genericSpecP _ _ _ ai = Just True == do
   constr <- prevTokenConstr ai
-  if constr `elem` fmap fillConstr [ TAbstract, TInterface, TPublic, TPrivate ]
+  if constr `elem` fmap fillConstr [ TAbstract, TInterface, TPublic, TPrivate, TProtected ]
   then return True
   else if constr `elem` fmap fillConstr [ TComma, TDoubleColon ]
-  then return $ seenConstr (fillConstr TPublic) ai || seenConstr (fillConstr TPrivate) ai
+  then return $ seenConstr (fillConstr TPublic) ai ||
+                seenConstr (fillConstr TPrivate) ai ||
+                seenConstr (fillConstr TProtected) ai
   else Nothing
 
 notDefinedOperP :: User -> AlexInput -> Int -> AlexInput -> Bool
@@ -1175,6 +1179,7 @@ data Token =
   | TPointer            SrcSpan
   | TPrivate            SrcSpan
   | TPublic             SrcSpan
+  | TProtected          SrcSpan
   | TSave               SrcSpan
   | TTarget             SrcSpan
   | TValue              SrcSpan

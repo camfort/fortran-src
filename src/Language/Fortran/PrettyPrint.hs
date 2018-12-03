@@ -443,6 +443,10 @@ instance Pretty (Statement a) where
       | v >= Fortran90 = "private" <> " :: " <?> pprint' v mVars
       | otherwise = tooOld v "Private statement" Fortran90
 
+    pprint' v (StProtected _ _ mVars)
+      | v >= Fortran2003 = "protected" <> " :: " <?> pprint' v mVars
+      | otherwise = tooOld v "Protected statement" Fortran2003
+
     pprint' v (StSave _ _ mVars)
       | v >= Fortran90 = "save" <> " :: " <?> pprint' v mVars
       | otherwise = "save" <+> pprint' v mVars
@@ -811,6 +815,9 @@ instance Pretty (Attribute a) where
           AttrParameter _ _ -> "parameter"
           AttrPublic _ _ -> "public"
           AttrPrivate _ _ -> "private"
+          AttrProtected _ _
+            | v >= Fortran2003 -> "protected"
+            | otherwise        -> tooOld v "Protected attribute" Fortran2003
           AttrAllocatable _ _ -> "allocatable"
           AttrDimension _ _ dims ->
             "dimension" <> parens (pprint' v dims)

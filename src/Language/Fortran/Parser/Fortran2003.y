@@ -108,6 +108,7 @@ import Debug.Trace
   include                     { TInclude _ }
   public                      { TPublic _ }
   private                     { TPrivate _ }
+  protected                   { TProtected _ }
   parameter                   { TParameter _ }
   allocatable                 { TAllocatable _ }
   asynchronous                { TAsynchronous _ }
@@ -419,6 +420,10 @@ NONEXECUTABLE_STATEMENT :: { Statement A0 }
   { let expAList = fromReverseList $3
     in StPrivate () (getTransSpan $1 expAList) (Just expAList) }
 | private { StPrivate () (getSpan $1) Nothing }
+| protected MAYBE_DCOLON EXPRESSION_LIST
+  { let expAList = fromReverseList $3
+    in StProtected () (getTransSpan $1 expAList) (Just expAList) }
+| protected { StProtected () (getSpan $1) Nothing }
 | save MAYBE_DCOLON SAVE_ARGS
   { let saveAList = (fromReverseList $3)
     in StSave () (getTransSpan $1 saveAList) (Just saveAList) }
@@ -896,6 +901,7 @@ ATTRIBUTE_LIST :: { [ Attribute A0 ] }
 ATTRIBUTE_SPEC :: { Attribute A0 }
 : public { AttrPublic () (getSpan $1) }
 | private { AttrPrivate () (getSpan $1) }
+| protected { AttrProtected () (getSpan $1) }
 | allocatable { AttrAllocatable () (getSpan $1) }
 | asynchronous { AttrAsynchronous () (getSpan $1) }
 | dimension '(' DIMENSION_DECLARATORS ')'
