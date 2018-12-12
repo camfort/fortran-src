@@ -402,6 +402,8 @@ partOfExpOrPointerAssignmentP (User fv pc) _ _ ai =
           TOpAssign{} -> return True
           TArrow{} -> return True
           TPercent{} -> return True
+          TLeftPar{} -> lexer $ f True 1
+          TLeftPar2{} -> lexer $ f True 1
           _ -> return False
       | parCount > 0 =
         case token of

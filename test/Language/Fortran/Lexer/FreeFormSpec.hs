@@ -283,6 +283,13 @@ spec =
           shouldBe' (collectF90 "!\n") $
                     ($u) <$> [ flip TComment "", TNewline , TEOF ]
 
+      describe "Subscripting" $ do
+        it "Strings nested in arrays" $
+          shouldBe' (collectF90 "a(1)(2:3) = 'we'") $
+                    ($u) <$> [ flip TId "a", TLeftPar, flip TIntegerLiteral "1", TRightPar
+                             , TLeftPar, flip TIntegerLiteral "2", TColon, flip TIntegerLiteral "3", TRightPar
+                             , TOpAssign, flip TString "we", TEOF ]
+
       describe "Fortran95" $ do
         it "lexes value attribute" $ do
           shouldBe' (collectF03 "value :: a, b") $
