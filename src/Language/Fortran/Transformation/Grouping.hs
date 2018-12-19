@@ -86,9 +86,9 @@ groupIf' (b:bs) = b' : bs'
     (b', bs') = case b of
       BlStatement a s label st
         | StIfThen _ _ mName _ <- st -> -- If statement
-          let ( conditions, blocks, leftOverBlocks, endLabel ) =
+          let ( conditions, blocks, leftOverBlocks, endLabel, endStmt ) =
                 decomposeIf (b:groupedBlocks)
-          in ( BlIf a (getTransSpan s blocks) label mName conditions blocks endLabel
+          in ( BlIf a (getTransSpan s endStmt) label mName conditions blocks endLabel
              , leftOverBlocks)
       b'' | containsGroups b'' -> -- Map to subblocks for groupable blocks
         ( applyGroupingToSubblocks groupIf' b'', groupedBlocks )
@@ -119,7 +119,8 @@ decomposeIf :: ABlocks a
             -> ( [ Maybe (Expression (Analysis a)) ],
                  [ ABlocks a ],
                  ABlocks a,
-                 Maybe (Expression (Analysis a)) )
+                 Maybe (Expression (Analysis a)),
+                 Statement (Analysis a) )
 decomposeIf blocks@(BlStatement _ _ _ (StIfThen _ _ mTargetName _):_) =
     decomposeIf' blocks
   where
@@ -129,18 +130,19 @@ decomposeIf blocks@(BlStatement _ _ _ (StIfThen _ _ mTargetName _):_) =
         StElsif _ _ _ condition -> go (Just condition) rest
         StElse{} -> go Nothing rest
         StEndif _ _ mName
-          | mName == mTargetName -> ([], [], rest, mLabel)
+          | mName == mTargetName -> ([], [], rest, mLabel, st)
           | otherwise -> error $ "If statement name does not match that of " ++
                                    "the corresponding end if statement."
         _ -> error "Block with non-if related statement. Should never occur."
     decomposeIf' _ = error "can't decompose block"
     go maybeCondition blocks' =
       let (nonConditionBlocks, rest') = collectNonConditionalBlocks blocks'
-          (conditions, listOfBlocks, rest'', endLabel) = decomposeIf' rest'
+          (conditions, listOfBlocks, rest'', endLabel, endStmt) = decomposeIf' rest'
       in ( maybeCondition : conditions
          , nonConditionBlocks : listOfBlocks
          , rest''
-         , endLabel )
+         , endLabel
+         , endStmt )
 decomposeIf _ = error "can't decompose block"
 
 -- This compiles the executable blocks under various if conditions.
