@@ -6,7 +6,6 @@ import Test.Hspec hiding (Selector)
 import TestUtil
 import Control.Exception (evaluate)
 import Control.DeepSeq (force, NFData)
-import qualified Data.ByteString as B
 import Data.ByteString.Char8 (pack)
 import Text.RawString.QQ
 
