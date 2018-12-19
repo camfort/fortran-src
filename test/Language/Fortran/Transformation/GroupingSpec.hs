@@ -1,3 +1,4 @@
+{-# LANGUAGE QuasiQuotes #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
 module Language.Fortran.Transformation.GroupingSpec where
 
@@ -5,11 +6,15 @@ import Test.Hspec hiding (Selector)
 import TestUtil
 import Control.Exception (evaluate)
 import Control.DeepSeq (force, NFData)
+import qualified Data.ByteString as B
+import Data.ByteString.Char8 (pack)
+import Text.RawString.QQ
 
 import Language.Fortran.Transformer
 import Language.Fortran.AST
 import Language.Fortran.Util.Position
 import Language.Fortran.ParserMonad
+import Language.Fortran.Parser.Fortran95
 
 groupIf :: ProgramFile () -> ProgramFile ()
 groupIf = transform [ GroupIf ]
@@ -88,6 +93,10 @@ spec = do
 
     it "do group example2 with common end-point" $
       groupDo example2do `shouldBe` expectedExample2do
+
+  describe "Block SrcSpan's" $ do
+    it "Spans all an if block" $
+      ifSpan `shouldBe` expectedIfSpan
 
 buildExampleProgram :: Name -> [Block ()] -> ProgramFile ()
 buildExampleProgram name blocks = ProgramFile mi77 [ PUMain () u (Just name) blocks Nothing ]
@@ -211,3 +220,28 @@ expectedExample2doBlocks =
   , BlDo () u Nothing Nothing label20 dospec
       [ BlStatement () u label20 (StContinue () u) ] label20
   ]
+
+getSingleParsedBlock :: String -> Block A0
+getSingleParsedBlock c =
+  let pf = fromRight . fromParseResult $ fortran95Parser (pack c) "foobar.f"
+      ProgramFile _ ((PUSubroutine _ _ _ _ _ (b:_) _):_) = pf
+  in  b
+
+type SimpleSpan = (Int, Int, Int, Int)
+
+simplifySpan :: SrcSpan -> SimpleSpan
+simplifySpan (SrcSpan b e) = (posLine b, posColumn b, posLine e, posColumn e)
+
+ifSpanRaw :: String
+ifSpanRaw = [r|      subroutine foobar
+       if (.TRUE.) then
+        print *, 'w00t'
+       endif
+      end
+|]
+ifSpan :: SimpleSpan
+ifSpan =
+  let BlIf _ s _ _ _ _ _ = getSingleParsedBlock ifSpanRaw
+  in  simplifySpan s
+expectedIfSpan :: SimpleSpan
+expectedIfSpan = (2, 8, 4, 12)

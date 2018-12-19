@@ -76,3 +76,4 @@ tests:
     - deepseq
     - hspec >=2.2 && <3
     - fortran-src
+    - raw-strings-qq >= 1.1
