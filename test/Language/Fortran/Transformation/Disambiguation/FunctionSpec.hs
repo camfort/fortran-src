@@ -31,6 +31,11 @@ spec = do
     it "disambiguates function calls in example 4" $ do
       let pf = disambiguateFunction $ resetSrcSpan ex4
       pf `shouldBe'` expectedEx4
+
+  describe "Implicit Function call / Variable disambiguation" $
+    it "disambiguates function calls in example 5" $ do
+      let pf = disambiguateFunction $ resetSrcSpan ex5
+      pf `shouldBe'` expectedEx5
 {-
 - program Main
 - integer a, b(1), c, e
@@ -208,6 +213,39 @@ expectedEx4pu1bs =
   [ BlStatement () u Nothing (StDeclaration () u (TypeSpec () u TypeInteger Nothing) Nothing (AList () u
       [ DeclVariable () u (varGen "a") Nothing Nothing
       , DeclVariable () u (varGen "f") Nothing Nothing ]))
+  , BlStatement () u Nothing
+      (StExpressionAssign () u (varGen "a")
+       (ExpFunctionCall () u (ExpValue () u $ ValVariable "f")
+                                  (Just $ AList () u [ Argument () u Nothing (intGen 1) ] ))) ]
+
+{-
+- program Main
+- integer a
+- a = f(1)
+- end
+-}
+
+ex5 :: ProgramFile ()
+ex5 = ProgramFile mi77 [ ex5pu1 ]
+ex5pu1 :: ProgramUnit ()
+ex5pu1 = PUMain () u (Just "main") ex5pu1bs Nothing
+ex5pu1bs :: [Block ()]
+ex5pu1bs =
+  [ BlStatement () u Nothing (StDeclaration () u (TypeSpec () u TypeInteger Nothing) Nothing (AList () u
+      [ DeclVariable () u (varGen "a") Nothing Nothing
+      ]))
+  , BlStatement () u Nothing
+      (StExpressionAssign () u (varGen "a") (ExpSubscript () u (varGen "f") (AList () u [ ixSinGen 1 ]))) ]
+
+expectedEx5 :: ProgramFile ()
+expectedEx5 = ProgramFile mi77 [ expectedEx5pu1 ]
+expectedEx5pu1 :: ProgramUnit ()
+expectedEx5pu1 = PUMain () u (Just "main") expectedEx5pu1bs Nothing
+
+expectedEx5pu1bs :: [Block ()]
+expectedEx5pu1bs =
+  [ BlStatement () u Nothing (StDeclaration () u (TypeSpec () u TypeInteger Nothing) Nothing (AList () u
+      [ DeclVariable () u (varGen "a") Nothing Nothing ]))
   , BlStatement () u Nothing
       (StExpressionAssign () u (varGen "a")
        (ExpFunctionCall () u (ExpValue () u $ ValVariable "f")
