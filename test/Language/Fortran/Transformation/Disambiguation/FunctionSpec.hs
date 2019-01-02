@@ -36,6 +36,12 @@ spec = do
     it "disambiguates function calls in example 5" $ do
       let pf = disambiguateFunction $ resetSrcSpan ex5
       pf `shouldBe'` expectedEx5
+
+  describe "Implicit array declaration with dimension disambiguation" $
+    it "Should not disambiguation to a function call in example 6" $ do
+      let pf = disambiguateFunction $ resetSrcSpan ex6
+      pf `shouldBe'` expectedEx6
+
 {-
 - program Main
 - integer a, b(1), c, e
@@ -250,6 +256,42 @@ expectedEx5pu1bs =
       (StExpressionAssign () u (varGen "a")
        (ExpFunctionCall () u (ExpValue () u $ ValVariable "f")
                                   (Just $ AList () u [ Argument () u Nothing (intGen 1) ] ))) ]
+
+{-
+- program Main
+- integer a
+- dimension f(10)
+- a = f(1)
+- end
+-}
+
+ex6 :: ProgramFile ()
+ex6 = ProgramFile mi77 [ ex6pu1 ]
+ex6pu1 :: ProgramUnit ()
+ex6pu1 = PUMain () u (Just "main") ex6pu1bs Nothing
+ex6pu1bs :: [Block ()]
+ex6pu1bs =
+  [ BlStatement () u Nothing (StDeclaration () u (TypeSpec () u TypeInteger Nothing) Nothing (AList () u
+      [ DeclVariable () u (varGen "a") Nothing Nothing
+      ]))
+  , BlStatement () u Nothing (StDimension () u (AList () u
+      [ DeclArray () u (varGen "f") (AList () u [ DimensionDeclarator () u Nothing (Just $ intGen 10 ) ]) Nothing Nothing ]))
+  , BlStatement () u Nothing
+      (StExpressionAssign () u (varGen "a") (ExpSubscript () u (varGen "f") (AList () u [ ixSinGen 1 ]))) ]
+
+expectedEx6 :: ProgramFile ()
+expectedEx6 = ProgramFile mi77 [ expectedEx6pu1 ]
+expectedEx6pu1 :: ProgramUnit ()
+expectedEx6pu1 = PUMain () u (Just "main") expectedEx6pu1bs Nothing
+
+expectedEx6pu1bs :: [Block ()]
+expectedEx6pu1bs =
+  [ BlStatement () u Nothing (StDeclaration () u (TypeSpec () u TypeInteger Nothing) Nothing (AList () u
+      [ DeclVariable () u (varGen "a") Nothing Nothing ]))
+  , BlStatement () u Nothing (StDimension () u (AList () u
+      [ DeclArray () u (varGen "f") (AList () u [ DimensionDeclarator () u Nothing (Just $ intGen 10 ) ]) Nothing Nothing ]))
+  , BlStatement () u Nothing
+      (StExpressionAssign () u (varGen "a") (ExpSubscript () u (varGen "f") (AList () u [ ixSinGen 1 ]))) ]
 
 -- Local variables:
 -- mode: haskell
