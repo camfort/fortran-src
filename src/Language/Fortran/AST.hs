@@ -574,7 +574,7 @@ data UnaryOp =
   | Minus
   | Not
   | UnCustom String
-  deriving (Eq, Show, Data, Typeable, Generic)
+  deriving (Eq, Ord, Show, Data, Typeable, Generic)
 
 instance Binary UnaryOp
 

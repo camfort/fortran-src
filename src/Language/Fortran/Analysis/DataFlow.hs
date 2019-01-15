@@ -353,6 +353,8 @@ constantFolding c = case c of
     Multiplication | inBounds (x * y) -> ConstInt (x * y)
     Division       | y /= 0           -> ConstInt (x `div` y)
     _                                 -> ConstBinary binOp (ConstInt x) (ConstInt y)
+  ConstUnary Minus a | ConstInt x <- constantFolding a -> ConstInt (-x)
+  ConstUnary Plus  a                                   -> constantFolding a
   _ -> c
 
 -- | The map of all parameter variables and their corresponding values
@@ -394,6 +396,7 @@ genConstExpMap pf = ceMap
       ExpValue _ _ (ValVariable _)  -> getV e
       -- Recursively seek information about sub-expressions, relying on laziness.
       ExpBinary _ _ binOp e1 e2     -> constantFolding <$> liftM2 (ConstBinary binOp) (getE e1) (getE e2)
+      ExpUnary _ _ unOp e           -> constantFolding <$> ConstUnary unOp <$> getE e
       _ -> Nothing
 
 -- | Get constant-expression information and put it into the AST
