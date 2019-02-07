@@ -478,13 +478,13 @@ createEdges es = modify $ \ st -> st { newEdges = es ++ newEdges st }
 -- Generates a new node number.
 gen :: BBlocker a Int
 gen = do
-  n:ns <- gets nums
+  ~(n:ns) <- gets nums
   modify $ \ s -> s { nums = ns }
   return n
 
 genTemp :: String -> BBlocker a String
 genTemp str = do
-  n:ns <- gets tempNums
+  ~(n:ns) <- gets tempNums
   modify $ \ s -> s { tempNums = ns }
   return $ "_" ++ str ++ "_t#" ++ show n
 

@@ -115,8 +115,8 @@ programUnit (PUModule a s name blocks m_contains) = do
   return (PUModule a' s name blocks3 m_contains')
 
 programUnit (PUFunction a s ty rec name args res blocks m_contains) = do
-  Just name'  <- getFromEnv name                  -- get renamed function name
-  (blocks1, _) <- returnBlocksEnv blocks name
+  ~(Just name') <- getFromEnv name                  -- get renamed function name
+  (blocks1, _)  <- returnBlocksEnv blocks name
   blocks2     <- mapM renameEntryPointResultDecl blocks1 -- rename the result
   res'        <- mapM renameGenericDecls res             -- variable(s) if needed
   args'       <- mapM renameGenericDecls args -- rename arguments
@@ -130,8 +130,8 @@ programUnit (PUFunction a s ty rec name args res blocks m_contains) = do
   return . setSourceName name . setUniqueName name' $ pu'
 
 programUnit (PUSubroutine a s rec name args blocks m_contains) = do
-  Just name'  <- getFromEnv name                  -- get renamed subroutine name
-  (blocks1, _) <- returnBlocksEnv blocks name
+  ~(Just name') <- getFromEnv name                  -- get renamed subroutine name
+  (blocks1, _)  <- returnBlocksEnv blocks name
   args'       <- mapM renameGenericDecls args -- rename arguments
   blocks2     <- mapM renameDeclDecls blocks1 -- handle declarations
   m_contains' <- renameSubPUs m_contains      -- handle contained program units

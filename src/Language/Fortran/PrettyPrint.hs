@@ -9,7 +9,7 @@ module Language.Fortran.PrettyPrint where
 import Data.Maybe (isJust, isNothing, listToMaybe)
 import Data.List (foldl')
 
-import Prelude hiding (EQ,LT,GT,pred,exp)
+import Prelude hiding (EQ,LT,GT,pred,exp,(<>))
 
 import Language.Fortran.AST
 import Language.Fortran.ParserMonad
