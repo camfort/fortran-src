@@ -430,7 +430,7 @@ parenLevel = foldl' f 0
 allocateP :: User -> AlexInput -> Int -> AlexInput -> Bool
 allocateP _ _ _ ai
   | alloc:lpar:rest <- prevTokens
-  , fillConstr TAllocate == toConstr alloc
+  , toConstr alloc `elem` [fillConstr TAllocate, fillConstr TDeallocate]
   , fillConstr TLeftPar  == toConstr lpar
   = null rest || (followsComma && parenLevel prevTokens == 1)
   | otherwise = False

@@ -393,12 +393,15 @@ spec =
           sParser "allocate (x, st % part, STAT = a)" `shouldBe'` s
 
         it "parses deallocate statement" $ do
+          let opt = AOStat () u (varGen "a")
           let allocs = fromList ()
                 [ let indicies = fromList () [ IxSingle () u Nothing (intGen 20) ]
                   in ExpSubscript () u (varGen "smt") indicies
                 ]
           let s = StDeallocate () u allocs Nothing
+          let s' = StDeallocate () u allocs (Just (AList () u [opt]))
           sParser "deallocate (smt ( 20 ))" `shouldBe'` s
+          sParser "deallocate (smt ( 20 ), stat=a)" `shouldBe'` s'
 
         it "parses nullify statement" $ do
           let s = StNullify () u (fromList () [ varGen "x" ])
