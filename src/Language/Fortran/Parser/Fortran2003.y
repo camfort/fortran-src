@@ -682,6 +682,10 @@ RENAME_LIST :: { [ Use A0 ] }
 RENAME :: { Use A0  }
 : VARIABLE '=>' VARIABLE { UseRename () (getTransSpan $1 $3) $1 $3 }
 | VARIABLE { UseID () (getSpan $1) $1 }
+| operator '(' opCustom ')'
+  { let TOpCustom ss op = $3
+    in UseID () (getTransSpan $1 $4) (ExpValue () ss (ValOperator op)) }
+| assignment { UseID () (getSpan $1) (ExpValue () (getSpan $1) ValAssignment) }
 
 MAYBE_DCOLON :: { () } : '::' { () } | {- EMPTY -} { () }
 

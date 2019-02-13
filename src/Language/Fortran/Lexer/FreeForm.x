@@ -513,10 +513,11 @@ genericSpecP _ _ _ ai = Just True == do
   constr <- prevTokenConstr ai
   if constr `elem` fmap fillConstr [ TAbstract, TInterface, TPublic, TPrivate, TProtected ]
   then return True
-  else if constr `elem` fmap fillConstr [ TComma, TDoubleColon ]
+  else if constr `elem` fmap fillConstr [ TComma, TDoubleColon, TColon ]
   then return $ seenConstr (fillConstr TPublic) ai ||
                 seenConstr (fillConstr TPrivate) ai ||
-                seenConstr (fillConstr TProtected) ai
+                seenConstr (fillConstr TProtected) ai ||
+                seenConstr (fillConstr TOnly) ai
   else Nothing
 
 notDefinedOperP :: User -> AlexInput -> Int -> AlexInput -> Bool

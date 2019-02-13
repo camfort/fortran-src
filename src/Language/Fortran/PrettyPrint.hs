@@ -1057,7 +1057,7 @@ instance Pretty BinaryOp where
       | v >= Fortran77 = ".neqv."
       | otherwise = tooOld v ".NEQV. operator" Fortran77
     pprint' v (BinCustom custom)
-      | v >= Fortran90 = "." <> text custom <> "."
+      | v >= Fortran90 = text custom
       | otherwise = tooOld v "Custom binary operator" Fortran90
 
 commaSep :: [Doc] -> Doc

@@ -17,7 +17,7 @@ import Language.Fortran.Analysis
 import Language.Fortran.ParserMonad (FortranVersion(..))
 
 import Prelude hiding (lookup)
-import Data.Maybe (maybe, fromMaybe)
+import Data.Maybe (mapMaybe, maybe, fromMaybe)
 import qualified Data.List as L
 import Data.Map (insert, empty, lookup, Map)
 import qualified Data.Map.Strict as M
@@ -229,9 +229,10 @@ initialEnv blocks = do
       | only <- aStrip onlyAList -> do
       let env = fromMaybe empty (Named m `lookup` mMap)
       -- list of (local name, original name) from USE declaration:
-      let localNamePairs = flip map only $ \ r -> case r of
-            UseID _ _ v       -> (varName v, varName v)
-            UseRename _ _ u v -> (varName u, varName v)
+      let localNamePairs = flip mapMaybe only $ \ r -> case r of
+            UseID _ _ v@(ExpValue _ _ ValVariable{}) -> Just (varName v, varName v)
+            UseRename _ _ u v                        -> Just (varName u, varName v)
+            _                                        -> Nothing
       -- create environment based on local name written in ONLY list
       -- (if applicable) and variable information found in imported
       -- mod env.

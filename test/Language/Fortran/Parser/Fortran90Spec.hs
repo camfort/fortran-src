@@ -542,9 +542,18 @@ spec =
         let st = StWrite () u ciList (Just outList)
         sParser "write (10, FORMAT = x) (i, j,  i = 1, 42, 2)" `shouldBe'` st
 
-    it "parses use statement" $ do
+    it "parses use statement with renames" $ do
       let renames = fromList ()
             [ UseRename () u (varGen "sprod") (varGen "prod")
             , UseRename () u (varGen "a") (varGen "b") ]
       let st = StUse () u (varGen "stats_lib") Nothing Permissive (Just renames)
       sParser "use stats_lib, sprod => prod, a => b" `shouldBe'` st
+
+    it "parses use statement with only list" $ do
+      let onlys = fromList ()
+            [ UseID () u (varGen "a")
+            , UseRename () u (varGen "b") (varGen "c")
+            , UseID () u (ExpValue () u (ValOperator "+"))
+            , UseID () u (ExpValue () u ValAssignment) ]
+      let st = StUse () u (varGen "stats_lib") Nothing Exclusive (Just onlys)
+      sParser "use stats_lib, only: a, b => c, operator(+), assignment(=)" `shouldBe'` st
