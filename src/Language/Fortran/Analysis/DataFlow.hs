@@ -396,7 +396,7 @@ genConstExpMap pf = ceMap
       ExpValue _ _ (ValVariable _)  -> getV e
       -- Recursively seek information about sub-expressions, relying on laziness.
       ExpBinary _ _ binOp e1 e2     -> constantFolding <$> liftM2 (ConstBinary binOp) (getE e1) (getE e2)
-      ExpUnary _ _ unOp e           -> constantFolding <$> ConstUnary unOp <$> getE e
+      ExpUnary _ _ unOp e'           -> constantFolding <$> ConstUnary unOp <$> getE e'
       _ -> Nothing
 
 -- | Get constant-expression information and put it into the AST
