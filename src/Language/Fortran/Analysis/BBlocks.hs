@@ -209,8 +209,8 @@ delInvalidExits gr = flip delEdges gr $ do
 insExitEdges :: (Data a, DynGraph gr) => ProgramUnit (Analysis a) -> M.Map String Node -> gr [Block (Analysis a)] () -> gr [Block (Analysis a)] ()
 insExitEdges pu lm gr = flip insEdges (insNode (-1, bs) gr) $ do
   n <- nodes gr
-  guard $ null (out gr n)
   bs' <- maybeToList $ lab gr n
+  guard $ null (out gr n) || isFinalBlockGotoComputed bs'
   n' <- examineFinalBlock lm bs'
   return (n, n', ())
   where
@@ -232,10 +232,19 @@ isFinalBlockCtrlXfer :: [Block a] -> Bool
 isFinalBlockCtrlXfer bs@(_:_)
   | BlStatement _ _ _ StGotoUnconditional{} <- last bs = True
   | BlStatement _ _ _ StGotoAssigned{}      <- last bs = True
-  | BlStatement _ _ _ StGotoComputed{}      <- last bs = True
   | BlStatement _ _ _ StReturn{}            <- last bs = True
   | BlStatement _ _ _ StIfArithmetic{}      <- last bs = True
+  -- Note that StGotoComputed is not handled here since it
+  -- is not an explicit control transfer if the expression
+  -- does not index into one of the labels, in which case
+  -- it acts as a StContinue
 isFinalBlockCtrlXfer _                                    = False
+
+-- True iff the final block in the list is a StGotoComputed
+isFinalBlockGotoComputed :: [Block a] -> Bool
+isFinalBlockGotoComputed bs@(_:_)
+  | BlStatement _ _ _ StGotoComputed{} <- last bs = True
+isFinalBlockGotoComputed _                        = False
 
 lookupBBlock :: Num a1 => M.Map String a1 -> Expression a2 -> a1
 lookupBBlock lm a =
@@ -342,6 +351,13 @@ perBlock b@(BlCase _ _ _ _ _ inds bss _) = do
   let es  = startEnds >>= \ (caseN, endN) -> [(selectN, caseN, ()), (endN, nxtN, ())]
   -- if there is no "CASE DEFAULT"-statement then we need an edge from selectN -> nxtN
   createEdges $ if any isNothing inds then es else (selectN, nxtN, ()):es
+
+perBlock b@(BlStatement _ _ _ (StGotoComputed _ _ _ exp)) = do
+  processLabel b
+  _ <- processFunctionCalls exp
+  addToBBlock b
+  (gotoN, nxtN) <- closeBBlock
+  createEdges [(gotoN, nxtN, ())]
 
 perBlock b@(BlStatement a ss _ (StIfLogical _ _ exp stm)) = do
   processLabel b
