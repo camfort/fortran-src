@@ -26,7 +26,7 @@ spec =
           gr = fromJust . M.lookup (Named "loop4") $ genBBlockMap pf
           ns = nodes gr
           es = edges gr
-          nodeSet = IS.fromList $ nodes gr
+          nodeSet = IS.fromList ns
       it "nodes and edges length" $
         (length ns, length es) `shouldBe` (11, 12)
       it "branching nodes" $
@@ -59,6 +59,22 @@ spec =
         let gr = fromJust . M.lookup (Named "arithif") $ genBBlockMap pf
         let reached = IS.fromList $ rdfs [-1] gr
         let nodeSet = IS.fromList $ nodes gr
+        reached `shouldBe` nodeSet
+    describe "gotos" $ do
+      let pf = pParser programGotos
+          gr = fromJust . M.lookup (Named "_gotos1") $ genBBlockMap pf
+          ns = nodes gr
+          es = edges gr
+          nodeSet = IS.fromList ns
+      it "nodes and edges length" $ do
+        (length ns, length es) `shouldBe` (10, 12)
+      it "branching nodes" $
+        (IS.size (findSuccsBB gr [10]), IS.size (findSuccsBB gr [20])) `shouldBe` (3, 1)
+      it "all reachable" $ do
+        let reached = IS.fromList $ dfs [0] gr
+        reached `shouldBe` nodeSet
+      it "all terminate" $ do
+        let reached = IS.fromList $ rdfs [-1] gr
         reached `shouldBe` nodeSet
 
 --------------------------------------------------
@@ -118,6 +134,22 @@ programArithIf = unlines [
   , " 20   write (*,*) 20"
   , " 30   write (*,*) 30"
   , "      end"]
+
+programGotos :: String
+programGotos = unlines [
+    "      subroutine gotos(s)"
+  , "       integer s"
+  , "       character a"
+  , "       a = 'H'"
+  , " 10    goto (30, 40) s"
+  , " 20    goto 999"
+  , " 30    continue"
+  , "       if (a .eq. 'G') then"
+  , "        print *, 'almost there'"
+  , "       endif"
+  , " 40    continue"
+  , "999    print *, 'all done'"
+  , "      end" ]
 
 
 -- Local variables:
