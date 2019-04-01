@@ -9,7 +9,9 @@ where
 
 import Prelude hiding (exp)
 import Data.Generics.Uniplate.Data hiding (transform)
+import Data.Char (toLower)
 import Data.Data
+import Data.List (foldl')
 import Control.Monad
 import Control.Monad.State.Lazy hiding (fix)
 import Control.Monad.Writer hiding (fix)
@@ -210,11 +212,24 @@ insExitEdges :: (Data a, DynGraph gr) => ProgramUnit (Analysis a) -> M.Map Strin
 insExitEdges pu lm gr = flip insEdges (insNode (-1, bs) gr) $ do
   n <- nodes gr
   bs' <- maybeToList $ lab gr n
-  guard $ null (out gr n) || isFinalBlockGotoComputed bs'
+  guard $ null (out gr n) || isFinalBlockNonStrictCtrlXfer bs'
   n' <- examineFinalBlock lm bs'
   return (n, n', ())
   where
     bs = genInOutAssignments pu True
+
+-- Given a list of ControlPairs for a StRead, return (if any exists)
+-- the expression accompanying an END or ERR, respectively
+getReadCtrlXfers :: [ControlPair a] -> (Maybe (Expression a), Maybe (Expression a))
+getReadCtrlXfers = foldl' handler (Nothing, Nothing)
+  where
+    handler r@(r1, r2) (ControlPair _ _ ms e) = case ms of
+      Nothing -> r
+      Just s  ->
+        case map toLower s of
+          "end" -> (Just e, r2)
+          "err" -> (r1, Just e)
+          _     -> r
 
 -- Find target of Goto statements (Return statements default target to -1).
 examineFinalBlock :: Num a1 => M.Map String a1 -> [Block a2] -> [a1]
@@ -225,6 +240,10 @@ examineFinalBlock lm bs@(_:_)
   | BlStatement _ _ _ StReturn{}            <- last bs = [-1]
   | BlStatement _ _ _ (StIfArithmetic _ _ _ k1 k2 k3) <- last bs =
       [lookupBBlock lm k1, lookupBBlock lm k2, lookupBBlock lm k3]
+  | BlStatement _ _ _ (StRead _ _ cs _) <- last bs =
+      let (me, mr) = getReadCtrlXfers $ aStrip cs
+          f = maybe [] $ \v -> [lookupBBlock lm v]
+      in  f me ++ f mr
 examineFinalBlock _ _                                        = [-1]
 
 -- True iff the final block in the list is an explicit control transfer.
@@ -238,13 +257,15 @@ isFinalBlockCtrlXfer bs@(_:_)
   -- is not an explicit control transfer if the expression
   -- does not index into one of the labels, in which case
   -- it acts as a StContinue
-isFinalBlockCtrlXfer _                                    = False
+isFinalBlockCtrlXfer _                                 = False
 
--- True iff the final block in the list is a StGotoComputed
-isFinalBlockGotoComputed :: [Block a] -> Bool
-isFinalBlockGotoComputed bs@(_:_)
+-- True iff the final block in the list is a non-strict
+-- control transfer, like a StGotoComputed or a StRead
+isFinalBlockNonStrictCtrlXfer :: [Block a] -> Bool
+isFinalBlockNonStrictCtrlXfer bs@(_:_)
   | BlStatement _ _ _ StGotoComputed{} <- last bs = True
-isFinalBlockGotoComputed _                        = False
+  | BlStatement _ _ _ StRead{}         <- last bs = True
+isFinalBlockNonStrictCtrlXfer _                   = False
 
 lookupBBlock :: Num a1 => M.Map String a1 -> Expression a2 -> a1
 lookupBBlock lm a =
@@ -428,6 +449,17 @@ perBlock (BlStatement a s l (StCall a' s' cn@ExpValue{} (Just aargs))) = do
   -- connect the bblocks
   createEdges [ (prevN, formalN, ()), (formalN, dummyCallN, ())
               , (dummyCallN, returnedN, ()), (returnedN, nextN, ()) ]
+
+perBlock b@(BlStatement _ _ _ (StRead _ _ cs _)) = do
+  let (end, err) = getReadCtrlXfers $ aStrip cs
+
+  processLabel b
+  b' <- descendBiM processFunctionCalls b
+  addToBBlock b'
+
+  when (isJust end || isJust err) $ do
+    (readN, nxtN) <- closeBBlock
+    createEdges [(readN, nxtN, ())]
 
 perBlock b = do
   processLabel b
