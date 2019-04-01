@@ -76,6 +76,23 @@ spec =
       it "all terminate" $ do
         let reached = IS.fromList $ rdfs [-1] gr
         reached `shouldBe` nodeSet
+    describe "READ" $ do
+      let pf = pParser programRead
+          gr = fromJust . M.lookup (Named "reading_time") $ genBBlockMap pf
+          ns = nodes gr
+          es = edges gr
+          nodeSet = IS.fromList ns
+      it "nodes and edges length" $ do
+        (length ns, length es) `shouldBe` (10, 11)
+      it "branching nodes" $ do
+        let succs l = IS.size $ findSuccsBB gr [l]
+        (succs 10, succs 20, succs 40, succs 60) `shouldBe` (3, 1, 1, 1)
+      it "all reachable" $ do
+        let reached = IS.fromList $ dfs [0] gr
+        reached `shouldBe` nodeSet
+      it "all terminate" $ do
+        let reached = IS.fromList $ rdfs [-1] gr
+        reached `shouldBe` nodeSet
 
 --------------------------------------------------
 -- Label-finding helper functions to help write tests that are
@@ -149,6 +166,20 @@ programGotos = unlines [
   , "       endif"
   , " 40    continue"
   , "999    print *, 'all done'"
+  , "      end" ]
+
+programRead :: String
+programRead = unlines [
+    "      program reading_time"
+  , "       integer i"
+  , " 10    read(*, *, END=30, ERR=50) i"
+  , " 20    goto 70"
+  , " 30    print *, 'end'"
+  , " 40    goto 70"
+  , " 50    print *, 'err'"
+  , " 60    goto 70"
+  , " 70    print *, 'done'"
+  , "       print *, i"
   , "      end" ]
 
 
