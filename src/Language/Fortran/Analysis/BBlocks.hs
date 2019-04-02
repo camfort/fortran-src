@@ -212,7 +212,7 @@ insExitEdges :: (Data a, DynGraph gr) => ProgramUnit (Analysis a) -> M.Map Strin
 insExitEdges pu lm gr = flip insEdges (insNode (-1, bs) gr) $ do
   n <- nodes gr
   bs' <- maybeToList $ lab gr n
-  guard $ null (out gr n) || isFinalBlockNonStrictCtrlXfer bs'
+  guard $ null (out gr n) || isFinalBlockExceptionalCtrlXfer bs'
   n' <- examineFinalBlock lm bs'
   return (n, n', ())
   where
@@ -259,13 +259,13 @@ isFinalBlockCtrlXfer bs@(_:_)
   -- it acts as a StContinue
 isFinalBlockCtrlXfer _                                 = False
 
--- True iff the final block in the list is a non-strict
--- control transfer, like a StGotoComputed or a StRead
-isFinalBlockNonStrictCtrlXfer :: [Block a] -> Bool
-isFinalBlockNonStrictCtrlXfer bs@(_:_)
+-- True iff the final block in the list has an control transfer
+-- with exceptional circumstances, like a StGotoComputed or a StRead
+isFinalBlockExceptionalCtrlXfer :: [Block a] -> Bool
+isFinalBlockExceptionalCtrlXfer bs@(_:_)
   | BlStatement _ _ _ StGotoComputed{} <- last bs = True
   | BlStatement _ _ _ StRead{}         <- last bs = True
-isFinalBlockNonStrictCtrlXfer _                   = False
+isFinalBlockExceptionalCtrlXfer _                   = False
 
 lookupBBlock :: Num a1 => M.Map String a1 -> Expression a2 -> a1
 lookupBBlock lm a =
