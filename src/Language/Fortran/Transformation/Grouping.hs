@@ -177,15 +177,15 @@ groupDo' (b:bs) = b' : bs'
       BlStatement a s label st
         -- Do While statement
         | StDoWhile _ _ mTarget Nothing condition <- st ->
-          let ( blocks, leftOverBlocks, endLabel ) =
+          let ( blocks, leftOverBlocks, endLabel, stEnd ) =
                 collectNonDoBlocks groupedBlocks mTarget
-          in ( BlDoWhile a (getTransSpan s blocks) label mTarget Nothing condition blocks endLabel
+          in ( BlDoWhile a (getTransSpan s stEnd) label mTarget Nothing condition blocks endLabel
              , leftOverBlocks)
         -- Vanilla do statement
         | StDo _ _ mName Nothing doSpec <- st ->
-          let ( blocks, leftOverBlocks, endLabel ) =
+          let ( blocks, leftOverBlocks, endLabel, stEnd ) =
                 collectNonDoBlocks groupedBlocks mName
-          in ( BlDo a (getTransSpan s blocks) label mName Nothing doSpec blocks endLabel
+          in ( BlDo a (getTransSpan s stEnd) label mName Nothing doSpec blocks endLabel
              , leftOverBlocks)
       b'' | containsGroups b'' ->
         ( applyGroupingToSubblocks groupDo' b'', groupedBlocks )
@@ -195,16 +195,17 @@ groupDo' (b:bs) = b' : bs'
 collectNonDoBlocks :: ABlocks a -> Maybe String
                    -> ( ABlocks a
                       , ABlocks a
-                      , Maybe (Expression (Analysis a)) )
+                      , Maybe (Expression (Analysis a))
+                      , Statement (Analysis a) )
 collectNonDoBlocks blocks mNameTarget =
   case blocks of
-    BlStatement _ _ mLabel (StEnddo _ _ mName):rest
-      | mName == mNameTarget -> ([ ], rest, mLabel)
+    BlStatement _ _ mLabel st@(StEnddo _ _ mName):rest
+      | mName == mNameTarget -> ([ ], rest, mLabel, st)
       | otherwise ->
           error "Do block name does not match that of the end statement."
     b:bs ->
-      let (bs', rest, mLabel) = collectNonDoBlocks bs mNameTarget
-      in (b : bs', rest, mLabel)
+      let (bs', rest, mLabel, stEnd) = collectNonDoBlocks bs mNameTarget
+      in (b : bs', rest, mLabel, stEnd)
     _ -> error "Premature file ending while parsing structured do block."
 
 --------------------------------------------------------------------------------

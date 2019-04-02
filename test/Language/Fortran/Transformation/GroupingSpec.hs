@@ -1,4 +1,3 @@
-{-# LANGUAGE QuasiQuotes #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
 module Language.Fortran.Transformation.GroupingSpec where
 
@@ -7,7 +6,6 @@ import TestUtil
 import Control.Exception (evaluate)
 import Control.DeepSeq (force, NFData)
 import Data.ByteString.Char8 (pack)
-import Text.RawString.QQ
 
 import Language.Fortran.Transformer
 import Language.Fortran.AST
@@ -94,8 +92,12 @@ spec = do
       groupDo example2do `shouldBe` expectedExample2do
 
   describe "Block SrcSpan's" $ do
-    it "Spans all an if block" $
+    it "Spans all a BlIf" $
       ifSpan `shouldBe` expectedIfSpan
+    it "spans all a BlDo" $
+      doSpan `shouldBe` expectedDoSpan
+    it "spans all a BlDoWhile" $
+      doWhileSpan `shouldBe` expectedDoWhileSpan
 
 buildExampleProgram :: Name -> [Block ()] -> ProgramFile ()
 buildExampleProgram name blocks = ProgramFile mi77 [ PUMain () u (Just name) blocks Nothing ]
@@ -232,15 +234,44 @@ simplifySpan :: SrcSpan -> SimpleSpan
 simplifySpan (SrcSpan b e) = (posLine b, posColumn b, posLine e, posColumn e)
 
 ifSpanRaw :: String
-ifSpanRaw = [r|      subroutine foobar
-       if (.TRUE.) then
-        print *, 'w00t'
-       endif
-      end
-|]
+ifSpanRaw = unlines [
+    "      subroutine foobar"
+  , "       if (.TRUE.) then"
+  , "        print *, 'w00t'"
+  , "       endif"
+  , "      end" ]
 ifSpan :: SimpleSpan
 ifSpan =
   let BlIf _ s _ _ _ _ _ = getSingleParsedBlock ifSpanRaw
   in  simplifySpan s
 expectedIfSpan :: SimpleSpan
 expectedIfSpan = (2, 8, 4, 12)
+
+doSpanRaw :: String
+doSpanRaw = unlines [
+    "      subroutine foobar2"
+  , "       do ii = 2, 5"
+  , "        if(ii .eq. 2) print *, ii"
+  , "        if(ii .eq. 4) print *, ii"
+  , "       end do"
+  , "      end" ]
+doSpan :: SimpleSpan
+doSpan =
+  let BlDo _ s _ _ _ _ _ _ = getSingleParsedBlock doSpanRaw
+  in  simplifySpan s
+expectedDoSpan :: SimpleSpan
+expectedDoSpan = (2, 8, 5, 13)
+
+doWhileSpanRaw :: String
+doWhileSpanRaw = unlines [
+    "      subroutine barfoo"
+  , "       do while (.true.)"
+  , "        print *, 'foooo'"
+  , "       enddo"
+  , "      end" ]
+doWhileSpan :: SimpleSpan
+doWhileSpan =
+  let BlDoWhile _ s _ _ _ _ _ _ = getSingleParsedBlock doWhileSpanRaw
+  in  simplifySpan s
+expectedDoWhileSpan :: SimpleSpan
+expectedDoWhileSpan = (2, 8, 4, 12)
