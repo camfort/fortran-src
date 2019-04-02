@@ -239,14 +239,14 @@ SUBPROGRAM_UNITS :: { [ ProgramUnit A0 ] }
 | {- EMPTY -} { [ ] }
 
 SUBPROGRAM_UNIT :: { ProgramUnit A0 }
-: PREFIXES function NAME MAYBE_ARGUMENTS MAYBE_RESULT NEWLINE BLOCKS MAYBE_SUBPROGRAM_UNITS FUNCTION_END
-  {% do { unitNameCheck $9 $3;
+: PREFIXES function NAME MAYBE_ARGUMENTS MAYBE_RESULT MAYBE_COMMENT NEWLINE BLOCKS MAYBE_SUBPROGRAM_UNITS FUNCTION_END
+  {% do { unitNameCheck $10 $3;
           let (pfxs, typeSpec) = case partitionEithers $1 of
                                    { (ps, t:_) -> (fromReverseList' ps, Just t)
                                    ; (ps, [])  -> (fromReverseList' ps, Nothing) } in
           let sfx = emptySuffixes in
-          let ss = if null $1 then getTransSpan $2 $9 else getTransSpan (reverse $1) $9 in
-          return $ PUFunction () ss typeSpec (pfxs, sfx) $3 $4 $5 (reverse $7) $8 } }
+          let ss = if null $1 then getTransSpan $2 $10 else getTransSpan (reverse $1) $10 in
+          return $ PUFunction () ss typeSpec (pfxs, sfx) $3 $4 $5 (reverse $8) $9 } }
 | PREFIXES subroutine NAME MAYBE_ARGUMENTS MAYBE_COMMENT NEWLINE BLOCKS MAYBE_SUBPROGRAM_UNITS SUBROUTINE_END
   {% do { unitNameCheck $9 $3;
           (pfxs, typeSpec) <- case partitionEithers $1 of

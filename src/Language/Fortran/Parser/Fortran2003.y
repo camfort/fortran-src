@@ -264,26 +264,26 @@ SUBPROGRAM_UNITS :: { [ ProgramUnit A0 ] }
 | {- EMPTY -} { [ ] }
 
 SUBPROGRAM_UNIT :: { ProgramUnit A0 }
-: PREFIXES function NAME MAYBE_ARGUMENTS FUNC_SUFFIX NEWLINE BLOCKS MAYBE_SUBPROGRAM_UNITS FUNCTION_END
-  {% do { unitNameCheck $9 $3;
+: PREFIXES function NAME MAYBE_ARGUMENTS FUNC_SUFFIX MAYBE_COMMENT NEWLINE BLOCKS MAYBE_SUBPROGRAM_UNITS FUNCTION_END
+  {% do { unitNameCheck $10 $3;
           let (pfxs, typeSpec) = case partitionEithers $1 of
                                    { (ps, t:_) -> (fromReverseList' ps, Just t)
                                    ; (ps, [])  -> (fromReverseList' ps, Nothing) } in
           let (sfx, result) = $5 in
           let sfx' = fmap (\ s -> AList () (getSpan s) [s]) sfx in
-          let ss = if null $1 then getTransSpan $2 $9 else getTransSpan (reverse $1) $9 in
+          let ss = if null $1 then getTransSpan $2 $10 else getTransSpan (reverse $1) $10 in
           if validPrefixSuffix (pfxs, sfx') then
-            return $ PUFunction () ss typeSpec (pfxs, sfx') $3 $4 result (reverse $7) $8
+            return $ PUFunction () ss typeSpec (pfxs, sfx') $3 $4 result (reverse $8) $9
           else fail "Cannot specify elemental along with recursive and/or bind." } }
-| PREFIXES subroutine NAME MAYBE_ARGUMENTS SUBR_SUFFIX NEWLINE BLOCKS MAYBE_SUBPROGRAM_UNITS SUBROUTINE_END
-  {% do { unitNameCheck $9 $3;
+| PREFIXES subroutine NAME MAYBE_ARGUMENTS SUBR_SUFFIX MAYBE_COMMENT NEWLINE BLOCKS MAYBE_SUBPROGRAM_UNITS SUBROUTINE_END
+  {% do { unitNameCheck $10 $3;
           (pfxs, typeSpec) <- case partitionEithers $1 of
                                 { (ps, t:_) -> fail "Subroutines cannot have return types."
                                 ; (ps, [])  -> return (fromReverseList' ps, Nothing) };
           let sfx' = fmap (\ s -> AList () (getSpan s) [s]) $5 in
-          let ss = if null $1 then getTransSpan $2 $9 else getTransSpan (reverse $1) $9 in
+          let ss = if null $1 then getTransSpan $2 $10 else getTransSpan (reverse $1) $10 in
           if validPrefixSuffix (pfxs, sfx') then
-            return $ PUSubroutine () ss (pfxs, sfx') $3 $4 (reverse $7) $8
+            return $ PUSubroutine () ss (pfxs, sfx') $3 $4 (reverse $8) $9
           else fail "Cannot specify elemental along with recursive and/or bind." } }
 | comment { let (TComment s c) = $1 in PUComment () s (Comment c) }
 
@@ -304,12 +304,10 @@ FUNC_SUFFIX :: { (Maybe (Suffix A0), Maybe (Expression A0)) }
 | RESULT SUFFIX { (Just $2, Just $1) }
 | SUFFIX        { (Just $1, Nothing) }
 | RESULT        { (Nothing, Just $1) }
-| comment       { (Nothing, Nothing) }
 | {- empty -}   { (Nothing, Nothing) }
 
 SUBR_SUFFIX :: { Maybe (Suffix A0) }
 : SUFFIX        { Just $1 }
-| comment       { Nothing }
 | {- empty -}   { Nothing }
 
 -- (Fortran2003) R1229
