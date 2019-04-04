@@ -267,10 +267,16 @@ isFinalBlockExceptionalCtrlXfer bs@(_:_)
   | BlStatement _ _ _ StRead{}         <- last bs = True
 isFinalBlockExceptionalCtrlXfer _                   = False
 
+-- Drop any '0' that appear at the beginning of a label since
+-- labels like "40" and "040" are equivalent.
+dropLeadingZeroes :: String -> String
+dropLeadingZeroes ('0' : xs) = dropLeadingZeroes xs
+dropLeadingZeroes xs = xs
+
 lookupBBlock :: Num a1 => M.Map String a1 -> Expression a2 -> a1
 lookupBBlock lm a =
   case a of
-    ExpValue _ _ (ValInteger l) -> (-1) `fromMaybe` M.lookup l lm
+    ExpValue _ _ (ValInteger l) -> (-1) `fromMaybe` M.lookup (dropLeadingZeroes l) lm
 -- This occurs if a variable is being used for a label, e.g., from a Fortran 77 ASSIGN statement
     ExpValue _ _ (ValVariable l) -> (-1) `fromMaybe` M.lookup l lm
     _ -> error "unhandled lookupBBlock"
@@ -496,7 +502,7 @@ processLabel _ = return ()
 
 -- Inserts into labelMap
 insertLabel :: MonadState (BBState a) m => String -> Node -> m ()
-insertLabel l n = modify $ \ st -> st { labelMap = M.insert l n (labelMap st) }
+insertLabel l n = modify $ \ st -> st { labelMap = M.insert (dropLeadingZeroes l) n (labelMap st) }
 
 -- Puts an AST block into the current bblock.
 addToBBlock :: Block a -> BBlocker a ()
