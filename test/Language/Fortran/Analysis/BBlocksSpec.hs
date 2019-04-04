@@ -93,6 +93,23 @@ spec =
       it "all terminate" $ do
         let reached = IS.fromList $ rdfs [-1] gr
         reached `shouldBe` nodeSet
+    describe "Leading zero labels" $ do
+      let pf = pParser programZeroLabels
+          gr = fromJust . M.lookup (Named "zero_labels") $ genBBlockMap pf
+          ns = nodes gr
+          es = edges gr
+          nodeSet = IS.fromList ns
+      it "nodes and edges length" $ do
+        (length ns, length es) `shouldBe` (13, 15)
+      it "branching nodes" $ do
+        let succs l = IS.size $ findSuccsBB gr [l]
+        (succs 10, succs 20, succs 40, succs 60, succs 80) `shouldBe` (4, 1, 1, 1, 1)
+      it "all reachable" $ do
+        let reached = IS.fromList $ dfs [0] gr
+        reached `shouldBe` nodeSet
+      it "all terminate" $ do
+        let reached = IS.fromList $ rdfs [-1] gr
+        reached `shouldBe` nodeSet
 
 --------------------------------------------------
 -- Label-finding helper functions to help write tests that are
@@ -180,6 +197,22 @@ programRead = unlines [
   , " 60    goto 70"
   , " 70    print *, 'done'"
   , "       print *, i"
+  , "      end" ]
+
+programZeroLabels :: String
+programZeroLabels = unlines [
+    "      program zero_labels"
+  , "       integer i"
+  , "  10   goto (30, 50, 70) i"
+  , "  20   goto 999"
+  , "  30   print *, '30'"
+  , "  40   goto 900"
+  , " 050   print *, '050'"
+  , "  60   goto 900"
+  , " 070   print *, '070'"
+  , "  80   goto 0900"
+  , " 0900  print *, '0900'"
+  , "  999  continue"
   , "      end" ]
 
 
