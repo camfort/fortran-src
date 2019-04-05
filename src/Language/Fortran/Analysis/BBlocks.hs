@@ -70,7 +70,7 @@ labelBlocks = transform eachBlock
 -- additional AST-blocks are generated within the process of creating
 -- basic-block graphs, and must also be labelled.
 labelBlocksInBBGr :: Data a => ProgramFile (Analysis a) -> State Int (ProgramFile (Analysis a))
-labelBlocksInBBGr = transform (nmapM' (mapM eachBlock))
+labelBlocksInBBGr = transform (bbgrMapM (nmapM' (mapM eachBlock)))
   where
     eachBlock :: Data a => Block (Analysis a) -> State Int (Block (Analysis a))
     eachBlock b
@@ -132,7 +132,7 @@ labelExprs = transform eachExpr
 -- additional expressions are generated within the process of creating
 -- basic-block graphs, and must also be labelled.
 labelExprsInBBGr :: Data a => ProgramFile (Analysis a) -> State Int (ProgramFile (Analysis a))
-labelExprsInBBGr = transformBB (nmapM' (transformExpr eachExpr))
+labelExprsInBBGr = transformBB (bbgrMapM (nmapM' (transformExpr eachExpr)))
   where
     eachExpr :: Data a => Expression (Analysis a) -> State Int (Expression (Analysis a))
     eachExpr e
@@ -164,8 +164,9 @@ toBBlocksPerPU pu
         _ -> []
     bbs = execBBlocker (processBlocks bs)
     fix = delEmptyBBlocks . delUnreachable . insExitEdges pu lm . delInvalidExits . insEntryEdges pu
-    gr  = fix (insEdges (newEdges bbs) (bbGraph bbs))
-    pu' = setAnnotation ((getAnnotation pu) { bBlocks = Just gr }) pu
+    gr  = bbgrMap (fix . insEdges (newEdges bbs)) $ bbGraph bbs
+    gr' = gr { bbgrEntries = [0], bbgrExits = [-1] } -- conventional entry/exit blocks
+    pu' = setAnnotation ((getAnnotation pu) { bBlocks = Just gr' }) pu
     lm  = labelMap bbs
 
 -- Create node 0 "the start node" and link it
@@ -311,7 +312,7 @@ data BBState a = BBS { bbGraph  :: BBGr a
 
 -- Initial state
 bbs0 :: BBState a
-bbs0 = BBS { bbGraph = empty, curBB = [], curNode = 1
+bbs0 = BBS { bbGraph = bbgrEmpty, curBB = [], curNode = 1
            , labelMap = M.empty, nums = [2..], tempNums = [0..]
            , newEdges = [] }
 
@@ -333,7 +334,7 @@ processBlocks bs = do
   startN <- gets curNode
   mapM_ perBlock bs
   endN   <- gets curNode
-  modify $ \ st -> st { bbGraph = insNode (endN, reverse (curBB st)) (bbGraph st)
+  modify $ \ st -> st { bbGraph = bbgrMap (insNode (endN, reverse (curBB st))) (bbGraph st)
                       , curBB   = [] }
   return (startN, endN)
 
@@ -511,7 +512,7 @@ addToBBlock b = modify $ \ st -> st { curBB = b:curBB st }
 closeBBlock :: BBlocker a (Node, Node)
 closeBBlock = do
   n  <- gets curNode
-  modify $ \ st -> st { bbGraph = insNode (n, reverse (curBB st)) (bbGraph st), curBB = [] }
+  modify $ \ st -> st { bbGraph = bbgrMap (insNode (n, reverse (curBB st))) (bbGraph st), curBB = [] }
   n' <- genBBlock
   return (n, n')
 closeBBlock_ :: StateT (BBState a) Identity ()
@@ -635,9 +636,9 @@ genSuperBBGr :: forall a. Data a => BBlockMap (Analysis a) -> SuperBBGr (Analysi
 genSuperBBGr bbm = SuperBBGr { graph = superGraph'', clusters = cmap, entries = entryMap }
   where
     namedNodes   :: [((PUName, Node), NLabel a)]
-    namedNodes   = [ ((name, n), bs) | (name, gr) <- M.toList bbm, (n, bs) <- labNodes gr ]
+    namedNodes   = [ ((name, n), bs) | (name, gr) <- M.toList bbm, (n, bs) <- labNodes (bbgrGr gr) ]
     namedEdges   :: [((PUName, Node), (PUName, Node), ELabel)]
-    namedEdges   = [ ((name, n), (name, m), l) | (name, gr) <- M.toList bbm, (n, m, l) <- labEdges gr ]
+    namedEdges   = [ ((name, n), (name, m), l) | (name, gr) <- M.toList bbm, (n, m, l) <- labEdges (bbgrGr gr) ]
     superNodeMap :: M.Map (PUName, Node) SuperNode
     superNodeMap = M.fromList $ zip (map fst namedNodes) [1..]
     getSuperNode :: (PUName, Node) -> SuperNode
@@ -674,10 +675,12 @@ genSuperBBGr bbm = SuperBBGr { graph = superGraph'', clusters = cmap, entries = 
     mainEntry    :: SuperNode -- (possibly more than one, arbitrarily take first)
     mainEntry:_  = [ n | (n, _) <- labNodes superGraph', null (pre superGraph' n) ]
     -- Rename the main entry point to 0
-    superGraph'' :: Gr (NLabel a) ELabel
-    superGraph'' = delNode mainEntry .
-                   insEdges [ (0, m, l) | (_, m, l) <- out superGraph' mainEntry ] .
-                   insNode (0, []) $ superGraph'
+    superGraph'' :: BBGr (Analysis a)
+    superGraph'' = BBGr { bbgrGr = delNode mainEntry .
+                                   insEdges [ (0, m, l) | (_, m, l) <- out superGraph' mainEntry ] .
+                                   insNode (0, []) $ superGraph'
+                        , bbgrEntries = (0:) . filter (/=mainEntry) . map snd . M.toList $ entryMap
+                        , bbgrExits   = (-1:) . map snd . M.toList $ exitMap }
 
 fromJustMsg :: String -> Maybe a -> a
 fromJustMsg _ (Just x) = x
@@ -687,13 +690,13 @@ fromJustMsg msg _      = error msg
 
 findLabeledBBlock :: String -> BBGr a -> Maybe Node
 findLabeledBBlock llab gr =
-  listToMaybe [ n | (n, bs) <- labNodes gr, b <- bs
+  listToMaybe [ n | (n, bs) <- labNodes (bbgrGr gr), b <- bs
                   , ExpValue _ _ (ValInteger llab') <- maybeToList (getLabel b)
                   , llab == llab' ]
 
 -- | Show a basic block graph in a somewhat decent way.
 showBBGr :: (Out a, Show a) => BBGr a -> String
-showBBGr gr = execWriter . forM (labNodes gr) $ \ (n, bs) -> do
+showBBGr (BBGr gr _ _) = execWriter . forM (labNodes gr) $ \ (n, bs) -> do
   let b = "BBLOCK " ++ show n ++ " -> " ++ show (map (\ (_, m, _) -> m) $ out gr n)
   tell $ "\n\n" ++ b
   tell $ "\n" ++ replicate (length b) '-' ++ "\n"
@@ -701,7 +704,7 @@ showBBGr gr = execWriter . forM (labNodes gr) $ \ (n, bs) -> do
 
 -- | Show a basic block graph without the clutter
 showAnalysedBBGr :: (Out a, Show a) => BBGr (Analysis a) -> String
-showAnalysedBBGr = showBBGr . nmap strip
+showAnalysedBBGr = showBBGr . bbgrMap (nmap strip)
   where
     strip = map (fmap insLabel)
 
@@ -714,7 +717,7 @@ showBBlocks :: (Data a, Out a, Show a) => ProgramFile (Analysis a) -> String
 showBBlocks pf = perPU =<< getPUs pf
   where
     perPU pu | Analysis { bBlocks = Just gr } <- getAnnotation pu =
-      dashes ++ "\n" ++ p ++ "\n" ++ dashes ++ "\n" ++ showBBGr (nmap strip gr) ++ "\n\n"
+      dashes ++ "\n" ++ p ++ "\n" ++ dashes ++ "\n" ++ showBBGr (bbgrMap (nmap strip) gr) ++ "\n\n"
       where p = "| Program Unit " ++ show (puName pu) ++ " |"
             dashes = replicate (length p) '-'
     perPU pu =
@@ -735,7 +738,7 @@ superBBGrToDOT sgr = bbgrToDOT' (clusters sgr) (graph sgr)
 
 -- shared code for DOT output
 bbgrToDOT' :: IM.IntMap ProgramUnitName -> BBGr a -> String
-bbgrToDOT' clusters' gr = execWriter $ do
+bbgrToDOT' clusters' (BBGr{ bbgrGr = gr }) = execWriter $ do
   tell "strict digraph {\n"
   tell "node [shape=box,fontname=\"Courier New\"]\n"
   let entryNodes = filter (null . pre gr) (nodes gr)

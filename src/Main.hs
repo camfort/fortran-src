@@ -147,7 +147,7 @@ isModFile :: FilePath -> Bool
 isModFile = (== modFileSuffix) . takeExtension
 
 superGraphDataFlow :: forall a. (Out a, Data a) => ProgramFile (Analysis a) -> SuperBBGr (Analysis a) -> String
-superGraphDataFlow pf sgr = showBBGr (nmap (map (fmap insLabel)) gr') ++ "\n\n" ++ replicate 50 '-' ++ "\n\n" ++
+superGraphDataFlow pf sgr = showBBGr (bbgrMap (nmap (map (fmap insLabel))) gr') ++ "\n\n" ++ replicate 50 '-' ++ "\n\n" ++
                             show entries ++ "\n\n" ++ replicate 50 '-' ++ "\n\n" ++
                             dfStr gr'
   where
@@ -155,6 +155,8 @@ superGraphDataFlow pf sgr = showBBGr (nmap (map (fmap insLabel)) gr') ++ "\n\n" 
     entries = superBBGrEntries sgr
     dfStr gr = (\ (l, x) -> '\n':l ++ ": " ++ x) =<< [
                  ("callMap",      show cm)
+               , ("entries",      show (bbgrEntries gr))
+               , ("exits",        show (bbgrExits gr))
                , ("postOrder",    show (postOrder gr))
                , ("revPostOrder", show (revPostOrder gr))
                , ("revPreOrder",  show (revPreOrder gr))
@@ -164,15 +166,14 @@ superGraphDataFlow pf sgr = showBBGr (nmap (map (fmap insLabel)) gr') ++ "\n\n" 
                , ("lva",          show (IM.toList $ lva gr))
                , ("rd",           show (IM.toList rDefs))
                , ("backEdges",    show bedges)
-               , ("topsort",      show (topsort gr))
-               , ("scc ",         show (scc gr))
-               , ("loopNodes",    show (loopNodes bedges gr))
+               , ("topsort",      show (topsort $ bbgrGr gr))
+               , ("scc ",         show (scc $ bbgrGr gr))
+               , ("loopNodes",    show (loopNodes bedges $ bbgrGr gr))
                , ("duMap",        show (genDUMap bm dm gr rDefs))
                , ("udMap",        show (genUDMap bm dm gr rDefs))
                , ("flowsTo",      show (edges flTo))
                , ("varFlowsTo",   show (genVarFlowsToMap dm flTo))
                , ("ivMap",        show (genInductionVarMap bedges gr))
-               , ("noPredNodes",  show (noPredNodes gr))
                , ("blockMap",     unlines [ "AST-block " ++ show i ++ ":\n" ++ pretty b | (i, b) <- IM.toList bm ])
                , ("derivedInd",   unlines [ "Expression " ++ show i ++ " (IE: " ++ show ie ++ "):\n" ++ pretty e
                                           | e <- universeBi bm :: [Expression (Analysis a)]
@@ -180,7 +181,7 @@ superGraphDataFlow pf sgr = showBBGr (nmap (map (fmap insLabel)) gr') ++ "\n\n" 
                                           , let ie = IM.lookup i diMap ])
                , ("constExpMap",  show (genConstExpMap pf))
                ] where
-                   bedges = genBackEdgeMap (dominators gr) gr
+                   bedges = genBackEdgeMap (dominators gr) $ bbgrGr gr
                    flTo   = genFlowsToGraph bm dm gr rDefs
                    rDefs  = rd gr
                    diMap  = genDerivedInductionMap bedges gr
