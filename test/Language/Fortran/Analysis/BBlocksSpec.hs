@@ -96,8 +96,8 @@ spec =
     describe "Leading zero labels" $ do
       let pf = pParser programZeroLabels
           gr = fromJust . M.lookup (Named "zero_labels") $ genBBlockMap pf
-          ns = nodes gr
-          es = edges gr
+          ns = nodes $ bbgrGr gr
+          es = edges $ bbgrGr gr
           nodeSet = IS.fromList ns
       it "nodes and edges length" $ do
         (length ns, length es) `shouldBe` (13, 15)
@@ -105,10 +105,10 @@ spec =
         let succs l = IS.size $ findSuccsBB gr [l]
         (succs 10, succs 20, succs 40, succs 60, succs 80) `shouldBe` (4, 1, 1, 1, 1)
       it "all reachable" $ do
-        let reached = IS.fromList $ dfs [0] gr
+        let reached = IS.fromList . dfs [0] $ bbgrGr gr
         reached `shouldBe` nodeSet
       it "all terminate" $ do
-        let reached = IS.fromList $ rdfs [-1] gr
+        let reached = IS.fromList . rdfs [-1] $ bbgrGr gr
         reached `shouldBe` nodeSet
 
 --------------------------------------------------
