@@ -268,10 +268,9 @@ isFinalBlockExceptionalCtrlXfer bs@(_:_)
 isFinalBlockExceptionalCtrlXfer _                   = False
 
 -- Drop any '0' that appear at the beginning of a label since
--- labels like "40" and "040" are equivalent.
+-- labels like "40" and "040" are considered equivalent.
 dropLeadingZeroes :: String -> String
-dropLeadingZeroes ('0' : xs) = dropLeadingZeroes xs
-dropLeadingZeroes xs = xs
+dropLeadingZeroes = dropWhile (== '0')
 
 lookupBBlock :: Num a1 => M.Map String a1 -> Expression a2 -> a1
 lookupBBlock lm a =
