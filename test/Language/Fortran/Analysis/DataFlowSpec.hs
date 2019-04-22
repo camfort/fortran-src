@@ -17,7 +17,6 @@ import qualified Data.Set as S
 import qualified Data.IntMap as IM
 import qualified Data.IntSet as IS
 import Data.Graph.Inductive hiding (version, lab')
-import Data.Graph.Inductive.PatriciaTree (Gr)
 import Data.Maybe
 import Data.List
 import Data.Data
