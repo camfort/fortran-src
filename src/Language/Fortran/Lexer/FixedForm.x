@@ -573,8 +573,8 @@ lexHash = do
     -- 'line' pragma - rewrite the current line and filename
     "line":lineStr:_
       | Just line <- readInteger lineStr -> do
-        let dropWNQ = dropWhile (flip notElem "'\"")
-        let file = reverse . drop 1 . dropWNQ . reverse . drop 1 $ dropWNQ m
+        let revdropWNQ = reverse . drop 1 . dropWhile (flip notElem "'\"")
+        let file = revdropWNQ . revdropWNQ $ m
         -- Still leaves absolute offset alone.
         let newP = (aiPosition ai) { posLine = fromIntegral line, posColumn = 1, filePath = file }
         putAlex $ ai { aiPosition = newP }
