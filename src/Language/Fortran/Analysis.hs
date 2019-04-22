@@ -21,7 +21,7 @@ import Data.Generics.Uniplate.Data
 import Data.Data
 import Language.Fortran.AST
 import Language.Fortran.LValue
-import Data.Graph.Inductive (Node, Graph(..))
+import Data.Graph.Inductive (Node, empty)
 import Data.Graph.Inductive.PatriciaTree (Gr)
 import GHC.Generics (Generic)
 import Text.PrettyPrint.GenericPretty
