@@ -29,6 +29,7 @@ import Language.Fortran.ParserMonad
 
 import Language.Fortran.Util.FirstParameter
 import Language.Fortran.Util.Position
+import Language.Fortran.Parser.Utils (readInteger)
 
 }
 
@@ -36,6 +37,8 @@ $digit = [0-9]
 $octalDigit = 0-7
 $hexDigit = [a-f $digit]
 $bit = 0-1
+
+$hash = [\#]
 
 @binary = b\'$bit+\' | \'$bit+\'b
 @octal = o\'$octalDigit+\' | \'$octalDigit+\'o
@@ -77,6 +80,8 @@ tokens :-
   <0> @label / { withinLabelColsP }           { addSpanAndMatch TLabel }
   <0> . / { \_ ai _ _ -> atColP 6 ai }        { toSC keyword }
   <0> " "                                     ;
+
+  <0> $hash "line" [^\n]+                     { lexHash }
 
   <0,st,keyword,iif,assn,doo> \n              { resetPar >> toSC 0 >> addSpan TNewline }
   <0,st,keyword,iif,assn,doo> \r              ;
@@ -558,6 +563,23 @@ getLexemeSpan :: LexAction SrcSpan
 getLexemeSpan = do
   lexeme <- getLexeme
   return $ getSpan lexeme
+
+-- Handle pragmas that begin with #
+lexHash :: LexAction (Maybe Token)
+lexHash = do
+  ai <- getAlex
+  m <- getMatch
+  case words (drop 1 m) of
+    -- 'line' pragma - rewrite the current line and filename
+    "line":lineStr:_
+      | Just line <- readInteger lineStr -> do
+        let dropWNQ = dropWhile (flip notElem "'\"")
+        let file = reverse . drop 1 . dropWNQ . reverse . drop 1 $ dropWNQ m
+        -- Still leaves absolute offset alone.
+        let newP = (aiPosition ai) { posLine = fromIntegral line, posColumn = 1, filePath = file }
+        putAlex $ ai { aiPosition = newP }
+    _ -> return ()
+  return Nothing
 
 -- With the existing alexGetByte implementation comments are matched without
 -- whitespace characters. However, we have access to final column number,

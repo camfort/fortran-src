@@ -37,6 +37,8 @@ $bit = 0-1
 $letter = a-z
 $alphanumeric = [$letter $digit \_]
 
+$hash = [\#]
+
 @label = $digit{1,5}
 @name = $letter $alphanumeric*
 
