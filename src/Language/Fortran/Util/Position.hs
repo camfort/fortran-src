@@ -20,12 +20,15 @@ data Position = Position
   , posColumn           :: Int
   , posLine             :: Int
   , filePath            :: String
+  , posPragmaOffset     :: Maybe (Int, String)  -- ^ line-offset and filename as given by a pragma.
   } deriving (Eq, Ord, Data, Typeable, Generic)
 
 instance Binary Position
 
 instance Show Position where
-  show (Position _ c l f) = f ++ ":" ++ show l ++ ':' : show c
+  -- if a line pragma was specified then add its offset to the 'current line number'.
+  show (Position _ c l _ (Just (o, f))) = f ++ ":" ++ show (l + o) ++ ':' : show c
+  show (Position _ c l f _) = f ++ ":" ++ show l ++ ':' : show c
 
 initPosition :: Position
 initPosition = Position
@@ -33,10 +36,21 @@ initPosition = Position
   , posColumn = 1
   , posLine = 1
   , filePath = ""
+  , posPragmaOffset = Nothing
   }
 
 lineCol :: Position -> (Int, Int)
-lineCol p  = (fromIntegral $ posLine p, fromIntegral $ posColumn p)
+lineCol p = (fromIntegral $ posLine p, fromIntegral $ posColumn p)
+
+-- | (line, column) number taking into account any specified line pragmas.
+apparentLineCol :: Position -> (Int, Int)
+apparentLineCol (Position _ c l _ (Just (o, _))) = (l + o, c)
+apparentLineCol (Position _ c l _ _)             = (l, c)
+
+-- | Path of file taking into account any specified line pragmas.
+apparentFilePath :: Position -> String
+apparentFilePath p | Just (_, f) <- posPragmaOffset p = f
+                   | otherwise                        = filePath p
 
 data SrcSpan = SrcSpan Position Position deriving (Eq, Ord, Typeable, Data, Generic)
 
@@ -51,11 +65,11 @@ instance Out SrcSpan where
 
 -- Difference between the column of the upper and lower positions in a span
 columnDistance :: SrcSpan -> Int
-columnDistance (SrcSpan (Position _ c1 _ _) (Position _ c2 _ _)) = c2 - c1
+columnDistance (SrcSpan (Position _ c1 _ _ _) (Position _ c2 _ _ _)) = c2 - c1
 
 -- Difference between the lines of the upper and lower positions in a span
 lineDistance :: SrcSpan -> Int
-lineDistance (SrcSpan (Position _ _ l1 _) (Position _ _ l2 _)) = l2 - l1
+lineDistance (SrcSpan (Position _ _ l1 _ _) (Position _ _ l2 _ _)) = l2 - l1
 
 initSrcSpan :: SrcSpan
 initSrcSpan = SrcSpan initPosition initPosition

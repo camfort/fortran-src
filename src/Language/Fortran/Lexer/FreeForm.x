@@ -823,7 +823,7 @@ normaliseStartCode = do
 --------------------------------------------------------------------------------
 
 invalidPosition :: Position
-invalidPosition = Position 0 0 0 ""
+invalidPosition = Position 0 0 0 "" Nothing
 
 {-# INLINE isValidPosition #-}
 isValidPosition :: Position -> Bool

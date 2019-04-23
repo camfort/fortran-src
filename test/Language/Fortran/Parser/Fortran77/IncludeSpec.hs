@@ -14,7 +14,7 @@ iParser :: [String] -> String -> IO (ParseResult AlexInput Token (ProgramFile A0
 iParser incs src = legacy77ParserWithIncludes incs (B.pack src) "<unknown>"
 
 makeSrcR :: (Int, Int, Int, String) -> (Int, Int, Int, String) -> SrcSpan
-makeSrcR (i1, i2, i3, s) (j1, j2, j3, s') = SrcSpan (Position i1 i2 i3 s) (Position j1 j2 j3 s')
+makeSrcR (i1, i2, i3, s) (j1, j2, j3, s') = SrcSpan (Position i1 i2 i3 s Nothing) (Position j1 j2 j3 s' Nothing)
 
 spec :: SpecWith ()
 spec =
