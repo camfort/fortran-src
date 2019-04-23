@@ -81,7 +81,7 @@ tokens :-
   <0> . / { \_ ai _ _ -> atColP 6 ai }        { toSC keyword }
   <0> " "                                     ;
 
-  <0> $hash "line" [^\n]+                     { lexHash }
+  <0> $hash                                   { lexHash }
 
   <0,st,keyword,iif,assn,doo> \n              { resetPar >> toSC 0 >> addSpan TNewline }
   <0,st,keyword,iif,assn,doo> \r              ;
@@ -567,20 +567,31 @@ getLexemeSpan = do
 -- Handle pragmas that begin with #
 lexHash :: LexAction (Maybe Token)
 lexHash = do
-  ai <- getAlex
-  m <- getMatch
-  case words (drop 1 m) of
-    -- 'line' pragma - rewrite the current line and filename
-    "line":lineStr:_
-      | Just line <- readInteger lineStr -> do
-        let revdropWNQ = reverse . drop 1 . dropWhile (flip notElem "'\"")
-        let file       = revdropWNQ . revdropWNQ $ m
-        let lineOffs   = fromIntegral line - posLine (aiPosition ai) - 1
-        let newP       = (aiPosition ai) { posPragmaOffset = Just (lineOffs, file)
-                                         , posColumn = 1 }
-        putAlex $ ai { aiPosition = newP }
-    _ -> return ()
-  return Nothing
+  lexLineWithWhitespace $ \ m -> do
+    ai <- getAlex
+    case words (drop 1 m) of
+      -- 'line' pragma - rewrite the current line and filename
+      "line":lineStr:_
+        | Just line <- readInteger lineStr -> do
+          let revdropWNQ = reverse . drop 1 . dropWhile (flip notElem "'\"")
+          let file       = revdropWNQ . revdropWNQ $ m
+          let lineOffs   = fromIntegral line - posLine (aiPosition ai) - 1
+          let newP       = (aiPosition ai) { posPragmaOffset = Just (lineOffs, file)
+                                           , posColumn = 1 }
+          traceM $ "lexHash: " ++ m
+          putAlex $ ai { aiPosition = newP }
+      _ -> return ()
+    return Nothing
+
+-- Get a line without losing the whitespace, then call continuation with it.
+lexLineWithWhitespace :: (String -> LexAction (Maybe Token)) -> LexAction (Maybe Token)
+lexLineWithWhitespace k = do
+  alex <- getAlex
+  let modifiedAlex = alex { aiWhiteSensitiveCharCount = 1 }
+  case alexGetByte modifiedAlex of
+    Just (w, newAlex)
+      | fromIntegral w /= ord '\n' -> putAlex newAlex >> lexLineWithWhitespace k
+    _                              -> getMatch >>= k
 
 -- With the existing alexGetByte implementation comments are matched without
 -- whitespace characters. However, we have access to final column number,
