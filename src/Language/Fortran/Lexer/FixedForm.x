@@ -75,8 +75,8 @@ $special = [\ \=\+\-\*\/\(\)\,\.\$]
 
 tokens :-
 
-  <0> [c!\*d] / { commentP }                  { lexComment Nothing }
-  "!" / { bangCommentP &&& legacy77P }        { lexComment Nothing }
+  <0> [c!\*d] / { commentP }                  { lexComment }
+  "!" / { bangCommentP &&& legacy77P }        { lexComment }
   <0> @label / { withinLabelColsP }           { addSpanAndMatch TLabel }
   <0> . / { \_ ai _ _ -> atColP 6 ai }        { toSC keyword }
   <0> " "                                     ;
@@ -582,6 +582,16 @@ lexHash = do
       _ -> return ()
     return Nothing
 
+-- Lex comments with whitespace included
+lexComment :: LexAction (Maybe Token)
+lexComment =
+  lexLineWithWhitespace $ \ m -> do
+    s <- getLexemeSpan
+    version <- getVersion
+    case version of
+      Fortran77Legacy -> return Nothing
+      _               -> return . Just . TComment s $ tail m
+
 -- Get a line without losing the whitespace, then call continuation with it.
 lexLineWithWhitespace :: (String -> LexAction (Maybe Token)) -> LexAction (Maybe Token)
 lexLineWithWhitespace k = do
@@ -592,37 +602,8 @@ lexLineWithWhitespace k = do
       | fromIntegral w /= ord '\n' -> putAlex newAlex >> lexLineWithWhitespace k
     _                              -> getMatch >>= k
 
--- With the existing alexGetByte implementation comments are matched without
--- whitespace characters. However, we have access to final column number,
--- we know the comment would start at column, and we have access to the absolute
--- offset so instead of using match, lexComment takes a slice from the original
--- source input
-lexComment :: Maybe Char -> LexAction (Maybe Token)
-lexComment mc = do
-  m <- getMatch
-  s <- getLexemeSpan
-  alex <- getAlex
-  version <- getVersion
-  let emitComment = case version of
-                      Fortran77Legacy
-                        -> return Nothing
-                      _ -> return $ Just $ TComment s $ tail m
-  let modifiedAlex = alex { aiWhiteSensitiveCharCount = 1 }
-  case mc of
-    Just '\n' -> emitComment
-    Just _ ->
-      case alexGetByte modifiedAlex of
-        Just (w, _) | fromIntegral w == ord '\n' -> do
-          emitComment
-        Just (_, newAlex) -> do
-          putAlex newAlex
-          lexComment Nothing
-        Nothing -> fail "Comment abruptly ended."
-    Nothing ->
-      case alexGetByte modifiedAlex of
-        Just (_, newAlex) -> lexComment (Just $ (head . lexemeMatch . aiLexeme) newAlex)
-        Nothing -> emitComment
 
+--------------------------------------------------
 
 {-
      Chars
