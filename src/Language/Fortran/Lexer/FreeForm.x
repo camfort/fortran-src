@@ -26,6 +26,7 @@ import GHC.Generics
 import Language.Fortran.ParserMonad
 import Language.Fortran.Util.Position
 import Language.Fortran.Util.FirstParameter
+import Language.Fortran.Parser.Utils (readInteger)
 
 }
 
@@ -81,6 +82,8 @@ $expLetter = [ed]
 tokens :-
 
 <0,scN> "!".*$                                    { adjustComment $ addSpanAndMatch TComment }
+
+<0> $hash.*$                                      { lexHash }
 
 <0,scN,scT> (\n\r|\r\n|\n)                        { resetPar >> toSC 0 >> addSpan TNewline }
 <0,scN,scI,scT> [\t\ ]+                           ;
@@ -1059,6 +1062,24 @@ advance move position =
     _col = posColumn position
     _line = posLine position
     _absl = posAbsoluteOffset position
+
+-- Handle pragmas that begin with #
+lexHash :: LexAction (Maybe Token)
+lexHash = do
+  ai <- getAlex
+  m <- getMatch
+  case words (drop 1 m) of
+    -- 'line' pragma - rewrite the current line and filename
+    "line":lineStr:_
+      | Just line <- readInteger lineStr -> do
+        let revdropWNQ = reverse . drop 1 . dropWhile (flip notElem "'\"")
+        let file       = revdropWNQ . revdropWNQ $ m
+        let lineOffs   = fromIntegral line - posLine (aiPosition ai) - 1
+        let newP       = (aiPosition ai) { posPragmaOffset = Just (lineOffs, file)
+                                         , posColumn = 1 }
+        putAlex $ ai { aiPosition = newP }
+    _ -> return ()
+  return Nothing
 
 --------------------------------------------------------------------------------
 -- Lexer definition
