@@ -26,9 +26,7 @@ data Position = Position
 instance Binary Position
 
 instance Show Position where
-  -- if a line pragma was specified then add its offset to the 'current line number'.
-  show (Position _ c l _ (Just (o, f))) = f ++ ":" ++ show (l + o) ++ ':' : show c
-  show (Position _ c l f _) = f ++ ":" ++ show l ++ ':' : show c
+  show (Position _ c l _ _) = show l ++ ':' : show c
 
 initPosition :: Position
 initPosition = Position

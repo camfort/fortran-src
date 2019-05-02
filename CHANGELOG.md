@@ -9,7 +9,6 @@
   * It's designed such that most Position-based transformations are not affected by the pragmaOffset.
   * They may need to preserve the field, though, as it passes through functions.
   * Default value is 'Nothing'.
-  * Show instance currently shows the 'apparent' file and position, however calculations are done on the original position.
 
 ### 0.2.1.1 (May 18, 2018)
 
