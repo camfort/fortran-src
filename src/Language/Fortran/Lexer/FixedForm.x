@@ -578,7 +578,6 @@ lexHash = do
           let lineOffs   = fromIntegral line - posLine (aiPosition ai) - 1
           let newP       = (aiPosition ai) { posPragmaOffset = Just (lineOffs, file)
                                            , posColumn = 1 }
-          traceM $ "lexHash: " ++ m
           putAlex $ ai { aiPosition = newP }
       _ -> return ()
     return Nothing
