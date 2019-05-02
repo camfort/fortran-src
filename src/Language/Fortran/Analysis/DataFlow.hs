@@ -16,7 +16,7 @@ module Language.Fortran.Analysis.DataFlow
   , genLoopNodeMap, LoopNodeMap
   , genInductionVarMap, InductionVarMap
   , genInductionVarMapByASTBlock, InductionVarMapByASTBlock
-  , noPredNodes, genDerivedInductionMap, DerivedInductionMap, InductionExpr(..)
+  , genDerivedInductionMap, DerivedInductionMap, InductionExpr(..)
 ) where
 
 import Prelude hiding (init)
@@ -48,8 +48,9 @@ type DomMap = IM.IntMap IS.IntSet
 -- pass through node A in order to reach node B. That will be
 -- represented as the relation (B, [A, ...]) in the DomMap.
 dominators :: BBGr a -> DomMap
-dominators gr = IM.map snd $ dataFlowSolver gr init revPostOrder inn out
+dominators bbgr = IM.map snd $ dataFlowSolver bbgr init revPostOrder inn out
   where
+    gr        = bbgrGr bbgr
     nodeSet   = IS.fromList $ nodes gr
     init _    = (nodeSet, nodeSet)
 
@@ -68,14 +69,14 @@ type IDomMap = IM.IntMap Int
 -- dominated by node B if there does not exist any node C such that:
 -- node A dominates node C and node C dominates node B.
 iDominators :: BBGr a -> IDomMap
-iDominators gr = IM.unions [ IM.fromList . flip iDom n $ gr | n <- noPredNodes gr ]
+iDominators gr = IM.unions [ IM.fromList . flip iDom n $ bbgrGr gr | n <- bbgrEntries gr ]
 
 -- | An OrderF is a function from graph to a specific ordering of nodes.
 type OrderF a = BBGr a -> [Node]
 
 -- | The postordering of a graph outputs the label after traversal of children.
 postOrder :: OrderF a
-postOrder gr = concatMap postorder . dff (noPredNodes gr) $ gr
+postOrder gr = concatMap postorder . dff (bbgrEntries gr) $ bbgrGr gr
 
 -- | Reversed postordering.
 revPostOrder :: OrderF a
@@ -83,16 +84,11 @@ revPostOrder = reverse . postOrder
 
 -- | The preordering of a graph outputs the label before traversal of children.
 preOrder :: OrderF a
-preOrder gr = concatMap preorder . dff (noPredNodes gr) $ gr
+preOrder gr = concatMap preorder . dff (bbgrEntries gr) $ bbgrGr gr
 
 -- | Reversed preordering.
 revPreOrder :: OrderF a
 revPreOrder = reverse . preOrder
-
--- | Compute the set of nodes with no predecessors.
-noPredNodes :: Graph g => g a b -> [Node]
--- noPredNodes = flip ufold [] $ \ ctx ns -> if null (pre' ctx) then node' ctx : ns else ns -- doesn't work, though it should
-noPredNodes gr = filter (null . pre gr) (nodes gr)
 
 --------------------------------------------------
 
@@ -149,7 +145,7 @@ type BlockMap a = IM.IntMap (Block (Analysis a))
 -- all of the AST-blocks with unique numbers.
 genBlockMap :: Data a => ProgramFile (Analysis a) -> BlockMap a
 genBlockMap pf = IM.fromList [ (i, b) | gr         <- uni pf
-                                      , (_, bs)    <- labNodes gr
+                                      , (_, bs)    <- labNodes $ bbgrGr gr
                                       , b          <- bs
                                       , let Just i = insLabel (getAnnotation b) ]
   where
@@ -176,9 +172,9 @@ liveVariableAnalysis :: Data a => BBGr (Analysis a) -> InOutMap (S.Set Name)
 liveVariableAnalysis gr = dataFlowSolver gr (const (S.empty, S.empty)) revPreOrder inn out
   where
     inn outF b = (outF b S.\\ kill b) `S.union` gen b
-    out innF b = S.unions [ innF s | s <- suc gr b ]
-    kill b     = bblockKill (fromJustMsg "liveVariableAnalysis kill" $ lab gr b)
-    gen b      = bblockGen (fromJustMsg "liveVariableAnalysis gen" $ lab gr b)
+    out innF b = S.unions [ innF s | s <- suc (bbgrGr gr) b ]
+    kill b     = bblockKill (fromJustMsg "liveVariableAnalysis kill" $ lab (bbgrGr gr) b)
+    gen b      = bblockGen (fromJustMsg "liveVariableAnalysis gen" $ lab (bbgrGr gr) b)
 
 -- | Iterate "KILL" set through a single basic block.
 bblockKill :: Data a => [Block (Analysis a)] -> S.Set Name
@@ -225,9 +221,9 @@ blockGen = blockVarUses
 reachingDefinitions :: Data a => DefMap -> BBGr (Analysis a) -> InOutMap IS.IntSet
 reachingDefinitions dm gr = dataFlowSolver gr (const (IS.empty, IS.empty)) revPostOrder inn out
   where
-    inn outF b = IS.unions [ outF s | s <- pre gr b ]
+    inn outF b = IS.unions [ outF s | s <- pre (bbgrGr gr) b ]
     out innF b = gen `IS.union` (innF b IS.\\ kill)
-      where (gen, kill) = rdBblockGenKill dm (fromJustMsg "reachingDefinitions" $ lab gr b)
+      where (gen, kill) = rdBblockGenKill dm (fromJustMsg "reachingDefinitions" $ lab (bbgrGr gr) b)
 
 -- Compute the "GEN" and "KILL" sets for a given basic block.
 rdBblockGenKill :: Data a => DefMap -> [Block (Analysis a)] -> (IS.IntSet, IS.IntSet)
@@ -256,7 +252,7 @@ genDUMap bm dm gr rdefs = IM.unionsWith IS.union duMaps
     -- duMaps for each bblock
     duMaps = [ fst (foldl' inBBlock (IM.empty, is) bs) |
                (n, (is, _)) <- IM.toList rdefs,
-               let Just bs = lab gr n ]
+               let Just bs = lab (bbgrGr gr) n ]
     -- internal analysis within bblock; fold over list of AST-blocks
     inBBlock (duMap, inSet) b = (duMap', inSet')
       where
@@ -406,7 +402,7 @@ analyseConstExps pf = pf'
   where
     ceMap = genConstExpMap pf
     -- transform both the AST and the basic block graph
-    pf'   = transformBB (nmap (transformExpr insertConstExp)) $ transformBi insertConstExp pf
+    pf'   = transformBB (bbgrMap (nmap (transformExpr insertConstExp))) $ transformBi insertConstExp pf
     -- insert info about constExp into Expression annotation
     insertConstExp :: Expression (Analysis a) -> Expression (Analysis a)
     insertConstExp e = flip modifyAnnotation e $ \ a ->
@@ -478,8 +474,8 @@ type InductionVarMap = IM.IntMap (S.Set Name)
 basicInductionVars :: Data a => BackEdgeMap -> BBGr (Analysis a) -> InductionVarMap
 basicInductionVars bedges gr = IM.fromListWith S.union [
     (n, S.singleton v) | (_, n)      <- IM.toList bedges
-                       , let Just bs = lab gr n
-                       , b@BlDo{} <- bs
+                       , let Just bs = lab (bbgrGr gr) n
+                       , b@BlDo{}    <- bs
                        , v           <- blockVarDefs b
   ]
 
@@ -497,9 +493,9 @@ type InductionVarMapByASTBlock = IM.IntMap (S.Set Name)
 genInductionVarMapByASTBlock :: forall a. Data a => BackEdgeMap -> BBGr (Analysis a) -> InductionVarMapByASTBlock
 genInductionVarMapByASTBlock bedges gr = loopsToLabs . genInductionVarMap bedges $ gr
   where
-    lnMap       = genLoopNodeMap bedges gr
+    lnMap       = genLoopNodeMap bedges $ bbgrGr gr
     get'        = fromMaybe (error "missing loop-header node") . flip IM.lookup lnMap
-    astLabels n = [ i | b <- (universeBi :: Maybe [Block (Analysis a)] -> [Block (Analysis a)]) (lab gr n)
+    astLabels n = [ i | b <- (universeBi :: Maybe [Block (Analysis a)] -> [Block (Analysis a)]) (lab (bbgrGr gr) n)
                       , let Just i = insLabel (getAnnotation b) ]
     loopsToLabs         = IM.fromListWith S.union . concatMap loopToLabs . IM.toList
     loopToLabs (n, ivs) = (map (,ivs) . astLabels) =<< IS.toList (get' n)
@@ -537,7 +533,7 @@ genDerivedInductionMap :: forall a. Data a => BackEdgeMap -> BBGr (Analysis a) -
 genDerivedInductionMap bedges gr = ieFlowExprs . joinIEFlows . map snd . IM.elems . IM.filterWithKey inLoop $ inOutMaps
   where
     bivMap = basicInductionVars bedges gr -- basic indvars indexed by loop header node
-    loopNodeSet = IS.unions (loopNodes bedges gr) -- set of nodes within a loop
+    loopNodeSet = IS.unions (loopNodes bedges $ bbgrGr gr) -- set of nodes within a loop
     inLoop i _ = i `IS.member` loopNodeSet
 
     step :: IEFlow -> Block (Analysis a) -> IEFlow
@@ -556,12 +552,12 @@ genDerivedInductionMap bedges gr = ieFlowExprs . joinIEFlows . map snd . IM.elem
         label = fromJustMsg "stepExpr" $ insLabel (getAnnotation e)
 
     out :: InF IEFlow -> OutF IEFlow
-    out inF node = foldl' step flow (fromJustMsg ("analyseDerivedIE out(" ++ show node ++ ")") $ lab gr node)
+    out inF node = foldl' step flow (fromJustMsg ("analyseDerivedIE out(" ++ show node ++ ")") $ lab (bbgrGr gr) node)
       where
         flow = joinIEFlows [fst (initF node), inF node]
 
     inn :: OutF IEFlow -> InF IEFlow
-    inn outF node = joinIEFlows [ outF p | p <- pre gr node ]
+    inn outF node = joinIEFlows [ outF p | p <- pre (bbgrGr gr) node ]
 
     initF :: Node -> InOut IEFlow
     initF node = case IM.lookup node bivMap of
@@ -639,19 +635,20 @@ showDataFlow pf = perPU =<< uni pf
                        , ("lva",          show (IM.toList $ lva gr))
                        , ("rd",           show (IM.toList $ rd gr))
                        , ("backEdges",    show bedges)
-                       , ("topsort",      show (topsort gr))
-                       , ("scc ",         show (scc gr))
-                       , ("loopNodes",    show (loopNodes bedges gr))
+                       , ("topsort",      show (topsort $ bbgrGr gr))
+                       , ("scc ",         show (scc $ bbgrGr gr))
+                       , ("loopNodes",    show (loopNodes bedges $ bbgrGr gr))
                        , ("duMap",        show (genDUMap bm dm gr (rd gr)))
                        , ("udMap",        show (genUDMap bm dm gr (rd gr)))
                        , ("flowsTo",      show (edges flTo))
                        , ("varFlowsTo",   show (genVarFlowsToMap dm (genFlowsToGraph bm dm gr (rd gr))))
                        , ("ivMap",        show (genInductionVarMap bedges gr))
                        , ("ivMapByAST",   show (genInductionVarMapByASTBlock bedges gr))
-                       , ("noPredNodes",  show (noPredNodes gr))
                        , ("constExpMap",  show (genConstExpMap pf))
+                       , ("entries",      show (bbgrEntries gr))
+                       , ("exits",        show (bbgrExits gr))
                        ] where
-                           bedges = genBackEdgeMap (dominators gr) gr
+                           bedges = genBackEdgeMap (dominators gr) $ bbgrGr gr
                            flTo = genFlowsToGraph bm dm gr (rd gr)
 
     perPU pu = dashes ++ "\n" ++ p ++ "\n" ++ dashes ++ "\n" ++ dfStr ++ "\n\n"

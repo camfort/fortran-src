@@ -24,25 +24,25 @@ spec =
     describe "loop4" $ do
       let pf = pParser programLoop4
           gr = fromJust . M.lookup (Named "loop4") $ genBBlockMap pf
-          ns = nodes gr
-          es = edges gr
+          ns = nodes $ bbgrGr gr
+          es = edges $ bbgrGr gr
           nodeSet = IS.fromList ns
       it "nodes and edges length" $
         (length ns, length es) `shouldBe` (11, 12)
       it "branching nodes" $
         (IS.size (findSuccsBB gr [10]), IS.size (findSuccsBB gr [20])) `shouldBe` (2, 2)
       it "all reachable" $ do
-        let reached = IS.fromList $ dfs [0] gr
+        let reached = IS.fromList . dfs [0] $ bbgrGr gr
         reached `shouldBe` nodeSet
       it "all terminate" $ do
-        let reached = IS.fromList $ rdfs [-1] gr
+        let reached = IS.fromList . rdfs [-1] $ bbgrGr gr
         reached `shouldBe` nodeSet
     describe "if arith" $ do
       it "nodes and edges length" $ do
         let pf = pParser programArithIf
         let gr = fromJust . M.lookup (Named "arithif") $ genBBlockMap pf
-        let ns = nodes gr
-        let es = edges gr
+        let ns = nodes $ bbgrGr gr
+        let es = edges $ bbgrGr gr
         (length ns, length es) `shouldBe` (6, 7)
       it "branching nodes" $ do
         let pf = pParser programArithIf
@@ -51,36 +51,36 @@ spec =
       it "all reachable" $ do
         let pf = pParser programArithIf
         let gr = fromJust . M.lookup (Named "arithif") $ genBBlockMap pf
-        let reached = IS.fromList $ dfs [0] gr
-        let nodeSet = IS.fromList $ nodes gr
+        let reached = IS.fromList . dfs [0] $ bbgrGr gr
+        let nodeSet = IS.fromList . nodes $ bbgrGr gr
         reached `shouldBe` nodeSet
       it "all terminate" $ do
         let pf = pParser programArithIf
         let gr = fromJust . M.lookup (Named "arithif") $ genBBlockMap pf
-        let reached = IS.fromList $ rdfs [-1] gr
-        let nodeSet = IS.fromList $ nodes gr
+        let reached = IS.fromList . rdfs [-1] $ bbgrGr gr
+        let nodeSet = IS.fromList . nodes $ bbgrGr gr
         reached `shouldBe` nodeSet
     describe "gotos" $ do
       let pf = pParser programGotos
           gr = fromJust . M.lookup (Named "_gotos1") $ genBBlockMap pf
-          ns = nodes gr
-          es = edges gr
+          ns = nodes $ bbgrGr gr
+          es = edges $ bbgrGr gr
           nodeSet = IS.fromList ns
       it "nodes and edges length" $ do
         (length ns, length es) `shouldBe` (10, 12)
       it "branching nodes" $
         (IS.size (findSuccsBB gr [10]), IS.size (findSuccsBB gr [20])) `shouldBe` (3, 1)
       it "all reachable" $ do
-        let reached = IS.fromList $ dfs [0] gr
+        let reached = IS.fromList . dfs [0] $ bbgrGr gr
         reached `shouldBe` nodeSet
       it "all terminate" $ do
-        let reached = IS.fromList $ rdfs [-1] gr
+        let reached = IS.fromList . rdfs [-1] $ bbgrGr gr
         reached `shouldBe` nodeSet
     describe "READ" $ do
       let pf = pParser programRead
           gr = fromJust . M.lookup (Named "reading_time") $ genBBlockMap pf
-          ns = nodes gr
-          es = edges gr
+          ns = nodes $ bbgrGr gr
+          es = edges $ bbgrGr gr
           nodeSet = IS.fromList ns
       it "nodes and edges length" $ do
         (length ns, length es) `shouldBe` (10, 11)
@@ -88,16 +88,16 @@ spec =
         let succs l = IS.size $ findSuccsBB gr [l]
         (succs 10, succs 20, succs 40, succs 60) `shouldBe` (3, 1, 1, 1)
       it "all reachable" $ do
-        let reached = IS.fromList $ dfs [0] gr
+        let reached = IS.fromList . dfs [0] $ bbgrGr gr
         reached `shouldBe` nodeSet
       it "all terminate" $ do
-        let reached = IS.fromList $ rdfs [-1] gr
+        let reached = IS.fromList . rdfs [-1] $ bbgrGr gr
         reached `shouldBe` nodeSet
     describe "Leading zero labels" $ do
       let pf = pParser programZeroLabels
           gr = fromJust . M.lookup (Named "zero_labels") $ genBBlockMap pf
-          ns = nodes gr
-          es = edges gr
+          ns = nodes $ bbgrGr gr
+          es = edges $ bbgrGr gr
           nodeSet = IS.fromList ns
       it "nodes and edges length" $ do
         (length ns, length es) `shouldBe` (13, 15)
@@ -105,10 +105,10 @@ spec =
         let succs l = IS.size $ findSuccsBB gr [l]
         (succs 10, succs 20, succs 40, succs 60, succs 80) `shouldBe` (4, 1, 1, 1, 1)
       it "all reachable" $ do
-        let reached = IS.fromList $ dfs [0] gr
+        let reached = IS.fromList . dfs [0] $ bbgrGr gr
         reached `shouldBe` nodeSet
       it "all terminate" $ do
-        let reached = IS.fromList $ rdfs [-1] gr
+        let reached = IS.fromList . rdfs [-1] $ bbgrGr gr
         reached `shouldBe` nodeSet
 
 --------------------------------------------------
@@ -126,7 +126,7 @@ findLabelBB gr = (error "findLabelBB" `fromMaybe`) . flip findLabeledBBlock gr .
 -- For each label in the list, find the successors of the
 -- corresponding basic block, return as an IntSet.
 findSuccsBB :: BBGr a -> [Int] -> IS.IntSet
-findSuccsBB gr = IS.fromList . concatMap (suc gr) . mapMaybe (flip findLabeledBBlock gr . show)
+findSuccsBB gr = IS.fromList . concatMap (suc $ bbgrGr gr) . mapMaybe (flip findLabeledBBlock gr . show)
 
 --------------------------------------------------
 -- Test programs

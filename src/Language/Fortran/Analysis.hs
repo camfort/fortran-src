@@ -10,7 +10,7 @@ module Language.Fortran.Analysis
   , ModEnv, NameType(..), IDType(..), ConstructType(..), BaseType(..)
   , lhsExprs, isLExpr, allVars, analyseAllLhsVars, analyseAllLhsVars1, allLhsVars
   , blockVarUses, blockVarDefs
-  , BB, BBGr
+  , BB, BBGr(..), bbgrMap, bbgrMapM, bbgrEmpty
   , TransFunc, TransFuncM )
 where
 
@@ -21,10 +21,11 @@ import Data.Generics.Uniplate.Data
 import Data.Data
 import Language.Fortran.AST
 import Language.Fortran.LValue
+import Data.Graph.Inductive (Node, empty)
 import Data.Graph.Inductive.PatriciaTree (Gr)
 import GHC.Generics (Generic)
 import Text.PrettyPrint.GenericPretty
-import Text.PrettyPrint
+import Text.PrettyPrint hiding (empty, isEmpty)
 import qualified Data.Map.Strict as M
 import Data.Maybe
 import Data.Binary
@@ -37,7 +38,25 @@ import Data.Bifunctor (first)
 type BB a = [Block a]
 
 -- | Basic block graph.
-type BBGr a = Gr (BB a) ()
+data BBGr a = BBGr { bbgrGr :: Gr (BB a) () -- ^ the underlying graph
+                   , bbgrEntries :: [Node]  -- ^ the entry node(s)
+                   , bbgrExits :: [Node]    -- ^ the exit node(s)
+                   }
+  deriving (Data, Show, Eq, Generic)
+
+-- | Empty basic block graph
+bbgrEmpty :: BBGr a
+bbgrEmpty = BBGr empty [] []
+
+-- | Call function on the underlying graph
+bbgrMap :: (Gr (BB a) () -> Gr (BB b) ()) -> BBGr a -> BBGr b
+bbgrMap f bb = bb { bbgrGr = f (bbgrGr bb) }
+
+-- | Monadically call function on the underlying graph
+bbgrMapM :: Monad m => (Gr (BB a1) () -> m (Gr (BB a2) ())) -> BBGr a1 -> m (BBGr a2)
+bbgrMapM f bb = do
+  x <- f (bbgrGr bb)
+  return $ bb { bbgrGr = x }
 
 -- Allow graphs to reside inside of annotations
 deriving instance (Typeable a, Typeable b) => Typeable (Gr a b)
@@ -116,7 +135,7 @@ instance Functor Analysis where
     { prevAnnotation = f (prevAnnotation analysis)
     , uniqueName = uniqueName analysis
     , sourceName = sourceName analysis
-    , bBlocks = fmap (first . fmap . fmap . fmap $ f) . bBlocks $ analysis
+    , bBlocks = fmap (bbgrMap (first . fmap . fmap . fmap $ f)) . bBlocks $ analysis
     , insLabel = insLabel analysis
     , moduleEnv = moduleEnv analysis
     , idType = idType analysis

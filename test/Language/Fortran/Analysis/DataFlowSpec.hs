@@ -17,7 +17,6 @@ import qualified Data.Set as S
 import qualified Data.IntMap as IM
 import qualified Data.IntSet as IS
 import Data.Graph.Inductive hiding (version, lab')
-import Data.Graph.Inductive.PatriciaTree (Gr)
 import Data.Maybe
 import Data.List
 import Data.Data
@@ -57,7 +56,7 @@ testBackEdges version f p = bedges
   where
     gr     = testGraph version f p
     domMap = dominators gr
-    bedges = genBackEdgeMap domMap gr
+    bedges = genBackEdgeMap domMap $ bbgrGr gr
 
 spec :: Spec
 spec =
@@ -74,8 +73,8 @@ spec =
       let gr = fromJust . M.lookup (Named "loop4") $ genBBlockMap pf
       it "loopNodes" $ do
         let domMap = dominators gr
-            bedges = genBackEdgeMap domMap gr
-        S.fromList (loopNodes bedges gr) `shouldBe`
+            bedges = genBackEdgeMap domMap $ bbgrGr gr
+        S.fromList (loopNodes bedges $ bbgrGr gr) `shouldBe`
           S.fromList [findLabelsBB gr [5,6,7,20], IS.unions [findLabelsBB gr [4,5,6,7,8,10,20,30], findSuccsBB gr [20]]]
 
       it "genDefMap" $
@@ -106,14 +105,14 @@ spec =
           dm = genDefMap bm
           gr = superBBGrGraph sgr
           domMap = dominators gr
-          bedges = genBackEdgeMap domMap gr
+          bedges = genBackEdgeMap domMap $ bbgrGr gr
       it "genBackEdgeMap" $ do
         let gr' = testGraph F90 "loop4" programLoop4Alt
         testBackEdges F90 "loop4" programLoop4Alt `shouldBe`
           IM.fromList [(findLabelBB gr' 22, findLabelBB gr' 20), (findLabelBB gr' 31, findLabelBB gr' 10)]
 
       it "loopNodes" $
-        S.fromList (loopNodes bedges gr) `shouldBe`
+        S.fromList (loopNodes bedges $ bbgrGr gr) `shouldBe`
           S.fromList [findLabelsBB gr [20,21,22], findLabelsBB gr [10,11,20,21,22,31,40]]
 
       it "genDefMap" $
@@ -147,8 +146,8 @@ spec =
 
       it "loopNodes" $ do
         let domMap = dominators gr
-            bedges = genBackEdgeMap domMap gr
-        S.fromList (loopNodes bedges gr) `shouldBe`
+            bedges = genBackEdgeMap domMap $ bbgrGr gr
+        S.fromList (loopNodes bedges $ bbgrGr gr) `shouldBe`
           S.fromList [findLabelsBB gr [1,2,3,4]]
 
       it "reachingDefinitions" $
@@ -168,7 +167,7 @@ spec =
       it "ivMapByASTBlock" $ do
         let (_, gr) = testPfAndGraph F77 "f" programRd4
             domMap = dominators gr
-            bedges = genBackEdgeMap domMap gr
+            bedges = genBackEdgeMap domMap $ bbgrGr gr
             ivMap  = genInductionVarMapByASTBlock bedges gr
         (sort . map (head &&& length) . group . sort . map S.size $ IM.elems ivMap) `shouldBe` [(1,3),(2,3)]
 
@@ -177,9 +176,9 @@ spec =
           sgr = genSuperBBGr (genBBlockMap pf)
           gr = superBBGrGraph sgr
           domMap = dominators gr
-          bedges = genBackEdgeMap domMap gr
+          bedges = genBackEdgeMap domMap $ bbgrGr gr
       it "loopNodes" $
-        length (loopNodes bedges gr) `shouldBe` 2
+        length (loopNodes bedges $ bbgrGr gr) `shouldBe` 2
 
     describe "funcflow1" $ do
       let pf = pParser F90 programFuncFlow1
@@ -203,7 +202,7 @@ spec =
           rDefs = reachingDefinitions dm gr
           flTo = genFlowsToGraph bm dm gr rDefs
           domMap = dominators gr
-          bedges = genBackEdgeMap domMap gr
+          bedges = genBackEdgeMap domMap $ bbgrGr gr
           diMap = genDerivedInductionMap bedges gr
           (iLabel, iName):_ = [ (fromJust (insLabel a), varName e)
                               | e@(ExpValue a _ (ValVariable _)) <- rhsExprs pf, srcName e == "i" ]
@@ -226,7 +225,7 @@ spec =
           rDefs = reachingDefinitions dm gr
           flTo = genFlowsToGraph bm dm gr rDefs
           domMap = dominators gr
-          bedges = genBackEdgeMap domMap gr
+          bedges = genBackEdgeMap domMap $ bbgrGr gr
       it "backEdges" $
         bedges `shouldBe` IM.fromList [(findLabelBB gr 5, findLabelBB gr 4)]
       it "flowsTo" $
@@ -243,7 +242,7 @@ spec =
           rDefs = reachingDefinitions dm gr
           flTo = genFlowsToGraph bm dm gr rDefs
           domMap = dominators gr
-          bedges = genBackEdgeMap domMap gr
+          bedges = genBackEdgeMap domMap $ bbgrGr gr
       it "backEdges" $
         bedges `shouldBe` IM.fromList [(findLabelBB gr 12, findLabelBB gr 11)]
       it "flowsTo" $
@@ -253,7 +252,7 @@ spec =
 
     describe "other" $
       it "dominators on disconnected graph" $
-        dominators (nmap (const []) (mkUGraph [0,1,3,4,5,6,7,8,9] [(0,3) ,(3,1) ,(5,6) ,(6,7) ,(7,4) ,(7,8) ,(8,7) ,(8,9) ,(9,8)] :: Gr () ())) `shouldBe` IM.fromList [(0,IS.fromList [0]),(1,IS.fromList [0,1,3]),(3,IS.fromList [0,3]),(4,IS.fromList [4,5,6,7]),(5,IS.fromList [5]),(6,IS.fromList [5,6]),(7,IS.fromList [5,6,7]),(8,IS.fromList [5,6,7,8]),(9,IS.fromList [5,6,7,8,9])]
+        dominators (BBGr (nmap (const []) (mkUGraph [0,1,3,4,5,6,7,8,9] [(0,3) ,(3,1) ,(5,6) ,(6,7) ,(7,4) ,(7,8) ,(8,7) ,(8,9) ,(9,8)])) [0,5] [3,9]) `shouldBe` IM.fromList [(0,IS.fromList [0]),(1,IS.fromList [0,1,3]),(3,IS.fromList [0,3]),(4,IS.fromList [4,5,6,7]),(5,IS.fromList [5]),(6,IS.fromList [5,6]),(7,IS.fromList [5,6,7]),(8,IS.fromList [5,6,7,8]),(9,IS.fromList [5,6,7,8,9])]
 
 --------------------------------------------------
 -- Label-finding helper functions to help write tests that are
@@ -270,7 +269,7 @@ findLabelBB gr = (error "findLabelBB" `fromMaybe`) . flip findLabeledBBlock gr .
 -- For each Fortran label in the list, find the successors of the
 -- corresponding basic block, return as an IntSet.
 findSuccsBB :: BBGr a -> [Int] -> IS.IntSet
-findSuccsBB gr = IS.fromList . concatMap (suc gr) . mapMaybe (flip findLabeledBBlock gr . show)
+findSuccsBB gr = IS.fromList . concatMap (suc $ bbgrGr gr) . mapMaybe (flip findLabeledBBlock gr . show)
 
 -- For each Fortran label in the list, find the AST-block label numbers ('insLabel') associated
 findLabelsBl :: forall a. Data a => ProgramFile (Analysis a) -> [Int] -> IS.IntSet
@@ -293,7 +292,7 @@ findLabelsBlEdges pf = S.fromList . map convEdge
 
 -- Get the set of AST-block labels found in a given basic block
 findBBlockBl :: BBGr (Analysis a) -> Int -> IS.IntSet
-findBBlockBl gr = IS.fromList . mapMaybe (insLabel . getAnnotation) . concat . maybeToList . lab gr
+findBBlockBl gr = IS.fromList . mapMaybe (insLabel . getAnnotation) . concat . maybeToList . lab (bbgrGr gr)
 
 --------------------------------------------------
 -- Test programs
