@@ -5,13 +5,14 @@ import Test.Hspec hiding (Selector)
 import TestUtil
 import Control.Exception (evaluate)
 import Control.DeepSeq (force, NFData)
-import Data.ByteString.Char8 (pack)
+import Data.ByteString.Char8 (ByteString, pack)
 
 import Language.Fortran.Transformer
 import Language.Fortran.AST
 import Language.Fortran.Util.Position
 import Language.Fortran.ParserMonad
 import Language.Fortran.Parser.Fortran95
+import Language.Fortran.Parser.Fortran77
 
 groupIf :: ProgramFile () -> ProgramFile ()
 groupIf = transform [ GroupIf ]
@@ -98,6 +99,12 @@ spec = do
       doSpan `shouldBe` expectedDoSpan
     it "spans all a BlDoWhile" $
       doWhileSpan `shouldBe` expectedDoWhileSpan
+
+  describe "Inner block SrcSpan's" $ do
+    it "Spans the inner blocks of an if including comments - 77" $
+      ifInnerBlockSpan getSingleParsedBlock77 `shouldBe` expectedIfInnerBlockSpan
+    it "Spans the inner blocks of an if including comments - 77 legacy" $
+      ifInnerBlockSpan getSingleParsedBlock77Legacy `shouldBe` expectedIfInnerBlockSpan
 
 buildExampleProgram :: Name -> [Block ()] -> ProgramFile ()
 buildExampleProgram name blocks = ProgramFile mi77 [ PUMain () u (Just name) blocks Nothing ]
@@ -222,11 +229,20 @@ expectedExample2doBlocks =
       [ BlStatement () u label20 (StContinue () u) ] label20
   ]
 
-getSingleParsedBlock :: String -> Block A0
-getSingleParsedBlock c =
-  let pf = fromRight . fromParseResult $ fortran95Parser (pack c) "foobar.f"
+getSingleParsedBlock :: Show b => (ByteString -> String -> ParseResult a b (ProgramFile A0)) -> String -> Block A0
+getSingleParsedBlock p c =
+  let pf = fromRight . fromParseResult $ p (pack c) "foobar.f"
       ProgramFile _ ((PUSubroutine _ _ _ _ _ (b:_) _):_) = pf
   in  b
+
+getSingleParsedBlock95 :: String -> Block A0
+getSingleParsedBlock95 = getSingleParsedBlock fortran95Parser
+
+getSingleParsedBlock77 :: String -> Block A0
+getSingleParsedBlock77 = getSingleParsedBlock fortran77Parser
+
+getSingleParsedBlock77Legacy :: String -> Block A0
+getSingleParsedBlock77Legacy = getSingleParsedBlock legacy77Parser
 
 type SimpleSpan = (Int, Int, Int, Int)
 
@@ -242,7 +258,7 @@ ifSpanRaw = unlines [
   , "      end" ]
 ifSpan :: SimpleSpan
 ifSpan =
-  let BlIf _ s _ _ _ _ _ = getSingleParsedBlock ifSpanRaw
+  let BlIf _ s _ _ _ _ _ = getSingleParsedBlock95 ifSpanRaw
   in  simplifySpan s
 expectedIfSpan :: SimpleSpan
 expectedIfSpan = (2, 8, 4, 12)
@@ -257,7 +273,7 @@ doSpanRaw = unlines [
   , "      end" ]
 doSpan :: SimpleSpan
 doSpan =
-  let BlDo _ s _ _ _ _ _ _ = getSingleParsedBlock doSpanRaw
+  let BlDo _ s _ _ _ _ _ _ = getSingleParsedBlock95 doSpanRaw
   in  simplifySpan s
 expectedDoSpan :: SimpleSpan
 expectedDoSpan = (2, 8, 5, 13)
@@ -271,7 +287,23 @@ doWhileSpanRaw = unlines [
   , "      end" ]
 doWhileSpan :: SimpleSpan
 doWhileSpan =
-  let BlDoWhile _ s _ _ _ _ _ _ = getSingleParsedBlock doWhileSpanRaw
+  let BlDoWhile _ s _ _ _ _ _ _ = getSingleParsedBlock95 doWhileSpanRaw
   in  simplifySpan s
 expectedDoWhileSpan :: SimpleSpan
 expectedDoWhileSpan = (2, 8, 4, 12)
+
+ifInnerBlockSpanRaw :: String
+ifInnerBlockSpanRaw = unlines [
+    "      subroutine yeet"
+  , "       if (.true.) then"
+  , "c       very important comment"
+  , "        print *, 'yeet'"
+  , "c       even more important comment"
+  , "       endif"
+  , "      end" ]
+ifInnerBlockSpan :: (String -> Block A0) -> SimpleSpan
+ifInnerBlockSpan p =
+  let BlIf _ _ _ _ _ bs _ = p ifInnerBlockSpanRaw
+  in  simplifySpan $ getSpan bs
+expectedIfInnerBlockSpan :: SimpleSpan
+expectedIfInnerBlockSpan = (3, 1, 5, 35)
