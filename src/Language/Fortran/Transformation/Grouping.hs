@@ -11,19 +11,26 @@ import Language.Fortran.Analysis
 import Language.Fortran.Transformation.TransformMonad
 
 import Data.Data
+import Data.List (intercalate)
 import Data.Generics.Uniplate.Operations
 
 type ABlocks a = [ Block (Analysis a) ]
 
-genericGroup :: Data a => (ABlocks a -> ABlocks a) -> Transform a ()
-genericGroup groupingFunction =
-    modifyProgramFile $ transformBi groupingFunction
+genericGroup :: Data a => (ABlocks a -> ABlocks a) -> (Statement (Analysis a) -> Bool) -> Transform a ()
+genericGroup groupingFunction checkingFunction = do
+    pf <- getProgramFile
+    let pf' = transformBi groupingFunction pf
+        bad = filter checkingFunction $ universeBi pf'
+    if null bad
+      then putProgramFile pf'
+      else let spans = map (show . getSpan) bad in
+             error $ "Mis-matched grouping statements at these position(s): " ++ intercalate ", " spans
 
 --------------------------------------------------------------------------------
 -- Grouping FORALL statement blocks into FORALL blocks in entire parse tree
 --------------------------------------------------------------------------------
 groupForall :: Data a => Transform a ()
-groupForall = genericGroup groupForall'
+groupForall = genericGroup groupForall' isForall
 
 
 groupForall' :: ABlocks a -> ABlocks a
@@ -60,13 +67,17 @@ collectNonForallBlocks blocks mNameTarget =
       in (b : bs', rest, mLabel)
     _ -> error "Premature file ending while parsing structured forall block."
 
+isForall :: Statement a -> Bool
+isForall (StForall{}) = True
+isForall (StForallStatement{}) = True
+isForall _ = False
 
 --------------------------------------------------------------------------------
 -- Grouping if statement blocks into if blocks in entire parse tree
 --------------------------------------------------------------------------------
 
 groupIf :: Data a => Transform a ()
-groupIf = genericGroup groupIf'
+groupIf = genericGroup groupIf' isIf
 
 -- Actual grouping is done here.
 -- 1. Case: head is a statement block with an IF statement:
@@ -162,12 +173,20 @@ collectNonConditionalBlocks blocks =
     -- prematurely.
     _ -> error "Premature file ending while parsing structured if block."
 
+isIf :: Statement a -> Bool
+isIf s = case s of
+  StIfThen{} -> True
+  StElsif{}  -> True
+  StElse{}   -> True
+  StEndif{}  -> True
+  _          -> False
+
 --------------------------------------------------------------------------------
 -- Grouping new do statement blocks into do blocks in entire parse tree
 --------------------------------------------------------------------------------
 
 groupDo :: Data a => Transform a ()
-groupDo = genericGroup groupDo'
+groupDo = genericGroup groupDo' isDo
 
 groupDo' :: ABlocks a -> ABlocks a
 groupDo' [ ] = [ ]
@@ -208,12 +227,18 @@ collectNonDoBlocks blocks mNameTarget =
       in (b : bs', rest, mLabel, stEnd)
     _ -> error "Premature file ending while parsing structured do block."
 
+isDo s = case s of
+  StDo _ _ _ Nothing _      -> True
+  StDoWhile _ _ _ Nothing _ -> True
+  StEnddo{}                 -> True
+  _                         -> False
+
 --------------------------------------------------------------------------------
 -- Grouping labeled do statement blocks into do blocks in entire parse tree
 --------------------------------------------------------------------------------
 
 groupLabeledDo :: Data a => Transform a ()
-groupLabeledDo = genericGroup groupLabeledDo'
+groupLabeledDo = genericGroup groupLabeledDo' isLabeledDo
 
 groupLabeledDo' :: ABlocks a -> ABlocks a
 groupLabeledDo' [ ] = [ ]
@@ -263,12 +288,18 @@ compLabel _ _ = False
 strip :: String -> String
 strip = dropWhile (=='0')
 
+isLabeledDo :: Statement a -> Bool
+isLabeledDo s = case s of
+  StDo _ _ _ Just{} _       -> True
+  StDoWhile _ _ _ Just{} _  -> True
+  _                         -> False
+
 --------------------------------------------------------------------------------
 -- Grouping case statements
 --------------------------------------------------------------------------------
 
 groupCase :: Data a => Transform a ()
-groupCase = genericGroup groupCase'
+groupCase = genericGroup groupCase' isCase
 
 groupCase' :: ABlocks a -> ABlocks a
 groupCase' [] = []
@@ -323,6 +354,13 @@ collectNonCaseBlocks blocks =
     -- In this case case block is malformed and the file ends prematurely.
     b:bs -> let (bs', rest) = collectNonCaseBlocks bs in (b : bs', rest)
     _ -> error "Premature file ending while parsing select case block."
+
+isCase :: Statement a -> Bool
+isCase s = case s of
+  StCase{}       -> True
+  StEndcase{}    -> True
+  StSelectCase{} -> True
+  _              -> False
 
 --------------------------------------------------------------------------------
 -- Helpers for grouping of structured blocks with more blocks inside.
