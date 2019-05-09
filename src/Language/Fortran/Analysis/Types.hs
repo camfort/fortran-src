@@ -70,7 +70,7 @@ extractTypeEnv pf = M.union puEnv expEnv
     puEnv = M.fromList [ (n, ty) | pu <- universeBi pf :: [ProgramUnit (Analysis a)]
                                  , Named n <- [puName pu]
                                  , ty <- maybeToList (idType (getAnnotation pu)) ]
-    expEnv = M.fromList [ (n, ty) | e <- universeBi pf :: [Expression (Analysis a)]
+    expEnv = M.fromList [ (n, ty) | e@(ExpValue _ _ ValVariable{}) <- universeBi pf :: [Expression (Analysis a)]
                                   , let n = varName e
                                   , ty <- maybeToList (idType (getAnnotation e)) ]
 
