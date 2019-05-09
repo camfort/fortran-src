@@ -3,7 +3,7 @@ module Language.Fortran.Analysis.Types ( analyseTypes, analyseTypesWithEnv, extr
 
 import Language.Fortran.AST
 
-import Prelude hiding (lookup)
+import Prelude hiding (lookup, EQ, LT, GT)
 import Data.Map (insert)
 import qualified Data.Map as M
 import Data.Maybe (maybeToList)
@@ -14,6 +14,7 @@ import Data.Data
 import Data.Functor.Identity (Identity ())
 import Language.Fortran.Analysis
 import Language.Fortran.Intrinsics
+import Language.Fortran.Util.Position
 import Language.Fortran.ParserMonad (FortranVersion(..))
 
 
@@ -29,7 +30,8 @@ type Infer a = State InferState a
 data InferState = InferState { langVersion :: FortranVersion
                              , intrinsics  :: IntrinsicsTable
                              , environ     :: TypeEnv
-                             , entryPoints :: M.Map Name (Name, Maybe Name) }
+                             , entryPoints :: M.Map Name (Name, Maybe Name)
+                             , typeErrors  :: [(String, SrcSpan)] }
   deriving Show
 type InferFunc t = t -> Infer ()
 
@@ -180,21 +182,97 @@ statement (StDimension _ _ declAList) = do
 statement _ = return ()
 
 annotateExpression :: Data a => Expression (Analysis a) -> Infer (Expression (Analysis a))
-annotateExpression e@(ExpValue _ _ (ValVariable _))  = maybe e (`setIDType` e) `fmap` getRecordedType (varName e)
-annotateExpression e@(ExpValue _ _ (ValIntrinsic _)) = maybe e (`setIDType` e) `fmap` getRecordedType (varName e)
-annotateExpression e                                 = return e
+annotateExpression e@(ExpValue _ _ (ValVariable _))    = maybe e (`setIDType` e) `fmap` getRecordedType (varName e)
+annotateExpression e@(ExpValue _ _ (ValIntrinsic _))   = maybe e (`setIDType` e) `fmap` getRecordedType (varName e)
+annotateExpression e@(ExpValue _ _ (ValReal r))        = return $ realLiteralType r `setIDType` e
+annotateExpression e@(ExpValue _ _ (ValComplex e1 e2)) = return $ complexLiteralType e1 e2 `setIDType` e
+annotateExpression e@(ExpValue _ _ (ValInteger _))     = return $ IDType (Just TypeInteger) Nothing `setIDType` e
+annotateExpression e@(ExpValue _ _ (ValLogical _))     = return $ IDType (Just TypeLogical) Nothing `setIDType` e
+annotateExpression e@(ExpBinary _ _ op e1 e2)          = flip setIDType e `fmap` binaryOpType op e1 e2
+annotateExpression e                                   = return e
 
 annotateProgramUnit :: Data a => ProgramUnit (Analysis a) -> Infer (ProgramUnit (Analysis a))
 annotateProgramUnit pu | Named n <- puName pu = maybe pu (`setIDType` pu) `fmap` getRecordedType n
 annotateProgramUnit pu                        = return pu
 
+realLiteralType :: String -> IDType
+realLiteralType r | 'd' `elem` r = IDType (Just TypeDoublePrecision) Nothing
+                  | otherwise    = IDType (Just TypeReal) Nothing
+
+complexLiteralType :: Expression a -> Expression a -> IDType
+complexLiteralType (ExpValue _ _ (ValReal r)) _
+ | IDType (Just TypeDoublePrecision) _ <- realLiteralType r = IDType (Just TypeDoubleComplex) Nothing
+ | otherwise                                                = IDType (Just TypeComplex) Nothing
+
+binaryOpType :: Data a => BinaryOp -> Expression (Analysis a) -> Expression (Analysis a) -> Infer IDType
+binaryOpType op e1 e2 = do
+  mbt1 <- case getIDType e1 of
+            Just (IDType (Just bt) _) -> return $ Just bt
+            _ -> typeError "Unable to obtain type for" (getSpan e1) >> return Nothing
+  mbt2 <- case getIDType e2 of
+            Just (IDType (Just bt) _) -> return $ Just bt
+            _ -> typeError "Unable to obtain type for" (getSpan e2) >> return Nothing
+  case (mbt1, mbt2) of
+    (_, Nothing) -> return emptyType
+    (Nothing, _) -> return emptyType
+    (Just bt1, Just bt2) -> do
+      mbt <- case (bt1, bt2) of
+        (_                   , TypeDoubleComplex   ) -> return . Just $ TypeDoubleComplex
+        (TypeDoubleComplex   , _                   ) -> return . Just $ TypeDoubleComplex
+        (_                   , TypeComplex         ) -> return . Just $ TypeComplex
+        (TypeComplex         , _                   ) -> return . Just $ TypeComplex
+        (_                   , TypeDoublePrecision ) -> return . Just $ TypeDoublePrecision
+        (TypeDoublePrecision , _                   ) -> return . Just $ TypeDoublePrecision
+        (_                   , TypeReal            ) -> return . Just $ TypeReal
+        (TypeReal            , _                   ) -> return . Just $ TypeReal
+        (_                   , TypeInteger         ) -> return . Just $ TypeInteger
+        (TypeInteger         , _                   ) -> return . Just $ TypeInteger
+        (TypeByte            , TypeByte            ) -> return . Just $ TypeByte
+        (TypeLogical         , TypeLogical         ) -> return . Just $ TypeLogical
+        (TypeCustom c1       , TypeCustom c2       ) -> do
+          typeError "custom types / binary op not supported" (getSpan (e1, e2))
+          return Nothing
+        (TypeCharacter l1 k1 , TypeCharacter l2 _ )
+          | op == Concatenation -> return . Just $ TypeCharacter (liftM2 charLenConcat l1 l2) k1
+          | op `elem` [EQ, NE]  -> return $ Just TypeLogical
+          | otherwise -> do typeError "Invalid op on character strings" (getSpan (e1, e2))
+                            return Nothing
+        _ -> do typeError "Type error between operands of binary operator" (getSpan (e1, e2))
+                return Nothing
+      mbt' <- case mbt of
+        Just bt
+          | op `elem` [ Addition, Subtraction, Multiplication, Division
+                      , Exponentiation, Concatenation, Or, XOr, And ]       -> return $ Just bt
+          | op `elem` [GT, GTE, LT, LTE, EQ, NE, Equivalent, NotEquivalent] -> return $ Just TypeLogical
+          | BinCustom{} <- op -> typeError "custom ops not supported" (getSpan (e1, e2)) >> return Nothing
+        _ -> return Nothing
+
+      return $ IDType mbt' Nothing
+
+charLenConcat :: CharacterLen -> CharacterLen -> CharacterLen
+charLenConcat l1 l2 = case (l1, l2) of
+  (CharLenExp    , _             ) -> CharLenExp
+  (_             , CharLenExp    ) -> CharLenExp
+  (CharLenStar   , _             ) -> CharLenStar
+  (_             , CharLenStar   ) -> CharLenStar
+  (CharLenColon  , _             ) -> CharLenColon
+  (_             , CharLenColon  ) -> CharLenColon
+  (CharLenInt i1 , CharLenInt i2 ) -> CharLenInt (i1 + i2)
+
 --------------------------------------------------
 -- Monadic helper combinators.
 
 inferState0 :: FortranVersion -> InferState
-inferState0 v = InferState { environ = M.empty, entryPoints = M.empty, langVersion = v, intrinsics = getVersionIntrinsics v }
+inferState0 v = InferState { environ = M.empty, entryPoints = M.empty, langVersion = v
+                           , intrinsics = getVersionIntrinsics v, typeErrors = [] }
 runInfer :: FortranVersion -> TypeEnv -> State InferState a -> (a, InferState)
 runInfer v env = flip runState ((inferState0 v) { environ = env })
+
+typeError :: String -> SrcSpan -> Infer ()
+typeError msg ss = modify $ \ s -> s { typeErrors = (msg, ss):typeErrors s }
+
+emptyType :: IDType
+emptyType = IDType Nothing Nothing
 
 -- Record the type of the given name.
 recordType :: BaseType -> ConstructType -> Name -> Infer ()
@@ -227,8 +305,8 @@ setIDType ty x
   | otherwise                          = x
 
 -- Get the idType annotation
---getIDType :: (Annotated f, Data a) => f (Analysis a) -> Maybe IDType
---getIDType x = idType (getAnnotation x)
+getIDType :: (Annotated f, Data a) => f (Analysis a) -> Maybe IDType
+getIDType x = idType (getAnnotation x)
 
 -- Set the CType part of idType annotation
 --setCType :: (Annotated f, Data a) => ConstructType -> f (Analysis a) -> f (Analysis a)
