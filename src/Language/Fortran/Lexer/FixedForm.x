@@ -587,10 +587,7 @@ lexComment :: LexAction (Maybe Token)
 lexComment =
   lexLineWithWhitespace $ \ m -> do
     s <- getLexemeSpan
-    version <- getVersion
-    case version of
-      Fortran77Legacy -> return Nothing
-      _               -> return . Just . TComment s $ tail m
+    return . Just . TComment s $ tail m
 
 -- Get a line without losing the whitespace, then call continuation with it.
 lexLineWithWhitespace :: (String -> LexAction (Maybe Token)) -> LexAction (Maybe Token)
@@ -925,8 +922,8 @@ alexGetByte ai
   -- Skip the continuation line altogether
   | isContinuation ai && _isWhiteInsensitive = skip Continuation ai
   -- Skip the newline before a comment
-  | aiFortranVersion ai == Fortran77Legacy &&
-    _isWhiteInsensitive && isNewlineComment ai = skip NewlineComment ai
+  | aiFortranVersion ai == Fortran77Legacy && _isWhiteInsensitive
+  && isNewlineCommentsFollowedByContinuation ai = skip NewlineComment ai
   -- If we are not parsing a Hollerith skip whitespace
   | _curChar `elem` [ ' ', '\t' ] && _isWhiteInsensitive = skip Char ai
   -- Ignore inline comments
@@ -982,6 +979,13 @@ isNewlineComment ai =
   where
     _next1 = takeNChars 1 ai
     p = (aiPosition ai) { posAbsoluteOffset = posAbsoluteOffset (aiPosition ai) + 1 }
+
+isNewlineCommentsFollowedByContinuation :: AlexInput -> Bool
+isNewlineCommentsFollowedByContinuation ai
+  | isNewlineComment ai
+  = isNewlineCommentsFollowedByContinuation (ai { aiPosition = advance NewlineComment ai })
+  | isContinuation ai = True
+  | otherwise = False
 
 skip :: Move -> AlexInput -> Maybe (Word8, AlexInput)
 skip move ai =
