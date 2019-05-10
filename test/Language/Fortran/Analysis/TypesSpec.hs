@@ -6,8 +6,10 @@ import TestUtil
 import Data.Map ((!))
 
 import Data.Data
+import Data.Generics.Uniplate.Data
 import Language.Fortran.AST
 import Language.Fortran.Analysis.Types
+import Language.Fortran.Analysis.Renaming
 import Language.Fortran.Analysis
 import qualified Language.Fortran.Parser.Fortran90 as F90
 import Language.Fortran.ParserMonad
@@ -16,8 +18,14 @@ import qualified Data.ByteString.Char8 as B
 inferTable :: Data a => ProgramFile a -> TypeEnv
 inferTable = underRenaming (snd . analyseTypes)
 
+typedProgramFile :: Data a => ProgramFile a -> ProgramFile (Analysis a)
+typedProgramFile = fst . analyseTypes . analyseRenames . initAnalysis
+
 fortran90Parser :: String -> String -> ProgramFile A0
 fortran90Parser src file = fromParseResultUnsafe $ F90.fortran90Parser (B.pack src) file
+
+uniExpr :: ProgramFile (Analysis A0) -> [Expression (Analysis A0)]
+uniExpr = universeBi
 
 spec :: Spec
 spec = do
@@ -40,10 +48,17 @@ spec = do
   describe "Local type inference" $ do
     it "infers from type declarations" $ do
       let mapping = inferTable ex4
+      let pf = typedProgramFile ex4
       mapping ! "x" `shouldBe` IDType (Just TypeInteger) (Just CTVariable)
       mapping ! "y" `shouldBe` IDType (Just TypeInteger) (Just $ CTArray [(Nothing, Just 10)])
       mapping ! "c" `shouldBe` IDType (Just $ TypeCharacter Nothing Nothing) (Just CTVariable)
       mapping ! "log" `shouldBe` IDType (Just TypeLogical) (Just CTVariable)
+      [ () | ExpValue a _ (ValVariable "x") <- uniExpr pf
+           , idType a == Just (IDType (Just TypeInteger) (Just CTVariable)) ]
+        `shouldNotSatisfy` null
+      [ () | ExpValue a _ (ValVariable "y") <- uniExpr pf
+           , idType a == Just (IDType (Just TypeInteger) (Just $ CTArray [(Nothing, Just 10)])) ]
+        `shouldNotSatisfy` null
 
     it "infers from dimension declarations" $ do
       let mapping = inferTable ex5
@@ -57,12 +72,60 @@ spec = do
       mapping ! "c" `shouldBe` IDType (Just TypeInteger) (Just CTFunction)
       mapping ! "d" `shouldBe` IDType Nothing (Just CTFunction)
 
-    describe "Intrinsics type analysis" $
+    describe "Intrinsics type analysis" $ do
       it "disambiguates intrinsics from functions and variables" $ do
         let mapping = inferTable intrinsics1
-        idCType (mapping ! "abs") `shouldBe` Just CTIntrinsic
+        let pf = typedProgramFile intrinsics1
+        [ () | ExpValue a _ (ValVariable "x") <- uniExpr pf
+             , idType a == Just (IDType (Just TypeReal) (Just CTVariable)) ]
+          `shouldSatisfy` ((== 5) . length)
+
+        -- the following are true because dabs and cabs are defined as function and array in this program.
         idCType (mapping ! "dabs") `shouldBe` Just CTFunction
+        [ a | ExpValue a _ (ValIntrinsic "dabs") <- uniExpr pf
+             ] -- , idType a == Just (IDType (Just TypeReal) (Just CTVariable)) ]
+          `shouldSatisfy` null
+
         idCType (mapping ! "cabs") `shouldBe` Just (CTArray [(Nothing, Just 3)])
+        [ a | ExpValue a _ (ValIntrinsic "cabs") <- uniExpr pf
+             ] -- , idType a == Just (IDType (Just TypeReal) (Just CTVariable)) ]
+          `shouldSatisfy` null
+
+        -- abs is an actual intrinsic
+        idCType (mapping ! "abs") `shouldBe` Just CTIntrinsic
+        [ a | ExpFunctionCall a _ (ExpValue _ _ (ValIntrinsic "abs")) _ <- uniExpr pf
+            , idType a == Just (IDType (Just TypeInteger) Nothing) ]
+          `shouldNotSatisfy` null
+
+      it "intrinsics and numeric types" $ do
+        let mapping = inferTable intrinsics2
+        let pf = typedProgramFile intrinsics2
+        idCType (mapping ! "abs") `shouldBe` Just CTIntrinsic
+        idCType (mapping ! "cabs") `shouldBe` Just CTIntrinsic
+        idCType (mapping ! "dabs") `shouldBe` Just CTIntrinsic
+        [ ty | ExpFunctionCall a _ (ExpValue _ _ (ValIntrinsic "abs")) _ <- uniExpr pf
+             , Just (IDType (Just ty) Nothing) <- [idType a] ]
+          `shouldBe` [TypeDoublePrecision, TypeComplex]
+        [ a | ExpFunctionCall a _ (ExpValue _ _ (ValIntrinsic "cabs")) _ <- uniExpr pf
+            , idType a == Just (IDType (Just TypeComplex) Nothing) ]
+          `shouldNotSatisfy` null
+        [ a | ExpFunctionCall a _ (ExpValue _ _ (ValIntrinsic "dabs")) _ <- uniExpr pf
+            , idType a == Just (IDType (Just TypeDoublePrecision) Nothing) ]
+          `shouldNotSatisfy` null
+
+    describe "Numeric types" $ do
+      it "Widening / upgrading" $ do
+        let mapping = inferTable numerics1
+        let pf = typedProgramFile numerics1
+        [ a | ExpFunctionCall a _ (ExpValue _ _ (ValIntrinsic "abs")) _ <- uniExpr pf
+            , idType a == Just (IDType (Just TypeReal) Nothing) ]
+          `shouldNotSatisfy` null
+        [ a | ExpBinary a _ Addition (ExpValue _ _ (ValInteger "1")) _ <- uniExpr pf
+            , idType a == Just (IDType (Just TypeComplex) Nothing) ]
+          `shouldNotSatisfy` null
+        [ a | ExpBinary a _ Addition (ExpValue _ _ (ValInteger "2")) _ <- uniExpr pf
+            , idType a == Just (IDType (Just TypeDoublePrecision) Nothing) ]
+          `shouldNotSatisfy` null
 
     describe "Character string types" $
       it "examples of various character variables" $ do
@@ -74,6 +137,11 @@ spec = do
         idCType (mapping ! "d") `shouldBe` Just (CTArray [(Nothing, Just 10)])
         idVType (mapping ! "e") `shouldBe` Just (TypeCharacter (Just (CharLenInt 10)) Nothing)
         idCType (mapping ! "e") `shouldBe` Just (CTArray [(Nothing, Just 20)])
+        let pf = typedProgramFile teststrings1
+        [ () | ExpValue a _ (ValVariable "e") <- uniExpr pf
+             , idType a == Just (IDType (Just (TypeCharacter (Just (CharLenInt 10)) Nothing))
+                                        (Just (CTArray [(Nothing, Just 20)]))) ]
+          `shouldNotSatisfy` null
 
 ex1 :: ProgramFile ()
 ex1 = ProgramFile mi77 [ ex1pu1 ]
@@ -181,6 +249,44 @@ intrinsics1 = resetSrcSpan . flip fortran90Parser "" $ unlines [
   , "  end function dabs"
   , "end module intrinsics"
   ]
+
+intrinsics2 :: ProgramFile A0
+intrinsics2 = resetSrcSpan . flip fortran90Parser "" $ unlines [
+    "module intrinsics"
+  , "contains"
+  , "  subroutine main()"
+  , "    double precision :: u"
+  , "    complex :: c"
+  , "    real :: x"
+  , "    integer :: y = 1"
+  , "    u = dabs(y + x)"
+  , "    c = cabs(y + x)"
+  , "    u = abs(y + x * u)"
+  , "    c = abs(y + x * c)"
+  , "    print *, x"
+  , "  end subroutine main"
+  , "end module intrinsics"
+  ]
+
+numerics1 :: ProgramFile A0
+numerics1 = resetSrcSpan . flip fortran90Parser "" $ unlines [
+    "module numerics1"
+  , "contains"
+  , "  subroutine main()"
+  , "    double precision :: u"
+  , "    complex :: c"
+  , "    real :: x"
+  , "    integer :: y = 1"
+  , "    print *, 1 + (-u * c + abs(y + x))"
+  , "    print *, 2 + f(y)"
+  , "  end subroutine main"
+  , "  double precision function f(a)"
+  , "    integer :: a"
+  , "    f = a"
+  , "  end function f"
+  , "end module numerics1"
+  ]
+
 
 teststrings1 :: ProgramFile A0
 teststrings1 = resetSrcSpan . flip fortran90Parser "" $ unlines [
