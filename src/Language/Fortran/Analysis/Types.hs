@@ -6,7 +6,7 @@ import Language.Fortran.AST
 import Prelude hiding (lookup, EQ, LT, GT)
 import Data.Map (insert)
 import qualified Data.Map as M
-import Data.Maybe (maybeToList)
+import Data.Maybe (fromMaybe, maybeToList)
 import Data.List (find)
 import Control.Monad.State.Strict
 import Data.Generics.Uniplate.Data
@@ -188,7 +188,10 @@ annotateExpression e@(ExpValue _ _ (ValReal r))        = return $ realLiteralTyp
 annotateExpression e@(ExpValue _ _ (ValComplex e1 e2)) = return $ complexLiteralType e1 e2 `setIDType` e
 annotateExpression e@(ExpValue _ _ (ValInteger _))     = return $ IDType (Just TypeInteger) Nothing `setIDType` e
 annotateExpression e@(ExpValue _ _ (ValLogical _))     = return $ IDType (Just TypeLogical) Nothing `setIDType` e
-annotateExpression e@(ExpBinary _ _ op e1 e2)          = flip setIDType e `fmap` binaryOpType op e1 e2
+annotateExpression e@(ExpBinary _ _ op e1 e2)          = flip setIDType e `fmap` binaryOpType (getSpan e) op e1 e2
+annotateExpression e@(ExpUnary _ _ op e1)              = flip setIDType e `fmap` unaryOpType (getSpan e1) op e1
+annotateExpression e@(ExpSubscript _ _ e1 idxAList)    = flip setIDType e `fmap` subscriptType (getSpan e) e1 idxAList
+annotateExpression e@(ExpFunctionCall _ _ e1 _)        = flip setIDType e `fmap` functionCallType (getSpan e) e1
 annotateExpression e                                   = return e
 
 annotateProgramUnit :: Data a => ProgramUnit (Analysis a) -> Infer (ProgramUnit (Analysis a))
@@ -204,8 +207,8 @@ complexLiteralType (ExpValue _ _ (ValReal r)) _
  | IDType (Just TypeDoublePrecision) _ <- realLiteralType r = IDType (Just TypeDoubleComplex) Nothing
  | otherwise                                                = IDType (Just TypeComplex) Nothing
 
-binaryOpType :: Data a => BinaryOp -> Expression (Analysis a) -> Expression (Analysis a) -> Infer IDType
-binaryOpType op e1 e2 = do
+binaryOpType :: Data a => SrcSpan -> BinaryOp -> Expression (Analysis a) -> Expression (Analysis a) -> Infer IDType
+binaryOpType ss op e1 e2 = do
   mbt1 <- case getIDType e1 of
             Just (IDType (Just bt) _) -> return $ Just bt
             _ -> typeError "Unable to obtain type for" (getSpan e1) >> return Nothing
@@ -230,24 +233,66 @@ binaryOpType op e1 e2 = do
         (TypeByte            , TypeByte            ) -> return . Just $ TypeByte
         (TypeLogical         , TypeLogical         ) -> return . Just $ TypeLogical
         (TypeCustom c1       , TypeCustom c2       ) -> do
-          typeError "custom types / binary op not supported" (getSpan (e1, e2))
+          typeError "custom types / binary op not supported" ss
           return Nothing
         (TypeCharacter l1 k1 , TypeCharacter l2 _ )
           | op == Concatenation -> return . Just $ TypeCharacter (liftM2 charLenConcat l1 l2) k1
           | op `elem` [EQ, NE]  -> return $ Just TypeLogical
-          | otherwise -> do typeError "Invalid op on character strings" (getSpan (e1, e2))
+          | otherwise -> do typeError "Invalid op on character strings" ss
                             return Nothing
-        _ -> do typeError "Type error between operands of binary operator" (getSpan (e1, e2))
+        _ -> do typeError "Type error between operands of binary operator" ss
                 return Nothing
       mbt' <- case mbt of
         Just bt
           | op `elem` [ Addition, Subtraction, Multiplication, Division
                       , Exponentiation, Concatenation, Or, XOr, And ]       -> return $ Just bt
           | op `elem` [GT, GTE, LT, LTE, EQ, NE, Equivalent, NotEquivalent] -> return $ Just TypeLogical
-          | BinCustom{} <- op -> typeError "custom ops not supported" (getSpan (e1, e2)) >> return Nothing
+          | BinCustom{} <- op -> typeError "custom binary ops not supported" ss >> return Nothing
         _ -> return Nothing
 
       return $ IDType mbt' Nothing
+
+unaryOpType :: Data a => SrcSpan -> UnaryOp -> Expression (Analysis a) -> Infer IDType
+unaryOpType ss op e = do
+  mbt <- case getIDType e of
+           Just (IDType (Just bt) _) -> return $ Just bt
+           _ -> typeError "Unable to obtain type for" (getSpan e) >> return Nothing
+  mbt' <- case (mbt, op) of
+    (Nothing, _)               -> return Nothing
+    (Just TypeCustom{}, _)     -> typeError "custom types / unary ops not supported" ss >> return Nothing
+    (_, UnCustom{})            -> typeError "custom unary ops not supported" ss >> return Nothing
+    (Just TypeLogical, Not)    -> return $ Just TypeLogical
+    (Just bt, op)
+      | op `elem` [Plus, Minus] &&
+        bt `elem` numericTypes -> return $ Just bt
+    _ -> typeError "Type error for unary operator" ss >> return Nothing
+  return $ IDType mbt' Nothing
+
+subscriptType :: Data a => SrcSpan -> Expression (Analysis a) -> AList Index (Analysis a) -> Infer IDType
+subscriptType ss e1 (AList _ _ idxs) = do
+  let isInteger ie | Just (IDType (Just TypeInteger) _) <- getIDType ie = True | otherwise = False
+  forM_ idxs $ \ idx -> case idx of
+    IxSingle _ _ _ ie
+      | not (isInteger ie) -> typeError "Invalid or unknown type for index" (getSpan ie)
+    IxRange _ _ mie1 mie2 mie3
+      | Just ie1 <- mie1, not (isInteger ie1) -> typeError "Invalid or unknown type for index" (getSpan ie1)
+      | Just ie2 <- mie2, not (isInteger ie2) -> typeError "Invalid or unknown type for index" (getSpan ie2)
+      | Just ie3 <- mie3, not (isInteger ie3) -> typeError "Invalid or unknown type for index" (getSpan ie3)
+    _ -> return ()
+  case getIDType e1 of
+    Just ty@(IDType mbt (Just (CTArray dds))) -> do
+      when (length idxs /= length dds) $ typeError "Length of indices does not match rank of array." ss
+      let isSingle (IxSingle{}) = True; _ = False
+      if all isSingle idxs
+        then return $ IDType mbt Nothing
+        else return ty
+    _ -> return emptyType
+
+functionCallType :: Data a => SrcSpan -> Expression (Analysis a) -> Infer IDType
+functionCallType ss e1 = case getIDType e1 of
+  Just (IDType (Just bt) (Just CTFunction)) -> return $ IDType (Just bt) Nothing
+  Just (IDType (Just bt) (Just CTExternal)) -> return $ IDType (Just bt) Nothing
+  _ -> typeError "non-function invoked by call" ss >> return emptyType
 
 charLenConcat :: CharacterLen -> CharacterLen -> CharacterLen
 charLenConcat l1 l2 = case (l1, l2) of
@@ -258,6 +303,9 @@ charLenConcat l1 l2 = case (l1, l2) of
   (CharLenColon  , _             ) -> CharLenColon
   (_             , CharLenColon  ) -> CharLenColon
   (CharLenInt i1 , CharLenInt i2 ) -> CharLenInt (i1 + i2)
+
+numericTypes :: [BaseType]
+numericTypes = [TypeDoubleComplex, TypeComplex, TypeDoublePrecision, TypeReal, TypeInteger, TypeByte]
 
 --------------------------------------------------
 -- Monadic helper combinators.
