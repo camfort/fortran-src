@@ -115,7 +115,6 @@ spec = do
 
     describe "Numeric types" $ do
       it "Widening / upgrading" $ do
-        let mapping = inferTable numerics1
         let pf = typedProgramFile numerics1
         [ a | ExpFunctionCall a _ (ExpValue _ _ (ValIntrinsic "abs")) _ <- uniExpr pf
             , idType a == Just (IDType (Just TypeReal) Nothing) ]

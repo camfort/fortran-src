@@ -6,7 +6,7 @@ import Language.Fortran.AST
 import Prelude hiding (lookup, EQ, LT, GT)
 import Data.Map (insert)
 import qualified Data.Map as M
-import Data.Maybe (fromMaybe, maybeToList)
+import Data.Maybe (maybeToList)
 import Data.List (find)
 import Control.Monad.State.Strict
 import Data.Generics.Uniplate.Data
@@ -206,6 +206,7 @@ complexLiteralType :: Expression a -> Expression a -> IDType
 complexLiteralType (ExpValue _ _ (ValReal r)) _
  | IDType (Just TypeDoublePrecision) _ <- realLiteralType r = IDType (Just TypeDoubleComplex) Nothing
  | otherwise                                                = IDType (Just TypeComplex) Nothing
+complexLiteralType _ _ = IDType (Just TypeComplex) Nothing
 
 binaryOpType :: Data a => SrcSpan -> BinaryOp -> Expression (Analysis a) -> Expression (Analysis a) -> Infer IDType
 binaryOpType ss op e1 e2 = do
@@ -232,7 +233,7 @@ binaryOpType ss op e1 e2 = do
         (TypeInteger         , _                   ) -> return . Just $ TypeInteger
         (TypeByte            , TypeByte            ) -> return . Just $ TypeByte
         (TypeLogical         , TypeLogical         ) -> return . Just $ TypeLogical
-        (TypeCustom c1       , TypeCustom c2       ) -> do
+        (TypeCustom _        , TypeCustom _        ) -> do
           typeError "custom types / binary op not supported" ss
           return Nothing
         (TypeCharacter l1 k1 , TypeCharacter l2 _ )
@@ -262,7 +263,7 @@ unaryOpType ss op e = do
     (Just TypeCustom{}, _)     -> typeError "custom types / unary ops not supported" ss >> return Nothing
     (_, UnCustom{})            -> typeError "custom unary ops not supported" ss >> return Nothing
     (Just TypeLogical, Not)    -> return $ Just TypeLogical
-    (Just bt, op)
+    (Just bt, _)
       | op `elem` [Plus, Minus] &&
         bt `elem` numericTypes -> return $ Just bt
     _ -> typeError "Type error for unary operator" ss >> return Nothing
@@ -282,7 +283,7 @@ subscriptType ss e1 (AList _ _ idxs) = do
   case getIDType e1 of
     Just ty@(IDType mbt (Just (CTArray dds))) -> do
       when (length idxs /= length dds) $ typeError "Length of indices does not match rank of array." ss
-      let isSingle (IxSingle{}) = True; _ = False
+      let isSingle (IxSingle{}) = True; isSingle _ = False
       if all isSingle idxs
         then return $ IDType mbt Nothing
         else return ty
@@ -308,7 +309,7 @@ functionCallType ss (ExpValue _ _ (ValIntrinsic n)) (Just (AList _ _ params)) = 
               | otherwise -> typeError ("Invalid parameter list to intrinsic '" ++ n ++ "'") ss >> return Nothing
       case mbt of
         Nothing -> return emptyType
-        Just bt -> return $ IDType mbt Nothing
+        Just _ -> return $ IDType mbt Nothing
 functionCallType ss e1 _ = case getIDType e1 of
   Just (IDType (Just bt) (Just CTFunction)) -> return $ IDType (Just bt) Nothing
   Just (IDType (Just bt) (Just CTExternal)) -> return $ IDType (Just bt) Nothing
