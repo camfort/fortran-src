@@ -191,7 +191,7 @@ annotateExpression e@(ExpValue _ _ (ValLogical _))     = return $ IDType (Just T
 annotateExpression e@(ExpBinary _ _ op e1 e2)          = flip setIDType e `fmap` binaryOpType (getSpan e) op e1 e2
 annotateExpression e@(ExpUnary _ _ op e1)              = flip setIDType e `fmap` unaryOpType (getSpan e1) op e1
 annotateExpression e@(ExpSubscript _ _ e1 idxAList)    = flip setIDType e `fmap` subscriptType (getSpan e) e1 idxAList
-annotateExpression e@(ExpFunctionCall _ _ e1 _)        = flip setIDType e `fmap` functionCallType (getSpan e) e1
+annotateExpression e@(ExpFunctionCall _ _ e1 parAList) = flip setIDType e `fmap` functionCallType (getSpan e) e1 parAList
 annotateExpression e                                   = return e
 
 annotateProgramUnit :: Data a => ProgramUnit (Analysis a) -> Infer (ProgramUnit (Analysis a))
@@ -288,8 +288,28 @@ subscriptType ss e1 (AList _ _ idxs) = do
         else return ty
     _ -> return emptyType
 
-functionCallType :: Data a => SrcSpan -> Expression (Analysis a) -> Infer IDType
-functionCallType ss e1 = case getIDType e1 of
+functionCallType :: Data a => SrcSpan -> Expression (Analysis a) -> Maybe (AList Argument (Analysis a)) -> Infer IDType
+functionCallType ss (ExpValue _ _ (ValIntrinsic n)) (Just (AList _ _ params)) = do
+  itab <- gets intrinsics
+  let mRetType = getIntrinsicReturnType n itab
+  case mRetType of
+    Nothing -> return emptyType
+    Just retType -> do
+      mbt <- case retType of
+            ITReal      -> return $ Just TypeReal
+            ITInteger   -> return $ Just TypeInteger
+            ITComplex   -> return $ Just TypeComplex
+            ITDouble    -> return $ Just TypeDoublePrecision
+            ITLogical   -> return $ Just TypeLogical
+            ITCharacter -> return . Just $ TypeCharacter Nothing Nothing
+            ITParam i
+              | length params >= i, Argument _ _ _ e <- params !! (i-1)
+                -> return $ idVType =<< getIDType e
+              | otherwise -> typeError ("Invalid parameter list to intrinsic '" ++ n ++ "'") ss >> return Nothing
+      case mbt of
+        Nothing -> return emptyType
+        Just bt -> return $ IDType mbt Nothing
+functionCallType ss e1 _ = case getIDType e1 of
   Just (IDType (Just bt) (Just CTFunction)) -> return $ IDType (Just bt) Nothing
   Just (IDType (Just bt) (Just CTExternal)) -> return $ IDType (Just bt) Nothing
   _ -> typeError "non-function invoked by call" ss >> return emptyType
