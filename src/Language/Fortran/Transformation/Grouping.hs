@@ -227,6 +227,7 @@ collectNonDoBlocks blocks mNameTarget =
       in (b : bs', rest, mLabel, stEnd)
     _ -> error "Premature file ending while parsing structured do block."
 
+isDo :: Statement a -> Bool
 isDo s = case s of
   StDo _ _ _ Nothing _      -> True
   StDoWhile _ _ _ Nothing _ -> True
