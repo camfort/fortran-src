@@ -17,7 +17,8 @@ import System.Environment
 import System.Directory
 import System.FilePath
 import Text.PrettyPrint.GenericPretty (pp, pretty, Out)
-import Data.List (intercalate, (\\), isSuffixOf)
+import Data.List (sortBy, intercalate, (\\), isSuffixOf)
+import Data.Ord (comparing)
 import Data.Char (toLower)
 import Data.Maybe (fromMaybe, maybeToList)
 import Data.Data
@@ -64,7 +65,7 @@ main = do
       let tenv = combinedTypeEnv mods
       let pvm = combinedParamVarMap mods
 
-      let runInfer = analyseTypesWithEnv tenv . analyseRenamesWithModuleMap mmap . initAnalysis
+      let runTypes = analyseAndCheckTypesWithEnv tenv . analyseRenamesWithModuleMap mmap . initAnalysis
       let runRenamer = stripAnalysis . rename . analyseRenamesWithModuleMap mmap . initAnalysis
       let runBBlocks pf = showBBlocks pf' ++ "\n\n" ++ showDataFlow pf'
             where pf' = analyseParameterVars pvm . analyseBBlocks . analyseRenamesWithModuleMap mmap . initAnalysis $ pf
@@ -82,7 +83,8 @@ main = do
           print $ FreeForm.collectFreeTokens version contents
         Lex        -> ioError $ userError $ usageInfo programName options
         Parse      -> pp $ parserF mods contents path
-        Typecheck  -> printTypes . extractTypeEnv . fst . runInfer $ parserF mods contents path
+        Typecheck  -> let (pf, _, errs) = runTypes (parserF mods contents path) in
+                        printTypeErrors errs >> printTypes (extractTypeEnv pf)
         Rename     -> pp . runRenamer $ parserF mods contents path
         BBlocks    -> putStrLn . runBBlocks $ parserF mods contents path
         SuperGraph -> putStrLn . runSuperGraph $ parserF mods contents path
@@ -202,6 +204,10 @@ showTypes tenv = flip concatMap (M.toList tenv) $ \ (name, IDType { idVType = vt
     printf "%s\t\t%s %s\n" name (drop 4 $ maybe "  -" show vt) (drop 2 $ maybe "   " show ct)
 printTypes :: TypeEnv -> IO ()
 printTypes = putStrLn . showTypes
+showTypeErrors :: [TypeError] -> String
+showTypeErrors errs = unlines [ show ss ++ ": " ++ msg | (msg, ss) <- sortBy (comparing snd) errs ]
+printTypeErrors :: [TypeError] -> IO ()
+printTypeErrors = putStrLn . showTypeErrors
 
 data Action = Lex | Parse | Typecheck | Rename | BBlocks | SuperGraph | Reprint | DumpModFile | Compile deriving Eq
 

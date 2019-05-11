@@ -1,5 +1,7 @@
 {-# LANGUAGE ScopedTypeVariables #-}
-module Language.Fortran.Analysis.Types ( analyseTypes, analyseTypesWithEnv, extractTypeEnv, TypeEnv ) where
+module Language.Fortran.Analysis.Types
+  ( analyseTypes, analyseTypesWithEnv, analyseAndCheckTypesWithEnv, extractTypeEnv, TypeEnv, TypeError )
+where
 
 import Language.Fortran.AST
 
@@ -23,6 +25,9 @@ import Language.Fortran.ParserMonad (FortranVersion(..))
 -- | Mapping of names to type information.
 type TypeEnv = M.Map Name IDType
 
+-- | Information about a detected type error.
+type TypeError = (String, SrcSpan)
+
 --------------------------------------------------
 
 -- Monad for type inference work
@@ -31,7 +36,7 @@ data InferState = InferState { langVersion :: FortranVersion
                              , intrinsics  :: IntrinsicsTable
                              , environ     :: TypeEnv
                              , entryPoints :: M.Map Name (Name, Maybe Name)
-                             , typeErrors  :: [(String, SrcSpan)] }
+                             , typeErrors  :: [TypeError] }
   deriving Show
 type InferFunc t = t -> Infer ()
 
@@ -46,7 +51,24 @@ analyseTypes = analyseTypesWithEnv M.empty
 -- environment mapping names to type information; provided with a
 -- starting type environment.
 analyseTypesWithEnv :: Data a => TypeEnv -> ProgramFile (Analysis a) -> (ProgramFile (Analysis a), TypeEnv)
-analyseTypesWithEnv env pf@(ProgramFile mi _) = fmap environ . runInfer (miVersion mi) env $ do
+analyseTypesWithEnv env pf = (pf', tenv)
+  where
+    (pf', endState) = analyseTypesWithEnv' env pf
+    tenv            = environ endState
+
+-- | Annotate AST nodes with type information, return a type
+-- environment mapping names to type information and return any type
+-- errors found; provided with a starting type environment.
+analyseAndCheckTypesWithEnv
+  :: Data a => TypeEnv -> ProgramFile (Analysis a) -> (ProgramFile (Analysis a), TypeEnv, [TypeError])
+analyseAndCheckTypesWithEnv env pf = (pf', tenv, terrs)
+  where
+    (pf', endState) = analyseTypesWithEnv' env pf
+    tenv            = environ endState
+    terrs           = typeErrors endState
+
+analyseTypesWithEnv' :: Data a => TypeEnv -> ProgramFile (Analysis a) -> (ProgramFile (Analysis a), InferState)
+analyseTypesWithEnv' env pf@(ProgramFile mi _) = runInfer (miVersion mi) env $ do
   -- Gather information.
   mapM_ intrinsicsExp (allExpressions pf)
   mapM_ programUnit (allProgramUnits pf)
@@ -212,10 +234,10 @@ binaryOpType :: Data a => SrcSpan -> BinaryOp -> Expression (Analysis a) -> Expr
 binaryOpType ss op e1 e2 = do
   mbt1 <- case getIDType e1 of
             Just (IDType (Just bt) _) -> return $ Just bt
-            _ -> typeError "Unable to obtain type for" (getSpan e1) >> return Nothing
+            _ -> typeError "Unable to obtain type for first operand" (getSpan e1) >> return Nothing
   mbt2 <- case getIDType e2 of
             Just (IDType (Just bt) _) -> return $ Just bt
-            _ -> typeError "Unable to obtain type for" (getSpan e2) >> return Nothing
+            _ -> typeError "Unable to obtain type for second operand" (getSpan e2) >> return Nothing
   case (mbt1, mbt2) of
     (_, Nothing) -> return emptyType
     (Nothing, _) -> return emptyType
