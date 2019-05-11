@@ -195,4 +195,5 @@ fortran90intrinisics = fortran77intrinsics `M.union` M.fromList
   , ("transpose"    , mkIEntry (ITParam 1)   func1)
   , ("maxloc"       , mkIEntry (ITParam 1)   func2)
   , ("minloc"       , mkIEntry (ITParam 1)   func2)
+  , ("epsilon"      , mkIEntry (ITReal)      func1)
   ]
