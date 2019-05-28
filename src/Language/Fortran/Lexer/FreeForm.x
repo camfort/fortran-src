@@ -249,6 +249,7 @@ tokens :-
 <0,scI> "where"                                   { addSpan TWhere }
 <scN> "where" / { labelledWhereP }                { addSpan TWhere }
 <0> "elsewhere"                                   { addSpan TElsewhere }
+<0> "else"\ *"where"                              { addSpan TElsewhere }
 <0> "end"\ *"where"                               { addSpan TEndWhere }
 
 -- Beginning keyword
