@@ -81,6 +81,7 @@ $expLetter = [ed]
 --------------------------------------------------------------------------------
 tokens :-
 
+<0> "/*"[.\n]*"*/"                                    { return Nothing }
 <0,scN> "!".*$                                    { adjustComment $ addSpanAndMatch TComment }
 
 <0> $hash.*$                                      { lexHash }
