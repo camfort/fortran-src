@@ -1,6 +1,6 @@
 -- | Analyse a program file and create basic blocks.
 
-{-# LANGUAGE FlexibleContexts, PatternGuards, ScopedTypeVariables #-}
+{-# LANGUAGE TupleSections, FlexibleContexts, PatternGuards, ScopedTypeVariables #-}
 module Language.Fortran.Analysis.BBlocks
   ( analyseBBlocks, genBBlockMap, showBBGr, showAnalysedBBGr, showBBlocks, bbgrToDOT, BBlockMap
   , genSuperBBGr, SuperBBGr, showSuperBBGr, superBBGrToDOT, superBBGrGraph, superBBGrClusters, superBBGrEntries
@@ -11,7 +11,7 @@ import Prelude hiding (exp)
 import Data.Generics.Uniplate.Data hiding (transform)
 import Data.Char (toLower)
 import Data.Data
-import Data.List (foldl')
+import Data.List (unfoldr, foldl')
 import Control.Monad
 import Control.Monad.State.Lazy hiding (fix)
 import Control.Monad.Writer hiding (fix)
@@ -833,8 +833,16 @@ showValue (ValIntrinsic v)      = v
 showValue (ValInteger v)        = v
 showValue (ValReal v)           = v
 showValue (ValComplex e1 e2)    = "( " ++ showExpr e1 ++ " , " ++ showExpr e2 ++ " )"
-showValue (ValString s)         = '\"':s ++ "\"" -- FIXME: need escaping for strings
+showValue (ValString s)         = '\"':escapeStr s ++ "\""
 showValue v                     = "<unhandled value: " ++ show (toConstr (fmap (const ()) v)) ++ ">"
+
+escapeStr :: String -> String
+escapeStr = map fst . unfoldr f . map (,False)
+  where
+    f []                = Nothing
+    f ((c,False):cs)
+      | c `elem` "\"\\" = Just (('\\', False), (c, True):cs)
+    f ((c,_):cs)        = Just ((c, False), cs)
 
 showExpr :: Expression a -> String
 showExpr (ExpValue _ _ v)         = showValue v
