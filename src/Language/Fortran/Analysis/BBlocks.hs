@@ -4,7 +4,7 @@
 module Language.Fortran.Analysis.BBlocks
   ( analyseBBlocks, genBBlockMap, showBBGr, showAnalysedBBGr, showBBlocks, bbgrToDOT, BBlockMap
   , genSuperBBGr, SuperBBGr, showSuperBBGr, superBBGrToDOT, superBBGrGraph, superBBGrClusters, superBBGrEntries
-  , findLabeledBBlock )
+  , findLabeledBBlock, showBlock )
 where
 
 import Prelude hiding (exp)
@@ -765,7 +765,7 @@ showPUName NamelessBlockData = ".blockdata."
 showPUName NamelessMain = ".main."
 showPUName NamelessComment = ".comment."
 
--- Some helper functions to output some pseudo-code for readability
+-- | Some helper functions to output some pseudo-code for readability.
 showBlock :: Block a -> String
 showBlock (BlStatement _ _ mlab st)
     | null (str :: String) = ""
@@ -785,7 +785,8 @@ showBlock (BlStatement _ _ mlab st)
             aIntercalate ", " showAttr aattrs ++
             aIntercalate ", " showDecl adecls
         StDimension _ _ adecls       -> "dimension " ++ aIntercalate ", " showDecl adecls
-        _                            -> ""
+        StExit{}                     -> "exit"
+        _                            -> "<unhandled statement: " ++ show (toConstr (fmap (const ()) st)) ++ ">"
 showBlock (BlIf _ _ mlab _ (Just e1:_) _ _) = showLab mlab ++ "if " ++ showExpr e1 ++ "\\l"
 showBlock (BlDo _ _ mlab _ _ (Just spec) _ _) =
     showLab mlab ++ "do " ++ showExpr e1 ++ " <- " ++
@@ -794,7 +795,7 @@ showBlock (BlDo _ _ mlab _ _ (Just spec) _ _) =
       maybe "1" showExpr me4 ++ "\\l"
   where DoSpecification _ _ (StExpressionAssign _ _ e1 e2) e3 me4 = spec
 showBlock (BlDo _ _ _ _ _ Nothing _ _) = "do"
-showBlock _ = ""
+showBlock b = "<unhandled block: " ++ show (toConstr (fmap (const ()) b)) ++ ">"
 
 showAttr :: Attribute a -> String
 showAttr (AttrParameter _ _) = "parameter"
@@ -833,7 +834,7 @@ showValue (ValInteger v)        = v
 showValue (ValReal v)           = v
 showValue (ValComplex e1 e2)    = "( " ++ showExpr e1 ++ " , " ++ showExpr e2 ++ " )"
 showValue (ValString s)         = '\"':s ++ "\"" -- FIXME: need escaping for strings
-showValue _                     = ""
+showValue v                     = "<unhandled value: " ++ show (toConstr (fmap (const ()) v)) ++ ">"
 
 showExpr :: Expression a -> String
 showExpr (ExpValue _ _ v)         = showValue v
@@ -841,7 +842,7 @@ showExpr (ExpBinary _ _ op e1 e2) = "(" ++ showExpr e1 ++ showOp op ++ showExpr 
 showExpr (ExpUnary _ _ op e)      = "(" ++ showUOp op ++ showExpr e ++ ")"
 showExpr (ExpSubscript _ _ e1 aexps) = showExpr e1 ++ "[" ++
                                        aIntercalate ", " showIndex aexps ++ "]"
-showExpr _                        = ""
+showExpr e                        = "<unhandled expr: " ++ show (toConstr (fmap (const ()) e)) ++ ">"
 
 showIndex :: Index a -> String
 showIndex (IxSingle _ _ _ i) = showExpr i
