@@ -667,14 +667,15 @@ showDataFlow pf = perPU =<< uni pf
     rd = reachingDefinitions dm
     cm = genCallMap pf
 
+-- | Outputs a DOT-formatted graph showing flow-to data starting at
+-- the given AST-Block node in the given Basic Block graph.
 showFlowsToDOT :: (Data a, Out a, Show a) => ProgramFile (Analysis a) -> BBGr (Analysis a) -> Int -> String
 showFlowsToDOT pf bbgr astBlockId = execWriter $ do
   let bm = genBlockMap pf
       dm = genDefMap bm
       flowsTo = genFlowsToGraph bm dm bbgr (reachingDefinitions dm bbgr)
   tell "strict digraph {\n"
-  let nodes = bfsn [astBlockId] flowsTo
-  forM_ nodes $ \ n -> do
+  forM_ (bfsn [astBlockId] flowsTo) $ \ n -> do
     let pseudocode = maybe "<N/A>" showBlock $ IM.lookup n bm
     tell "node [shape=box,fontname=\"Courier New\"]\n"
     tell $ "Bl" ++ show n ++ "[label=\"B" ++ show n ++ "\\l" ++ pseudocode ++ "\"]\n"
