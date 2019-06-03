@@ -395,7 +395,7 @@ perBlock b@(BlStatement a ss _ (StIfLogical _ _ exp stm)) = do
   (ifN, thenN) <- closeBBlock
 
   -- build pseudo-AST-block to contain nested statement
-  _ <- processBlocks [BlStatement a ss Nothing stm]
+  _ <- processBlocks [BlStatement a{ insLabel = Nothing } ss Nothing stm]
   _ <- gets curNode
 
   -- connect all the new bblocks with edges, link to subsequent bblock labeled nxtN
@@ -430,14 +430,16 @@ perBlock (BlStatement a s l (StCall a' s' cn@ExpValue{} (Just aargs))) = do
   -- create bblock that assigns formal parameters (n[1], n[2], ...)
   case l of
     Just (ExpValue _ _ (ValInteger l')) -> insertLabel l' formalN -- label goes here, if present
-    _                                -> return ()
+    _                                   -> return ()
   let name i   = varName cn ++ "[" ++ show i ++ "]"
-  let formal (ExpValue a'' s'' (ValVariable _)) i = ExpValue a'' s'' (ValVariable (name i))
-      formal e i                              = ExpValue a'' s'' (ValVariable (name i))
+  let formal (ExpValue a'' s'' (ValVariable _)) i = genVar a''{ insLabel = Nothing } s'' (name i)
+      formal e i                                  = genVar a''{ insLabel = Nothing } s'' (name i)
         where a'' = getAnnotation e; s'' = getSpan e
   forM_ (zip exps [(1::Integer)..]) $ \ (e, i) -> do
     e' <- processFunctionCalls e
-    addToBBlock . analyseAllLhsVars1 $ BlStatement a s Nothing (StExpressionAssign a' s' (formal e' i) e')
+    let b = BlStatement a{ insLabel = Nothing } s l (StExpressionAssign a' s' (formal e' i) e')
+    addToBBlock $ analyseAllLhsVars1 b
+
   (_, dummyCallN) <- closeBBlock
 
   -- create "dummy call" bblock with no parameters in the StCall AST-node.
@@ -449,7 +451,8 @@ perBlock (BlStatement a s l (StCall a' s' cn@ExpValue{} (Just aargs))) = do
   forM_ (zip exps [(1::Integer)..]) $ \ (e, i) ->
     -- this is only possible for l-expressions
     (when (isLExpr e) $
-      addToBBlock . analyseAllLhsVars1 $ BlStatement a s Nothing (StExpressionAssign a' s' e (formal e i)))
+      addToBBlock . analyseAllLhsVars1 $
+        BlStatement a{ insLabel = Nothing } s l (StExpressionAssign a' s' e (formal e i)))
   (_, nextN) <- closeBBlock
 
   -- connect the bblocks
@@ -570,16 +573,14 @@ processFunctionCall (ExpFunctionCall a s fn@(ExpValue a' s' _) aargs) = do
 
   -- create bblock that assigns formal parameters (fn[1], fn[2], ...)
   let name i   = varName fn ++ "[" ++ show i ++ "]"
-  let setName n e = setAnnotation ((getAnnotation e) { uniqueName = Just n, sourceName = Just n }) e
-  let formal (ExpValue _ s'' (ValVariable _)) i = setName n $ ExpValue a0 s'' (ValVariable n)
-        where n = name i
-      formal e i                              = setName n $ ExpValue a0 s'' (ValVariable n)
-        where s'' = getSpan e; n = name i
+  let formal (ExpValue _ s'' (ValVariable _)) i = genVar a0 s'' $ name i
+      formal e i                                = genVar a0 (getSpan e) $ name i
+
   forM_ (zip exps [(1::Integer)..]) $ \ (e, i) ->
     addToBBlock . analyseAllLhsVars1 $ BlStatement a0 s Nothing (StExpressionAssign a' s' (formal e i) e)
   (_, dummyCallN) <- closeBBlock
 
-  let retV = setName (name (0::Integer)) $ ExpValue a0 s (ValVariable (name (0::Integer)))
+  let retV = genVar a0 s $ name (0::Integer)
   let dummyArgs = map (Argument a0 s' Nothing) (retV:zipWith formal exps [(1::Integer)..])
 
   -- create "dummy call" bblock with dummy arguments in the StCall AST-node.
@@ -593,7 +594,7 @@ processFunctionCall (ExpFunctionCall a s fn@(ExpValue a' s' _) aargs) = do
     (when (isLExpr e) $
       addToBBlock . analyseAllLhsVars1 $ BlStatement a0 s Nothing (StExpressionAssign a' s' e (formal e i)))
   tempName <- genTemp (varName fn)
-  let temp = setName tempName $ ExpValue a0 s (ValVariable tempName)
+  let temp = genVar a0 s tempName
 
   addToBBlock . analyseAllLhsVars1 $ BlStatement a0 s Nothing (StExpressionAssign a0 s' temp retV)
   (_, nextN) <- closeBBlock

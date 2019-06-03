@@ -245,10 +245,10 @@ spec =
           bedges = genBackEdgeMap domMap $ bbgrGr gr
       it "backEdges" $
         bedges `shouldBe` IM.fromList [(findLabelBB gr 12, findLabelBB gr 11)]
-      it "flowsTo" $
-        (S.fromList . edges $ flTo) `shouldSatisfy`
+      it "flowsTo" $ do
+        (S.fromList . edges . tc $ flTo) `shouldSatisfy`
           -- Find the flows of the assignment statements in the program.
-          S.isSubsetOf (findLabelsBlEdges pf [(1,2),(1,3),(1,4),(2,3),(3,11),(4,4),(11,12),(12,12)])
+          S.isSubsetOf (findLabelsBlEdges pf [(1,2),(1,3),(1,12),(2,3),(3,11),(11,12),(12,12)])
 
     describe "other" $
       it "dominators on disconnected graph" $
