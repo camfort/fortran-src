@@ -873,6 +873,7 @@ showOp Addition = " + "
 showOp Multiplication = " * "
 showOp Subtraction = " - "
 showOp Division = " / "
+showOp Concatenation = " // "
 showOp op = " ." ++ show op ++ ". "
 
 showType :: TypeSpec a -> String
