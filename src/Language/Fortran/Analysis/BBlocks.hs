@@ -835,7 +835,7 @@ showValue (ValIntrinsic v)      = v
 showValue (ValInteger v)        = v
 showValue (ValReal v)           = v
 showValue (ValComplex e1 e2)    = "( " ++ showExpr e1 ++ " , " ++ showExpr e2 ++ " )"
-showValue (ValString s)         = '\"':escapeStr s ++ "\""
+showValue (ValString s)         = "\\\"" ++ escapeStr s ++ "\\\""
 showValue v                     = "<unhandled value: " ++ show (toConstr (fmap (const ()) v)) ++ ">"
 
 escapeStr :: String -> String
