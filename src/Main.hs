@@ -20,7 +20,7 @@ import Text.PrettyPrint.GenericPretty (pp, pretty, Out)
 import Data.List (sortBy, intercalate, (\\), isSuffixOf)
 import Data.Ord (comparing)
 import Data.Char (toLower)
-import Data.Maybe (fromMaybe, maybeToList)
+import Data.Maybe (listToMaybe, fromMaybe, maybeToList)
 import Data.Data
 import Data.Generics.Uniplate.Data
 
@@ -75,7 +75,10 @@ main = do
                   bbm = genBBlockMap pf'
                   sgr = genSuperBBGr bbm
       let runCompile = encodeModFile . genModFile . fst . analyseTypesWithEnv tenv . analyseRenamesWithModuleMap mmap . initAnalysis
-
+      let findBlockPU pf astBlockId = listToMaybe
+            [ pu | pu <- universeBi pf :: [ProgramUnit (Analysis A0)]
+                 , b <- universeBi (programUnitBody pu)  :: [Block (Analysis A0)]
+                 , insLabel (getAnnotation b) == Just astBlockId ]
       case actionOpt of
         Lex | version `elem` [ Fortran66, Fortran77, Fortran77Extended, Fortran77Legacy ] ->
           print $ FixedForm.collectFixedTokens version contents
@@ -105,6 +108,24 @@ main = do
                                    "\n\nTypeEnv:\n" ++ showTypes (combinedTypeEnv [mf]) ++
                                    "\n\nParamVarMap:\n" ++ showGenericMap (combinedParamVarMap [mf]) ++
                                    "\n\nOther Data Labels: " ++ show (getLabelsModFileData mf)
+        ShowFlowsTo isSuper astBlockId -> do
+          let pf = analyseParameterVars pvm .
+                   analyseBBlocks .
+                   analyseRenamesWithModuleMap mmap .
+                   initAnalysis $ parserF mods contents path
+          let bbm = genBBlockMap pf
+          case (isSuper, findBlockPU pf astBlockId) of
+            (False, Nothing) -> fail "Couldn't find given AST block ID number."
+            (False, Just pu)
+              | Just bbgr <- M.lookup (puName pu) bbm ->
+                  putStrLn $ showFlowsToDOT pf bbgr astBlockId
+              | otherwise -> do
+                  print $ M.keys bbm
+                  fail $ "Internal error: Program Unit " ++ show (puName pu) ++ " is lacking a basic block graph."
+            (True, _) -> do
+              let sgr = genSuperBBGr bbm
+              putStrLn $ showFlowsToDOT pf (superBBGrGraph sgr) astBlockId
+
     _ -> fail $ usageInfo programName options
 
 -- List files in dir recursively
@@ -209,7 +230,10 @@ showTypeErrors errs = unlines [ show ss ++ ": " ++ msg | (msg, ss) <- sortBy (co
 printTypeErrors :: [TypeError] -> IO ()
 printTypeErrors = putStrLn . showTypeErrors
 
-data Action = Lex | Parse | Typecheck | Rename | BBlocks | SuperGraph | Reprint | DumpModFile | Compile deriving Eq
+data Action
+  = Lex | Parse | Typecheck | Rename | BBlocks | SuperGraph | Reprint | DumpModFile | Compile
+  | ShowFlowsTo Bool Int
+  deriving Eq
 
 instance Read Action where
   readsPrec _ value =
@@ -277,6 +301,13 @@ options =
       ["compile"]
       (NoArg $ \ opts -> opts { action = Compile })
       "compile an .fsmod file from the input"
+  , Option []
+      ["show-flows-to"]
+      (ReqArg (\a opts -> case a of s:num | toLower s == 's' -> opts { action = ShowFlowsTo True (read num) }
+                                    b:num | toLower b == 'b' -> opts { action = ShowFlowsTo False (read num) }
+                                    num                      -> opts { action = ShowFlowsTo False (read num) }
+              ) "AST-BLOCK-ID")
+      "dump a graph showing flows-to information from the given AST-block ID; prefix with 's' for supergraph"
   ]
 
 compileArgs :: [ String ] -> IO (Options, [ String ])
