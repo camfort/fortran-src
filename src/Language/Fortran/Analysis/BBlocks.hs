@@ -717,6 +717,7 @@ showSuperBBGr = showAnalysedBBGr . graph
 showBBlocks :: (Data a, Out a, Show a) => ProgramFile (Analysis a) -> String
 showBBlocks pf = perPU =<< getPUs pf
   where
+    perPU PUComment{} = ""
     perPU pu | Analysis { bBlocks = Just gr } <- getAnnotation pu =
       dashes ++ "\n" ++ p ++ "\n" ++ dashes ++ "\n" ++ showBBGr (bbgrMap (nmap strip) gr) ++ "\n\n"
       where p = "| Program Unit " ++ show (puName pu) ++ " |"
@@ -795,6 +796,7 @@ showBlock (BlDo _ _ mlab _ _ (Just spec) _ _) =
       maybe "1" showExpr me4 ++ "\\l"
   where DoSpecification _ _ (StExpressionAssign _ _ e1 e2) e3 me4 = spec
 showBlock (BlDo _ _ _ _ _ Nothing _ _) = "do"
+showBlock (BlComment{})                = ""
 showBlock b = "<unhandled block: " ++ show (toConstr (fmap (const ()) b)) ++ ">"
 
 showAttr :: Attribute a -> String
