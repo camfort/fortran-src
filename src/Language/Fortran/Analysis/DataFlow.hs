@@ -4,7 +4,7 @@
 module Language.Fortran.Analysis.DataFlow
   ( dominators, iDominators, DomMap, IDomMap
   , postOrder, revPostOrder, preOrder, revPreOrder, OrderF
-  , dataFlowSolver, showDataFlow, InOut, InOutMap, InF, OutF
+  , dataFlowSolver, InOut, InOutMap, InF, OutF
   , liveVariableAnalysis, reachingDefinitions
   , genUDMap, genDUMap, duMapToUdMap, UDMap, DUMap
   , genFlowsToGraph, FlowsGraph
@@ -17,6 +17,7 @@ module Language.Fortran.Analysis.DataFlow
   , genInductionVarMap, InductionVarMap
   , genInductionVarMapByASTBlock, InductionVarMapByASTBlock
   , genDerivedInductionMap, DerivedInductionMap, InductionExpr(..)
+  , showDataFlow, showFlowsToDOT
 ) where
 
 import Prelude hiding (init)
@@ -28,6 +29,7 @@ import Control.Arrow ((&&&))
 import Text.PrettyPrint.GenericPretty (Out)
 import Language.Fortran.Parser.Utils
 import Language.Fortran.Analysis
+import Language.Fortran.Analysis.BBlocks (showBlock)
 import Language.Fortran.AST
 import qualified Data.Map as M
 import qualified Data.IntMap.Lazy as IM
@@ -37,6 +39,7 @@ import Data.Graph.Inductive hiding (trc, dom, order, inn, out, rc)
 import Data.Graph.Inductive.PatriciaTree (Gr)
 import Data.Maybe
 import Data.List (foldl', foldl1', (\\), union, intersect)
+import Control.Monad.Writer hiding (fix)
 
 --------------------------------------------------
 
@@ -663,6 +666,22 @@ showDataFlow pf = perPU =<< uni pf
     dm = genDefMap bm
     rd = reachingDefinitions dm
     cm = genCallMap pf
+
+showFlowsToDOT :: (Data a, Out a, Show a) => ProgramFile (Analysis a) -> BBGr (Analysis a) -> Int -> String
+showFlowsToDOT pf bbgr astBlockId = execWriter $ do
+  let bm = genBlockMap pf
+      dm = genDefMap bm
+      flowsTo = genFlowsToGraph bm dm bbgr (reachingDefinitions dm bbgr)
+  tell "strict digraph {\n"
+  let nodes = bfsn [astBlockId] flowsTo
+  forM_ nodes $ \ n -> do
+    let pseudocode = maybe "<N/A>" showBlock $ IM.lookup n bm
+    tell "node [shape=box,fontname=\"Courier New\"]\n"
+    tell $ "Bl" ++ show n ++ "[label=\"B" ++ show n ++ "\\l" ++ pseudocode ++ "\"]\n"
+    tell $ "Bl" ++ show n ++ " -> {"
+    forM_ (suc flowsTo n) $ \ m -> tell (" Bl" ++ show m)
+    tell "}\n"
+  tell "}\n"
 
 --------------------------------------------------
 
