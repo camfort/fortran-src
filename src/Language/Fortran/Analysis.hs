@@ -10,7 +10,7 @@ module Language.Fortran.Analysis
   , ModEnv, NameType(..), IDType(..), ConstructType(..), BaseType(..)
   , lhsExprs, isLExpr, allVars, analyseAllLhsVars, analyseAllLhsVars1, allLhsVars
   , blockVarUses, blockVarDefs
-  , BB, BBGr(..), bbgrMap, bbgrMapM, bbgrEmpty
+  , BB, BBNode, BBGr(..), bbgrMap, bbgrMapM, bbgrEmpty
   , TransFunc, TransFuncM )
 where
 
@@ -43,6 +43,8 @@ data BBGr a = BBGr { bbgrGr :: Gr (BB a) () -- ^ the underlying graph
                    , bbgrExits :: [Node]    -- ^ the exit node(s)
                    }
   deriving (Data, Show, Eq, Generic)
+
+type BBNode = Int
 
 -- | Empty basic block graph
 bbgrEmpty :: BBGr a

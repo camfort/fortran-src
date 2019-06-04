@@ -2,7 +2,7 @@
 
 {-# LANGUAGE TupleSections, FlexibleContexts, PatternGuards, ScopedTypeVariables #-}
 module Language.Fortran.Analysis.BBlocks
-  ( analyseBBlocks, genBBlockMap, showBBGr, showAnalysedBBGr, showBBlocks, bbgrToDOT, BBlockMap
+  ( analyseBBlocks, genBBlockMap, showBBGr, showAnalysedBBGr, showBBlocks, bbgrToDOT, BBlockMap, ASTBlockNode, ASTExprNode
   , genSuperBBGr, SuperBBGr, showSuperBBGr, superBBGrToDOT, superBBGrGraph, superBBGrClusters, superBBGrEntries
   , findLabeledBBlock, showBlock )
 where
@@ -52,16 +52,18 @@ genBBlockMap pf = M.fromList [
 
 --------------------------------------------------
 
+type ASTBlockNode = Int
+
 -- Insert unique labels on each AST-block for easier look-up later.
-labelBlocks :: Data a => ProgramFile (Analysis a) -> State Int (ProgramFile (Analysis a))
+labelBlocks :: Data a => ProgramFile (Analysis a) -> State ASTBlockNode (ProgramFile (Analysis a))
 labelBlocks = transform eachBlock
   where
-    eachBlock :: Data a => Block (Analysis a) -> State Int (Block (Analysis a))
+    eachBlock :: Data a => Block (Analysis a) -> State ASTBlockNode (Block (Analysis a))
     eachBlock b = do
       n <- get
       put (n + 1)
       return . labelWithinBlocks $ setAnnotation ((getAnnotation b) { insLabel = Just n }) b
-    transform :: Data a => TransFuncM (State Int) Block ProgramFile a
+    transform :: Data a => TransFuncM (State ASTBlockNode) Block ProgramFile a
     transform = transformBiM
 
 -- A version of labelBlocks that works on all AST-blocks inside of a
@@ -69,18 +71,18 @@ labelBlocks = transform eachBlock
 -- numbers. The reason that this function must exist is because
 -- additional AST-blocks are generated within the process of creating
 -- basic-block graphs, and must also be labelled.
-labelBlocksInBBGr :: Data a => ProgramFile (Analysis a) -> State Int (ProgramFile (Analysis a))
+labelBlocksInBBGr :: Data a => ProgramFile (Analysis a) -> State ASTBlockNode (ProgramFile (Analysis a))
 labelBlocksInBBGr = transform (bbgrMapM (nmapM' (mapM eachBlock)))
   where
-    eachBlock :: Data a => Block (Analysis a) -> State Int (Block (Analysis a))
+    eachBlock :: Data a => Block (Analysis a) -> State ASTBlockNode (Block (Analysis a))
     eachBlock b
       | a@Analysis { insLabel = Nothing } <- getAnnotation b = do
           n <- get
           put $ n + 1
           return . analyseAllLhsVars1 . labelWithinBlocks $ setAnnotation (a { insLabel = Just n }) b
       | otherwise = return . analyseAllLhsVars1 $ b
-    transform :: Data a => (BBGr a -> State Int (BBGr a)) ->
-                           ProgramFile a -> State Int (ProgramFile a)
+    transform :: Data a => (BBGr a -> State ASTBlockNode (BBGr a)) ->
+                           ProgramFile a -> State ASTBlockNode (ProgramFile a)
     transform = transformBiM
 
 -- Sets the label on each Index within a Block to match the Block, for
@@ -102,7 +104,7 @@ labelWithinBlocks = perBlock'
     mfill i  = fmap (fill i)
     mmfill i = fmap (fmap (fill i))
 
-    fill :: forall f. (Data (f (Analysis a))) => Maybe Int -> f (Analysis a) -> f (Analysis a)
+    fill :: forall f. (Data (f (Analysis a))) => Maybe ASTBlockNode -> f (Analysis a) -> f (Analysis a)
     fill Nothing  = id
     fill (Just i) = transform perIndex
       where
@@ -114,16 +116,18 @@ labelWithinBlocks = perBlock'
 
 --------------------------------------------------
 
+type ASTExprNode = Int
+
 -- Insert unique labels on each expression for easier look-up later.
-labelExprs :: Data a => ProgramFile (Analysis a) -> State Int (ProgramFile (Analysis a))
+labelExprs :: Data a => ProgramFile (Analysis a) -> State ASTExprNode (ProgramFile (Analysis a))
 labelExprs = transform eachExpr
   where
-    eachExpr :: Data a => Expression (Analysis a) -> State Int (Expression (Analysis a))
+    eachExpr :: Data a => Expression (Analysis a) -> State ASTExprNode (Expression (Analysis a))
     eachExpr e = do
       n <- get
       put (n + 1)
       return $ setAnnotation ((getAnnotation e) { insLabel = Just n }) e
-    transform :: Data a => TransFuncM (State Int) Expression ProgramFile a
+    transform :: Data a => TransFuncM (State ASTExprNode) Expression ProgramFile a
     transform = transformBiM
 
 -- A version of labelExprs that works on all expressions inside of a
@@ -131,21 +135,21 @@ labelExprs = transform eachExpr
 -- numbers. The reason that this function must exist is because
 -- additional expressions are generated within the process of creating
 -- basic-block graphs, and must also be labelled.
-labelExprsInBBGr :: Data a => ProgramFile (Analysis a) -> State Int (ProgramFile (Analysis a))
+labelExprsInBBGr :: Data a => ProgramFile (Analysis a) -> State ASTExprNode (ProgramFile (Analysis a))
 labelExprsInBBGr = transformBB (bbgrMapM (nmapM' (transformExpr eachExpr)))
   where
-    eachExpr :: Data a => Expression (Analysis a) -> State Int (Expression (Analysis a))
+    eachExpr :: Data a => Expression (Analysis a) -> State ASTExprNode (Expression (Analysis a))
     eachExpr e
       | a@Analysis { insLabel = Nothing } <- getAnnotation e = do
           n <- get
           put $ n + 1
           return $ setAnnotation (a { insLabel = Just n }) e
       | otherwise = return e
-    transformBB :: Data a => (BBGr a -> State Int (BBGr a)) ->
-                             ProgramFile a -> State Int (ProgramFile a)
+    transformBB :: Data a => (BBGr a -> State ASTExprNode (BBGr a)) ->
+                             ProgramFile a -> State ASTExprNode (ProgramFile a)
     transformBB = transformBiM
-    transformExpr :: Data a => (Expression (Analysis a) -> State Int (Expression (Analysis a))) ->
-                               [Block (Analysis a)] -> State Int [Block (Analysis a)]
+    transformExpr :: Data a => (Expression (Analysis a) -> State ASTExprNode (Expression (Analysis a))) ->
+                               [Block (Analysis a)] -> State ASTExprNode [Block (Analysis a)]
     transformExpr = transformBiM
 
 --------------------------------------------------

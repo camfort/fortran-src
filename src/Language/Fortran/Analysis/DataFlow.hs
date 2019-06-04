@@ -18,6 +18,7 @@ module Language.Fortran.Analysis.DataFlow
   , genInductionVarMapByASTBlock, InductionVarMapByASTBlock
   , genDerivedInductionMap, DerivedInductionMap, InductionExpr(..)
   , showDataFlow, showFlowsToDOT
+  , BBNodeMap, BBNodeSet, ASTBlockNodeMap, ASTBlockNodeSet, ASTExprNodeMap, ASTExprNodeSet
 ) where
 
 import Prelude hiding (init)
@@ -29,7 +30,7 @@ import Control.Arrow ((&&&))
 import Text.PrettyPrint.GenericPretty (Out)
 import Language.Fortran.Parser.Utils
 import Language.Fortran.Analysis
-import Language.Fortran.Analysis.BBlocks (showBlock)
+import Language.Fortran.Analysis.BBlocks (showBlock, ASTBlockNode, ASTExprNode)
 import Language.Fortran.AST
 import qualified Data.Map as M
 import qualified Data.IntMap.Lazy as IM
@@ -42,9 +43,16 @@ import Data.List (foldl', foldl1', (\\), union, intersect)
 import Control.Monad.Writer hiding (fix)
 
 --------------------------------------------------
+-- Better names for commonly used types
+type BBNodeMap = IM.IntMap
+type BBNodeSet = IS.IntSet
+type ASTBlockNodeMap = IM.IntMap
+type ASTBlockNodeSet = IS.IntSet
+type ASTExprNodeMap = IM.IntMap
+type ASTExprNodeSet = IS.IntSet
 
 -- | DomMap : node -> dominators of node
-type DomMap = IM.IntMap IS.IntSet
+type DomMap = BBNodeMap BBNodeSet
 
 -- | Compute dominators of each bblock in the graph. Node A dominates
 -- node B when all paths from the start node of that program unit must
@@ -64,7 +72,7 @@ dominators bbgr = IM.map snd $ dataFlowSolver bbgr init revPostOrder inn out
     out inF n                      = IS.insert n $ inF n
 
 -- | IDomMap : node -> immediate dominator of node
-type IDomMap = IM.IntMap Int
+type IDomMap = BBNodeMap BBNode
 
 -- | Compute the immediate dominator of each bblock in the graph. The
 -- immediate dominator is, in a sense, the 'closest' dominator of a
@@ -99,7 +107,7 @@ revPreOrder = reverse . preOrder
 type InOut t    = (t, t)
 
 -- | InOutMap : node -> (dataflow into node, dataflow out of node)
-type InOutMap t = IM.IntMap (InOut t)
+type InOutMap t = BBNodeMap (InOut t)
 
 -- | InF, a function that returns the in-dataflow for a given node
 type InF t      = Node -> t
@@ -141,7 +149,7 @@ dataFlowSolver gr initF order inF outF = converge (==) $ iterate step initM
 -- Each AST-block has been given a unique number label during analysis
 -- of basic blocks. The purpose of this map is to provide the ability
 -- to lookup AST-blocks by label.
-type BlockMap a = IM.IntMap (Block (Analysis a))
+type BlockMap a = ASTBlockNodeMap (Block (Analysis a))
 
 -- | Build a BlockMap from the AST. This can only be performed after
 -- analyseBasicBlocks has operated, created basic blocks, and labeled
@@ -156,7 +164,7 @@ genBlockMap pf = IM.fromList [ (i, b) | gr         <- uni pf
     uni = universeBi
 
 -- | DefMap : variable name -> { AST-block label }
-type DefMap = M.Map Name IS.IntSet
+type DefMap = M.Map Name ASTBlockNodeSet
 
 -- | Build a DefMap from the BlockMap. This allows us to quickly look
 -- up the AST-block labels that wrote into the given variable.
@@ -221,7 +229,7 @@ blockGen = blockVarUses
 -- named v. Label A may reach another program point labeled P if there
 -- is at least one program path from label A to label P that does not
 -- redefine variable v.
-reachingDefinitions :: Data a => DefMap -> BBGr (Analysis a) -> InOutMap IS.IntSet
+reachingDefinitions :: Data a => DefMap -> BBGr (Analysis a) -> InOutMap ASTBlockNodeSet
 reachingDefinitions dm gr = dataFlowSolver gr (const (IS.empty, IS.empty)) revPostOrder inn out
   where
     inn outF b = IS.unions [ outF s | s <- pre (bbgrGr gr) b ]
@@ -229,7 +237,7 @@ reachingDefinitions dm gr = dataFlowSolver gr (const (IS.empty, IS.empty)) revPo
       where (gen, kill) = rdBblockGenKill dm (fromJustMsg "reachingDefinitions" $ lab (bbgrGr gr) b)
 
 -- Compute the "GEN" and "KILL" sets for a given basic block.
-rdBblockGenKill :: Data a => DefMap -> [Block (Analysis a)] -> (IS.IntSet, IS.IntSet)
+rdBblockGenKill :: Data a => DefMap -> [Block (Analysis a)] -> (ASTBlockNodeSet, ASTBlockNodeSet)
 rdBblockGenKill dm bs = foldl' f (IS.empty, IS.empty) $ map (gen &&& kill) bs
   where
     gen b | null (allLhsVars b) = IS.empty
@@ -239,17 +247,17 @@ rdBblockGenKill dm bs = foldl' f (IS.empty, IS.empty) $ map (gen &&& kill) bs
       ((bbgen IS.\\ kill') `IS.union` gen', (bbkill IS.\\ gen') `IS.union` kill')
 
 -- Set of all AST-block labels that also define variables defined by AST-block b
-rdDefs :: Data a => DefMap -> Block (Analysis a) -> IS.IntSet
+rdDefs :: Data a => DefMap -> Block (Analysis a) -> ASTBlockNodeSet
 rdDefs dm b = IS.unions [ IS.empty `fromMaybe` M.lookup y dm | y <- allLhsVars b ]
 
 --------------------------------------------------
 
 -- | DUMap : definition -> { use }
-type DUMap = IM.IntMap IS.IntSet
+type DUMap = ASTBlockNodeMap ASTBlockNodeSet
 
 -- | def-use map: map AST-block labels of defining AST-blocks to the
 -- AST-blocks that may use the definition.
-genDUMap :: Data a => BlockMap a -> DefMap -> BBGr (Analysis a) -> InOutMap IS.IntSet -> DUMap
+genDUMap :: Data a => BlockMap a -> DefMap -> BBGr (Analysis a) -> InOutMap ASTBlockNodeSet -> DUMap
 genDUMap bm dm gr rdefs = IM.unionsWith IS.union duMaps
   where
     -- duMaps for each bblock
@@ -272,7 +280,7 @@ genDUMap bm dm gr rdefs = IM.unionsWith IS.union duMaps
         inSet' = (inSet IS.\\ kill b) `IS.union` gen b
 
 -- | UDMap : use -> { definition }
-type UDMap = IM.IntMap IS.IntSet
+type UDMap = ASTBlockNodeMap ASTBlockNodeSet
 
 -- | Invert the DUMap into a UDMap
 duMapToUdMap :: DUMap -> UDMap
@@ -282,13 +290,13 @@ duMapToUdMap duMap = IM.fromListWith IS.union [
 
 -- | use-def map: map AST-block labels of variable-using AST-blocks to
 -- the AST-blocks that define those variables.
-genUDMap :: Data a => BlockMap a -> DefMap -> BBGr (Analysis a) -> InOutMap IS.IntSet -> UDMap
+genUDMap :: Data a => BlockMap a -> DefMap -> BBGr (Analysis a) -> InOutMap ASTBlockNodeSet -> UDMap
 genUDMap bm dm gr = duMapToUdMap . genDUMap bm dm gr
 
 --------------------------------------------------
 
 -- | Convert a UD or DU Map into a graph.
-mapToGraph :: DynGraph gr => BlockMap a -> IM.IntMap IS.IntSet -> gr (Block (Analysis a)) ()
+mapToGraph :: DynGraph gr => BlockMap a -> ASTBlockNodeMap ASTBlockNodeSet -> gr (Block (Analysis a)) ()
 mapToGraph bm m = mkGraph nodes' edges'
   where
     nodes' = [ (i, iLabel) | i <- IM.keys m ++ concatMap IS.toList (IM.elems m)
@@ -304,7 +312,7 @@ type FlowsGraph a = Gr (Block (Analysis a)) ()
 genFlowsToGraph :: Data a => BlockMap a
                           -> DefMap
                           -> BBGr (Analysis a)
-                          -> InOutMap IS.IntSet -- ^ result of reaching definitions
+                          -> InOutMap ASTBlockNodeSet -- ^ result of reaching definitions
                           -> FlowsGraph a
 genFlowsToGraph bm dm gr = mapToGraph bm . genDUMap bm dm gr
 
@@ -361,7 +369,7 @@ type ParameterVarMap = M.Map Name Constant
 -- | The map of all expressions and whether they are undecided (not
 -- present in map), a constant value (Just Constant), or probably not
 -- constant (Nothing).
-type ConstExpMap = IM.IntMap (Maybe Constant)
+type ConstExpMap = ASTExprNodeMap (Maybe Constant)
 
 -- | Generate a constant-expression map with information about the
 -- expressions (identified by insLabel numbering) in the ProgramFile
@@ -429,8 +437,8 @@ analyseParameterVars pvm = transformBi expr
 
 --------------------------------------------------
 
--- | BackEdgeMap : node -> node
-type BackEdgeMap = IM.IntMap Node
+-- | BackEdgeMap : bblock node -> bblock node
+type BackEdgeMap = BBNodeMap BBNode
 
 -- | Find the edges that 'loop back' in the graph; ones where the
 -- target node dominates the source node. If the backedges are viewed
@@ -447,13 +455,13 @@ genBackEdgeMap domMap = IM.fromList . filter isBackEdge . edges
 -- of interest. Intersect this with the strongly-connected component
 -- containing m, in case of 'improper' graphs with weird control
 -- transfers.
-loopNodes :: Graph gr => BackEdgeMap -> gr a b -> [IS.IntSet]
+loopNodes :: Graph gr => BackEdgeMap -> gr a b -> [BBNodeSet]
 loopNodes bedges gr = [
     IS.fromList (n:intersect (sccWith n gr) (rdfs [m] (delNode n gr))) | (m, n) <- IM.toList bedges
   ]
 
--- | LoopNodeMap : node -> { node }
-type LoopNodeMap = IM.IntMap IS.IntSet
+-- | LoopNodeMap : bblock node -> { bblock node }
+type LoopNodeMap = BBNodeMap BBNodeSet
 
 -- | Similar to loopNodes except it creates a map from loop-header to
 -- the set of loop nodes, for each loop-header.
@@ -469,7 +477,7 @@ sccWith n g = case filter (n `elem`) $ scc g of
   c:_ -> c
 
 -- | Map of loop header nodes to the induction variables within that loop.
-type InductionVarMap = IM.IntMap (S.Set Name)
+type InductionVarMap = BBNodeMap (S.Set Name)
 
 -- | Basic induction variables are induction variables that are the
 -- most easily derived from the syntactic structure of the program:
@@ -489,7 +497,7 @@ genInductionVarMap :: Data a => BackEdgeMap -> BBGr (Analysis a) -> InductionVar
 genInductionVarMap = basicInductionVars
 
 -- | InductionVarMapByASTBlock : AST-block label -> { name }
-type InductionVarMapByASTBlock = IM.IntMap (S.Set Name)
+type InductionVarMapByASTBlock = ASTBlockNodeMap (S.Set Name)
 
 -- | Generate an induction variable map that is indexed by the labels
 -- on AST-blocks within those loops.
@@ -510,7 +518,7 @@ data InductionExpr
   | IEBottom              -- too difficult
   deriving (Show, Eq, Ord, Typeable, Generic, Data)
 
-type DerivedInductionMap = IM.IntMap InductionExpr
+type DerivedInductionMap = ASTExprNodeMap InductionExpr
 
 data IEFlow = IEFlow { ieFlowVars :: M.Map Name InductionExpr, ieFlowExprs :: DerivedInductionMap }
   deriving (Show, Eq, Ord, Typeable, Generic, Data)
@@ -518,7 +526,7 @@ data IEFlow = IEFlow { ieFlowVars :: M.Map Name InductionExpr, ieFlowExprs :: De
 ieFlowInsertVar :: Name -> InductionExpr -> IEFlow -> IEFlow
 ieFlowInsertVar v ie flow = flow { ieFlowVars = M.insert v ie (ieFlowVars flow) }
 
-ieFlowInsertExpr :: IS.Key -> InductionExpr -> IEFlow -> IEFlow
+ieFlowInsertExpr :: ASTExprNode -> InductionExpr -> IEFlow -> IEFlow
 ieFlowInsertExpr i ie flow = flow { ieFlowExprs = IM.insert i ie (ieFlowExprs flow) }
 
 emptyIEFlow :: IEFlow
@@ -669,7 +677,7 @@ showDataFlow pf = perPU =<< uni pf
 
 -- | Outputs a DOT-formatted graph showing flow-to data starting at
 -- the given AST-Block node in the given Basic Block graph.
-showFlowsToDOT :: (Data a, Out a, Show a) => ProgramFile (Analysis a) -> BBGr (Analysis a) -> Int -> String
+showFlowsToDOT :: (Data a, Out a, Show a) => ProgramFile (Analysis a) -> BBGr (Analysis a) -> ASTBlockNode -> String
 showFlowsToDOT pf bbgr astBlockId = execWriter $ do
   let bm = genBlockMap pf
       dm = genDefMap bm
