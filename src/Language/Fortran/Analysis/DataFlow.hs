@@ -17,7 +17,7 @@ module Language.Fortran.Analysis.DataFlow
   , genInductionVarMap, InductionVarMap
   , genInductionVarMapByASTBlock, InductionVarMapByASTBlock
   , genDerivedInductionMap, DerivedInductionMap, InductionExpr(..)
-  , showDataFlow, showFlowsToDOT
+  , showDataFlow, showFlowsDOT
   , BBNodeMap, BBNodeSet, ASTBlockNodeMap, ASTBlockNodeSet, ASTExprNodeMap, ASTExprNodeSet
 ) where
 
@@ -677,18 +677,20 @@ showDataFlow pf = perPU =<< uni pf
 
 -- | Outputs a DOT-formatted graph showing flow-to data starting at
 -- the given AST-Block node in the given Basic Block graph.
-showFlowsToDOT :: (Data a, Out a, Show a) => ProgramFile (Analysis a) -> BBGr (Analysis a) -> ASTBlockNode -> String
-showFlowsToDOT pf bbgr astBlockId = execWriter $ do
+showFlowsDOT :: (Data a, Out a, Show a) => ProgramFile (Analysis a) -> BBGr (Analysis a) -> ASTBlockNode -> Bool -> String
+showFlowsDOT pf bbgr astBlockId isFrom = execWriter $ do
   let bm = genBlockMap pf
       dm = genDefMap bm
       flowsTo = genFlowsToGraph bm dm bbgr (reachingDefinitions dm bbgr)
+      flows | isFrom    = grev flowsTo
+            | otherwise = flowsTo
   tell "strict digraph {\n"
-  forM_ (bfsn [astBlockId] flowsTo) $ \ n -> do
+  forM_ (bfsn [astBlockId] flows) $ \ n -> do
     let pseudocode = maybe "<N/A>" showBlock $ IM.lookup n bm
     tell "node [shape=box,fontname=\"Courier New\"]\n"
     tell $ "Bl" ++ show n ++ "[label=\"B" ++ show n ++ "\\l" ++ pseudocode ++ "\"]\n"
     tell $ "Bl" ++ show n ++ " -> {"
-    forM_ (suc flowsTo n) $ \ m -> tell (" Bl" ++ show m)
+    forM_ (suc flows n) $ \ m -> tell (" Bl" ++ show m)
     tell "}\n"
   tell "}\n"
 

@@ -108,7 +108,7 @@ main = do
                                    "\n\nTypeEnv:\n" ++ showTypes (combinedTypeEnv [mf]) ++
                                    "\n\nParamVarMap:\n" ++ showGenericMap (combinedParamVarMap [mf]) ++
                                    "\n\nOther Data Labels: " ++ show (getLabelsModFileData mf)
-        ShowFlowsTo isSuper astBlockId -> do
+        ShowFlows isFrom isSuper astBlockId -> do
           let pf = analyseParameterVars pvm .
                    analyseBBlocks .
                    analyseRenamesWithModuleMap mmap .
@@ -118,13 +118,13 @@ main = do
             (False, Nothing) -> fail "Couldn't find given AST block ID number."
             (False, Just pu)
               | Just bbgr <- M.lookup (puName pu) bbm ->
-                  putStrLn $ showFlowsToDOT pf bbgr astBlockId
+                  putStrLn $ showFlowsDOT pf bbgr astBlockId isFrom
               | otherwise -> do
                   print $ M.keys bbm
                   fail $ "Internal error: Program Unit " ++ show (puName pu) ++ " is lacking a basic block graph."
             (True, _) -> do
               let sgr = genSuperBBGr bbm
-              putStrLn $ showFlowsToDOT pf (superBBGrGraph sgr) astBlockId
+              putStrLn $ showFlowsDOT pf (superBBGrGraph sgr) astBlockId isFrom
 
     _ -> fail $ usageInfo programName options
 
@@ -232,7 +232,7 @@ printTypeErrors = putStrLn . showTypeErrors
 
 data Action
   = Lex | Parse | Typecheck | Rename | BBlocks | SuperGraph | Reprint | DumpModFile | Compile
-  | ShowFlowsTo Bool Int
+  | ShowFlows Bool Bool Int
   deriving Eq
 
 instance Read Action where
@@ -303,11 +303,18 @@ options =
       "compile an .fsmod file from the input"
   , Option []
       ["show-flows-to"]
-      (ReqArg (\a opts -> case a of s:num | toLower s == 's' -> opts { action = ShowFlowsTo True (read num) }
-                                    b:num | toLower b == 'b' -> opts { action = ShowFlowsTo False (read num) }
-                                    num                      -> opts { action = ShowFlowsTo False (read num) }
+      (ReqArg (\a opts -> case a of s:num | toLower s == 's' -> opts { action = ShowFlows False True (read num) }
+                                    b:num | toLower b == 'b' -> opts { action = ShowFlows False False (read num) }
+                                    num                      -> opts { action = ShowFlows False False (read num) }
               ) "AST-BLOCK-ID")
       "dump a graph showing flows-to information from the given AST-block ID; prefix with 's' for supergraph"
+  , Option []
+      ["show-flows-from"]
+      (ReqArg (\a opts -> case a of s:num | toLower s == 's' -> opts { action = ShowFlows True True (read num) }
+                                    b:num | toLower b == 'b' -> opts { action = ShowFlows True False (read num) }
+                                    num                      -> opts { action = ShowFlows True False (read num) }
+              ) "AST-BLOCK-ID")
+      "dump a graph showing flows-from information from the given AST-block ID; prefix with 's' for supergraph"
   ]
 
 compileArgs :: [ String ] -> IO (Options, [ String ])
