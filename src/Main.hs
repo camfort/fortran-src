@@ -77,7 +77,8 @@ main = do
       let runCompile = encodeModFile . genModFile . fst . analyseTypesWithEnv tenv . analyseRenamesWithModuleMap mmap . initAnalysis
       let findBlockPU pf astBlockId = listToMaybe
             [ pu | pu <- universeBi pf :: [ProgramUnit (Analysis A0)]
-                 , b <- universeBi (programUnitBody pu)  :: [Block (Analysis A0)]
+                 , bbgr <- maybeToList (bBlocks (getAnnotation pu))
+                 , b <- concatMap snd $ labNodes (bbgrGr bbgr)
                  , insLabel (getAnnotation b) == Just astBlockId ]
       case actionOpt of
         Lex | version `elem` [ Fortran66, Fortran77, Fortran77Extended, Fortran77Legacy ] ->
