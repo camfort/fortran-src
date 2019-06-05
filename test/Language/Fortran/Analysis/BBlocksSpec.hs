@@ -110,6 +110,24 @@ spec =
       it "all terminate" $ do
         let reached = IS.fromList . rdfs [-1] $ bbgrGr gr
         reached `shouldBe` nodeSet
+    describe "nested calls" $ do
+      let pf = pParser programNestedCalls
+          gr = fromJust . M.lookup (Named "nestedcall") $ genBBlockMap pf
+          ns = nodes $ bbgrGr gr
+          es = edges $ bbgrGr gr
+          nodeSet = IS.fromList ns
+      it "nodes and edges length" $ do
+        (length ns, length es) `shouldBe` (10, 9)
+      -- it "branching nodes" $
+      --   (IS.size (findSuccsBB gr [10]), IS.size (findSuccsBB gr [20])) `shouldBe` (3, 1)
+      it "all reachable" $ do
+        let reached = IS.fromList . dfs [0] $ bbgrGr gr
+        reached `shouldBe` nodeSet
+      it "all terminate" $ do
+        let reached = IS.fromList . rdfs [-1] $ bbgrGr gr
+        reached `shouldBe` nodeSet
+      it "straight-line program" $ do
+        [ length (suc (bbgrGr gr) n) | n <- ns, n /= -1 ] `shouldSatisfy` all (== 1)
 
 --------------------------------------------------
 -- Label-finding helper functions to help write tests that are
@@ -213,6 +231,12 @@ programZeroLabels = unlines [
   , "  80   goto 0900"
   , " 0900  print *, '0900'"
   , "  999  continue"
+  , "      end" ]
+
+programNestedCalls :: String
+programNestedCalls = unlines [
+    "      program nestedcall"
+  , "        call foo(bar(baz(1)))"
   , "      end" ]
 
 
