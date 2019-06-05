@@ -3,8 +3,7 @@
 {-# LANGUAGE TupleSections, FlexibleContexts, PatternGuards, ScopedTypeVariables #-}
 module Language.Fortran.Analysis.BBlocks
   ( analyseBBlocks, genBBlockMap, showBBGr, showAnalysedBBGr, showBBlocks, bbgrToDOT, BBlockMap, ASTBlockNode, ASTExprNode
-  , genSuperBBGr, SuperBBGr, showSuperBBGr, superBBGrToDOT, superBBGrGraph, superBBGrClusters, superBBGrEntries
-  , findLabeledBBlock, showBlock )
+  , genSuperBBGr, SuperBBGr(..), showSuperBBGr, superBBGrToDOT, findLabeledBBlock, showBlock )
 where
 
 import Prelude hiding (exp)
@@ -615,21 +614,9 @@ extractExp (Argument _ _ _ exp) = exp
 --------------------------------------------------
 -- Supergraph: all program units in one basic-block graph
 
-data SuperBBGr a = SuperBBGr { graph :: BBGr a
-                             , clusters :: IM.IntMap ProgramUnitName
-                             , entries :: M.Map PUName SuperNode }
-
--- | Extract graph from SuperBBGr
-superBBGrGraph :: SuperBBGr a -> BBGr a
-superBBGrGraph = graph
-
--- | Extract entry map from SuperBBGr
-superBBGrEntries :: SuperBBGr a -> M.Map ProgramUnitName SuperNode
-superBBGrEntries = entries
-
--- | Extract cluster map from SuperBBGr
-superBBGrClusters :: SuperBBGr a -> IM.IntMap ProgramUnitName
-superBBGrClusters = clusters
+data SuperBBGr a = SuperBBGr { superBBGrGraph :: BBGr a
+                             , superBBGrClusters :: IM.IntMap ProgramUnitName
+                             , superBBGrEntries :: M.Map PUName SuperNode }
 
 type SuperNode = Node
 type SuperEdge = (SuperNode, SuperNode, ELabel)
@@ -638,7 +625,9 @@ type NLabel a = BB (Analysis a)
 type ELabel = ()
 
 genSuperBBGr :: forall a. Data a => BBlockMap (Analysis a) -> SuperBBGr (Analysis a)
-genSuperBBGr bbm = SuperBBGr { graph = superGraph'', clusters = cmap, entries = entryMap }
+genSuperBBGr bbm = SuperBBGr { superBBGrGraph = superGraph''
+                             , superBBGrClusters = cmap
+                             , superBBGrEntries = entryMap }
   where
     namedNodes   :: [((PUName, Node), NLabel a)]
     namedNodes   = [ ((name, n), bs) | (name, gr) <- M.toList bbm, (n, bs) <- labNodes (bbgrGr gr) ]
@@ -715,7 +704,7 @@ showAnalysedBBGr = showBBGr . bbgrMap (nmap strip)
 
 -- | Show a basic block supergraph
 showSuperBBGr :: (Out a, Show a) => SuperBBGr (Analysis a) -> String
-showSuperBBGr = showAnalysedBBGr . graph
+showSuperBBGr = showAnalysedBBGr . superBBGrGraph
 
 -- | Pick out and show the basic block graphs in the program file analysis.
 showBBlocks :: (Data a, Out a, Show a) => ProgramFile (Analysis a) -> String
@@ -740,7 +729,7 @@ bbgrToDOT = bbgrToDOT' IM.empty
 
 -- | Output a supergraph in the GraphViz DOT format
 superBBGrToDOT :: SuperBBGr a -> String
-superBBGrToDOT sgr = bbgrToDOT' (clusters sgr) (graph sgr)
+superBBGrToDOT sgr = bbgrToDOT' (superBBGrClusters sgr) (superBBGrGraph sgr)
 
 -- shared code for DOT output
 bbgrToDOT' :: IM.IntMap ProgramUnitName -> BBGr a -> String
