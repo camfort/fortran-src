@@ -1053,13 +1053,13 @@ skipContinuation ai' = _skipCont ai' (0::Integer)
 -- skip a C comment (read until first "*/")
 skipCComment :: LexAction (Maybe Token)
 skipCComment = do
-  ai <- getAlex
   let loop (Just ai) 0 | currentChar ai == '*' = loop (advanceWithoutContinuation ai) 1
                        | otherwise             = loop (advanceWithoutContinuation ai) 0
       loop (Just ai) 1 | currentChar ai == '/' = ai `fromMaybe` advanceWithoutContinuation ai
                        | otherwise             = loop (advanceWithoutContinuation ai) 0
       loop _ _                                 = error "File has ended prematurely during a C comment."
-  putAlex $ loop (Just ai) 0
+  ai <- getAlex
+  putAlex $ loop (Just ai) (0 :: Int)
   return Nothing
 
 advance :: Move -> Position -> Position
