@@ -23,7 +23,7 @@ genericGroup groupingFunction checkingFunction = do
         bad = filter checkingFunction $ universeBi pf'
     if null bad
       then putProgramFile pf'
-      else let spans = map (show . getSpan) bad in
+      else let spans = [ apparentFilePath p1 ++ " " ++ show ss | b <- bad, let ss@(SrcSpan p1 _) = getSpan b ] in
              error $ "Mis-matched grouping statements at these position(s): " ++ intercalate ", " spans
 
 --------------------------------------------------------------------------------
