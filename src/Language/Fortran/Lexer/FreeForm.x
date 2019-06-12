@@ -81,7 +81,7 @@ $expLetter = [ed]
 --------------------------------------------------------------------------------
 tokens :-
 
-<0> "/*"[.\n]*"*/"                                    { return Nothing }
+<0> "/*"                                          { skipCComment }
 <0,scN> "!".*$                                    { adjustComment $ addSpanAndMatch TComment }
 
 <0> $hash.*$                                      { lexHash }
@@ -1049,6 +1049,18 @@ skipContinuation ai' = _skipCont ai' (0::Integer)
       case advanceWithoutContinuation ai of
         Just ai'' -> _skipCont ai'' state
         Nothing -> error "File has ended prematurely during a continuation."
+
+-- skip a C comment (read until first "*/")
+skipCComment :: LexAction (Maybe Token)
+skipCComment = do
+  ai <- getAlex
+  let loop (Just ai) 0 | currentChar ai == '*' = loop (advanceWithoutContinuation ai) 1
+                       | otherwise             = loop (advanceWithoutContinuation ai) 0
+      loop (Just ai) 1 | currentChar ai == '/' = ai `fromMaybe` advanceWithoutContinuation ai
+                       | otherwise             = loop (advanceWithoutContinuation ai) 0
+      loop _ _                                 = error "File has ended prematurely during a C comment."
+  putAlex $ loop (Just ai) 0
+  return Nothing
 
 advance :: Move -> Position -> Position
 advance move position =
