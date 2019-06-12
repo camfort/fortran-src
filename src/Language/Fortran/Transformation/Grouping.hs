@@ -248,16 +248,14 @@ groupLabeledDo' (b:bs) = b' : bs'
     (b', bs') = case b of
       BlStatement a s label
         (StDo _ _ mn tl@Just{} doSpec) ->
-          let ( blocks, leftOverBlocks ) =
+          let ( blocks, leftOverBlocks, lastLabel ) =
                 collectNonLabeledDoBlocks tl groupedBlocks
-              lastLabel = getLastLabel $ last blocks
           in ( BlDo a (getTransSpan s blocks) label mn tl doSpec blocks lastLabel
              , leftOverBlocks )
       BlStatement a s label
         (StDoWhile _ _ mn tl@Just{} cond) ->
-          let ( blocks, leftOverBlocks ) =
+          let ( blocks, leftOverBlocks, lastLabel ) =
                 collectNonLabeledDoBlocks tl groupedBlocks
-              lastLabel = getLastLabel $ last blocks
           in ( BlDoWhile a (getTransSpan s blocks) label mn tl cond blocks lastLabel
              , leftOverBlocks )
       b'' | containsGroups b'' ->
@@ -269,17 +267,19 @@ groupLabeledDo' (b:bs) = b' : bs'
 
 
 collectNonLabeledDoBlocks :: Maybe (Expression (Analysis a)) -> ABlocks a
-                          -> (ABlocks a, ABlocks a)
+                          -> (ABlocks a, ABlocks a, Maybe (Expression (Analysis a)))
 collectNonLabeledDoBlocks targetLabel blocks =
   case blocks of
     -- Didn't find a statement with matching label; don't group
     [] -> error "Malformed labeled DO group."
-
     b:bs
-      | compLabel (getLastLabel b) targetLabel -> ([ b ], bs)
-      | otherwise ->
-          let (bs', rest) = collectNonLabeledDoBlocks targetLabel bs
-          in (b : bs', rest)
+      | compLabel (getLastLabel b) targetLabel -> (b1, bs, getLastLabel b)
+      | otherwise                              -> (b : bs', rest, ll)
+      where (bs', rest, ll) = collectNonLabeledDoBlocks targetLabel bs
+            b1 = case b of BlStatement _ _ _ StEnddo{}    -> []
+                           BlStatement _ _ _ StContinue{} -> []
+                           _                              -> [b]
+
 
 compLabel :: Maybe (Expression a) -> Maybe (Expression a) -> Bool
 compLabel (Just (ExpValue _ _ (ValInteger l1)))

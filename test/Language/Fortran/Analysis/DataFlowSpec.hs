@@ -360,7 +360,7 @@ programRd3 = unlines [
     , " 1    do 4  i = 2, 10"
     , " 2       b(i) = a(i-1) + x"
     , " 3       a(i) = b(i)"
-    , " 4    continue"
+    , " 4    i=i"               -- alt. to 'continue' since the latter gets eliminated now
     , " 5    f = a(10)"
     , "      end"
     , "      program rd3"
@@ -381,9 +381,9 @@ programRd4 = unlines [
     , "      do 10 i = 2, 10"
     , "      do 20 j = 2, 10"
     , "         b(i) = a(i-1) + x"
-    , " 20   continue"
+    , " 20   j=j"               -- alt. to 'continue' since the latter gets eliminated now
     , "         a(i) = b(i)"
-    , " 10   continue"
+    , " 10   i=i"               -- alt. to 'continue' since the latter gets eliminated now
     , "      f = a(10)"
     , "      end"
     , "      program rd3"

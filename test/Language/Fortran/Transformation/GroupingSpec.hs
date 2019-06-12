@@ -197,7 +197,7 @@ expectedExample1do = ProgramFile mi77 [ PUMain () u (Just "example1") expectedEx
 expectedExample1doBlocks :: [Block ()]
 expectedExample1doBlocks =
   [ BlDo () u Nothing Nothing label10 dospec
-     [BlStatement () u label10 (StContinue () u)] label10 ]
+     [ ] label10 ]
 
 label20 :: Maybe (Expression ())
 label20 = Just (ExpValue () u (ValInteger "20"))
@@ -223,10 +223,10 @@ expectedExample2doBlocks :: [Block ()]
 expectedExample2doBlocks =
   [ BlDo () u Nothing Nothing label10 dospec
       [ BlDo () u Nothing Nothing label10 dospec
-          [ BlStatement () u label10 (StContinue () u) ] label10
+          [ ] label10
       ] label10
   , BlDo () u Nothing Nothing label20 dospec
-      [ BlStatement () u label20 (StContinue () u) ] label20
+      [ ] label20
   ]
 
 getSingleParsedBlock :: Show b => (ByteString -> String -> ParseResult a b (ProgramFile A0)) -> String -> Block A0
