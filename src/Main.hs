@@ -12,7 +12,7 @@ import Data.Text.Encoding.Error (replace)
 import Text.PrettyPrint (render)
 
 import System.Console.GetOpt
-
+import System.IO
 import System.Environment
 import System.Directory
 import System.FilePath
@@ -159,10 +159,10 @@ decodeModFiles = foldM (\ modFiles d -> do
         contents <- LB.readFile (d </> modFileName)
         case decodeModFile contents of
           Left msg -> do
-            putStrLn $ modFileName ++ ": Error: " ++ msg
+            hPutStrLn stderr $ modFileName ++ ": Error: " ++ msg
             return emptyModFile
           Right modFile -> do
-            putStrLn $ modFileName ++ ": successfully parsed precompiled file."
+            hPutStrLn stderr $ modFileName ++ ": successfully parsed precompiled file."
             return modFile
       return $ addedModFiles ++ modFiles
     ) emptyModFiles
