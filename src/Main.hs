@@ -148,13 +148,13 @@ main = do
           case mlinenum of
             Just l -> putStrLn . unwords . map show $ fromMaybe [] (fst <$> IM.lookup l lineMap)
             Nothing -> do
-              let lines = B.lines contents
-              let maxLen = maximum (0:map B.length lines)
-              forM_ (zip lines [1..]) $ \ (line, l) -> do
-                let nodes = fromMaybe [] (fst <$> IM.lookup l lineMap)
-                let nodeStr = B.intercalate "," (map (B.pack . ('B':) . show) nodes)
-                let suffix | null nodes = ""
-                           | otherwise  = B.replicate (maxLen - B.length line + 1) ' ' <> "!" <> nodeStr
+              let lineBs = B.lines contents
+              let maxLen = maximum (0:map B.length lineBs)
+              forM_ (zip lineBs [1..]) $ \ (line, l) -> do
+                let nodeIDs = fromMaybe [] (fst <$> IM.lookup l lineMap)
+                let nodeStr = B.intercalate "," (map (B.pack . ('B':) . show) nodeIDs)
+                let suffix | null nodeIDs = ""
+                           | otherwise    = B.replicate (maxLen - B.length line + 1) ' ' <> "!" <> nodeStr
                 B.putStrLn $ line <> suffix
     _ -> fail $ usageInfo programName options
 
