@@ -1,4 +1,4 @@
-{-# LANGUAGE FlexibleContexts, FlexibleInstances, ScopedTypeVariables #-}
+{-# LANGUAGE FlexibleContexts, FlexibleInstances, ScopedTypeVariables, OverloadedStrings #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
 
 module Main where
@@ -17,6 +17,7 @@ import System.Environment
 import System.Directory
 import System.FilePath
 import Text.PrettyPrint.GenericPretty (pp, pretty, Out)
+import Text.Read (readMaybe)
 import Data.List (sortBy, intercalate, (\\), isSuffixOf)
 import Data.Ord (comparing)
 import Data.Char (toLower)
@@ -31,6 +32,7 @@ import qualified Language.Fortran.Lexer.FreeForm as FreeForm (collectFreeTokens,
 import Language.Fortran.Parser.Any
 
 import Language.Fortran.Util.ModFile
+import Language.Fortran.Util.Position
 
 import Language.Fortran.PrettyPrint
 import Language.Fortran.Analysis
@@ -126,7 +128,34 @@ main = do
             (True, _) -> do
               let sgr = genSuperBBGr bbm
               putStrLn $ showFlowsDOT pf (superBBGrGraph sgr) astBlockId isFrom
-
+        ShowBlocks mlinenum -> do
+          let pf = analyseBBlocks .
+                   analyseRenamesWithModuleMap mmap .
+                   initAnalysis $ parserF mods contents path
+          let f :: ([ASTBlockNode], Int) -> ([ASTBlockNode], Int) -> ([ASTBlockNode], Int)
+              f (nodes1, len1) (nodes2, len2)
+                | len1 < len2 = (nodes1, len1)
+                | len2 < len1 = (nodes2, len2)
+                | otherwise   = (nodes1 ++ nodes2, len1)
+          let lineMap :: IM.IntMap ([ASTBlockNode], Int)  -- ([list of IDs], line-distance of span)
+              lineMap = IM.fromListWith f [
+                (l, ([i], lineDistance ss))
+                | b <- universeBi pf :: [Block (Analysis A0)]
+                , i <- maybeToList . insLabel $ getAnnotation b
+                , let ss = getSpan b
+                , l <- spannedLines ss
+                ]
+          case mlinenum of
+            Just l -> putStrLn . unwords . map show $ fromMaybe [] (fst <$> IM.lookup l lineMap)
+            Nothing -> do
+              let lines = B.lines contents
+              let maxLen = maximum (0:map B.length lines)
+              forM_ (zip lines [1..]) $ \ (line, l) -> do
+                let nodes = fromMaybe [] (fst <$> IM.lookup l lineMap)
+                let nodeStr = B.intercalate "," (map (B.pack . ('B':) . show) nodes)
+                let suffix | null nodes = ""
+                           | otherwise  = B.replicate (maxLen - B.length line + 1) ' ' <> "!" <> nodeStr
+                B.putStrLn $ line <> suffix
     _ -> fail $ usageInfo programName options
 
 -- List files in dir recursively
@@ -233,7 +262,7 @@ printTypeErrors = putStrLn . showTypeErrors
 
 data Action
   = Lex | Parse | Typecheck | Rename | BBlocks | SuperGraph | Reprint | DumpModFile | Compile
-  | ShowFlows Bool Bool Int
+  | ShowFlows Bool Bool Int | ShowBlocks (Maybe Int)
   deriving Eq
 
 instance Read Action where
@@ -302,6 +331,11 @@ options =
       ["compile"]
       (NoArg $ \ opts -> opts { action = Compile })
       "compile an .fsmod file from the input"
+  , Option []
+      ["show-block-numbers"]
+      (OptArg (\a opts -> opts { action = ShowBlocks (a >>= readMaybe) }
+              ) "LINE-NUM")
+      "Show the corresponding AST-block identifier number next to every line of code."
   , Option []
       ["show-flows-to"]
       (ReqArg (\a opts -> case a of s:num | toLower s == 's' -> opts { action = ShowFlows False True (read num) }

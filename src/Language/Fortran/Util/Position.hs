@@ -69,6 +69,10 @@ columnDistance (SrcSpan (Position _ c1 _ _ _) (Position _ c2 _ _ _)) = c2 - c1
 lineDistance :: SrcSpan -> Int
 lineDistance (SrcSpan (Position _ _ l1 _ _) (Position _ _ l2 _ _)) = l2 - l1
 
+-- List of lines that are spanned
+spannedLines :: SrcSpan -> [Int]
+spannedLines (SrcSpan (Position _ _ l1 _ _) (Position _ _ l2 _ _)) = [l1..l2]
+
 initSrcSpan :: SrcSpan
 initSrcSpan = SrcSpan initPosition initPosition
 
