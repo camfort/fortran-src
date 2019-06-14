@@ -277,10 +277,10 @@ PREFIX :: { Either (Prefix A0) (TypeSpec A0) }
 | pure      { Left $ PfxPure      () (getSpan $1) }
 | TYPE_SPEC { Right $1 }
 
-RESULT :: { Expression a }
+RESULT :: { Expression A0 }
 : result '(' VARIABLE ')' { $3 }
 
-MAYBE_RESULT :: { Maybe (Expression a) }
+MAYBE_RESULT :: { Maybe (Expression A0) }
 : RESULT      { Just $1 }
 | {- empty -} { Nothing}
 

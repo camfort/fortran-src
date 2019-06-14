@@ -320,10 +320,10 @@ MAYBE_ARGUMENTS :: { Maybe (AList Expression A0) }
 : '(' MAYBE_VARIABLES ')' { $2 }
 | {- Nothing -} { Nothing }
 
-RESULT :: { Expression a }
+RESULT :: { Expression A0 }
 : result '(' VARIABLE ')' { $3 }
 
-MAYBE_RESULT :: { Maybe (Expression a) }
+MAYBE_RESULT :: { Maybe (Expression A0) }
 : RESULT      { Just $1 }
 | {- empty -} { Nothing}
 
