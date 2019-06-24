@@ -135,6 +135,11 @@ spec =
             exp = ExpSubscript () u (varGen "a") (AList () u [ range ])
         eParser "a(5:)" `shouldBe'` exp
 
+      it "parses literal string subscript" $ do
+        let range = IxRange () u (Just $ intGen 1) (Just $ intGen 2) Nothing
+            exp = ExpSubscript () u (strGen "abc") (AList () u [ range ])
+        eParser "'abc'(1:2)" `shouldBe'` exp
+
     describe "GOTO" $ do
       it "parses computed GOTO with integer expression" $ do
         let exp = ExpBinary () u Multiplication (intGen 42) (intGen 24)

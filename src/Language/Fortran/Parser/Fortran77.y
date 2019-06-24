@@ -363,7 +363,6 @@ FORMAT_ID :: { Expression A0 }
 FORMAT_ID
 : FORMAT_ID '/' '/' FORMAT_ID %prec CONCAT { ExpBinary () (getTransSpan $1 $4) Concatenation $1 $4 }
 | INTEGER_LITERAL               { $1 }
-| STRING                        { $1 }
 -- There should be FUNCTION_CALL here but as far as the parser is concerned it is same as SUBSCRIPT,
 -- hence putting it here would cause a reduce/reduce conflict.
 | SUBSCRIPT                     { $1 }
@@ -431,7 +430,6 @@ CI_EXPRESSION
 | '(' CI_EXPRESSION ')' { setSpan (getTransSpan $1 $3) $2 }
 | INTEGER_LITERAL               { $1 }
 | LOGICAL_LITERAL               { $1 }
-| STRING                        { $1 }
 -- There should be FUNCTION_CALL here but as far as the parser is concerned it is same as SUBSCRIPT,
 -- hence putting it here would cause a reduce/reduce conflict.
 | SUBSCRIPT                     { $1 }
@@ -805,7 +803,6 @@ EXPRESSION
 | NUMERIC_LITERAL                   { $1 }
 | '(' EXPRESSION ',' EXPRESSION ')' { ExpValue () (getTransSpan $1 $5) (ValComplex $2 $4) }
 | LOGICAL_LITERAL                   { $1 }
-| STRING                            { $1 }
 | HOLLERITH                         { $1 }
 -- There should be FUNCTION_CALL here but as far as the parser is concerned it is same as SUBSCRIPT,
 -- hence putting it here would cause a reduce/reduce conflict.
@@ -860,7 +857,6 @@ CONSTANT_EXPRESSION
 | NUMERIC_LITERAL               { $1 }
 | '(' CONSTANT_EXPRESSION ',' CONSTANT_EXPRESSION ')' { ExpValue () (getTransSpan $1 $5) (ValComplex $2 $4)}
 | LOGICAL_LITERAL               { $1 }
-| string                        { let (TString s cs) = $1 in ExpValue () s (ValString cs) }
 | SUBSCRIPT                    { $1 }
 | HOLLERITH                    { $1 }
 | '(/' EXPRESSION_LIST '/)' {
@@ -900,6 +896,7 @@ SUBSCRIPT
 | SUBSCRIPT '(' INDICIES ')'
   { ExpSubscript () (getTransSpan $1 $4) $1 (fromReverseList $3) }
 | VARIABLE { $1 }
+| STRING { $1 }
 
 INDICIES :: { [ Index A0 ] }
 : INDICIES ',' INDEX { $3 : $1 }
