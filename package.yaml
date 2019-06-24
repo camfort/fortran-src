@@ -1,5 +1,5 @@
 name: fortran-src
-version: '0.3.0'
+version: '0.3.1'
 synopsis: Parser and anlyses for Fortran standards 66, 77, 90 and 95.
 description: ! 'Provides lexing, parsing, and basic analyses of Fortran code covering
   standards: FORTRAN 66, FORTRAN 77, Fortran 90, and Fortran 95 and some legacy extensions.
