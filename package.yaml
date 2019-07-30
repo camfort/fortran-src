@@ -36,6 +36,7 @@ library:
   exposed-modules:
   - Language.Fortran.Analysis
   - Language.Fortran.Analysis.Renaming
+  - Language.Fortran.Analysis.ModGraph
   - Language.Fortran.Analysis.Types
   - Language.Fortran.Analysis.BBlocks
   - Language.Fortran.Analysis.DataFlow
