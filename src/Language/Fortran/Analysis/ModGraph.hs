@@ -2,7 +2,7 @@
 
 -- | Generate a module use-graph.
 module Language.Fortran.Analysis.ModGraph
-  (genModGraph, ModGraph(..), modGraphToDOT)
+  (genModGraph, ModGraph(..), ModOrigin(..), modGraphToDOT, takeNextMods, delModNodes)
 where
 
 import Control.Monad
@@ -30,7 +30,7 @@ import System.FilePath
 --------------------------------------------------
 
 data ModOrigin = MOFile FilePath | MOFSMod FilePath
-  deriving (Eq, Data)
+  deriving (Eq, Data, Show)
 
 instance Ord ModOrigin where
   MOFSMod _ <= MOFSMod _ = True
@@ -117,6 +117,18 @@ modGraphToDOT ModGraph { mgGraph = gr } = unlines dot
                         ["}\n"])
                     (labNodes gr) ++
           [ "}\n" ]
+
+takeNextMods :: ModGraph -> [(Node, Maybe ModOrigin)]
+takeNextMods ModGraph { mgModNodeMap = nmap, mgGraph = gr } = noDepFiles
+  where
+    noDeps = [ (i, modName) | (i, modName) <- labNodes gr, null (suc gr i) ]
+    noDepFiles = [ (i, mo) | (i, modName) <- noDeps
+                           , (_, mo) <- maybeToList (M.lookup modName nmap) ]
+
+delModNodes :: [Node] -> ModGraph -> ModGraph
+delModNodes ns mg@ModGraph { mgGraph = gr } = mg'
+  where
+    mg' = mg { mgGraph = delNodes ns gr }
 
 --------------------------------------------------
 

@@ -38,6 +38,7 @@ import Language.Fortran.PrettyPrint
 import Language.Fortran.Analysis
 import Language.Fortran.AST
 import Language.Fortran.Analysis.Types
+import Language.Fortran.Analysis.ModGraph
 import Language.Fortran.Analysis.BBlocks
 import Language.Fortran.Analysis.DataFlow
 import Language.Fortran.Analysis.Renaming
@@ -56,7 +57,31 @@ main = do
   args <- getArgs
   (opts, parsedArgs) <- compileArgs args
   case (parsedArgs, action opts) of
-    ([path], actionOpt) -> do
+    (paths, ShowMakeGraph) -> do
+      mg <- genModGraph (fortranVersion opts) (includeDirs opts) paths
+      putStrLn $ modGraphToDOT mg
+    (paths, Make) -> do
+      let mvers = fortranVersion opts
+      mg0 <- genModGraph mvers (includeDirs opts) paths
+      mods0 <- decodeModFiles $ includeDirs opts
+      let loop mg mods
+            | nxt <- takeNextMods mg
+            , not (null nxt) = do
+                let paths = [ fn | (_, Just (MOFile fn)) <- nxt ]
+                newMods <- forM paths $ \ path -> do
+                  putStr $ "Compiling " ++ path ++ "..."
+                  mod <- compileFileToMod mvers mods path
+                  putStrLn "done"
+                  pure mod
+                let ns  = map fst nxt
+                let mg' = delModNodes ns mg
+                loop mg' $ newMods ++ mods
+          loop _ _ = pure ()
+      loop mg0 mods0
+    (paths, Compile) -> do
+      mods <- decodeModFiles $ includeDirs opts
+      mapM_ (compileFileToMod (fortranVersion opts) mods) paths
+    (path:_, actionOpt) -> do
       contents <- flexReadFile path
       let version = fromMaybe (deduceVersion path) (fortranVersion opts)
       let (Just parserF0) = lookup version parserWithModFilesVersions
@@ -76,7 +101,6 @@ main = do
             where pf' = analyseParameterVars pvm . analyseBBlocks . analyseRenamesWithModuleMap mmap . initAnalysis $ pf
                   bbm = genBBlockMap pf'
                   sgr = genSuperBBGr bbm
-      let runCompile = encodeModFile . genModFile . fst . analyseTypesWithEnv tenv . analyseRenamesWithModuleMap mmap . initAnalysis
       let findBlockPU pf astBlockId = listToMaybe
             [ pu | pu <- universeBi pf :: [ProgramUnit (Analysis A0)]
                  , bbgr <- maybeToList (bBlocks (getAnnotation pu))
@@ -95,10 +119,6 @@ main = do
         BBlocks    -> putStrLn . runBBlocks $ parserF mods contents path
         SuperGraph -> putStrLn . runSuperGraph $ parserF mods contents path
         Reprint    -> putStrLn . render . flip (pprint version) (Just 0) $ parserF mods contents path
-        Compile    -> do
-          let bytes = runCompile $ parserF mods contents path
-          let fspath = path <.> modFileSuffix
-          LB.writeFile fspath bytes
         DumpModFile -> do
           let path' = if modFileSuffix `isSuffixOf` path then path else path <.> modFileSuffix
           contents' <- LB.readFile path'
@@ -157,6 +177,20 @@ main = do
                            | otherwise    = B.replicate (maxLen - B.length line + 1) ' ' <> "!" <> nodeStr
                 B.putStrLn $ line <> suffix
     _ -> fail $ usageInfo programName options
+
+compileFileToMod :: Maybe FortranVersion -> ModFiles -> FilePath -> IO ModFile
+compileFileToMod mvers mods path = do
+  contents <- flexReadFile path
+  let version = fromMaybe (deduceVersion path) mvers
+  let (Just parserF0) = lookup version parserWithModFilesVersions
+  let parserF m b s = fromRight (parserF0 m b s)
+  let mmap = combinedModuleMap mods
+  let tenv = combinedTypeEnv mods
+  let runCompile = genModFile . fst . analyseTypesWithEnv tenv . analyseRenamesWithModuleMap mmap . initAnalysis
+  let mod = runCompile $ parserF mods contents path
+  let fspath = path -<.> modFileSuffix
+  LB.writeFile fspath $ encodeModFile mod
+  return mod
 
 -- List files in dir recursively
 rGetDirContents :: String -> IO [String]
@@ -262,7 +296,7 @@ printTypeErrors = putStrLn . showTypeErrors
 
 data Action
   = Lex | Parse | Typecheck | Rename | BBlocks | SuperGraph | Reprint | DumpModFile | Compile
-  | ShowFlows Bool Bool Int | ShowBlocks (Maybe Int)
+  | ShowFlows Bool Bool Int | ShowBlocks (Maybe Int) | ShowMakeGraph | Make
   deriving Eq
 
 instance Read Action where
@@ -332,6 +366,14 @@ options =
       (NoArg $ \ opts -> opts { action = Compile })
       "compile an .fsmod file from the input"
   , Option []
+      ["make"]
+      (NoArg $ \ opts -> opts { action = Make })
+      "determine dependency order of modules and automatically compile .fsmod files"
+  , Option []
+      ["show-make-graph"]
+      (NoArg $ \ opts -> opts { action = ShowMakeGraph })
+      "dump a graph showing the build structure of modules"
+  , Option []
       ["show-block-numbers"]
       (OptArg (\a opts -> opts { action = ShowBlocks (a >>= readMaybe) }
               ) "LINE-NUM")
@@ -358,7 +400,7 @@ compileArgs args =
     (o, n, []) -> return (foldl (flip id) initOptions o, n)
     (_, _, errors) -> ioError $ userError $ concat errors ++ usageInfo header options
   where
-    header = "Usage: " ++ programName ++ " [OPTION...] <file>"
+    header = "Usage: " ++ programName ++ " [OPTION...] <file...>"
 
 instance {-# OVERLAPPING #-} Show [ FixedForm.Token ] where
   show = unlines . lines'
