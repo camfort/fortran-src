@@ -52,6 +52,22 @@ import Text.Printf
 programName :: String
 programName = "fortran-src"
 
+data TimestampStatus = NoSuchFile | CompileFile | ModFileExists
+
+checkTimestamps :: FilePath -> IO TimestampStatus
+checkTimestamps path = do
+  pathExists <- doesFileExist path
+  modExists <- doesFileExist $ path -<.> modFileSuffix
+  case (pathExists, modExists) of
+    (False, _)    -> pure NoSuchFile
+    (True, False) -> pure CompileFile
+    (True, True)  -> do
+      pathModTime <- getModificationTime path
+      modModTime  <- getModificationTime $ path -<.> modFileSuffix
+      if pathModTime < modModTime
+        then pure ModFileExists
+        else pure CompileFile
+
 main :: IO ()
 main = do
   args <- getArgs
@@ -69,10 +85,20 @@ main = do
             , not (null nxt) = do
                 let paths = [ fn | (_, Just (MOFile fn)) <- nxt ]
                 newMods <- forM paths $ \ path -> do
-                  putStr $ "Compiling " ++ path ++ "..."
-                  mod <- compileFileToMod mvers mods path
-                  putStrLn "done"
-                  pure mod
+                  tsStatus <- checkTimestamps path
+                  case tsStatus of
+                    NoSuchFile -> do
+                      putStr $ "Does not exist: " ++ path
+                      pure emptyModFile
+                    ModFileExists -> do
+                      putStrLn $ "Skipping " ++ path ++ "."
+                      pure emptyModFile
+                    CompileFile -> do
+                      putStr $ "Summarising " ++ path ++ "..."
+                      mod <- compileFileToMod mvers mods path
+                      putStrLn "done"
+                      pure mod
+
                 let ns  = map fst nxt
                 let mg' = delModNodes ns mg
                 loop mg' $ newMods ++ mods
