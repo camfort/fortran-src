@@ -52,22 +52,6 @@ import Text.Printf
 programName :: String
 programName = "fortran-src"
 
-data TimestampStatus = NoSuchFile | CompileFile | ModFileExists
-
-checkTimestamps :: FilePath -> IO TimestampStatus
-checkTimestamps path = do
-  pathExists <- doesFileExist path
-  modExists <- doesFileExist $ path -<.> modFileSuffix
-  case (pathExists, modExists) of
-    (False, _)    -> pure NoSuchFile
-    (True, False) -> pure CompileFile
-    (True, True)  -> do
-      pathModTime <- getModificationTime path
-      modModTime  <- getModificationTime $ path -<.> modFileSuffix
-      if pathModTime < modModTime
-        then pure ModFileExists
-        else pure CompileFile
-
 main :: IO ()
 main = do
   args <- getArgs
@@ -76,6 +60,7 @@ main = do
     (paths, ShowMakeGraph) -> do
       mg <- genModGraph (fortranVersion opts) (includeDirs opts) paths
       putStrLn $ modGraphToDOT mg
+    -- make: construct a build-dep graph and follow it
     (paths, Make) -> do
       let mvers = fortranVersion opts
       mg0 <- genModGraph mvers (includeDirs opts) paths
@@ -203,6 +188,24 @@ main = do
                            | otherwise    = B.replicate (maxLen - B.length line + 1) ' ' <> "!" <> nodeStr
                 B.putStrLn $ line <> suffix
     _ -> fail $ usageInfo programName options
+
+data TimestampStatus = NoSuchFile | CompileFile | ModFileExists
+
+-- | Compare the source file timestamp to the fsmod file timestamp, if
+-- it exists.
+checkTimestamps :: FilePath -> IO TimestampStatus
+checkTimestamps path = do
+  pathExists <- doesFileExist path
+  modExists <- doesFileExist $ path -<.> modFileSuffix
+  case (pathExists, modExists) of
+    (False, _)    -> pure NoSuchFile
+    (True, False) -> pure CompileFile
+    (True, True)  -> do
+      pathModTime <- getModificationTime path
+      modModTime  <- getModificationTime $ path -<.> modFileSuffix
+      if pathModTime < modModTime
+        then pure ModFileExists
+        else pure CompileFile
 
 compileFileToMod :: Maybe FortranVersion -> ModFiles -> FilePath -> IO ModFile
 compileFileToMod mvers mods path = do
