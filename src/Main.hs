@@ -63,8 +63,18 @@ main = do
     -- make: construct a build-dep graph and follow it
     (paths, Make) -> do
       let mvers = fortranVersion opts
-      mg0 <- genModGraph mvers (includeDirs opts) paths
+      -- Expand all paths that are directories into a list of Fortran
+      -- files from a recursive directory listing.
+      paths' <- fmap concat . forM paths $ \ path -> do
+        isDir <- doesDirectoryExist path
+        if isDir then do
+          listFortranFiles path
+        else pure [path]
+      -- Build the graph of module dependencies
+      mg0 <- genModGraph mvers (includeDirs opts) paths'
+      -- Start the list of mods with those from the command line
       mods0 <- decodeModFiles $ includeDirs opts
+      -- Loop through the dependency graph until it is empty
       let loop mg mods
             | nxt <- takeNextMods mg
             , not (null nxt) = do
@@ -206,6 +216,28 @@ checkTimestamps path = do
       if pathModTime < modModTime
         then pure ModFileExists
         else pure CompileFile
+
+-- | Get a list of Fortran files under the given directory.
+listFortranFiles :: FilePath -> IO [FilePath]
+listFortranFiles dir = filter isFortran <$> listDirectoryRecursively dir
+  where
+    -- | True if the file has a valid fortran extension.
+    isFortran :: FilePath -> Bool
+    isFortran x = map toLower (takeExtension x) `elem` exts
+      where exts = [".f", ".f90", ".f77", ".f03"]
+
+listDirectoryRecursively :: FilePath -> IO [FilePath]
+listDirectoryRecursively dir = listDirectoryRec dir ""
+  where
+    listDirectoryRec :: FilePath -> FilePath -> IO [FilePath]
+    listDirectoryRec d f = do
+      let fullPath = d </> f
+      isDir <- doesDirectoryExist fullPath
+      if isDir
+      then do
+        conts <- listDirectory fullPath
+        concat <$> mapM (listDirectoryRec fullPath) conts
+      else pure [fullPath]
 
 compileFileToMod :: Maybe FortranVersion -> ModFiles -> FilePath -> IO ModFile
 compileFileToMod mvers mods path = do
