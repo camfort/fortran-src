@@ -211,6 +211,7 @@ PROGRAM :: { ProgramFile A0 }
 
 PROGRAM_INNER :: { ProgramFile A0 }
 : PROGRAM_UNITS { ProgramFile (MetaInfo { miVersion = Fortran90, miFilename = "" }) (reverse $1) }
+| {- empty -}   { ProgramFile (MetaInfo { miVersion = Fortran90, miFilename = "" }) [] }
 
 PROGRAM_UNITS :: { [ ProgramUnit A0 ] }
 : PROGRAM_UNITS PROGRAM_UNIT MAYBE_NEWLINE { $2 : $1 }

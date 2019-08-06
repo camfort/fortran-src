@@ -111,6 +111,7 @@ PROGRAM
 PROGRAM_INNER :: { ProgramFile A0 }
 PROGRAM_INNER
 : PROGRAM_UNITS BLOCKS { ProgramFile (MetaInfo { miVersion = Fortran66, miFilename = "" })  (reverse $1 ++ convCmts (reverse $2)) }
+| {- empty -}   { ProgramFile (MetaInfo { miVersion = Fortran66, miFilename = "" }) [] }
 
 PROGRAM_UNITS :: { [ ProgramUnit A0 ] }
 PROGRAM_UNITS
