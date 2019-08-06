@@ -5,23 +5,22 @@ module Language.Fortran.Analysis.ModGraph
   (genModGraph, ModGraph(..), ModOrigin(..), modGraphToDOT, takeNextMods, delModNodes)
 where
 
+import Prelude hiding (mod)
 import Control.Monad
 import Control.Monad.State.Strict
 import Data.Data
 import Data.Generics.Uniplate.Data
-import Data.Graph.Inductive
+import Data.Graph.Inductive hiding (version)
 import Data.Graph.Inductive.PatriciaTree (Gr)
 import Data.Maybe
 import Data.Text.Encoding (encodeUtf8, decodeUtf8With)
 import Data.Text.Encoding.Error (replace)
-import GHC.Generics
 import Language.Fortran.AST hiding (setName)
 import Language.Fortran.Parser.Any
-import Language.Fortran.ParserMonad (selectFortranVersion, FortranVersion(..), fromRight)
+import Language.Fortran.ParserMonad (FortranVersion(..), fromRight)
 import Language.Fortran.Util.ModFile
 import qualified Data.ByteString.Char8 as B
 import qualified Data.ByteString.Lazy.Char8 as LB
-import qualified Data.IntMap as IM
 import qualified Data.Map as M
 import System.IO
 import System.Directory
@@ -48,18 +47,18 @@ type ModGrapher a = StateT ModGraph IO a
 
 maybeAddModName :: String -> Maybe ModOrigin -> ModGrapher Node
 maybeAddModName modName org = do
-  mg@ModGraph { mgModNodeMap = nmap, mgGraph = gr, mgNumNodes = numNodes } <- get
-  case M.lookup modName nmap of
+  mg@ModGraph { mgModNodeMap = mnmap, mgGraph = gr, mgNumNodes = numNodes } <- get
+  case M.lookup modName mnmap of
     Just (i, org') | org <= org' -> pure i
                    | otherwise   -> do
-                       let nmap' = M.insert modName (i, org) nmap
-                       put $ mg { mgModNodeMap = nmap' }
+                       let mnmap' = M.insert modName (i, org) mnmap
+                       put $ mg { mgModNodeMap = mnmap' }
                        pure i
     Nothing -> do
       let i = numNodes + 1
-      let nmap' = M.insert modName (i, org) nmap
+      let mnmap' = M.insert modName (i, org) mnmap
       let gr' = insNode (i, modName) gr
-      put $ mg { mgModNodeMap = nmap', mgGraph = gr', mgNumNodes = i }
+      put $ mg { mgModNodeMap = mnmap', mgGraph = gr', mgNumNodes = i }
       pure i
 
 addModDep :: String -> String -> ModGrapher ()
@@ -72,18 +71,18 @@ addModDep modName depName = do
 genModGraph :: Maybe FortranVersion -> [FilePath] -> [FilePath] -> IO ModGraph
 genModGraph mversion includeDirs paths = do
   let perModule path pu@(PUModule _ _ modName _ _) = do
-        maybeAddModName modName (Just $ MOFile path)
+        _ <- maybeAddModName modName (Just $ MOFile path)
         let uses = [ usedName | StUse _ _ (ExpValue _ _ (ValVariable usedName)) _ _ _ <-
                                 universeBi pu :: [Statement ()] ]
         forM_ uses $ \ usedName -> do
-          i <- maybeAddModName usedName Nothing
+          _ <- maybeAddModName usedName Nothing
           addModDep modName usedName
       perModule path pu | Named puName <- getName pu = do
-        maybeAddModName puName (Just $ MOFile path)
+        _ <- maybeAddModName puName (Just $ MOFile path)
         let uses = [ usedName | StUse _ _ (ExpValue _ _ (ValVariable usedName)) _ _ _ <-
                                 universeBi pu :: [Statement ()] ]
         forM_ uses $ \ usedName -> do
-          i <- maybeAddModName usedName Nothing
+          _ <- maybeAddModName usedName Nothing
           addModDep puName usedName
       perModule _ _ = pure ()
   let iter :: FilePath -> ModGrapher ()
@@ -94,8 +93,6 @@ genModGraph mversion includeDirs paths = do
         let parserF m b s = fromRight (parserF0 m b s)
         fileMods <- liftIO $ decodeModFiles includeDirs
         let mods = map snd fileMods
-        let mmap = combinedModuleMap mods
-        let tenv = combinedTypeEnv mods
         forM_ fileMods $ \ (fileName, mod) -> do
           forM_ [ name | Named name <- M.keys (combinedModuleMap [mod]) ] $ \ name -> do
             _ <- maybeAddModName name . Just $ MOFSMod fileName
@@ -119,11 +116,11 @@ modGraphToDOT ModGraph { mgGraph = gr } = unlines dot
           [ "}\n" ]
 
 takeNextMods :: ModGraph -> [(Node, Maybe ModOrigin)]
-takeNextMods ModGraph { mgModNodeMap = nmap, mgGraph = gr } = noDepFiles
+takeNextMods ModGraph { mgModNodeMap = mnmap, mgGraph = gr } = noDepFiles
   where
     noDeps = [ (i, modName) | (i, modName) <- labNodes gr, null (suc gr i) ]
     noDepFiles = [ (i, mo) | (i, modName) <- noDeps
-                           , (_, mo) <- maybeToList (M.lookup modName nmap) ]
+                           , (_, mo) <- maybeToList (M.lookup modName mnmap) ]
 
 delModNodes :: [Node] -> ModGraph -> ModGraph
 delModNodes ns mg@ModGraph { mgGraph = gr } = mg'
@@ -145,9 +142,9 @@ decodeModFiles = foldM (\ modFiles d -> do
           Left msg -> do
             hPutStrLn stderr $ modFileName ++ ": Error: " ++ msg
             return [(modFileName, emptyModFile)]
-          Right modFiles -> do
+          Right mods -> do
             hPutStrLn stderr $ modFileName ++ ": successfully parsed precompiled file."
-            return $ map (modFileName,) modFiles
+            return $ map (modFileName,) mods
       return $ addedModFiles ++ modFiles
     ) []
 

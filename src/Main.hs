@@ -3,7 +3,7 @@
 
 module Main where
 
-import Prelude hiding (readFile)
+import Prelude hiding (readFile, mod)
 import qualified Data.ByteString.Char8 as B
 import qualified Data.ByteString.Lazy.Char8 as LB
 import Data.Text.Encoding (encodeUtf8, decodeUtf8With)
@@ -73,19 +73,19 @@ main = do
       let loop mg mods
             | nxt <- takeNextMods mg
             , not (null nxt) = do
-                let paths = [ fn | (_, Just (MOFile fn)) <- nxt ]
-                newMods <- fmap concat . forM paths $ \ path -> do
-                  tsStatus <- checkTimestamps path
+                let fnPaths = [ fn | (_, Just (MOFile fn)) <- nxt ]
+                newMods <- fmap concat . forM fnPaths $ \ fnPath -> do
+                  tsStatus <- checkTimestamps fnPath
                   case tsStatus of
                     NoSuchFile -> do
-                      putStr $ "Does not exist: " ++ path
+                      putStr $ "Does not exist: " ++ fnPath
                       pure [emptyModFile]
                     ModFileExists modPath -> do
                       putStrLn $ "Loading mod file " ++ modPath ++ "."
                       decodeOneModFile modPath
                     CompileFile -> do
-                      putStr $ "Summarising " ++ path ++ "..."
-                      mod <- compileFileToMod mvers mods path Nothing
+                      putStr $ "Summarising " ++ fnPath ++ "..."
+                      mod <- compileFileToMod mvers mods fnPath Nothing
                       putStrLn "done"
                       pure [mod]
 
@@ -198,6 +198,7 @@ main = do
                 let suffix | null nodeIDs = ""
                            | otherwise    = B.replicate (maxLen - B.length line + 1) ' ' <> "!" <> nodeStr
                 B.putStrLn $ line <> suffix
+        _ -> fail $ usageInfo programName options
     _ -> fail $ usageInfo programName options
 
 
