@@ -434,9 +434,9 @@ options =
       (NoArg $ \ opts -> opts { action = Compile })
       "compile an .fsmod file from the input"
   , Option []
-      ["make"]
+      ["make-mods", "make"]
       (NoArg $ \ opts -> opts { action = Make })
-      "determine dependency order of modules and automatically compile .fsmod files"
+      "determine dependency order of modules and automatically build .fsmod files"
   , Option []
       ["show-make-graph"]
       (NoArg $ \ opts -> opts { action = ShowMakeGraph })
