@@ -139,15 +139,15 @@ decodeModFiles :: [String] -> IO [(FilePath, ModFile)]
 decodeModFiles = foldM (\ modFiles d -> do
       -- Figure out the camfort mod files and parse them.
       modFileNames <- filter isModFile `fmap` getDirContents d
-      addedModFiles <- forM modFileNames $ \ modFileName -> do
+      addedModFiles <- fmap concat . forM modFileNames $ \ modFileName -> do
         contents <- LB.readFile (d </> modFileName)
         case decodeModFile contents of
           Left msg -> do
             hPutStrLn stderr $ modFileName ++ ": Error: " ++ msg
-            return (modFileName, emptyModFile)
-          Right modFile -> do
+            return [(modFileName, emptyModFile)]
+          Right modFiles -> do
             hPutStrLn stderr $ modFileName ++ ": successfully parsed precompiled file."
-            return (modFileName, modFile)
+            return $ map (modFileName,) modFiles
       return $ addedModFiles ++ modFiles
     ) []
 

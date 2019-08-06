@@ -74,29 +74,34 @@ main = do
             | nxt <- takeNextMods mg
             , not (null nxt) = do
                 let paths = [ fn | (_, Just (MOFile fn)) <- nxt ]
-                newMods <- forM paths $ \ path -> do
+                newMods <- fmap concat . forM paths $ \ path -> do
                   tsStatus <- checkTimestamps path
                   case tsStatus of
                     NoSuchFile -> do
                       putStr $ "Does not exist: " ++ path
-                      pure emptyModFile
-                    ModFileExists -> do
-                      putStrLn $ "Skipping " ++ path ++ "."
-                      pure emptyModFile
+                      pure [emptyModFile]
+                    ModFileExists modPath -> do
+                      putStrLn $ "Loading mod file " ++ modPath ++ "."
+                      decodeOneModFile modPath
                     CompileFile -> do
                       putStr $ "Summarising " ++ path ++ "..."
-                      mod <- compileFileToMod mvers mods path
+                      mod <- compileFileToMod mvers mods path Nothing
                       putStrLn "done"
-                      pure mod
+                      pure [mod]
 
                 let ns  = map fst nxt
                 let mg' = delModNodes ns mg
                 loop mg' $ newMods ++ mods
-          loop _ _ = pure ()
-      loop mg0 mods0
+          loop _ mods = pure mods
+
+      allMods <- loop mg0 mods0
+      case outputFile opts of
+        Nothing -> pure ()
+        Just f  -> LB.writeFile f $ encodeModFile allMods
+
     (paths, Compile) -> do
       mods <- decodeModFiles $ includeDirs opts
-      mapM_ (compileFileToMod (fortranVersion opts) mods) paths
+      mapM_ (\ p -> compileFileToMod (fortranVersion opts) mods p (outputFile opts)) paths
     (path:_, actionOpt) -> do
       contents <- flexReadFile path
       let version = fromMaybe (deduceVersion path) (fortranVersion opts)
@@ -139,14 +144,15 @@ main = do
           let path' = if modFileSuffix `isSuffixOf` path then path else path <.> modFileSuffix
           contents' <- LB.readFile path'
           case decodeModFile contents' of
-            Left msg -> putStrLn $ "Error: " ++ msg
-            Right mf -> putStrLn $ "Filename: " ++ moduleFilename mf ++
-                                   "\n\nStringMap:\n" ++ showStringMap (combinedStringMap [mf]) ++
-                                   "\n\nModuleMap:\n" ++ showModuleMap (combinedModuleMap [mf]) ++
-                                   "\n\nDeclMap:\n" ++ showGenericMap (combinedDeclMap [mf]) ++
-                                   "\n\nTypeEnv:\n" ++ showTypes (combinedTypeEnv [mf]) ++
-                                   "\n\nParamVarMap:\n" ++ showGenericMap (combinedParamVarMap [mf]) ++
-                                   "\n\nOther Data Labels: " ++ show (getLabelsModFileData mf)
+            Left msg  -> putStrLn $ "Error: " ++ msg
+            Right mfs -> forM_ mfs $ \ mf ->
+              putStrLn $ "Filename: " ++ moduleFilename mf ++
+                       "\n\nStringMap:\n" ++ showStringMap (combinedStringMap [mf]) ++
+                       "\n\nModuleMap:\n" ++ showModuleMap (combinedModuleMap [mf]) ++
+                       "\n\nDeclMap:\n" ++ showGenericMap (combinedDeclMap [mf]) ++
+                       "\n\nTypeEnv:\n" ++ showTypes (combinedTypeEnv [mf]) ++
+                       "\n\nParamVarMap:\n" ++ showGenericMap (combinedParamVarMap [mf]) ++
+                       "\n\nOther Data Labels: " ++ show (getLabelsModFileData mf)
         ShowFlows isFrom isSuper astBlockId -> do
           let pf = analyseParameterVars pvm .
                    analyseBBlocks .
@@ -206,7 +212,7 @@ expandDirs = fmap concat . mapM each
         then listFortranFiles path
         else pure [path]
 
-data TimestampStatus = NoSuchFile | CompileFile | ModFileExists
+data TimestampStatus = NoSuchFile | CompileFile | ModFileExists FilePath
 
 -- | Compare the source file timestamp to the fsmod file timestamp, if
 -- it exists.
@@ -218,10 +224,11 @@ checkTimestamps path = do
     (False, _)    -> pure NoSuchFile
     (True, False) -> pure CompileFile
     (True, True)  -> do
+      let modPath = path -<.> modFileSuffix
       pathModTime <- getModificationTime path
-      modModTime  <- getModificationTime $ path -<.> modFileSuffix
+      modModTime  <- getModificationTime modPath
       if pathModTime < modModTime
-        then pure ModFileExists
+        then pure $ ModFileExists modPath
         else pure CompileFile
 
 -- | Get a list of Fortran files under the given directory.
@@ -246,8 +253,8 @@ listDirectoryRecursively dir = listDirectoryRec dir ""
         concat <$> mapM (listDirectoryRec fullPath) conts
       else pure [fullPath]
 
-compileFileToMod :: Maybe FortranVersion -> ModFiles -> FilePath -> IO ModFile
-compileFileToMod mvers mods path = do
+compileFileToMod :: Maybe FortranVersion -> ModFiles -> FilePath -> Maybe FilePath -> IO ModFile
+compileFileToMod mvers mods path moutfile = do
   contents <- flexReadFile path
   let version = fromMaybe (deduceVersion path) mvers
   let (Just parserF0) = lookup version parserWithModFilesVersions
@@ -256,8 +263,8 @@ compileFileToMod mvers mods path = do
   let tenv = combinedTypeEnv mods
   let runCompile = genModFile . fst . analyseTypesWithEnv tenv . analyseRenamesWithModuleMap mmap . initAnalysis
   let mod = runCompile $ parserF mods contents path
-  let fspath = path -<.> modFileSuffix
-  LB.writeFile fspath $ encodeModFile mod
+  let fspath = path -<.> modFileSuffix `fromMaybe` moutfile
+  LB.writeFile fspath $ encodeModFile [mod]
   return mod
 
 -- List files in dir recursively
@@ -283,20 +290,22 @@ getDirContents d = do
   map (d' </>) `fmap` listDirectory d'
 
 decodeModFiles :: [String] -> IO ModFiles
-decodeModFiles = foldM (\ modFiles d -> do
-      -- Figure out the camfort mod files and parse them.
-      modFileNames <- filter isModFile `fmap` getDirContents d
-      addedModFiles <- forM modFileNames $ \ modFileName -> do
-        contents <- LB.readFile (d </> modFileName)
-        case decodeModFile contents of
-          Left msg -> do
-            hPutStrLn stderr $ modFileName ++ ": Error: " ++ msg
-            return emptyModFile
-          Right modFile -> do
-            hPutStrLn stderr $ modFileName ++ ": successfully parsed precompiled file."
-            return modFile
-      return $ addedModFiles ++ modFiles
-    ) emptyModFiles
+decodeModFiles = flip foldM emptyModFiles $ \ modFiles d -> do
+  -- Figure out the camfort mod files and parse them.
+  modFileNames <- filter isModFile `fmap` getDirContents d
+  addedModFiles <- concat <$> mapM (decodeOneModFile . (d </>)) modFileNames
+  return $ addedModFiles ++ modFiles
+
+decodeOneModFile :: FilePath -> IO ModFiles
+decodeOneModFile path = do
+  contents <- LB.readFile path
+  case decodeModFile contents of
+    Left msg -> do
+      hPutStrLn stderr $ path ++ ": Error: " ++ msg
+      return []
+    Right modFiles -> do
+      hPutStrLn stderr $ path ++ ": successfully parsed summary file."
+      return modFiles
 
 isModFile :: FilePath -> Bool
 isModFile = (== modFileSuffix) . takeExtension
@@ -382,10 +391,11 @@ data Options = Options
   { fortranVersion  :: Maybe FortranVersion
   , action          :: Action
   , outputFormat    :: OutputFormat
+  , outputFile      :: Maybe FilePath
   , includeDirs     :: [String] }
 
 initOptions :: Options
-initOptions = Options Nothing Parse Default []
+initOptions = Options Nothing Parse Default Nothing []
 
 options :: [OptDescr (Options -> Options)]
 options =
@@ -430,9 +440,13 @@ options =
       (ReqArg (\ d opts -> opts { includeDirs = d:includeDirs opts }) "DIR")
       "directory to search for precompiled 'mod files'"
   , Option ['c']
-      ["compile"]
+      ["summarise", "compile-mod"]
       (NoArg $ \ opts -> opts { action = Compile })
-      "compile an .fsmod file from the input"
+      "build an .fsmod file from the input"
+  , Option ['o']
+      ["output-file"]
+      (ReqArg (\ f opts -> opts { outputFile = Just f }) "FILE")
+      "name of output file (e.g. name of generated fsmod file)"
   , Option []
       ["make-mods", "make"]
       (NoArg $ \ opts -> opts { action = Make })

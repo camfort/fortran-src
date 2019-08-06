@@ -26,15 +26,18 @@ Format of Camfort precompiled files with information about Fortran
 modules. The 'ModuleMap' stores information important to the
 renamer. The other data is up to you.
 
+Note that the encoder and decoder work on lists of ModFile so that one
+fsmod-file may contain information about multiple Fortran files.
+
 One typical usage might look like:
 
 > let modFile1 = genModFile programFile
 > let modFile2 = alterModFileData (const (Just ...)) "mydata" modFile1
-> let bytes    = encodeModFile modFile2
+> let bytes    = encodeModFile [modFile2]
 > ...
 > case decodeModFile bytes of
 >   Left error -> print error
->   Right modFile3 -> ...
+>   Right modFile3:otherModuleFiles -> ...
 >     where
 >       moduleMap = combinedModuleMap (modFile3:otherModuleFiles)
 >       myData    = lookupModFileData "mydata" modFile3
@@ -153,19 +156,23 @@ alterModFileData f k mf = mf { mfOtherData = M.alter f k . mfOtherData $ mf }
 -- alterModFileDataF :: Functor f => (Maybe B.ByteString -> f (Maybe B.ByteString)) -> String -> ModFile -> f ModFile
 -- alterModFileDataF f k mf = (\ od -> mf { mfOtherData = od }) <$> M.alterF f k (mfOtherData mf)
 
--- | Convert ModFile to a strict ByteString for writing to file.
-encodeModFile :: ModFile -> LB.ByteString
-encodeModFile mf = encode mf' { mfStringMap = sm }
+-- | Convert ModFiles to a strict ByteString for writing to file.
+encodeModFile :: [ModFile] -> LB.ByteString
+encodeModFile = encode . map each
   where
-    (mf', sm) = extractStringMap (mf { mfStringMap = M.empty })
+    each mf = mf' { mfStringMap = sm }
+      where
+        (mf', sm) = extractStringMap (mf { mfStringMap = M.empty })
 
--- | Convert a strict ByteString to a ModFile, if possible. Revert the
+-- | Convert a strict ByteString to ModFiles, if possible. Revert the
 -- String aliases according to the StringMap.
-decodeModFile :: LB.ByteString -> Either String ModFile
+decodeModFile :: LB.ByteString -> Either String [ModFile]
 decodeModFile bs = case decodeOrFail bs of
-  Left (_, _, s)   -> Left s
-  Right (_, _, mf) -> Right (revertStringMap sm mf { mfStringMap = M.empty }) { mfStringMap = sm }
-    where sm = mfStringMap mf
+  Left (_, _, s)    -> Left s
+  Right (_, _, mfs) -> Right (map each mfs)
+    where
+      each mf = (revertStringMap sm mf { mfStringMap = M.empty }) { mfStringMap = sm }
+        where sm = mfStringMap mf
 
 -- | Extract the combined module map from a set of ModFiles. Useful
 -- for parsing a Fortran file in a large context of other modules.
