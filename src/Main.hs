@@ -58,18 +58,13 @@ main = do
   (opts, parsedArgs) <- compileArgs args
   case (parsedArgs, action opts) of
     (paths, ShowMakeGraph) -> do
-      mg <- genModGraph (fortranVersion opts) (includeDirs opts) paths
+      paths' <- expandDirs paths
+      mg <- genModGraph (fortranVersion opts) (includeDirs opts) paths'
       putStrLn $ modGraphToDOT mg
     -- make: construct a build-dep graph and follow it
     (paths, Make) -> do
       let mvers = fortranVersion opts
-      -- Expand all paths that are directories into a list of Fortran
-      -- files from a recursive directory listing.
-      paths' <- fmap concat . forM paths $ \ path -> do
-        isDir <- doesDirectoryExist path
-        if isDir then do
-          listFortranFiles path
-        else pure [path]
+      paths' <- expandDirs paths
       -- Build the graph of module dependencies
       mg0 <- genModGraph mvers (includeDirs opts) paths'
       -- Start the list of mods with those from the command line
@@ -198,6 +193,18 @@ main = do
                            | otherwise    = B.replicate (maxLen - B.length line + 1) ' ' <> "!" <> nodeStr
                 B.putStrLn $ line <> suffix
     _ -> fail $ usageInfo programName options
+
+
+-- | Expand all paths that are directories into a list of Fortran
+-- files from a recursive directory listing.
+expandDirs :: [FilePath] -> IO [FilePath]
+expandDirs = fmap concat . mapM each
+  where
+    each path = do
+      isDir <- doesDirectoryExist path
+      if isDir
+        then listFortranFiles path
+        else pure [path]
 
 data TimestampStatus = NoSuchFile | CompileFile | ModFileExists
 
