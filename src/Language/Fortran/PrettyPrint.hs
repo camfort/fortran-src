@@ -974,7 +974,7 @@ instance IndentablePretty (StructureItem a) where
     "union" <> newline <>
     foldl' (\doc item -> doc <> pprint v item (incIndentation i) <> newline) empty (aStrip maps) <>
     "end union"
-  pprint v (StructStructure a s mName items) _ = pprint' v (StStructure a s mName items)
+  pprint v (StructStructure a s mName _ items) _ = pprint' v (StStructure a s mName items)
 
 instance IndentablePretty (UnionMap a) where
   pprint v (UnionMap _ _ items) i =

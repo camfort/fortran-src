@@ -525,6 +525,8 @@ STRUCTURE_DECLARATION_STATEMENT
     in StructFields () s t attrs decls }
 | union NEWLINE UNION_MAPS endunion NEWLINE
   { StructUnion () (getTransSpan $1 $5) (fromReverseList $3) }
+| structure MAYBE_NAME NAME NEWLINE STRUCTURE_DECLARATIONS endstructure NEWLINE
+  { StructStructure () (getTransSpan $1 $7) $2 $3 (fromReverseList $5) }
 
 UNION_MAPS :: { [ UnionMap A0 ] }
 UNION_MAPS
