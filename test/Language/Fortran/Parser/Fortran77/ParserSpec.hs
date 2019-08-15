@@ -236,6 +236,20 @@ spec =
             st = StStructure () u (Just "foo") $ AList () u [StructUnion () u $ AList () u ds]
         resetSrcSpan (slParser src) `shouldBe` st
 
+      it "parses nested structure blocks" $ do
+        let src = init
+                $ unlines [ "      structure /foo/"
+                          , "        structure /bar/ baz"
+                          , "          integer qux"
+                          , "        end structure"
+                          , "      end structure"]
+            var = DeclVariable () u (varGen "qux") Nothing Nothing
+            innerst = StructStructure () u (Just "bar") ("baz")
+              $ AList () u [StructFields () u (TypeSpec () u TypeInteger Nothing) Nothing
+                $ AList () u [var]]
+            st = StStructure () u (Just "foo") $ AList () u [innerst]
+        resetSrcSpan (slParser src) `shouldBe` st
+
       it "parses character declarations with unspecfied lengths" $ do
         let src = "      character s*(*)"
             st = StDeclaration () u (TypeSpec () u (TypeCharacter Nothing Nothing) Nothing) Nothing $
