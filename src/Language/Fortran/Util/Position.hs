@@ -9,6 +9,8 @@ import Data.Data
 import Text.PrettyPrint.GenericPretty
 import Text.PrettyPrint
 import Data.Binary
+import GHC.Generics
+import Control.DeepSeq
 
 import Language.Fortran.Util.SecondParameter
 
@@ -24,6 +26,7 @@ data Position = Position
   } deriving (Eq, Ord, Data, Typeable, Generic)
 
 instance Binary Position
+instance NFData Position
 
 instance Show Position where
   show (Position _ c l _ _) = show l ++ ':' : show c
@@ -53,7 +56,7 @@ apparentFilePath p | Just (_, f) <- posPragmaOffset p = f
 data SrcSpan = SrcSpan Position Position deriving (Eq, Ord, Typeable, Data, Generic)
 
 instance Binary SrcSpan
-
+instance NFData SrcSpan
 instance Show SrcSpan where
   show (SrcSpan s1 s2)= '(' : show s1 ++ ")-(" ++ show s2 ++ ")"
 

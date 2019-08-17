@@ -4,7 +4,7 @@ module Language.Fortran.Transformation.GroupingSpec where
 import Test.Hspec hiding (Selector)
 import TestUtil
 import Control.Exception (evaluate)
-import Control.DeepSeq (force, NFData)
+import Control.DeepSeq (force)
 import Data.ByteString.Char8 (ByteString, pack)
 
 import Language.Fortran.Transformer
@@ -20,51 +20,6 @@ groupDo :: ProgramFile () -> ProgramFile ()
 groupDo = transform [ GroupLabeledDo ]
 groupForall :: ProgramFile () -> ProgramFile ()
 groupForall = transform [ GroupForall ]
-
-instance NFData MetaInfo
-instance NFData FortranVersion
-instance NFData SrcSpan
-instance NFData Position
-instance NFData CharacterLen
-instance NFData BaseType
-instance NFData UnaryOp
-instance NFData BinaryOp
-instance NFData Only
-instance NFData ModuleNature
-instance NFData Intent
-instance (NFData a, NFData (t a)) => NFData (AList t a)
-instance NFData a => NFData (ProgramFile a)
-instance NFData a => NFData (ProgramUnit a)
-instance NFData a => NFData (Block a)
-instance NFData a => NFData (Expression a)
-instance NFData a => NFData (TypeSpec a)
-instance NFData a => NFData (Index a)
-instance NFData a => NFData (Value a)
-instance NFData a => NFData (Comment a)
-instance NFData a => NFData (Statement a)
-instance NFData a => NFData (ProcDecl a)
-instance NFData a => NFData (ProcInterface a)
-instance NFData a => NFData (DoSpecification a)
-instance NFData a => NFData (Selector a)
-instance NFData a => NFData (ForallHeader a)
-instance NFData a => NFData (Argument a)
-instance NFData a => NFData (Use a)
-instance NFData a => NFData (Attribute a)
-instance NFData a => NFData (CommonGroup a)
-instance NFData a => NFData (ControlPair a)
-instance NFData a => NFData (AllocOpt a)
-instance NFData a => NFData (DataGroup a)
-instance NFData a => NFData (DimensionDeclarator a)
-instance NFData a => NFData (Declarator a)
-instance NFData a => NFData (FormatItem a)
-instance NFData a => NFData (FlushSpec a)
-instance NFData a => NFData (ImpElement a)
-instance NFData a => NFData (ImpList a)
-instance NFData a => NFData (Namelist a)
-instance NFData a => NFData (Prefix a)
-instance NFData a => NFData (Suffix a)
-instance NFData a => NFData (StructureItem a)
-instance NFData a => NFData (UnionMap a)
 
 spec :: Spec
 spec = do
