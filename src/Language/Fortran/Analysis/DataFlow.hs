@@ -1,6 +1,6 @@
 -- | Dataflow analysis to be applied once basic block analysis is complete.
 
-{-# LANGUAGE FlexibleContexts, PatternGuards, ScopedTypeVariables, TupleSections, DeriveGeneric, DeriveDataTypeable #-}
+{-# LANGUAGE FlexibleContexts, PatternGuards, ScopedTypeVariables, TupleSections, DeriveGeneric, DeriveDataTypeable, BangPatterns #-}
 module Language.Fortran.Analysis.DataFlow
   ( dominators, iDominators, DomMap, IDomMap
   , postOrder, revPostOrder, preOrder, revPreOrder, OrderF
@@ -25,7 +25,9 @@ import Prelude hiding (init)
 import Data.Generics.Uniplate.Data
 import GHC.Generics
 import Data.Data
-import Control.Monad.State.Lazy
+import qualified Control.Monad.State.Lazy as Lazy
+import Control.Monad.State.Strict
+import Control.DeepSeq
 import Control.Arrow ((&&&))
 import Text.PrettyPrint.GenericPretty (Out)
 import Language.Fortran.Parser.Utils
@@ -34,6 +36,7 @@ import Language.Fortran.Analysis.BBlocks (showBlock, ASTBlockNode, ASTExprNode)
 import Language.Fortran.AST
 import qualified Data.Map as M
 import qualified Data.IntMap.Lazy as IM
+import qualified Data.IntMap.Strict as IMS
 import qualified Data.Set as S
 import qualified Data.IntSet as IS
 import Data.Graph.Inductive hiding (trc, dom, order, inn, out, rc)
@@ -48,7 +51,7 @@ type BBNodeMap = IM.IntMap
 type BBNodeSet = IS.IntSet
 type ASTBlockNodeMap = IM.IntMap
 type ASTBlockNodeSet = IS.IntSet
-type ASTExprNodeMap = IM.IntMap
+type ASTExprNodeMap = IMS.IntMap
 type ASTExprNodeSet = IS.IntSet
 
 -- | DomMap : node -> dominators of node
@@ -115,19 +118,22 @@ type InF t      = Node -> t
 -- | OutF, a function that returns the out-dataflow for a given node
 type OutF t     = Node -> t
 
--- | Apply the iterative dataflow analysis method.
-dataFlowSolver :: Ord t => BBGr a            -- ^ basic block graph
-                        -> (Node -> InOut t) -- ^ initialisation for in and out dataflows
-                        -> OrderF a          -- ^ ordering function
-                        -> (OutF t -> InF t) -- ^ compute the in-flow given an out-flow function
-                        -> (InF t -> OutF t) -- ^ compute the out-flow given an in-flow function
-                        -> InOutMap t        -- ^ final dataflow for each node
-dataFlowSolver gr initF order inF outF = converge (==) $ iterate step initM
+-- | Apply the iterative dataflow analysis method. Forces evaluation
+-- of intermediate data structures at each step.
+dataFlowSolver :: (NFData t, Ord t)
+               => BBGr a            -- ^ basic block graph
+               -> (Node -> InOut t) -- ^ initialisation for in and out dataflows
+               -> OrderF a          -- ^ ordering function
+               -> (OutF t -> InF t) -- ^ compute the in-flow given an out-flow function
+               -> (InF t -> OutF t) -- ^ compute the out-flow given an in-flow function
+               -> InOutMap t        -- ^ final dataflow for each node
+dataFlowSolver gr initF order inF outF = converge (==) $ iterate' step initM
   where
-    ordNodes = order gr
-    initM    = IM.fromList [ (n, initF n) | n <- ordNodes ]
-    step m   = IM.fromList [ (n, (inF (snd . get' m) n, outF (fst . get' m) n)) | n <- ordNodes ]
-    get' m n  = fromJustMsg ("dataFlowSolver: get " ++ show n) $ IM.lookup n m
+    ordNodes     = order gr
+    initM        = IM.fromList [ (n, initF n) | n <- ordNodes ]
+    step !m      = IM.fromList [ (n, (inF (snd . get' m) n, outF (fst . get' m) n)) | n <- ordNodes ]
+    get' m n     = fromJustMsg ("dataFlowSolver: get " ++ show n) $ IM.lookup n m
+    iterate' f x = x `deepseq` x : iterate' f (f x)
 
 -- Similar to above but return a list of states instead of just the final one.
 --dataFlowSolver' :: Ord t => BBGr a            -- ^ basic block graph
@@ -514,68 +520,79 @@ genInductionVarMapByASTBlock bedges gr = loopsToLabs . genInductionVarMap bedges
 -- It's a 'lattice' but will leave it ungeneralised for the moment.
 data InductionExpr
   = IETop                 -- not enough info
-  | IELinear Name Int Int -- Basic induction var 'Name' * coefficient + offset
+  | IELinear !Name !Int !Int -- Basic induction var 'Name' * coefficient + offset
   | IEBottom              -- too difficult
   deriving (Show, Eq, Ord, Typeable, Generic, Data)
-
+instance NFData InductionExpr
 type DerivedInductionMap = ASTExprNodeMap InductionExpr
 
-data IEFlow = IEFlow { ieFlowVars :: M.Map Name InductionExpr, ieFlowExprs :: DerivedInductionMap }
+data IEFlow = IEFlow { ieFlowVars :: M.Map Name InductionExpr, ieFlowExprs :: !DerivedInductionMap }
   deriving (Show, Eq, Ord, Typeable, Generic, Data)
+instance NFData IEFlow
 
 ieFlowInsertVar :: Name -> InductionExpr -> IEFlow -> IEFlow
 ieFlowInsertVar v ie flow = flow { ieFlowVars = M.insert v ie (ieFlowVars flow) }
 
 ieFlowInsertExpr :: ASTExprNode -> InductionExpr -> IEFlow -> IEFlow
-ieFlowInsertExpr i ie flow = flow { ieFlowExprs = IM.insert i ie (ieFlowExprs flow) }
+ieFlowInsertExpr i ie flow = flow { ieFlowExprs = IMS.insert i ie (ieFlowExprs flow) }
 
 emptyIEFlow :: IEFlow
-emptyIEFlow = IEFlow M.empty IM.empty
+emptyIEFlow = IEFlow M.empty IMS.empty
 
 joinIEFlows :: [IEFlow] -> IEFlow
 joinIEFlows flows = IEFlow flowV flowE
   where
     flowV = M.unionsWith joinInductionExprs (map ieFlowVars flows)
-    flowE = IM.unionsWith joinInductionExprs (map ieFlowExprs flows)
+    flowE = IMS.unionsWith joinInductionExprs (map ieFlowExprs flows)
 
 -- | For every expression in a loop, try to derive its relationship to
 -- a basic induction variable.
 genDerivedInductionMap :: forall a. Data a => BackEdgeMap -> BBGr (Analysis a) -> DerivedInductionMap
-genDerivedInductionMap bedges gr = ieFlowExprs . joinIEFlows . map snd . IM.elems . IM.filterWithKey inLoop $ inOutMaps
+genDerivedInductionMap bedges gr = ieFlowExprs . joinIEFlows . map snd . IMS.elems . IMS.filterWithKey inLoop $ inOutMaps
   where
     bivMap = basicInductionVars bedges gr -- basic indvars indexed by loop header node
     loopNodeSet = IS.unions (loopNodes bedges $ bbgrGr gr) -- set of nodes within a loop
     inLoop i _ = i `IS.member` loopNodeSet
 
     step :: IEFlow -> Block (Analysis a) -> IEFlow
-    step flow b = case b of
+    step !flow b = case b of
       BlStatement _ _ _ (StExpressionAssign _ _ lv@(ExpValue _ _ (ValVariable _)) rhs)
-        | _ <- insLabel (getAnnotation rhs)
-        , flow''   <- ieFlowInsertVar (varName lv) (derivedInductionExpr flow' rhs) flow' -> stepExpr flow'' lv
+        | _ <- insLabel (getAnnotation rhs), flow'' <- ieFlowInsertVar (varName lv) (derivedInductionExprMemo flow' rhs) flow'
+        -> stepExpr flow'' lv
       _ -> flow'
       where
-        flow' = foldl' stepExpr flow (universeBi b)
+        -- flow' = foldl' stepExpr flow (universeBi b)
+        flow' = execState (trans (\ e -> derivedInductionExprM e >> pure e) b) flow -- monadic version
+        trans = transformBiM :: (Expression (Analysis a) -> State IEFlow (Expression (Analysis a))) -> Block (Analysis a) -> State IEFlow (Block (Analysis a))
+
 
     stepExpr :: IEFlow -> Expression (Analysis a) -> IEFlow
-    stepExpr flow e = ieFlowInsertExpr label ie flow
+    stepExpr !flow e = ieFlowInsertExpr label ie flow
       where
         ie = derivedInductionExpr flow e
         label = fromJustMsg "stepExpr" $ insLabel (getAnnotation e)
 
     out :: InF IEFlow -> OutF IEFlow
-    out inF node = foldl' step flow (fromJustMsg ("analyseDerivedIE out(" ++ show node ++ ")") $ lab (bbgrGr gr) node)
+    out inF node = flow'
       where
         flow = joinIEFlows [fst (initF node), inF node]
+        flow' = foldl' step flow (fromJustMsg ("analyseDerivedIE out(" ++ show node ++ ")") $ lab (bbgrGr gr) node)
 
     inn :: OutF IEFlow -> InF IEFlow
     inn outF node = joinIEFlows [ outF p | p <- pre (bbgrGr gr) node ]
 
     initF :: Node -> InOut IEFlow
-    initF node = case IM.lookup node bivMap of
-                   Just set -> (IEFlow (M.fromList [ (n, IELinear n 1 0) | n <- S.toList set ]) IM.empty, emptyIEFlow)
+    initF node = case IMS.lookup node bivMap of
+                   Just set -> (IEFlow (M.fromList [ (n, IELinear n 1 0) | n <- S.toList set ]) IMS.empty, emptyIEFlow)
                    Nothing  -> (emptyIEFlow, emptyIEFlow)
 
     inOutMaps = dataFlowSolver gr initF revPostOrder inn out
+
+derivedInductionExprMemo :: Data a => IEFlow -> Expression (Analysis a) -> InductionExpr
+derivedInductionExprMemo flow e
+  | Just label <- insLabel (getAnnotation e)
+  , Just iexpr <- IMS.lookup label (ieFlowExprs flow) = iexpr
+  | otherwise = derivedInductionExpr flow e
 
 -- Compute the relationship between the given expression and a basic
 -- induction variable, if possible.
@@ -590,6 +607,25 @@ derivedInductionExpr flow e = case e of
   _                                  -> IETop -- unsure
   where
     derive = derivedInductionExpr flow
+
+-- Monadic version using State.
+derivedInductionExprM :: Data a => Expression (Analysis a) -> State IEFlow InductionExpr
+derivedInductionExprM e = do
+  flow <- get
+  let derive e' | Just label <- insLabel (getAnnotation e')
+                , Just iexpr <- IMS.lookup label (ieFlowExprs flow) = pure iexpr
+                | otherwise = derivedInductionExprM e'
+  ie <- case e of
+        v@(ExpValue _ _ (ValVariable _))   -> pure . fromMaybe IETop $ M.lookup (varName v) (ieFlowVars flow)
+        ExpValue _ _ (ValInteger str)
+          | Just i <- readInteger str      -> pure $ IELinear "" 0 (fromIntegral i)
+        ExpBinary _ _ Addition e1 e2       -> addInductionExprs <$> derive e1 <*> derive e2
+        ExpBinary _ _ Subtraction e1 e2    -> addInductionExprs <$> derive e1 <*> (negInductionExpr <$> derive e2)
+        ExpBinary _ _ Multiplication e1 e2 -> mulInductionExprs <$> derive e1 <*> derive e2
+        _                                  -> pure $ IETop -- unsure
+  let Just label = insLabel (getAnnotation e)
+  put $ ieFlowInsertExpr label ie flow
+  pure ie
 
 -- Combine two induction variable relationships through addition.
 addInductionExprs :: InductionExpr -> InductionExpr -> InductionExpr
@@ -701,7 +737,7 @@ type CallMap = M.Map ProgramUnitName (S.Set Name)
 
 -- | Create a call map showing the structure of the program.
 genCallMap :: Data a => ProgramFile (Analysis a) -> CallMap
-genCallMap pf = flip execState M.empty $ do
+genCallMap pf = flip Lazy.execState M.empty $ do
   let uP = universeBi :: Data a => ProgramFile a -> [ProgramUnit a]
   forM_ (uP pf) $ \ pu -> do
     let n = puName pu
