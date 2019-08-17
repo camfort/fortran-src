@@ -15,7 +15,6 @@ module Language.Fortran.Analysis
 where
 
 import Prelude hiding (exp)
-import Control.Monad (void)
 import Language.Fortran.Util.Position (SrcSpan)
 import Data.Generics.Uniplate.Data
 import Data.Data
