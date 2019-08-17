@@ -316,21 +316,21 @@ computeAllLhsVars = concatMap lhsOfStmt . universeBi
 
     -- Match and give the varname for LHS of statement
     match' v@(ExpValue _ _ ValVariable{}) = varName v
-    match' (ExpSubscript _ _ v@(ExpValue _ _ ValVariable{}) _) = varName v
-    match' (ExpDataRef _ _ v _) = match' v
-    match' e = error $ "An unexpected LHS to an expression assign: " ++ show (void (const ()) e)
+    match' (ExpSubscript _ _ e _)         = match' e
+    match' (ExpDataRef _ _ v _)           = match' v
+    match' e                              = error $ "An unexpected LHS to an expression assign: " ++ show (fmap (const ()) e)
 
     -- Match and give the varname of LHSes which occur in subroutine calls
-    match'' v@(ExpValue _ _ ValVariable{})                      = [varName v]
-    match'' (ExpSubscript _ _ v@(ExpValue _ _ ValVariable{}) _) = [varName v]
-    match'' (ExpDataRef _ _ v _)                                = match'' v
-    match'' e                                                   = onExprs e
+    match'' v@(ExpValue _ _ ValVariable{}) = [varName v]
+    match'' (ExpSubscript _ _ e _)         = match'' e
+    match'' (ExpDataRef _ _ v _)           = match'' v
+    match'' e                              = onExprs e
 
    -- Match and give the varname of LHSes which occur in function calls
-    match v@(ExpValue _ _ ValVariable{})                      = [varName v]
-    match (ExpSubscript _ _ v@(ExpValue _ _ ValVariable{}) _) = [varName v]
-    match (ExpDataRef _ _ e _)                                = match e
-    match _                                                   = []
+    match v@(ExpValue _ _ ValVariable{}) = [varName v]
+    match (ExpSubscript _ _ e _)         = match e
+    match (ExpDataRef _ _ e _)           = match e
+    match e                              = onExprs e
 
 -- | Set of expressions used -- not defined -- by an AST-block.
 blockRhsExprs :: Data a => Block a -> [Expression a]
