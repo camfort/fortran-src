@@ -236,6 +236,34 @@ spec =
             st = StStructure () u (Just "foo") $ AList () u [StructUnion () u $ AList () u ds]
         resetSrcSpan (slParser src) `shouldBe` st
 
+      it "parses structure/union/map blocks with comments" $ do
+        let src = init
+                $ unlines [ "      structure /foo/"
+                          , "C       comment before union"
+                          , "        union"
+                          , "C         comment inside union, before map"
+                          , "          map"
+                          , "C           comment inside map"
+                          , "            integer i ! more comment"
+                          , "          end map"
+                          , "C         comment between maps"
+                          , "          map"
+                          , "            real r    ! more comment"
+                          , "          end map"
+                          , "C         comment after map"
+                          , "        end union"
+                          , "C       comment after union"
+                          , "      end structure"]
+            ds = [ UnionMap () u $ AList () u
+                   [StructFields () u (TypeSpec () u TypeInteger Nothing) Nothing $
+                    AList () u [DeclVariable () u (varGen "i") Nothing Nothing]]
+                 , UnionMap () u $ AList () u
+                   [StructFields () u (TypeSpec () u TypeReal Nothing) Nothing $
+                    AList () u [DeclVariable () u (varGen "r") Nothing Nothing]]
+                 ]
+            st = StStructure () u (Just "foo") $ AList () u [StructUnion () u $ AList () u ds]
+        resetSrcSpan (slParser src) `shouldBe` st
+
       it "parses nested structure blocks" $ do
         let src = init
                 $ unlines [ "      structure /foo/"
