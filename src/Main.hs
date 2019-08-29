@@ -213,25 +213,6 @@ expandDirs = fmap concat . mapM each
         then listFortranFiles path
         else pure [path]
 
-data TimestampStatus = NoSuchFile | CompileFile | ModFileExists FilePath
-
--- | Compare the source file timestamp to the fsmod file timestamp, if
--- it exists.
-checkTimestamps :: FilePath -> IO TimestampStatus
-checkTimestamps path = do
-  pathExists <- doesFileExist path
-  modExists <- doesFileExist $ path -<.> modFileSuffix
-  case (pathExists, modExists) of
-    (False, _)    -> pure NoSuchFile
-    (True, False) -> pure CompileFile
-    (True, True)  -> do
-      let modPath = path -<.> modFileSuffix
-      pathModTime <- getModificationTime path
-      modModTime  <- getModificationTime modPath
-      if pathModTime < modModTime
-        then pure $ ModFileExists modPath
-        else pure CompileFile
-
 -- | Get a list of Fortran files under the given directory.
 listFortranFiles :: FilePath -> IO [FilePath]
 listFortranFiles dir = filter isFortran <$> listDirectoryRecursively dir
