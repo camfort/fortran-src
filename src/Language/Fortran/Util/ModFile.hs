@@ -51,26 +51,27 @@ module Language.Fortran.Util.ModFile
   , genModFile, regenModFile, encodeModFile, decodeModFile
   , StringMap, DeclMap, ParamVarMap, DeclContext(..), extractModuleMap, extractDeclMap
   , moduleFilename, combinedStringMap, combinedDeclMap, combinedModuleMap, combinedTypeEnv, combinedParamVarMap
-  , genUniqNameToFilenameMap )
+  , genUniqNameToFilenameMap
+  , TimestampStatus(..), checkTimestamps )
 where
 
+import Control.Monad.State
+import Data.Binary (Binary, encode, decodeOrFail)
+import qualified Data.ByteString.Lazy.Char8 as LB
 import Data.Data
-import Data.Maybe
 import Data.Generics.Uniplate.Operations
 import qualified Data.Map.Strict as M
-import Data.Binary (Binary, encode, decodeOrFail)
-import Control.Monad.State
+import Data.Maybe
 import GHC.Generics (Generic)
--- import qualified Data.ByteString.Char8 as B
-import qualified Data.ByteString.Lazy.Char8 as LB
-
-import qualified Language.Fortran.Util.Position as P
 import qualified Language.Fortran.AST as F
 import qualified Language.Fortran.Analysis as FA
+import qualified Language.Fortran.Analysis.BBlocks as FAB
+import qualified Language.Fortran.Analysis.DataFlow as FAD
 import qualified Language.Fortran.Analysis.Renaming as FAR
 import qualified Language.Fortran.Analysis.Types as FAT
-import qualified Language.Fortran.Analysis.DataFlow as FAD
-import qualified Language.Fortran.Analysis.BBlocks as FAB
+import qualified Language.Fortran.Util.Position as P
+import System.Directory
+import System.FilePath
 
 --------------------------------------------------
 
@@ -304,3 +305,23 @@ extractParamVarMap pf = M.fromList cvm
           , st@F.StParameter {}                               <- universeBi bs  :: [F.Statement (FA.Analysis a)]
           , (F.DeclVariable _ _ v _ _)                        <- universeBi st  :: [F.Declarator (FA.Analysis a)]
           , Just con                                          <- [FA.constExp (F.getAnnotation v)] ]
+
+-- | Status of mod-file compared to Fortran file.
+data TimestampStatus = NoSuchFile | CompileFile | ModFileExists FilePath
+
+-- | Compare the source file timestamp to the fsmod file timestamp, if
+-- it exists.
+checkTimestamps :: FilePath -> IO TimestampStatus
+checkTimestamps path = do
+  pathExists <- doesFileExist path
+  modExists <- doesFileExist $ path -<.> modFileSuffix
+  case (pathExists, modExists) of
+    (False, _)    -> pure NoSuchFile
+    (True, False) -> pure CompileFile
+    (True, True)  -> do
+      let modPath = path -<.> modFileSuffix
+      pathModTime <- getModificationTime path
+      modModTime  <- getModificationTime modPath
+      if pathModTime < modModTime
+        then pure $ ModFileExists modPath
+        else pure CompileFile
