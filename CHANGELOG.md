@@ -1,3 +1,14 @@
+### 0.4.0 (August 29, 2019)
+
+* ModGraph: parse Fortran files and assemble them into a dependency graph in order to construct automated 'build' plans for analysis and summarisation (e.g. with --make-mods option).
+* Change name of compilation to summarisation. Remains as '-c' option.
+* Allow multiple files and directories to be specified on command line.
+* Search includedir recursively for fsmod files.
+* Change format of fsmod-files so that they can contain [ModFile] since multiple Fortran files can be summarised into a single mod file.
+* Introduce strictness and NFData dependencies across the board.
+* Use Pipes to process large amounts of files in order to control memory usage and more efficiently process things.
+* Parsing rules for StructStructures (thanks Raoul Charman)
+
 ### 0.3.0 (June 13, 2019)
 
 * Add partial Fortran2003 support.
