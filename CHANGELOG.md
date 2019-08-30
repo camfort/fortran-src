@@ -1,3 +1,7 @@
+### 0.4.1
+
+* Ignore comments in structure declaration PR#107 (thanks Jason Xu)
+
 ### 0.4.0 (August 29, 2019)
 
 * ModGraph: parse Fortran files and assemble them into a dependency graph in order to construct automated 'build' plans for analysis and summarisation (e.g. with --make-mods option).
