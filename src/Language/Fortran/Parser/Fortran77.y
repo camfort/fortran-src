@@ -515,28 +515,30 @@ MAYBE_NAME
 STRUCTURE_DECLARATIONS :: { [StructureItem A0] }
 STRUCTURE_DECLARATIONS
 : STRUCTURE_DECLARATIONS STRUCTURE_DECLARATION_STATEMENT
-  { $2 : $1 }
-| STRUCTURE_DECLARATION_STATEMENT { [ $1 ] }
+  { if isNothing $2 then $1 else fromJust $2 : $1 }
+| STRUCTURE_DECLARATION_STATEMENT { if isNothing $1 then [] else [fromJust $1] }
 
-STRUCTURE_DECLARATION_STATEMENT :: { StructureItem A0 }
+STRUCTURE_DECLARATION_STATEMENT :: { Maybe (StructureItem A0) }
 STRUCTURE_DECLARATION_STATEMENT
 : DECLARATION_STATEMENT NEWLINE
   { let StDeclaration () s t attrs decls = $1
-    in StructFields () s t attrs decls }
+    in Just $ StructFields () s t attrs decls }
 | union NEWLINE UNION_MAPS endunion NEWLINE
-  { StructUnion () (getTransSpan $1 $5) (fromReverseList $3) }
+  { Just $ StructUnion () (getTransSpan $1 $5) (fromReverseList $3) }
 | structure MAYBE_NAME NAME NEWLINE STRUCTURE_DECLARATIONS endstructure NEWLINE
-  { StructStructure () (getTransSpan $1 $7) $2 $3 (fromReverseList $5) }
+  { Just $ StructStructure () (getTransSpan $1 $7) $2 $3 (fromReverseList $5) }
+| comment NEWLINE { Nothing }
 
 UNION_MAPS :: { [ UnionMap A0 ] }
 UNION_MAPS
-: UNION_MAPS UNION_MAP { $2 : $1 }
-| UNION_MAP { [ $1 ] }
+: UNION_MAPS UNION_MAP { if isNothing $2 then $1 else fromJust $2 : $1 }
+| UNION_MAP { if isNothing $1 then [] else [fromJust $1] }
 
-UNION_MAP :: { UnionMap A0 }
+UNION_MAP :: { Maybe (UnionMap A0) }
 UNION_MAP
 : map NEWLINE STRUCTURE_DECLARATIONS endmap NEWLINE
-  { UnionMap () (getTransSpan $1 $5) (fromReverseList $3) }
+  { Just $ UnionMap () (getTransSpan $1 $5) (fromReverseList $3) }
+| comment NEWLINE { Nothing }
 
 ENTRY_ARGS :: { AList Expression A0 }
 ENTRY_ARGS
