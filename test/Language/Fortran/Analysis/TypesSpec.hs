@@ -152,10 +152,28 @@ spec = do
                                         (Just (CTArray [(Nothing, Just 20)])))]
           `shouldNotSatisfy` null
 
-    describe "Structure arrays" $ do
+    describe "structs and arrays" $ do
       it "can handle typing assignments to arrays within structs" $ do
-        let mapping = inferTable structArray
+        let mapping = inferTable $ structArray False
         mapping ! "s" `shouldBe` IDType (Just $ TCustom "strut") (Just CTVariable)
+      it "can handle typing assignments to elements in arrays of structs" $ do
+        let mapping = inferTable $ arrayOfStructs False
+        mapping ! "a" `shouldBe` IDType (Just $ TCustom "elem") (Just $ CTArray [(Nothing, Just 10)])
+      it "can handle typing assignments to array elements in arrays of structs" $ do
+        let mapping = inferTable $ arrayOfStructsWithArrays False
+        mapping ! "arr" `shouldBe` IDType (Just $ TCustom "elem2") (Just $ CTArray [(Nothing, Just 10)])
+
+    describe "structs and arrays in common area" $ do
+      it "can handle typing assignments to arrays within structs in common area" $ do
+        let mapping = inferTable $ structArray True
+        mapping ! "s" `shouldBe` IDType (Just $ TCustom "strut") (Just CTVariable)
+      it "can handle typing assignments to elements in arrays of structs in common area" $ do
+        let mapping = inferTable $ arrayOfStructs True
+        mapping ! "a" `shouldBe` IDType (Just $ TCustom "elem") (Just $ CTArray [(Nothing, Just 10)])
+      it "can handle typing assignments to array elements in arrays of structs in common area" $ do
+        let mapping = inferTable $ arrayOfStructsWithArrays True
+        mapping ! "arr" `shouldBe` IDType (Just $ TCustom "elem2") (Just $ CTArray [(Nothing, Just 10)])
+
 
 ex1 :: ProgramFile ()
 ex1 = ProgramFile mi77 [ ex1pu1 ]
@@ -315,17 +333,65 @@ teststrings1 = resetSrcSpan . flip fortran90Parser "" $ unlines [
   , "end program teststrings"
   ]
 
-structArray :: ProgramFile A0
-structArray = resetSrcSpan . flip legacy77Parser "" $ unlines [
-    "      subroutine totes"
-  , "       structure /strut/"
-  , "         integer*4 arr(10)"
-  , "       end structure"
-  , "       record /strut/ s"
-  , "       s.arr(7) = 345"
-  , "       print *, 'eyo'"
-  , "      end subroutine totes"
-  ] 
+commonTransform :: [String] -> String -> [String] -> Bool -> ProgramFile A0
+commonTransform front cdecl back common =
+  resetSrcSpan . flip legacy77Parser "" . unlines . (++) front $
+    if common then cdecl : back else back
+
+structArray :: Bool -> ProgramFile A0
+structArray = commonTransform front cdecl back
+  where
+    front = [
+        "      subroutine totes"
+      , "       structure /strut/"
+      , "         integer*4 arr(10)"
+      , "       end structure"
+      , "       record /strut/ s"
+      ]
+    cdecl =
+        "       common /comm/ s"
+    back = [
+        "       s.arr(7) = 345"
+      , "       print *, 'eyo'"
+      , "      end subroutine totes"
+      ]
+
+arrayOfStructs :: Bool -> ProgramFile A0
+arrayOfStructs = commonTransform front cdecl back
+  where
+    front = [
+        "      subroutine totes"
+      , "       structure /elem/"
+      , "         integer val"
+      , "       end structure"
+      , "       record /elem/ a(10)"
+      ]
+    cdecl =
+        "       common /comm2/ a"
+    back = [
+        "       a(7).val = 345"
+      , "       print *, 'done'"
+      , "      end subroutine totes"
+      ]
+
+arrayOfStructsWithArrays :: Bool -> ProgramFile A0
+arrayOfStructsWithArrays = commonTransform front cdecl back
+  where
+    front = [
+        "      subroutine totes"
+      , "       structure /elem2/"
+      , "         integer vals(4)"
+      , "       end structure"
+      , "       record /elem2/ arr(10)"
+      ]
+    cdecl =
+        "       common /comm3/ arr"
+    back = [
+        "       arr(7).vals(2) = 45"
+      , "       print *, 'DONE'"
+      , "      end subroutine totes"
+      ]
+
 
 -- Local variables:
 -- mode: haskell
