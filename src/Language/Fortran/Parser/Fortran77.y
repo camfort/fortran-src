@@ -882,6 +882,7 @@ ARITHMETIC_CONSTANT_EXPRESSION
 | NUMERIC_LITERAL               { $1 }
 | '(' ARITHMETIC_CONSTANT_EXPRESSION ',' ARITHMETIC_CONSTANT_EXPRESSION ')' { ExpValue () (getTransSpan $1 $5) (ValComplex $2 $4)}
 | VARIABLE                     { $1 }
+| SUBSCRIPT                    { $1 }
 
 RELATIONAL_OPERATOR :: { BinaryOp }
 RELATIONAL_OPERATOR

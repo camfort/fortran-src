@@ -206,6 +206,14 @@ spec =
           st = StDeclaration () u typeSpec Nothing (AList () u [ decl ])
       sParser "      character a*8" `shouldBe'` st
 
+    it "parses 'character c*(ichar('A'))" $ do
+      let args = AList () u [ IxSingle () u Nothing (ExpValue () u (ValString "A")) ]
+          lenExpr = ExpSubscript () u (ExpValue () u (ValVariable "ichar")) args
+          decl = DeclVariable () u (varGen "c") (Just $ lenExpr) Nothing
+          typeSpec = TypeSpec () u (TypeCharacter Nothing Nothing) Nothing
+          st = StDeclaration () u typeSpec Nothing (AList () u [ decl ])
+      sParser "      character c*(ichar('A'))" `shouldBe'` st
+
     it "parses included files" $ do
       let decl = DeclVariable () u (varGen "a") Nothing Nothing
           typeSpec = TypeSpec () u TypeInteger Nothing
