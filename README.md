@@ -20,4 +20,21 @@ For features that output graphs, the intended usage is to pipe it into the comma
                               --show-flows-to=AST-BLOCK-ID     dump a graph showing flows-to information from the given AST-block ID; prefix with 's' for supergraph
                               --show-flows-from=AST-BLOCK-ID   dump a graph showing flows-from information from the given AST-block ID; prefix with 's' for supergraph
 
+## Installation
 
+### Build from source
+
+Clone the repository and install [Stack](https://docs.haskellstack.org/en/stable/README/).
+
+```
+stack setup
+stack build
+```
+
+### Using Cabal
+
+Install [Cabal](https://www.haskell.org/cabal/).
+
+```
+cabal install fortran-src
+```
