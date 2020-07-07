@@ -35,6 +35,9 @@ varGen str = ExpValue () u $ ValVariable str
 intGen :: Integer -> Expression ()
 intGen i = ExpValue () u $ ValInteger $ show i
 
+initGen :: [Expression ()] -> Expression ()
+initGen es = ExpInitialisation () u $ fromList () es
+
 realGen :: (Fractional a, Show a) => a -> Expression ()
 realGen i = ExpValue () u $ ValReal $ show i
 

@@ -996,7 +996,9 @@ instance Pretty (Declarator a) where
         case mInit of
           Nothing -> pprint' v e <>
                      char '*' <?> pprint' v mLen
-          _ -> tooOld v "Variable initialisation" Fortran90
+          Just init -> pprint' v e <>
+                       char '*' <?> pprint' v mLen <>
+                       char '/' <> pprint' v init <> char '/'
 
     pprint' v (DeclVariable _ _ e mLen mInit)
       | Nothing <- mLen
@@ -1015,7 +1017,14 @@ instance Pretty (Declarator a) where
         case mInit of
           Nothing -> pprint' v e <> parens (pprint' v dims) <>
                      "*" <?> pprint' v mLen
-          _ -> tooOld v "Variable initialisation" Fortran90
+          Just init ->
+            let initDoc = case init of
+                  ExpInitialisation _ _ es ->
+                    char '/' <> pprint' v es <> char '/'
+                  e -> pprint' v e
+            in pprint' v e <> parens (pprint' v dims) <>
+               "*" <?> pprint' v mLen <> initDoc
+
     pprint' v (DeclArray _ _ e dims mLen mInit)
       | Nothing <- mLen
       , Nothing <- mInit = pprint' v e <> parens (pprint' v dims)

@@ -122,11 +122,13 @@ spec =
 
         it "prints 77 style" $ do
           let typeSpec = TypeSpec () u TypeInteger Nothing
-          let dds = [ DimensionDeclarator () u Nothing (Just $ intGen 10) ]
+          let dds = [ DimensionDeclarator () u Nothing (Just $ intGen 5) ]
           let declList =
-                [ DeclArray () u (varGen "x") (AList () u dds) Nothing Nothing ]
+                [ DeclArray () u (varGen "x") (AList () u dds) Nothing
+                            (Just . initGen $ map intGen [1..5])
+                ]
           let st = StDeclaration () u typeSpec Nothing (AList () u declList)
-          pprint Fortran77 st Nothing `shouldBe` "integer x(10)"
+          pprint Fortran77 st Nothing `shouldBe` "integer x(5)/1, 2, 3, 4, 5/"
 
       describe "Intent" $
         it "prints intent statement" $ do
