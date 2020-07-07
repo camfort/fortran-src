@@ -386,9 +386,9 @@ instance Pretty (Selector a) where
     | v < Fortran90 =
       case (mLenSel, mKindSel) of
         (Just lenSel, Nothing) ->
-          char '*' <+> parens (pprint' Fortran77Extended lenSel)
+          char '*' <> noParensLit lenSel
         (Nothing, Just kindSel) ->
-          char '*' <+> parens (pprint' Fortran77Extended kindSel)
+          char '*' <> noParensLit kindSel
         _ -> error "Kind and length selectors can be active one at a time in\
                    \Fortran 77."
 
@@ -404,6 +404,8 @@ instance Pretty (Selector a) where
     where
       len e  = "len=" <> pprint' v e
       kind e = "kind=" <> pprint' v e
+      noParensLit e@(ExpValue _ _ (ValInteger _))  = pprint' v e
+      noParensLit e = parens $ pprint' v e
 
 instance Pretty (Statement a) where
     pprint' v (StDeclaration _ _ typeSpec mAttrList declList)

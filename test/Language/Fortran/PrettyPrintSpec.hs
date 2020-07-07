@@ -54,7 +54,11 @@ spec =
     describe "Selector" $ do
       it "prints Fortran 77 selector" $ do
         let sel = Selector () u (Just $ intGen 42) Nothing
-        pprint Fortran77 sel Nothing `shouldBe` "* (42)"
+        pprint Fortran77 sel Nothing `shouldBe` "*42"
+        let ksel = Selector () u Nothing (Just $ intGen 4)
+        pprint Fortran77 ksel Nothing `shouldBe` "*4"
+        let vsel = Selector () u (Just $ varGen "v") Nothing
+        pprint Fortran77 vsel Nothing `shouldBe` "*(v)"
 
       it "prints Fortran 90 selector" $ do
         let sel = Selector () u (Just $ intGen 42) (Just $ intGen 24)
