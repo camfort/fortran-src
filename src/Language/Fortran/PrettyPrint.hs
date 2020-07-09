@@ -996,9 +996,9 @@ instance Pretty (Declarator a) where
         case mInit of
           Nothing -> pprint' v e <>
                      char '*' <?> pprint' v mLen
-          Just init -> pprint' v e <>
+          Just initial -> pprint' v e <>
                        char '*' <?> pprint' v mLen <>
-                       char '/' <> pprint' v init <> char '/'
+                       char '/' <> pprint' v initial <> char '/'
 
     pprint' v (DeclVariable _ _ e mLen mInit)
       | Nothing <- mLen
@@ -1017,11 +1017,11 @@ instance Pretty (Declarator a) where
         case mInit of
           Nothing -> pprint' v e <> parens (pprint' v dims) <>
                      "*" <?> pprint' v mLen
-          Just init ->
-            let initDoc = case init of
+          Just initial ->
+            let initDoc = case initial of
                   ExpInitialisation _ _ es ->
                     char '/' <> pprint' v es <> char '/'
-                  e -> pprint' v e
+                  e' -> pprint' v e'
             in pprint' v e <> parens (pprint' v dims) <>
                "*" <?> pprint' v mLen <> initDoc
 
