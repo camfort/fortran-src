@@ -929,6 +929,9 @@ alexGetByte ai
   -- Ignore inline comments
   | aiFortranVersion ai == Fortran77Legacy &&
     _isWhiteInsensitive && not _inFormat && _curChar == '!' = skip Comment ai
+  -- Ignore comments after column 72 in fortran77
+  | aiFortranVersion ai == Fortran77Legacy && posColumn _position > 72 && _curChar /= '\n'
+  = skip Comment ai
   -- Read genuine character and advance. Also covers white sensitivity.
   | otherwise =
       let (_b:_bs) = utf8Encode _curChar in

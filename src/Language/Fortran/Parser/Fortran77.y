@@ -1114,7 +1114,7 @@ legacy77ParserWithModFiles mods sourceCode filename =
     fmap (pfSetFilename filename . transform) $ parse parseState
   where
     transform = transformWithModFiles mods transformations77Legacy
-    parseState = initParseState (truncateLines sourceCode) Fortran77Legacy filename
+    parseState = initParseState sourceCode Fortran77Legacy filename
 
 legacy77ParserWithIncludes ::
   [String] -> B.ByteString -> String -> IO (ParseResult AlexInput Token (ProgramFile A0))
@@ -1127,7 +1127,7 @@ legacy77ParserWithIncludes incs sourceCode filename =
         p' <- descendBiM (inlineInclude Fortran77Legacy incs []) p
         return (ParseOk p' x)
     transform = transformWithModFiles emptyModFiles transformations77Legacy
-    parseState = initParseState (truncateLines sourceCode) Fortran77Legacy filename
+    parseState = initParseState sourceCode Fortran77Legacy filename
 
 includeParser ::
     FortranVersion -> B.ByteString -> String -> ParseResult AlexInput Token [Block A0]
@@ -1141,7 +1141,7 @@ inlineInclude :: FortranVersion -> [String] -> [String] -> Statement A0 -> IO (S
 inlineInclude fv dirs seen st = case st of
   StInclude a s e@(ExpValue _ _ (ValString path)) Nothing -> do
     if notElem path seen then do
-      inc <- truncateLines <$> readInDirs dirs path
+      inc <- readInDirs dirs path
       case includeParser fv inc path of
         ParseOk blocks _ -> do
           blocks' <- descendBiM (inlineInclude fv dirs (path:seen)) blocks
@@ -1158,9 +1158,6 @@ readInDirs (d:ds) f = do
     B.readFile (d</>f)
   else
     readInDirs ds f
-
-truncateLines :: B.ByteString -> B.ByteString
-truncateLines b = B.unlines . map (B.filter (/='\r') . B.take 72) . B.lines $ b
 
 parseError :: Token -> LexAction a
 parseError _ = do
