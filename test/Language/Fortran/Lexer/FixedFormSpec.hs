@@ -255,6 +255,29 @@ spec =
                                   , TEndStructure u, TNewline u
                                   , TEOF u ]
 
+      it "lexes but skips comments after 72" $ do
+        let src  = unlines [ "       l = r" <> replicate 65 ' ' <> "! comment after 72"
+                           , "       r = l"
+                           , replicate 72 ' ' <> "blank line with comment"]
+        resetSrcSpan (collectFixedTokens' Fortran77Legacy src) `shouldBe`
+          resetSrcSpan [ TId u "l", TOpAssign u, TId u "r", TNewline u
+                       , TId u "r", TOpAssign u, TId u "l", TNewline u
+                       , TNewline u, TEOF u]
+      it "lexes comment overflow" $ do
+        let src = unlines
+              [ "      l = r" <> replicate 65 ' ' <>  "Comment overflowing 72 limit"
+              , "      r = l"
+              ]
+        resetSrcSpan (collectFixedTokens' Fortran77Legacy src) `shouldBe`
+          resetSrcSpan [ TId u "l", TOpAssign u, TId u "r", TNewline u
+                       , TId u "r", TOpAssign u, TId u "l", TNewline u, TEOF u]
+      it "lexel comment line overflow" $ do
+        let src = unlines [ replicate 80 'c'
+                          , "      l = r" ]
+        resetSrcSpan (collectFixedTokens' Fortran77Legacy src) `shouldBe`
+          resetSrcSpan [ TComment u (replicate 71 'c'), TNewline u
+                       , TId u "l", TOpAssign u, TId u "r", TNewline u, TEOF u]
+
 example1 :: String
 example1 = unlines [
   "      intEGerix",
