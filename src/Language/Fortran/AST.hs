@@ -15,7 +15,6 @@ import Data.Data
 import Data.Generics.Uniplate.Data ()
 import Data.Typeable ()
 import Data.Binary
-import GHC.Generics (Generic)
 import Control.DeepSeq
 import Text.PrettyPrint.GenericPretty
 import Language.Fortran.ParserMonad (FortranVersion(..))

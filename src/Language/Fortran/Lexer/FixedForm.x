@@ -15,7 +15,7 @@ module Language.Fortran.Lexer.FixedForm
 
 import Data.Word (Word8)
 import Data.Char (toLower, ord, isDigit)
-import Data.List (isPrefixOf, any)
+import Data.List (isPrefixOf)
 import Data.Maybe (fromJust, isNothing, isJust)
 import Data.Data
 import qualified Data.Bits

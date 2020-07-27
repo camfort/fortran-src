@@ -21,7 +21,6 @@ import Language.Fortran.Util.Position
 import qualified Data.Map as M
 import qualified Data.IntMap as IM
 import Data.Graph.Inductive
-import Data.Graph.Inductive.PatriciaTree (Gr)
 import Data.List (intercalate)
 import Data.Maybe
 import Data.Functor.Identity
