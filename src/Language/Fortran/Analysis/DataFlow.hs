@@ -40,7 +40,6 @@ import qualified Data.IntMap.Strict as IMS
 import qualified Data.Set as S
 import qualified Data.IntSet as IS
 import Data.Graph.Inductive hiding (trc, dom, order, inn, out, rc)
-import Data.Graph.Inductive.PatriciaTree (Gr)
 import Data.Maybe
 import Data.List (foldl', foldl1', (\\), union, intersect)
 import Control.Monad.Writer hiding (fix)

@@ -17,11 +17,10 @@ import Language.Fortran.Analysis
 import Language.Fortran.ParserMonad (FortranVersion(..))
 
 import Prelude hiding (lookup)
-import Data.Maybe (mapMaybe, maybe, fromMaybe)
+import Data.Maybe (mapMaybe, fromMaybe)
 import qualified Data.List as L
 import Data.Map (insert, empty, lookup, Map)
 import qualified Data.Map.Strict as M
-import Control.Monad (void)
 import Control.Monad.State.Strict
 import Data.Generics.Uniplate.Data
 import Data.Data

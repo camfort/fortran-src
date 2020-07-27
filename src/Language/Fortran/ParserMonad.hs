@@ -147,6 +147,7 @@ instance (Loc b, LastToken b c, Show c) => Monad (Parse b c) where
       ParseOk a s' -> unParse (f a) s'
       ParseFailed e -> ParseFailed e
 
+instance (Loc b, LastToken b c, Show c) => MonadFail (Parse b c) where
   fail msg = Parse $ \s -> ParseFailed ParseError
     { errPos        = (getPos . psAlexInput) s
     , errLastToken  = (getLastToken . psAlexInput) s

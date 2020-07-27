@@ -1,4 +1,4 @@
-resolver: lts-14.1
+resolver: lts-16.7
 packages:
 - '.'
 save-hackage-creds: false

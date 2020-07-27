@@ -11,7 +11,6 @@ import Control.Monad.State.Strict
 import Data.Data
 import Data.Generics.Uniplate.Data
 import Data.Graph.Inductive hiding (version)
-import Data.Graph.Inductive.PatriciaTree (Gr)
 import Data.Maybe
 import Data.Text.Encoding (encodeUtf8, decodeUtf8With)
 import Data.Text.Encoding.Error (replace)

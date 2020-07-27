@@ -22,7 +22,6 @@ import Language.Fortran.AST
 import Language.Fortran.LValue
 import Data.Graph.Inductive (Node, empty)
 import Data.Graph.Inductive.PatriciaTree (Gr)
-import GHC.Generics (Generic)
 import Text.PrettyPrint.GenericPretty
 import Text.PrettyPrint hiding (empty, isEmpty)
 import qualified Data.Map.Strict as M

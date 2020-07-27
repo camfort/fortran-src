@@ -9,7 +9,6 @@ import Data.Data
 import Text.PrettyPrint.GenericPretty
 import Text.PrettyPrint
 import Data.Binary
-import GHC.Generics (Generic)
 import Control.DeepSeq
 
 import Language.Fortran.Util.SecondParameter
