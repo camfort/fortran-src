@@ -25,11 +25,12 @@ import Data.Maybe (listToMaybe, fromMaybe, maybeToList)
 import Data.Data
 import Data.Generics.Uniplate.Data
 
-import Language.Fortran.ParserMonad (selectFortranVersion, FortranVersion(..), fromRight)
+import Language.Fortran.Version (FortranVersion(..), selectFortranVersion, deduceFortranVersion)
+import Language.Fortran.ParserMonad (fromRight)
 import qualified Language.Fortran.Lexer.FixedForm as FixedForm (collectFixedTokens, Token(..))
 import qualified Language.Fortran.Lexer.FreeForm as FreeForm (collectFreeTokens, Token(..))
 
-import Language.Fortran.Parser.Any
+import Language.Fortran.Parser.Any (parserWithModFilesVersions)
 
 import Language.Fortran.Util.ModFile
 import Language.Fortran.Util.Position
@@ -104,7 +105,7 @@ main = do
       mapM_ (\ p -> compileFileToMod (fortranVersion opts) mods p (outputFile opts)) paths
     (path:_, actionOpt) -> do
       contents <- flexReadFile path
-      let version = fromMaybe (deduceVersion path) (fortranVersion opts)
+      let version = fromMaybe (deduceFortranVersion path) (fortranVersion opts)
       let (Just parserF0) = lookup version parserWithModFilesVersions
       let parserF m b s = fromRight (parserF0 m b s)
       let outfmt = outputFormat opts
@@ -238,7 +239,7 @@ listDirectoryRecursively dir = listDirectoryRec dir ""
 compileFileToMod :: Maybe FortranVersion -> ModFiles -> FilePath -> Maybe FilePath -> IO ModFile
 compileFileToMod mvers mods path moutfile = do
   contents <- flexReadFile path
-  let version = fromMaybe (deduceVersion path) mvers
+  let version = fromMaybe (deduceFortranVersion path) mvers
   let (Just parserF0) = lookup version parserWithModFilesVersions
   let parserF m b s = fromRight (parserF0 m b s)
   let mmap = combinedModuleMap mods

@@ -15,7 +15,8 @@ import Data.Maybe
 import Data.Text.Encoding (encodeUtf8, decodeUtf8With)
 import Data.Text.Encoding.Error (replace)
 import Language.Fortran.AST hiding (setName)
-import Language.Fortran.Parser.Any
+import Language.Fortran.Version (FortranVersion(..), deduceFortranVersion)
+import Language.Fortran.Parser.Any (parserWithModFilesVersions)
 import Language.Fortran.ParserMonad (FortranVersion(..), fromRight)
 import Language.Fortran.Util.ModFile
 import qualified Data.ByteString.Char8 as B
@@ -87,7 +88,7 @@ genModGraph mversion includeDirs paths = do
   let iter :: FilePath -> ModGrapher ()
       iter path = do
         contents <- liftIO $ flexReadFile path
-        let version = fromMaybe (deduceVersion path) mversion
+        let version = fromMaybe (deduceFortranVersion path) mversion
         let (Just parserF0) = lookup version parserWithModFilesVersions
         let parserF m b s = fromRight (parserF0 m b s)
         fileMods <- liftIO $ decodeModFiles includeDirs

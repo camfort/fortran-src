@@ -1,14 +1,17 @@
 {-# LANGUAGE DeriveDataTypeable #-}
 {-# LANGUAGE DeriveGeneric #-}
 
+-- | Fortran version enum and tools for selecting version for a given file.
+
 module Language.Fortran.Version
   ( FortranVersion(..)
   , fortranVersionAliases
   , selectFortranVersion
+  , deduceFortranVersion
   ) where
 
 import           Data.Char (toLower)
-import           Data.List (isInfixOf, find)
+import           Data.List (isInfixOf, isSuffixOf, find)
 
 import Data.Data (Data, Typeable)
 import GHC.Generics (Generic)
@@ -45,3 +48,22 @@ fortranVersionAliases = [ ("66" , Fortran66)
 
 selectFortranVersion :: String -> Maybe FortranVersion
 selectFortranVersion alias = snd <$> find (\ entry -> fst entry `isInfixOf` map toLower alias) fortranVersionAliases
+
+-- | Deduce the 'FortranVersion' from a 'FilePath' using extension.
+--
+-- Defaults to Fortran 90 if suffix is unrecognized.
+deduceFortranVersion :: FilePath -> FortranVersion
+deduceFortranVersion path
+  | isExtensionOf ".f"      = Fortran77Extended
+  | isExtensionOf ".for"    = Fortran77
+  | isExtensionOf ".fpp"    = Fortran77
+  | isExtensionOf ".ftn"    = Fortran77
+  | isExtensionOf ".f90"    = Fortran90
+  | isExtensionOf ".f95"    = Fortran95
+  | isExtensionOf ".f03"    = Fortran2003
+  | isExtensionOf ".f2003"  = Fortran2003
+  | isExtensionOf ".f08"    = Fortran2008
+  | isExtensionOf ".f2008"  = Fortran2008
+  | otherwise               = Fortran90         -- unrecognized, default to F90
+  where
+    isExtensionOf = flip isSuffixOf $ map toLower path
