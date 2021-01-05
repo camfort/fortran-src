@@ -1,11 +1,17 @@
-/dist
+# Stack, Cabal
 /.stack-work
+/*.cabal
 /cabal.sandbox.config
 /.cabal-sandbox
+
+# Editor tmp files
+.*.swp
+.*.swo
+*~
+
+# Other
+/dist
 /Gemfile
 /Gemfile.lock
 /Guardfile
 /forpar
-.*.swp
-.*.swo
-*~

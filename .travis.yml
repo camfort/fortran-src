@@ -1,20 +1,24 @@
 cache:
   directories:
     - $HOME/.stack
+
+# https://docs.haskellstack.org/en/stable/install_and_upgrade/
 before_install:
-- sudo apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys 575159689BEFB442
-- echo 'deb http://download.fpcomplete.com/ubuntu precise main'|sudo tee /etc/apt/sources.list.d/fpco.list
-- sudo apt-get update -qq
 - mkdir -p ~/.local/bin
 - export PATH=$HOME/.local/bin:$PATH
-- travis_retry curl -L https://get.haskellstack.org/stable/linux-x86_64.tar.gz | tar xz --wildcards --strip-components=1 -C ~/.local/bin '*/stack'
+- curl -sSL https://get.haskellstack.org/ | sh
+- stack --version
+
 install:
-- stack --no-terminal --install-ghc test --only-dependencies
+- stack --no-terminal test --only-dependencies
+
 script:
 - echo $TRAVIS_TAG
 - "GHC_OPTIONS=\"--ghc-options=\"$(ruby -e 'print (ENV[%q|TRAVIS_TAG|] =~ /v/ ? %q|-O3| : %q|-O0|)')\"\""
 - echo $GHC_OPTIONS
 - stack --no-terminal haddock --test --no-haddock-deps --pedantic -j 4 $GHC_OPTIONS
+
+# TODO: hardcoded keys!
 deploy:
 - provider: releases
   api_key:
