@@ -7,6 +7,7 @@ before_install:
 - mkdir -p ~/.local/bin
 - export PATH=$HOME/.local/bin:$PATH
 - curl -sSL https://get.haskellstack.org/ | sh
+- stack --version
 
 install:
 - stack --no-terminal test --only-dependencies

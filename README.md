@@ -24,6 +24,8 @@ For features that output graphs, the intended usage is to pipe it into the comma
 
 ### Build from source
 
+Stack 2.x is required for building. *(Stack 1.x may work with minor alternations -- you may have to download the resolver manually.)*
+
 Clone the repository and install [Stack](https://docs.haskellstack.org/en/stable/README/).
 
 ```
