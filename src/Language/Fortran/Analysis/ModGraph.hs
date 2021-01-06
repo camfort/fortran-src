@@ -17,7 +17,7 @@ import Data.Text.Encoding.Error (replace)
 import Language.Fortran.AST hiding (setName)
 import Language.Fortran.Version (FortranVersion(..), deduceFortranVersion)
 import Language.Fortran.Parser.Any (parserWithModFilesVersions)
-import Language.Fortran.ParserMonad (FortranVersion(..), fromRight)
+import Language.Fortran.ParserMonad (fromRight)
 import Language.Fortran.Util.ModFile
 import qualified Data.ByteString.Char8 as B
 import qualified Data.ByteString.Lazy.Char8 as LB

@@ -20,11 +20,7 @@ import Control.Monad.State hiding (state)
 import Control.Monad.Except
 
 import Data.Typeable
-import Data.Data
-import GHC.Generics (Generic)
 import Language.Fortran.Util.Position
-import Data.Char (toLower)
-import Data.List (isInfixOf, find)
 
 -------------------------------------------------------------------------------
 -- Helper datatype definitions
