@@ -1,0 +1,32 @@
+name: CI
+
+on:
+  push:
+    branches:
+    - main
+  pull_request:
+    types:
+    - opened
+    - synchronized
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+    - name: cache Stack downloaded packages
+      uses: actions/cache@v2
+      with:
+        path: $HOME/.stack
+      key: ${{ runner.os }}
+    - name: install latest Stack and add to path
+      run: |
+        mkdir -p ~/.local/bin
+        export PATH="$HOME/.local/bin:$PATH"
+        # for GitHub Actions
+        echo "$HOME/.local/bin:$PATH" >> $GITHUB_PATH
+        curl -sSL https://get.haskellstack.org/ | sh
+    - name: install project dependencies
+      run: stack --no-terminal test --only-dependencies
+    - name: build and run tests
+      run: stack --no-terminal haddock --test --no-haddock-deps
