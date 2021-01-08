@@ -21,7 +21,7 @@ jobs:
         key: ${{ runner.os }}
     - name: install latest Stack and add to path
       run: |
-        mkdir -p ~/.local/bin
+        mkdir -p $HOME/.local/bin
         export PATH="$HOME/.local/bin:$PATH"
         # for GitHub Actions
         echo "$HOME/.local/bin:$PATH" >> $GITHUB_PATH
