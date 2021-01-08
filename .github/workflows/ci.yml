@@ -18,7 +18,7 @@ jobs:
       uses: actions/cache@v2
       with:
         path: $HOME/.stack
-      key: ${{ runner.os }}
+        key: ${{ runner.os }}
     - name: install latest Stack and add to path
       run: |
         mkdir -p ~/.local/bin
