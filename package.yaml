@@ -12,6 +12,7 @@ license: Apache-2.0
 github: camfort/fortran-src
 extra-source-files:
 - CHANGELOG.md
+
 dependencies:
 - base >=4.6 && <5
 - mtl >=2.2 && <3
@@ -27,6 +28,12 @@ dependencies:
 - directory >=1.2 && <2
 - fgl >=5 && <6
 - deepseq
+
+# --pedantic for building (not used for stack ghci)
+ghc-options:
+- -Wall
+- -Werror
+
 library:
   source-dirs: src
   ghc-options: -fno-warn-tabs
@@ -65,12 +72,14 @@ library:
   - Language.Fortran.Util.FirstParameter
   - Language.Fortran.Util.SecondParameter
   - Language.Fortran.Util.ModFile
+
 executables:
   fortran-src:
     main: src/Main.hs
     ghc-options: -fno-warn-tabs
     dependencies:
     - fortran-src
+
 tests:
   spec:
     main: Spec.hs
