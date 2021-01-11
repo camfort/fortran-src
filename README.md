@@ -1,5 +1,7 @@
 # fortran-src
 
+![CI status badge](https://github.com/camfort/fortran-src/workflows/CI/badge.svg)
+
 Provides lexing, parsing, and basic analyses of Fortran code covering standards: FORTRAN 66, FORTRAN 77, Fortran 90, Fortran 95 and part of Fortran 2003. Includes data flow and basic block analysis, a renamer, and type analysis. For example usage, see the 'camfort' project (https://github.com/camfort/camfort), which uses fortran-src as its front end.
 
 For features that output graphs, the intended usage is to pipe it into the command 'dot -Tpdf' and redirect that into a PDF file. The 'dot' command is part of the GraphViz project (https://www.graphviz.org/), please see their manual for the many other options that can be explored for visualisation purposes.
