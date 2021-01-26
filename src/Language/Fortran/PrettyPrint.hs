@@ -46,7 +46,7 @@ overlay :: Doc -> Doc -> Doc
 overlay top bottom = text $ top' ++ drop (length top') (render bottom)
   where top' = render top
 
-fixedForm :: Maybe Int
+fixedForm :: Indentation
 fixedForm = Just 6
 
 pprintAndRender :: IndentablePretty t => FortranVersion -> t -> Indentation -> String
@@ -1073,3 +1073,23 @@ instance Pretty BinaryOp where
 
 commaSep :: [Doc] -> Doc
 commaSep = hcat . punctuate ", "
+
+-- | Add continuations where required to a pretty-printed program.
+--
+-- The reformatting should be compatible with fixed and free-form Fortran
+-- standards. See: http://fortranwiki.org/fortran/show/Continuation+lines
+reformatMixedFormInsertContinuations :: String -> String
+reformatMixedFormInsertContinuations = go 0
+  where
+    go :: Int -> String -> String
+    go _   []        = []
+    go _   ('\n':xs) = '\n' : go 0 xs
+    go col (   x:xs)
+      | col == (maxCol - 1) = go 6 (insertCont (x:xs))
+      | otherwise     = x : go (col+1) xs
+
+    maxCol :: Int
+    maxCol = 72
+
+    insertCont :: String -> String
+    insertCont = (++) "&\n     &"
