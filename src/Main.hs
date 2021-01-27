@@ -140,7 +140,12 @@ main = do
         Rename     -> pp . runRenamer $ parserF mods contents path
         BBlocks    -> putStrLn . runBBlocks $ parserF mods contents path
         SuperGraph -> putStrLn . runSuperGraph $ parserF mods contents path
-        Reprint    -> putStrLn . render . flip (pprint version) (Just 0) $ parserF mods contents path
+        Reprint    ->
+          let prettyContents = render . flip (pprint version) (Just 0) $ parserF mods contents path
+           in putStrLn $
+                if   useContinuationReformatter opts
+                then reformatMixedFormInsertContinuations prettyContents
+                else prettyContents
         DumpModFile -> do
           let path' = if modFileSuffix `isSuffixOf` path then path else path <.> modFileSuffix
           contents' <- LB.readFile path'
@@ -375,10 +380,12 @@ data Options = Options
   , action          :: Action
   , outputFormat    :: OutputFormat
   , outputFile      :: Maybe FilePath
-  , includeDirs     :: [String] }
+  , includeDirs     :: [String]
+  , useContinuationReformatter :: Bool
+  }
 
 initOptions :: Options
-initOptions = Options Nothing Parse Default Nothing []
+initOptions = Options Nothing Parse Default Nothing [] False
 
 options :: [OptDescr (Options -> Options)]
 options =
@@ -410,6 +417,10 @@ options =
       ["reprint"]
       (NoArg $ \ opts -> opts { action = Reprint })
       "Parse and output using pretty printer"
+  , Option []
+      ["split-long"]
+      (NoArg $ \ opts -> opts { useContinuationReformatter = True })
+      "when using pretty printer, split long lines via continuations"
   , Option []
       ["dot"]
       (NoArg $ \ opts -> opts { outputFormat = DOT })
