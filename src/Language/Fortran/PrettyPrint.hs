@@ -1074,22 +1074,62 @@ instance Pretty BinaryOp where
 commaSep :: [Doc] -> Doc
 commaSep = hcat . punctuate ", "
 
+data ReformatState
+  -- | Unsure yet whether current line it's a comment or statement.
+  = RefmtStNewline Int
+
+  -- | Current line is a comment; no need to track column number.
+  | RefmtStComment
+
+  -- | Current line is a statement.
+  | RefmtStStmt Int
+    deriving (Eq, Ord, Show)
+
 -- | Add continuations where required to a pretty-printed program.
+--
+-- Ensures that no non-comment line exceeds 72 columns.
 --
 -- The reformatting should be compatible with fixed and free-form Fortran
 -- standards. See: http://fortranwiki.org/fortran/show/Continuation+lines
+--
+-- This is a simple, delicate algorithm that must only be used on pretty printer
+-- output, due to relying on particular parser & pretty printer behaviour. In
+-- particular, comments not beginning a line (e.g. after a statement or
+-- continuation) won't be picked up as a comment, so could wreck that line. Be
+-- warned if you're using it on piles of funky-looking code!
 reformatMixedFormInsertContinuations :: String -> String
-reformatMixedFormInsertContinuations = go 0
+reformatMixedFormInsertContinuations = go stNewline
   where
-    go :: Int -> String -> String
-    go _   []        = []
-    go _   ('\n':xs) = '\n' : go 0 xs
-    go col (   x:xs)
-      | col == (maxCol - 1) = go 6 (insertCont (x:xs))
-      | otherwise     = x : go (col+1) xs
+    go :: ReformatState -> String -> String
 
-    maxCol :: Int
+    -- all states: end on empty, break on newline
+    go _ []        = []
+    go _ ('\n':xs) = '\n' : go stNewline xs
+
+    -- in comment: skip
+    go RefmtStComment       (x:xs) = x : go RefmtStComment xs
+
+    -- line type uncertain: consume up to non-space, then decide
+    go (RefmtStNewline col) (x:xs) =
+        case x of
+            ' ' -> ' ' : go (RefmtStNewline (col+1)) xs
+            '!' -> '!' : go RefmtStComment           xs
+            _   -> x   : go (RefmtStStmt    (col+1)) xs
+
+    -- in statement: break when required
+    go (RefmtStStmt col)    (x:xs)
+      | col == maxCol =
+            -- lookahead: if next is newline or EOF, we don't need to break
+            case xs of
+                []   -> x : go (RefmtStStmt (col+1)) xs
+                x':_ ->
+                    case x' of
+                        '\n' -> x : go (RefmtStStmt (col+1)) xs
+                        _    ->
+                            -- pretend to continue, but we know that we'll break
+                            -- on newline next
+                            '&' : go (RefmtStStmt (col+1)) ("\n     &" ++ x:xs)
+      | otherwise     = x : go (RefmtStStmt (col+1)) xs
+
     maxCol = 72
-
-    insertCont :: String -> String
-    insertCont = (++) "&\n     &"
+    stNewline = RefmtStNewline 0
