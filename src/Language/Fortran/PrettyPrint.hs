@@ -1109,6 +1109,9 @@ reformatMixedFormInsertContinuations = go stNewline
     -- in comment: skip
     go RefmtStComment       (x:xs) = x : go RefmtStComment xs
 
+    -- newline F77 override: if 'c' in first column, it's a comment
+    go (RefmtStNewline 0) ('c':xs) = 'c' : go RefmtStComment xs
+
     -- line type uncertain: consume up to non-space, then decide
     go (RefmtStNewline col) (x:xs) =
         case x of
