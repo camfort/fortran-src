@@ -18,7 +18,7 @@ import Language.Fortran.ParserMonad
 import Language.Fortran.PrettyPrint
 
 import System.FilePath
-import Text.PrettyPrint
+import Text.PrettyPrint hiding ((<>))
 import Text.PrettyPrint.GenericPretty
 
 import Test.Hspec
@@ -501,6 +501,42 @@ spec =
                              , "!hello!"
                              , "!hello!" ]
         pprint Fortran90 pf (Just 0) `shouldBe` text expect
+
+    describe "Continuation reformatting" $ do
+      it "continuates a too-long 77 style statement" $ do
+        let input  = "      integer, parameter :: "
+                  <> "very_awfully_really_quite_pointlessly_long_s"
+                  <> "illy_variable_name = 1"
+            expect = "      integer, parameter :: "
+                  <> "very_awfully_really_quite_pointlessly_long_s"
+                  <> "&\n     &"
+                  <> "illy_variable_name = 1"
+        reformatMixedFormInsertContinuations input `shouldBe` expect
+
+      it "does not continuate a long mixed-form comment line" $ do
+        let input  = "      ! a very long, long comment that ends up"
+                  <> " exceeding both the F77 and F90 maximum line lengths"
+                  <> " (~72 and ~132 respectively), but should not be"
+                  <> " continuated (since they're ignored by compilers anyway)"
+        reformatMixedFormInsertContinuations input `shouldBe` input
+
+      it "does not continuate a long F77 comment line" $ do
+        let input  = "c F77 comments begin with a 'c' in the first column"
+                  <> " position, so they're easy to handle"
+        reformatMixedFormInsertContinuations input `shouldBe` input
+
+      it "adds continuations idempotently" $ do
+        let input  = "      integer, parameter :: "
+                  <> "very_awfully_really_quite_pointlessly_long_s"
+                  <> "illy_variable_name = 1"
+            pass1 = reformatMixedFormInsertContinuations input
+            pass2 = reformatMixedFormInsertContinuations pass1
+        pass2 `shouldBe` pass1
+
+      it "does not continuate lines exactly 72 columns" $ do
+        let input  = "      integer, parameter :: "
+                  <> "variable_id_making_line_exactly_72_chars = 1"
+        reformatMixedFormInsertContinuations input `shouldBe` input
 
 valueExpressions :: Expression () -> Maybe (Expression ())
 valueExpressions e@ExpValue{} = Just e
