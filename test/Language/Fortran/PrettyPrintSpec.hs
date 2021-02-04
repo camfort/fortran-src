@@ -5,9 +5,6 @@
 module Language.Fortran.PrettyPrintSpec where
 
 import Prelude hiding (mod)
-import qualified Data.ByteString.Char8 as B
-import Data.Text.Encoding (encodeUtf8, decodeUtf8With)
-import Data.Text.Encoding.Error (replace)
 
 import Data.Data
 import Data.Generics.Uniplate.Operations
@@ -541,6 +538,3 @@ spec =
 valueExpressions :: Expression () -> Maybe (Expression ())
 valueExpressions e@ExpValue{} = Just e
 valueExpressions _ = Nothing
-
-flexReadFile :: String -> IO B.ByteString
-flexReadFile = fmap (encodeUtf8 . decodeUtf8With (replace ' ')) . B.readFile

@@ -73,6 +73,7 @@ library:
   - Language.Fortran.Util.FirstParameter
   - Language.Fortran.Util.SecondParameter
   - Language.Fortran.Util.ModFile
+  - Language.Fortran.Util.Files
   - Language.Fortran.Rewriter
 
 executables:

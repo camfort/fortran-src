@@ -12,18 +12,15 @@ import Data.Data
 import Data.Generics.Uniplate.Data
 import Data.Graph.Inductive hiding (version)
 import Data.Maybe
-import Data.Text.Encoding (encodeUtf8, decodeUtf8With)
-import Data.Text.Encoding.Error (replace)
 import Language.Fortran.AST hiding (setName)
 import Language.Fortran.Version (FortranVersion(..), deduceFortranVersion)
 import Language.Fortran.Parser.Any (parserWithModFilesVersions)
 import Language.Fortran.ParserMonad (fromRight)
 import Language.Fortran.Util.ModFile
-import qualified Data.ByteString.Char8 as B
+import Language.Fortran.Util.Files
 import qualified Data.ByteString.Lazy.Char8 as LB
 import qualified Data.Map as M
 import System.IO
-import System.Directory
 import System.FilePath
 
 --------------------------------------------------
@@ -129,10 +126,7 @@ delModNodes ns mg@ModGraph { mgGraph = gr } = mg'
 
 --------------------------------------------------
 
-flexReadFile :: String -> IO B.ByteString
-flexReadFile = fmap (encodeUtf8 . decodeUtf8With (replace ' ')) . B.readFile
-
-decodeModFiles :: [String] -> IO [(FilePath, ModFile)]
+decodeModFiles :: [FilePath] -> IO [(FilePath, ModFile)]
 decodeModFiles = foldM (\ modFiles d -> do
       -- Figure out the camfort mod files and parse them.
       modFileNames <- filter isModFile `fmap` getDirContents d
@@ -146,13 +140,7 @@ decodeModFiles = foldM (\ modFiles d -> do
             hPutStrLn stderr $ modFileName ++ ": successfully parsed precompiled file."
             return $ map (modFileName,) mods
       return $ addedModFiles ++ modFiles
-    ) []
+    ) [] -- can't use emptyModFiles
 
 isModFile :: FilePath -> Bool
 isModFile = (== modFileSuffix) . takeExtension
-
--- List files in dir
-getDirContents :: String -> IO [String]
-getDirContents d = do
-  d' <- canonicalizePath d
-  map (d' </>) `fmap` listDirectory d'
