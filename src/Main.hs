@@ -6,8 +6,7 @@ module Main where
 import Prelude hiding (readFile, mod)
 import qualified Data.ByteString.Char8 as B
 import qualified Data.ByteString.Lazy.Char8 as LB
-import Data.Text.Encoding (encodeUtf8, decodeUtf8With)
-import Data.Text.Encoding.Error (replace)
+import Language.Fortran.Util.Files
 
 import Text.PrettyPrint (render)
 
@@ -271,12 +270,6 @@ rGetDirContents d = canonicalizePath d >>= \d' -> go [d'] d'
             return $ map (\ y -> x ++ "/" ++ y) x'
           else return [x]
 
--- List files in dir
-getDirContents :: String -> IO [String]
-getDirContents d = do
-  d' <- canonicalizePath d
-  map (d' </>) `fmap` listDirectory d'
-
 decodeModFiles :: [String] -> IO ModFiles
 decodeModFiles = flip foldM emptyModFiles $ \ modFiles d -> do
   -- Figure out the camfort mod files and parse them.
@@ -501,6 +494,3 @@ instance {-# OVERLAPPING #-} Show [ FreeForm.Token ] where
              xs'' -> [ show xs'' ]
       isNewline (FreeForm.TNewline _) = True
       isNewline _ = False
-
-flexReadFile :: String -> IO B.ByteString
-flexReadFile = fmap (encodeUtf8 . decodeUtf8With (replace ' ')) . B.readFile
