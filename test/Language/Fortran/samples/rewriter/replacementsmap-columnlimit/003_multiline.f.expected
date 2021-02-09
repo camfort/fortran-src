@@ -1,0 +1,8 @@
+      subroutine foo
+      integer aaaaa = 10
+      integer xxxxxxxxxxxxxxxxxxxxxxxxxx
+      xxxxxxxxxxxxxxxxxxxxxxxxxx = 10
+      if (aaaaa .eq. 0 .and. xxxxxxxxxxxxxxxxxxxxxxxxxx .eq. 9 .and. 
+     + 4 .lt. 4
+     + .or. .true.) call bar
+      end

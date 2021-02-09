@@ -1,0 +1,21 @@
+      subroutine foo
+      integer word, wrap_after_comma, wrap_after_right_paren
+      logical accessor, TEST, LOGICAL2VAR
+      if (accessor(xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx,
+     + wrap_after_comma)) call bar
+      if (accessor(int(xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx),
+     + wrap_after_comma)) call bar
+      if (accessor(int(int2(xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx)),
+     + wrap_after_comma)) call bar
+      if (accessor(int(int2(xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx))))
+     + call wrap_after_right_paren
+      if (accessor(xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx))
+     + call foo(bar)!don't wrap inline comment
+      call testcommons_logarray_settori_findex(logical_1_to_4(test), 1)!inline comment not to be wrapped
+
+      if(1) then
+            call testcommons_set_logical2var(logical_2_to_4(l2))!other comment that shouldn't be wrapped
+            call testcommons_set_logical2var(logical_2_to_4(l2))!comments after 0! char replacements don't wrap!
+            call testcommons_set_logical2var(logical_2_to_4(l2))!comments after replacements >0 chars don't wrap
+      endif
+      end

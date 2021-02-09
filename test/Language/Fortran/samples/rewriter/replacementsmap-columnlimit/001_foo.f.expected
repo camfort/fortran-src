@@ -1,0 +1,6 @@
+      subroutine foo
+      integer xxxxxxxxxxxxxxxxxxxxxxxxxx
+      xxxxxxxxxxxxxxxxxxxxxxxxxx = 10
+      if (xxxxxxxxxxxxxxxxxxxxxxxxxx .eq. 999999999999999999999)
+     + call bar
+      end
