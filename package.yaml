@@ -40,8 +40,7 @@ library:
   build-tools:
   - alex >=3.1
   - happy >=1.19
-  other-modules:
-  - Language.Fortran.Rewriter.Internal
+  other-modules: []
   exposed-modules:
   - Language.Fortran.Analysis
   - Language.Fortran.Analysis.Renaming
@@ -75,6 +74,7 @@ library:
   - Language.Fortran.Util.ModFile
   - Language.Fortran.Util.Files
   - Language.Fortran.Rewriter
+  - Language.Fortran.Rewriter.Internal
 
 executables:
   fortran-src:

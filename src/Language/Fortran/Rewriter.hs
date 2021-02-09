@@ -48,7 +48,6 @@ import           System.Directory               ( doesFileExist
 --
 -- Replacements that come first in the list will be given precedence over later
 -- items.
-
 partitionOverlapping :: [RI.Replacement] -> ([RI.Replacement], [RI.Replacement])
 partitionOverlapping [] = ([], [])
 partitionOverlapping repls =
@@ -89,18 +88,19 @@ processReplacements :: RI.ReplacementMap -> IO ()
 processReplacements rm = processReplacements_ $ M.toList rm
 
 processReplacements_ :: [(String, [RI.Replacement])] -> IO ()
-processReplacements_ []                       = return ()
-processReplacements_ ((filePath, repls) : xs) = do
-  contents <- BC.readFile filePath
-  let newContents  = RI.applyReplacements contents repls
-      tempFilePath = filePath ++ ".temp"
-      maybeRm      = do
-        exists <- doesFileExist tempFilePath
-        when exists $ removeFile tempFilePath
-  flip finally maybeRm $ do
-    BC.writeFile tempFilePath newContents
-    renameFile tempFilePath filePath
-  processReplacements_ xs
+processReplacements_ = mapM_ go
+  where
+    go :: (String, [RI.Replacement]) -> IO ()
+    go (filePath, repls) = do
+      contents <- BC.readFile filePath
+      let newContents  = RI.applyReplacements contents repls
+          tempFilePath = filePath ++ ".temp"
+          maybeRm      = do
+            exists <- doesFileExist tempFilePath
+            when exists $ removeFile tempFilePath
+      flip finally maybeRm $ do
+        BC.writeFile tempFilePath newContents
+        renameFile tempFilePath filePath
 
 -- | Utility function to convert 'SrcSpan' to 'SourceRange'
 --
@@ -111,7 +111,6 @@ spanToSourceRange (SrcSpan start end) =
       (l2, c2) = lineCol end
   in  RI.SourceRange (RI.SourceLocation (l1 - 1) (c1 - 1))
                      (RI.SourceLocation (l2 - 1) c2)
-
 
 -- | Given two 'Span's, returns a 'SourceRange' that starts at the starting
 -- location of the first span, and ends at the starting location of the second
