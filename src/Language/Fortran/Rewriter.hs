@@ -50,12 +50,12 @@ import           System.Directory               ( doesFileExist
 -- items.
 partitionOverlapping :: [RI.Replacement] -> ([RI.Replacement], [RI.Replacement])
 partitionOverlapping [] = ([], [])
-partitionOverlapping repls =
-  let currentRepl = head repls
-      (overlapping, remaining) =
-          partition (not . RI.areDisjoint currentRepl) (tail repls)
-      nextResult = partitionOverlapping remaining
-  in  (currentRepl : fst nextResult, overlapping <> snd nextResult)
+partitionOverlapping (r:rs) =
+  -- partition current list using front element, recurse on the disjoints
+  -- (r is always treated as disjoint, which gives the precedence)
+  let (disjoint,     overlapping)     = partition (RI.areDisjoint r) rs
+      (disjointRest, overlappingRest) = partitionOverlapping disjoint
+  in  (r : disjointRest, overlapping <> overlappingRest)
 
 -- | Apply a list of 'Replacement's to the orginal source file.
 --
