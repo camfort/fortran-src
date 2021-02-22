@@ -29,17 +29,17 @@ where
 import qualified Data.ByteString.Lazy.Char8    as BC
 import qualified Language.Fortran.Rewriter.Internal
                                                as RI
-import           Control.Exception              ( finally )
-import           Control.Monad                  ( when )
 import           Data.List                      ( partition )
 import qualified Data.Map                      as M
 import           Language.Fortran.Util.Position ( lineCol
                                                 , SrcSpan(..)
                                                 )
-import           System.Directory               ( doesFileExist
-                                                , removeFile
-                                                , renameFile
+import           System.Directory               ( renameFile )
+import           System.FilePath                ( (</>)
+                                                , takeFileName
+                                                , takeDirectory
                                                 )
+import           System.IO.Temp                 ( withTempDirectory )
 
 -- | Remove overlapping items from a list of replacements and return a pair of
 -- lists containing disjoint items and overlapping items, respectively.
@@ -94,13 +94,11 @@ processReplacements_ = mapM_ go
     go (filePath, repls) = do
       contents <- BC.readFile filePath
       let newContents  = RI.applyReplacements contents repls
-          tempFilePath = filePath ++ ".temp"
-          maybeRm      = do
-            exists <- doesFileExist tempFilePath
-            when exists $ removeFile tempFilePath
-      flip finally maybeRm $ do
-        BC.writeFile tempFilePath newContents
-        renameFile tempFilePath filePath
+      withTempDirectory (takeDirectory filePath) ('.' : takeFileName filePath) $ \tmpDir ->
+        let tmpFile = tmpDir </> "tmp.f"
+         in do putStrLn tmpFile
+               BC.writeFile tmpFile newContents
+               renameFile tmpFile filePath
 
 -- | Utility function to convert 'SrcSpan' to 'SourceRange'
 --

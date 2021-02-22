@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 2d18bd343f3cdb0783b1a174c15e83a2e3c26b2dcb261dde4e72fb3eb5a4946f
+-- hash: 48e669c2672cd1dc959b18b2b9b123b9372dfeafe821647b66bab38a32c3f8cb
 
 name:           fortran-src
 version:        0.4.1
@@ -76,9 +76,10 @@ library
     , deepseq
     , directory >=1.2 && <2
     , fgl >=5 && <6
-    , filepath >=1.4 && <2
+    , filepath
     , mtl >=2.2 && <3
     , pretty >=1.1 && <2
+    , temporary
     , text >=1.2 && <2
     , uniplate >=1.6 && <2
   default-language: Haskell2010
@@ -98,10 +99,11 @@ executable fortran-src
     , deepseq
     , directory >=1.2 && <2
     , fgl >=5 && <6
-    , filepath >=1.4 && <2
+    , filepath
     , fortran-src
     , mtl >=2.2 && <3
     , pretty >=1.1 && <2
+    , temporary
     , text >=1.2 && <2
     , uniplate >=1.6 && <2
   default-language: Haskell2010
@@ -148,11 +150,12 @@ test-suite spec
     , deepseq
     , directory >=1.2 && <2
     , fgl >=5 && <6
-    , filepath >=1.4 && <2
+    , filepath
     , fortran-src
     , hspec >=2.2 && <3
     , mtl >=2.2 && <3
     , pretty >=1.1 && <2
+    , temporary
     , text >=1.2 && <2
     , uniplate >=1.6 && <2
   default-language: Haskell2010
