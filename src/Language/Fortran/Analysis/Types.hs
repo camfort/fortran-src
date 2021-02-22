@@ -98,7 +98,9 @@ extractTypeEnv pf = M.union puEnv expEnv
                                   , let n = varName e
                                   , ty <- maybeToList (idType (getAnnotation e)) ]
 
-type TransType f g a = (f (Analysis a) -> Infer (f (Analysis a))) -> g (Analysis a) -> Infer (g (Analysis a))
+-- Transform all 'f's inside 'g' in the Infer monad.
+-- can't partially apply Infer (type synonym), so its definition is copied here
+type TransType f g a = TransFuncM (State InferState) f g a
 annotateTypes :: Data a => ProgramFile (Analysis a) -> Infer (ProgramFile (Analysis a))
 annotateTypes pf = (transformBiM :: Data a => TransType Expression ProgramFile a) annotateExpression pf >>=
                    (transformBiM :: Data a => TransType ProgramUnit ProgramFile a) annotateProgramUnit
@@ -204,17 +206,18 @@ statement (StDimension _ _ declAList) = do
 statement _ = return ()
 
 annotateExpression :: Data a => Expression (Analysis a) -> Infer (Expression (Analysis a))
-annotateExpression e@(ExpValue _ _ (ValVariable _))    = maybe e (`setIDType` e) `fmap` getRecordedType (varName e)
-annotateExpression e@(ExpValue _ _ (ValIntrinsic _))   = maybe e (`setIDType` e) `fmap` getRecordedType (varName e)
-annotateExpression e@(ExpValue _ _ (ValReal r))        = return $ realLiteralType r `setIDType` e
-annotateExpression e@(ExpValue _ _ (ValComplex e1 e2)) = return $ complexLiteralType e1 e2 `setIDType` e
-annotateExpression e@(ExpValue _ _ (ValInteger _))     = return $ IDType (Just TypeInteger) Nothing `setIDType` e
-annotateExpression e@(ExpValue _ _ (ValLogical _))     = return $ IDType (Just TypeLogical) Nothing `setIDType` e
-annotateExpression e@(ExpBinary _ _ op e1 e2)          = flip setIDType e `fmap` binaryOpType (getSpan e) op e1 e2
-annotateExpression e@(ExpUnary _ _ op e1)              = flip setIDType e `fmap` unaryOpType (getSpan e1) op e1
-annotateExpression e@(ExpSubscript _ _ e1 idxAList)    = flip setIDType e `fmap` subscriptType (getSpan e) e1 idxAList
-annotateExpression e@(ExpFunctionCall _ _ e1 parAList) = flip setIDType e `fmap` functionCallType (getSpan e) e1 parAList
-annotateExpression e                                   = return e
+annotateExpression e = case e of
+  ExpValue _ _ (ValVariable _)    -> maybe e (`setIDType` e) `fmap` getRecordedType (varName e)
+  ExpValue _ _ (ValIntrinsic _)   -> maybe e (`setIDType` e) `fmap` getRecordedType (varName e)
+  ExpValue _ _ (ValReal r)        -> return $ realLiteralType r `setIDType` e
+  ExpValue _ _ (ValComplex e1 e2) -> return $ complexLiteralType e1 e2 `setIDType` e
+  ExpValue _ _ (ValInteger _)     -> return $ IDType (Just TypeInteger) Nothing `setIDType` e
+  ExpValue _ _ (ValLogical _)     -> return $ IDType (Just TypeLogical) Nothing `setIDType` e
+  ExpBinary _ _ op e1 e2          -> flip setIDType e `fmap` binaryOpType (getSpan e) op e1 e2
+  ExpUnary _ _ op e1              -> flip setIDType e `fmap` unaryOpType (getSpan e1) op e1
+  ExpSubscript _ _ e1 idxAList    -> flip setIDType e `fmap` subscriptType (getSpan e) e1 idxAList
+  ExpFunctionCall _ _ e1 parAList -> flip setIDType e `fmap` functionCallType (getSpan e) e1 parAList
+  _                               -> return e
 
 annotateProgramUnit :: Data a => ProgramUnit (Analysis a) -> Infer (ProgramUnit (Analysis a))
 annotateProgramUnit pu | Named n <- puName pu = maybe pu (`setIDType` pu) `fmap` getRecordedType n
