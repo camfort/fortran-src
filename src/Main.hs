@@ -17,7 +17,7 @@ import System.Directory
 import System.FilePath
 import Text.PrettyPrint.GenericPretty (pp, pretty, Out)
 import Text.Read (readMaybe)
-import Data.List (sortBy, intercalate, (\\), isSuffixOf)
+import Data.List (sortBy, intercalate, isSuffixOf)
 import Data.Ord (comparing)
 import Data.Char (toLower)
 import Data.Maybe (listToMaybe, fromMaybe, maybeToList)
@@ -253,22 +253,6 @@ compileFileToMod mvers mods path moutfile = do
   let fspath = path -<.> modFileSuffix `fromMaybe` moutfile
   LB.writeFile fspath $ encodeModFile [mod]
   return mod
-
--- List files in dir recursively
-rGetDirContents :: String -> IO [String]
-rGetDirContents d = canonicalizePath d >>= \d' -> go [d'] d'
-  where
-  go seen d'' = do
-    ds <- getDirectoryContents d''
-    fmap concat . mapM f $ ds \\ [".", ".."] -- remove '.' and '..' entries
-      where
-        f x = do
-          path <- canonicalizePath $ d ++ "/" ++ x
-          g <- doesDirectoryExist path
-          if g && notElem path seen then do
-            x' <- go (path : seen) path
-            return $ map (\ y -> x ++ "/" ++ y) x'
-          else return [x]
 
 decodeModFiles :: [String] -> IO ModFiles
 decodeModFiles = flip foldM emptyModFiles $ \ modFiles d -> do
