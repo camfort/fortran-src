@@ -1,6 +1,7 @@
 # Stack, Cabal
+# note that it's considered correct practice to store generated cabal files as
+# of early 2020: https://www.fpcomplete.com/blog/storing-generated-cabal-files/
 /.stack-work
-/*.cabal
 /cabal.sandbox.config
 /.cabal-sandbox
 
