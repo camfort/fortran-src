@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 48e669c2672cd1dc959b18b2b9b123b9372dfeafe821647b66bab38a32c3f8cb
+-- hash: 18e80e04421bbee6a3a121bd52f4cc7a54f1fe5fa5ee05ee2d51a1fa90f8f58b
 
 name:           fortran-src
 version:        0.4.1
@@ -140,6 +140,8 @@ test-suite spec
   hs-source-dirs:
       test
   ghc-options: -Wall -Werror
+  build-tool-depends:
+      hspec-discover:hspec-discover
   build-depends:
       GenericPretty >=1.2.2 && <2
     , array >=0.5 && <0.6
