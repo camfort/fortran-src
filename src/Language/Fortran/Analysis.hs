@@ -7,7 +7,7 @@ module Language.Fortran.Analysis
   ( initAnalysis, stripAnalysis, Analysis(..), Constant(..)
   , varName, srcName, lvVarName, lvSrcName, isNamedExpression
   , genVar, puName, puSrcName, blockRhsExprs, rhsExprs
-  , ModEnv, NameType(..), IDType(..), ConstructType(..), BaseType(..)
+  , ModEnv, NameType(..), IDType(..), ConstructType(..), BaseType(..), Kind
   , lhsExprs, isLExpr, allVars, analyseAllLhsVars, analyseAllLhsVars1, allLhsVars
   , blockVarUses, blockVarDefs
   , BB, BBNode, BBGr(..), bbgrMap, bbgrMapM, bbgrEmpty
@@ -96,9 +96,12 @@ data ConstructType =
 instance Out ConstructType
 instance Binary ConstructType
 
+type Kind = String
+
 data IDType = IDType
   { idVType :: Maybe BaseType
-  , idCType :: Maybe ConstructType }
+  , idCType :: Maybe ConstructType
+  , idKind  :: Maybe Kind }
   deriving (Ord, Eq, Show, Data, Typeable, Generic)
 
 instance Out IDType
