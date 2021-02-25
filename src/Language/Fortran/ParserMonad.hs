@@ -5,11 +5,18 @@
 {-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE FunctionalDependencies #-}
+{-# LANGUAGE CPP #-}
 
 module Language.Fortran.ParserMonad
   ( module Language.Fortran.ParserMonad
   , module Language.Fortran.Version -- TODO: temporary plug to avoid API change
   ) where
+
+#if !MIN_VERSION_base(4,13,0)
+-- Control.Monad.Fail import is redundant since GHC 8.8.1
+import qualified Control.Monad.Fail as Fail
+import Control.Monad.Fail (MonadFail)
+#endif
 
 import Language.Fortran.Version
 
@@ -114,6 +121,11 @@ instance (Loc b, LastToken b c, Show c) => Monad (Parse b c) where
     case m s of
       ParseOk a s' -> unParse (f a) s'
       ParseFailed e -> ParseFailed e
+
+#if !MIN_VERSION_base(4,13,0)
+  -- Monad(fail) was removed in GHC 8.8.1
+  fail = Fail.fail
+#endif
 
 instance (Loc b, LastToken b c, Show c) => MonadFail (Parse b c) where
   fail msg = Parse $ \s -> ParseFailed ParseError
