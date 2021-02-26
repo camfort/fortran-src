@@ -1,6 +1,6 @@
 name: fortran-src
-version: '0.4.1'
-synopsis: Parser and anlyses for Fortran standards 66, 77, 90 and 95.
+version: '0.4.2'
+synopsis: Parsers and analyses for Fortran standards 66, 77, 90 and 95.
 description: ! 'Provides lexing, parsing, and basic analyses of Fortran code covering
   standards: FORTRAN 66, FORTRAN 77, Fortran 90, and Fortran 95 and some legacy extensions.
   Includes data flow and basic block analysis, a renamer, and type analysis. For example
@@ -11,6 +11,7 @@ maintainer: me@madgen.net
 license: Apache-2.0
 github: camfort/fortran-src
 extra-source-files:
+- README.md
 - CHANGELOG.md
 
 dependencies:
@@ -27,14 +28,14 @@ dependencies:
 - filepath >=1.4 && <2
 - directory >=1.2 && <2
 - fgl >=5 && <6
-- deepseq
-- filepath
-- temporary
+- deepseq >=1.4 && <1.5
+- filepath >=1.4 && <1.5
+- temporary >=1.2 && <1.4
 
 # --pedantic for building (not used for stack ghci)
 ghc-options:
 - -Wall
-- -Werror
+#- -Werror # appears bad to do in distribution, can be useful for development
 
 library:
   source-dirs: src
@@ -92,6 +93,6 @@ tests:
     build-tools:
     - hspec-discover
     dependencies:
-    - deepseq
-    - hspec >=2.2 && <3
     - fortran-src
+    - deepseq >=1.4 && <1.5
+    - hspec >=2.2 && <3

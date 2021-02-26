@@ -4,11 +4,11 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 18e80e04421bbee6a3a121bd52f4cc7a54f1fe5fa5ee05ee2d51a1fa90f8f58b
+-- hash: 50aa4fb72aab53b1e5d449fa390ff3290fb26bd9bf9297a7cac174a79ef92b3f
 
 name:           fortran-src
-version:        0.4.1
-synopsis:       Parser and anlyses for Fortran standards 66, 77, 90 and 95.
+version:        0.4.2
+synopsis:       Parsers and analyses for Fortran standards 66, 77, 90 and 95.
 description:    Provides lexing, parsing, and basic analyses of Fortran code covering standards: FORTRAN 66, FORTRAN 77, Fortran 90, and Fortran 95 and some legacy extensions. Includes data flow and basic block analysis, a renamer, and type analysis. For example usage, see the 'camfort' project, which uses fortran-src as its front end.
 category:       Language
 homepage:       https://github.com/camfort/fortran-src#readme
@@ -19,6 +19,7 @@ license:        Apache-2.0
 license-file:   LICENSE
 build-type:     Simple
 extra-source-files:
+    README.md
     CHANGELOG.md
 
 source-repository head
@@ -62,7 +63,7 @@ library
       Language.Fortran.Rewriter.Internal
   hs-source-dirs:
       src
-  ghc-options: -Wall -Werror -fno-warn-tabs
+  ghc-options: -Wall -fno-warn-tabs
   build-tools:
       alex >=3.1
     , happy >=1.19
@@ -73,13 +74,13 @@ library
     , binary >=0.8.3.0 && <0.11
     , bytestring >=0.10 && <0.12
     , containers >=0.5 && <0.7
-    , deepseq
+    , deepseq >=1.4 && <1.5
     , directory >=1.2 && <2
     , fgl >=5 && <6
-    , filepath
+    , filepath >=1.4 && <1.5
     , mtl >=2.2 && <3
     , pretty >=1.1 && <2
-    , temporary
+    , temporary >=1.2 && <1.4
     , text >=1.2 && <2
     , uniplate >=1.6 && <2
   default-language: Haskell2010
@@ -88,7 +89,7 @@ executable fortran-src
   main-is: src/Main.hs
   other-modules:
       Paths_fortran_src
-  ghc-options: -Wall -Werror -fno-warn-tabs
+  ghc-options: -Wall -fno-warn-tabs
   build-depends:
       GenericPretty >=1.2.2 && <2
     , array >=0.5 && <0.6
@@ -96,14 +97,14 @@ executable fortran-src
     , binary >=0.8.3.0 && <0.11
     , bytestring >=0.10 && <0.12
     , containers >=0.5 && <0.7
-    , deepseq
+    , deepseq >=1.4 && <1.5
     , directory >=1.2 && <2
     , fgl >=5 && <6
-    , filepath
+    , filepath >=1.4 && <1.5
     , fortran-src
     , mtl >=2.2 && <3
     , pretty >=1.1 && <2
-    , temporary
+    , temporary >=1.2 && <1.4
     , text >=1.2 && <2
     , uniplate >=1.6 && <2
   default-language: Haskell2010
@@ -139,7 +140,7 @@ test-suite spec
       Paths_fortran_src
   hs-source-dirs:
       test
-  ghc-options: -Wall -Werror
+  ghc-options: -Wall
   build-tool-depends:
       hspec-discover:hspec-discover
   build-depends:
@@ -149,15 +150,15 @@ test-suite spec
     , binary >=0.8.3.0 && <0.11
     , bytestring >=0.10 && <0.12
     , containers >=0.5 && <0.7
-    , deepseq
+    , deepseq >=1.4 && <1.5
     , directory >=1.2 && <2
     , fgl >=5 && <6
-    , filepath
+    , filepath >=1.4 && <1.5
     , fortran-src
     , hspec >=2.2 && <3
     , mtl >=2.2 && <3
     , pretty >=1.1 && <2
-    , temporary
+    , temporary >=1.2 && <1.4
     , text >=1.2 && <2
     , uniplate >=1.6 && <2
   default-language: Haskell2010
