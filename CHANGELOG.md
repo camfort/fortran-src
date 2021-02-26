@@ -1,3 +1,15 @@
+### 0.4.2 (March 03, 2021)
+
+  * `FortranVersion` from `ParserMonad` moved to its own module
+    `Language.Fortran.Version`. `ParserMonad` will re-export it for now.
+  * `Version.deduceVersion` renamed to `deduceFortranVersion`.
+  * Provide a continuation reformatter in `PrettyPrint`. Runs on `String`s and
+    doesn't guarantee the output is a valid program, so not enabled by default.
+  * Add a diff-like rewriter, similar to
+    [reprinter](http://hackage.haskell.org/package/reprinter) but uses
+    replacements rather than an annotated AST.
+  * Various internal de-duplication and changes.
+
 ### 0.4.1
 
 * Ignore comments in structure declaration PR#107 (thanks Jason Xu)
