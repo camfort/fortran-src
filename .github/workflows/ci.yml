@@ -44,12 +44,24 @@ jobs:
         - "8.6"
         - "8.8"
         - "8.10"
-    env:
-      # note that all flags must be passed to every command even when
-      # irrelevant, else Cabal will trigger arbitrary rebuilds
-      CABAL_FLAGS: --enable-tests --enable-benchmarks --test-show-details=streaming
     steps:
+
+    # TODO: GHC decides to recompile based on timestamp, so cache isn't used
+    # Preferably GHC would work via hashes instead. Stack had this feature
+    # merged in Aug 2020.
+    # Upstream GHC issue: https://gitlab.haskell.org/ghc/ghc/-/issues/16495
+    # My issue on haskell/actions: https://github.com/haskell/actions/issues/41
+    # This also requires us to do a deep fetch, else we don't get the Git commit
+    # history we need to rewrite mod times.
     - uses: actions/checkout@v2
+      with:
+        fetch-depth: 0
+    - name: Set all tracked file modification times to the time of their last commit
+      run: |
+        rev=HEAD
+        for f in $(git ls-tree -r -t --full-name --name-only "$rev") ; do
+            touch -d $(git log --pretty=format:%cI -1 "$rev" -- "$f") "$f";
+        done
 
     - name: Setup Haskell build environment
       id: setup-haskell-build-env
@@ -59,7 +71,7 @@ jobs:
         cabal-version: ${{ matrix.cabal }}
 
     - name: Freeze Cabal plan
-      run: cabal freeze $CABAL_FLAGS
+      run: cabal freeze
 
     - name: Cache Cabal build artifacts
       uses: actions/cache@v2
@@ -72,9 +84,9 @@ jobs:
           ${{ runner.os }}-cabal-${{ matrix.ghc }}
 
     - name: Build
-      run: cabal build $CABAL_FLAGS
+      run: cabal build
 
     - name: Test
-      run: cabal test $CABAL_FLAGS
+      run: cabal test --test-show-details=streaming
       env:
         HSPEC_OPTIONS: --color
