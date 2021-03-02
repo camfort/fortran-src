@@ -28,6 +28,8 @@ dependencies:
 - directory >=1.2 && <2
 - fgl >=5 && <6
 - deepseq
+- filepath
+- temporary
 
 # --pedantic for building (not used for stack ghci)
 ghc-options:

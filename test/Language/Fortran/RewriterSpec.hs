@@ -11,15 +11,12 @@ import           Control.Exception.Base         ( try
                                                 )
 import           Control.Monad                  ( foldM
                                                 , unless
-                                                , when
                                                 )
 import qualified Data.Map                      as M
 import           System.Directory               ( copyFile
                                                 , createDirectory
                                                 , getCurrentDirectory
                                                 , doesDirectoryExist
-                                                , doesFileExist
-                                                , removeFile
                                                 )
 import           Language.Fortran.Rewriter
 import qualified Data.ByteString.Lazy.Char8    as BC
@@ -297,24 +294,6 @@ spec = do
         , "005_removals.f"
         , "006_linewrap_heuristic.f"
         ]
-
-  describe "Error handling" $
-    it "Removes *.temp files in the event of an error" $ do
-      let failureFile = "test/Language/Fortran/samples/rewriter/temp-failure/fail.f"
-          temp = failureFile ++ ".temp"
-          replacements = M.singleton failureFile
-            [ Replacement
-                (SourceRange (SourceLocation (-1) (-1)) (SourceLocation 0 (-43)))
-                ""
-            ]
-      exists <- doesFileExist temp
-      when exists $ removeFile temp
-      result <-
-        try $ processReplacements replacements :: IO
-          (Either ReplacementError ())
-      result `shouldBe` Left InvalidRangeError
-      exists' <- doesFileExist temp
-      exists' `shouldBe` False
 
   describe "Filtering overlapping replacements" $ do
     it "Simple overlap" $ do
