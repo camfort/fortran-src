@@ -8,6 +8,7 @@ module Language.Fortran.Version
   , fortranVersionAliases
   , selectFortranVersion
   , deduceFortranVersion
+  , deduceVersion -- deprecated
   ) where
 
 import           Data.Char (toLower)
@@ -67,3 +68,7 @@ deduceFortranVersion path
   | otherwise               = Fortran90         -- unrecognized, default to F90
   where
     isExtensionOf = flip isSuffixOf $ map toLower path
+
+-- | Alias for previous function name. TODO: deprecate eventually.
+deduceVersion :: FilePath -> FortranVersion
+deduceVersion = deduceFortranVersion

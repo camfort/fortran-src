@@ -2,7 +2,8 @@
 
   * `FortranVersion` from `ParserMonad` moved to its own module
     `Language.Fortran.Version`. `ParserMonad` will re-export it for now.
-  * `Version.deduceVersion` renamed to `deduceFortranVersion`.
+  * `Version.deduceVersion` renamed to `deduceFortranVersion` due to often being
+    imported non-qualified. `deduceVersion` remains as an alias.
   * Provide a continuation reformatter in `PrettyPrint`. Runs on `String`s and
     doesn't guarantee the output is a valid program, so not enabled by default.
   * Add a diff-like rewriter, similar to
