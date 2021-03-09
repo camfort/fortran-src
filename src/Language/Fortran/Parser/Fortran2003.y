@@ -1287,14 +1287,7 @@ unitNameCheck _ _ = return ()
 
 parse = runParse programParser
 
-transformations2003 =
-  [ GroupLabeledDo
-  , GroupDo
-  , GroupIf
-  , GroupCase
-  , DisambiguateIntrinsic
-  , DisambiguateFunction
-  ]
+transformations2003 = defaultTransformations Fortran2003
 
 fortran2003Parser ::
      B.ByteString -> String -> ParseResult AlexInput Token (ProgramFile A0)

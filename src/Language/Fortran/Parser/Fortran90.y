@@ -1080,14 +1080,7 @@ unitNameCheck _ _ = return ()
 
 parse = runParse programParser
 
-transformations90 =
-  [ GroupLabeledDo
-  , GroupDo
-  , GroupIf
-  , GroupCase
-  , DisambiguateIntrinsic
-  , DisambiguateFunction
-  ]
+transformations90 = defaultTransformations Fortran90
 
 fortran90Parser ::
     B.ByteString -> String -> ParseResult AlexInput Token (ProgramFile A0)

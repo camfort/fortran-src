@@ -1,7 +1,12 @@
-module Language.Fortran.Transformer ( transform, transformWithModFiles
-                                    , Transformation(..) ) where
+{-# LANGUAGE LambdaCase #-}
 
-import Data.Maybe (fromJust)
+module Language.Fortran.Transformer
+  ( transform
+  , transformWithModFiles
+  , Transformation(..)
+  , defaultTransformations
+  ) where
+
 import Data.Map (empty)
 import Data.Data
 
@@ -11,6 +16,7 @@ import Language.Fortran.Transformation.Disambiguation.Function
 import Language.Fortran.Transformation.Disambiguation.Intrinsic
 import Language.Fortran.Transformation.Grouping
 import Language.Fortran.AST (ProgramFile)
+import Language.Fortran.Version (FortranVersion(..))
 
 data Transformation =
     GroupForall
@@ -22,23 +28,56 @@ data Transformation =
   | DisambiguateIntrinsic
   deriving (Eq)
 
-transformationMapping :: Data a => [ (Transformation, Transform a ()) ]
-transformationMapping =
-  [ (GroupForall, groupForall)
-  , (GroupIf, groupIf)
-  , (GroupCase, groupCase)
-  , (GroupDo, groupDo)
-  , (GroupLabeledDo, groupLabeledDo)
-  , (DisambiguateFunction, disambiguateFunction)
-  , (DisambiguateIntrinsic, disambiguateIntrinsic)
-  ]
+transformationMapping :: Data a => Transformation -> Transform a ()
+transformationMapping = \case
+  GroupForall           -> groupForall
+  GroupIf               -> groupIf
+  GroupCase             -> groupCase
+  GroupDo               -> groupDo
+  GroupLabeledDo        -> groupLabeledDo
+  DisambiguateFunction  -> disambiguateFunction
+  DisambiguateIntrinsic -> disambiguateIntrinsic
 
 transformWithModFiles :: Data a => ModFiles -> [ Transformation ] -> ProgramFile a -> ProgramFile a
 transformWithModFiles mods trs = runTransform (combinedTypeEnv mods) (combinedModuleMap mods) trans
   where
-    trans = mapM_ (\t -> fromJust $ lookup t transformationMapping) trs
+    trans = mapM_ transformationMapping trs
 
 transform :: Data a => [ Transformation ] -> ProgramFile a -> ProgramFile a
 transform trs = runTransform empty empty trans
   where
-    trans = mapM_ (\t -> fromJust $ lookup t transformationMapping) trs
+    trans = mapM_ transformationMapping trs
+
+-- TODO: explicit, or concise?
+defaultTransformations :: FortranVersion -> [Transformation]
+defaultTransformations = \case
+  Fortran66 ->
+    [ GroupLabeledDo
+    , DisambiguateIntrinsic
+    , DisambiguateFunction
+    ]
+  Fortran77 -> -- GroupIf : defaultTransformations Fortran66
+    [ GroupLabeledDo
+    , GroupIf
+    , DisambiguateIntrinsic
+    , DisambiguateFunction
+    ]
+  Fortran77Legacy -> -- GroupDo : defaultTransformations Fortran77
+    [ GroupLabeledDo
+    , GroupDo
+    , GroupIf
+    , DisambiguateIntrinsic
+    , DisambiguateFunction
+    ]
+  Fortran77Extended -> -- GroupCase : defaultTransformations Fortran77Legacy
+    [ GroupLabeledDo
+    , GroupDo
+    , GroupIf
+    , GroupCase
+    , DisambiguateIntrinsic
+    , DisambiguateFunction
+    ]
+  Fortran90   -> defaultTransformations Fortran77Extended
+  Fortran95   -> defaultTransformations Fortran77Extended
+  Fortran2003 -> defaultTransformations Fortran77Extended
+  Fortran2008 -> defaultTransformations Fortran2003
