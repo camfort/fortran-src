@@ -15,6 +15,7 @@ import Language.Fortran.Parser.Fortran2003 ( fortran2003Parser, fortran2003Parse
 
 import qualified Data.ByteString.Char8 as B
 
+-- TODO: rewrite in lambda case style?
 type Parser = B.ByteString -> String -> Either ParseErrorSimple (ProgramFile A0)
 parserVersions :: [(FortranVersion, Parser)]
 parserVersions =
@@ -26,6 +27,7 @@ parserVersions =
   , (Fortran95, fromParseResult `after` fortran95Parser)
   , (Fortran2003, fromParseResult `after` fortran2003Parser) ]
 
+-- TODO: rewrite in lambda case style?
 type ParserWithModFiles = ModFiles -> B.ByteString -> String -> Either ParseErrorSimple (ProgramFile A0)
 parserWithModFilesVersions :: [(FortranVersion, ParserWithModFiles)]
 parserWithModFilesVersions =
