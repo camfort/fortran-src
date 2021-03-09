@@ -19,6 +19,7 @@ import Language.Fortran.Intrinsics
 import Language.Fortran.Util.Position
 import Language.Fortran.ParserMonad (FortranVersion(..))
 
+import qualified Language.Fortran.Vars.Types as FV
 
 --------------------------------------------------
 
@@ -80,7 +81,7 @@ analyseTypesWithEnv' env pf@(ProgramFile mi _) = runInfer (miVersion mi) env $ d
   _ <- forM eps $ \ (eName, (fName, mRetName)) -> do
     mFType <- getRecordedType fName
     case mFType of
-      Just (IDType fVType fCType kind) -> do
+      Just (IDType fVType fCType kind fvextType) -> do
         recordMType fVType fCType kind eName
         -- FIXME: what about functions that return arrays?
         maybe (return ()) (error "Entry points with result variables unsupported" >> recordMType fVType Nothing Nothing) mRetName
@@ -174,9 +175,11 @@ statement (StDeclaration _ _ (TypeSpec _ _ baseType sel) mAttrAList declAList)
         bType Nothing  = baseType
     let kind (Just (Selector _ _ _ (Just (ExpValue _ _ (ValInteger k))))) = Just k
         kind _ = Nothing
+    let fvType = FV.TInteger fvKind
+        fvKind = 0
     forM_ decls $ \ decl -> case decl of
-      DeclArray _ _ v ddAList e _ -> recordType (bType e) (CTArray $ dimDeclarator ddAList) (kind sel) (varName v)
-      DeclVariable _ _ v e _      -> recordType (bType e) (cType n) (kind sel) n where n = varName v
+      DeclArray _ _ v ddAList e _ -> recordType (bType e) (CTArray $ dimDeclarator ddAList) (kind sel) (Just fvType) (varName v)
+      DeclVariable _ _ v e _      -> recordType (bType e) (cType n) (kind sel) (Just fvType) n where n = varName v
 
 statement (StExternal _ _ varAList) = do
   let vars = aStrip varAList
@@ -210,8 +213,8 @@ annotateExpression e@(ExpValue _ _ (ValVariable _))    = maybe e (`setIDType` e)
 annotateExpression e@(ExpValue _ _ (ValIntrinsic _))   = maybe e (`setIDType` e) `fmap` getRecordedType (varName e)
 annotateExpression e@(ExpValue _ _ (ValReal r))        = return $ realLiteralType r `setIDType` e
 annotateExpression e@(ExpValue _ _ (ValComplex e1 e2)) = return $ complexLiteralType e1 e2 `setIDType` e
-annotateExpression e@(ExpValue _ _ (ValInteger _))     = return $ IDType (Just TypeInteger) Nothing Nothing `setIDType` e
-annotateExpression e@(ExpValue _ _ (ValLogical _))     = return $ IDType (Just TypeLogical) Nothing Nothing `setIDType` e
+annotateExpression e@(ExpValue _ _ (ValInteger _))     = return $ IDType (Just TypeInteger) Nothing Nothing Nothing `setIDType` e
+annotateExpression e@(ExpValue _ _ (ValLogical _))     = return $ IDType (Just TypeLogical) Nothing Nothing Nothing `setIDType` e
 annotateExpression e@(ExpBinary _ _ op e1 e2)          = flip setIDType e `fmap` binaryOpType (getSpan e) op e1 e2
 annotateExpression e@(ExpUnary _ _ op e1)              = flip setIDType e `fmap` unaryOpType (getSpan e1) op e1
 annotateExpression e@(ExpSubscript _ _ e1 idxAList)    = flip setIDType e `fmap` subscriptType (getSpan e) e1 idxAList
@@ -224,8 +227,8 @@ annotateProgramUnit pu                        = return pu
 
 -- FIXME: parse any kind info out of literals, real or complex
 realLiteralType :: String -> IDType
-realLiteralType r | 'd' `elem` r = IDType (Just TypeDoublePrecision) Nothing Nothing
-                  | otherwise    = IDType (Just TypeReal) Nothing Nothing
+realLiteralType r | 'd' `elem` r = IDType (Just TypeDoublePrecision) Nothing Nothing Nothing
+                  | otherwise    = IDType (Just TypeReal) Nothing Nothing Nothing
 
 complexLiteralType :: Expression a -> Expression a -> IDType
 complexLiteralType (ExpValue _ _ (ValReal r)) _
@@ -369,7 +372,7 @@ emptyType :: IDType
 emptyType = IDType Nothing Nothing Nothing
 
 -- Record the type of the given name.
-recordType :: BaseType -> ConstructType -> Maybe Kind -> Name -> Infer ()
+recordType :: BaseType -> ConstructType -> Maybe Kind -> Maybe FV.Type -> Name -> Infer ()
 recordType bt ct k n = modify $ \ s -> s { environ = insert n (IDType (Just bt) (Just ct) k) (environ s) }
 
 -- Record the type (maybe) of the given name.

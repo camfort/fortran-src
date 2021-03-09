@@ -30,6 +30,8 @@ import Data.Binary
 import Language.Fortran.Intrinsics (getIntrinsicDefsUses, allIntrinsics)
 import Data.Bifunctor (first)
 
+import qualified Language.Fortran.Vars.Types as FV
+
 --------------------------------------------------
 
 -- | Basic block
@@ -101,7 +103,8 @@ type Kind = String
 data IDType = IDType
   { idVType :: Maybe BaseType
   , idCType :: Maybe ConstructType
-  , idKind  :: Maybe Kind }
+  , idKind  :: Maybe Kind
+  , idFVType :: Maybe FV.Type }
   deriving (Ord, Eq, Show, Data, Typeable, Generic)
 
 instance Out IDType
