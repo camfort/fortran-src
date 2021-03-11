@@ -5,6 +5,8 @@ module Language.Fortran.Parser.Fortran2003 ( functionParser
                                            , statementParser
                                            , fortran2003Parser
                                            , fortran2003ParserWithModFiles
+                                           , untransformedFortran2003ParserWithModFiles
+                                           , transformations2003
                                            ) where
 
 import Prelude hiding (EQ,LT,GT) -- Same constructors exist in the AST
@@ -1306,9 +1308,15 @@ fortran2003Parser sourceCode filename =
 fortran2003ParserWithModFiles ::
      ModFiles -> B.ByteString -> String -> ParseResult AlexInput Token (ProgramFile A0)
 fortran2003ParserWithModFiles mods sourceCode filename =
-    fmap (pfSetFilename filename . transform) $ parse parseState
+    transform <$> untransformedFortran2003ParserWithModFiles mods sourceCode filename
   where
     transform = transformWithModFiles mods transformations2003
+
+untransformedFortran2003ParserWithModFiles ::
+     ModFiles -> B.ByteString -> String -> ParseResult AlexInput Token (ProgramFile A0)
+untransformedFortran2003ParserWithModFiles mods sourceCode filename =
+    pfSetFilename filename <$> parse parseState
+  where
     parseState = initParseState sourceCode Fortran2003 filename
 
 parseError :: Token -> LexAction a

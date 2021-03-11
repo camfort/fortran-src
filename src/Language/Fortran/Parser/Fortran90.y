@@ -4,6 +4,8 @@ module Language.Fortran.Parser.Fortran90 ( statementParser
                                          , functionParser
                                          , fortran90Parser
                                          , fortran90ParserWithModFiles
+                                         , untransformedFortran90ParserWithModFiles
+                                         , transformations90
                                          ) where
 
 import Prelude hiding (EQ,LT,GT) -- Same constructors exist in the AST
@@ -1096,7 +1098,14 @@ fortran90Parser = fortran90ParserWithModFiles emptyModFiles
 fortran90ParserWithModFiles ::
     ModFiles -> B.ByteString -> String -> ParseResult AlexInput Token (ProgramFile A0)
 fortran90ParserWithModFiles mods sourceCode filename =
-    fmap (pfSetFilename filename . transformWithModFiles mods transformations90) $ parse parseState
+    transform <$> untransformedFortran90ParserWithModFiles mods sourceCode filename
+  where
+    transform = transformWithModFiles mods transformations90
+
+untransformedFortran90ParserWithModFiles ::
+    ModFiles -> B.ByteString -> String -> ParseResult AlexInput Token (ProgramFile A0)
+untransformedFortran90ParserWithModFiles mods sourceCode filename =
+    pfSetFilename filename <$> parse parseState
   where
     parseState = initParseState sourceCode Fortran90 filename
 
