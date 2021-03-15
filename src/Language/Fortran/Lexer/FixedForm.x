@@ -196,6 +196,7 @@ tokens :-
   -- Tokens related to data initalization statement
   <keyword> "data"                            { toSC st >> addSpan TData  }
   <keyword> "automatic" / { legacy77P }       { toSC st >> addSpan TAutomatic  }
+  <keyword> "static" / { legacy77P }          { toSC st >> addSpan TStatic }
 
   -- Tokens related to format statement
   <keyword> "format"                          { toSC fmt >> enterFormat >> addSpan TFormat  }
@@ -793,6 +794,7 @@ data Token = TLeftPar             SrcSpan
            | TNone                SrcSpan
            | TParameter           SrcSpan
            | TData                SrcSpan
+           | TStatic              SrcSpan
            | TAutomatic           SrcSpan
            | TFormat              SrcSpan
            | TBlob                SrcSpan String

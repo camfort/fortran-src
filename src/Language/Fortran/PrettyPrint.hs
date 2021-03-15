@@ -486,6 +486,10 @@ instance Pretty (Statement a) where
       | v == Fortran77Extended = "automatic" <+> pprint' v decls
       | otherwise = tooOld v "Automatic statement" Fortran90
 
+    pprint' v (StStatic _ _ decls)
+      | v == Fortran77Extended = "static" <+> pprint' v decls
+      | otherwise = tooOld v "Static statement" Fortran90
+
     pprint' v (StNamelist _ _ namelist)
       | v >= Fortran90 = "namelist" <+> pprint' v namelist
       | otherwise = tooOld v "Namelist statement" Fortran90
