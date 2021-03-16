@@ -3,7 +3,9 @@
 module Language.Fortran.Parser.Fortran90 ( statementParser
                                          , functionParser
                                          , fortran90Parser
+                                         , fortran90ParserWithTransforms
                                          , fortran90ParserWithModFiles
+                                         , fortran90ParserWithModFilesWithTransforms
                                          ) where
 
 import Prelude hiding (EQ,LT,GT) -- Same constructors exist in the AST
@@ -1079,17 +1081,28 @@ unitNameCheck (TId _ name1) name2
 unitNameCheck _ _ = return ()
 
 parse = runParse programParser
-
-transformations90 = defaultTransformations Fortran90
+defTransforms = defaultTransformations Fortran90
 
 fortran90Parser ::
     B.ByteString -> String -> ParseResult AlexInput Token (ProgramFile A0)
-fortran90Parser = fortran90ParserWithModFiles emptyModFiles
+fortran90Parser = fortran90ParserWithTransforms defTransforms
 
-fortran90ParserWithModFiles ::
-    ModFiles -> B.ByteString -> String -> ParseResult AlexInput Token (ProgramFile A0)
-fortran90ParserWithModFiles mods sourceCode filename =
-    fmap (pfSetFilename filename . transformWithModFiles mods transformations90) $ parse parseState
+fortran90ParserWithTransforms
+    :: [Transformation]
+    -> B.ByteString -> String -> ParseResult AlexInput Token (ProgramFile A0)
+fortran90ParserWithTransforms =
+    flip fortran90ParserWithModFilesWithTransforms emptyModFiles
+
+fortran90ParserWithModFiles
+    :: ModFiles
+    -> B.ByteString -> String -> ParseResult AlexInput Token (ProgramFile A0)
+fortran90ParserWithModFiles = fortran90ParserWithModFilesWithTransforms defTransforms
+
+fortran90ParserWithModFilesWithTransforms
+    :: [Transformation] -> ModFiles
+    -> B.ByteString -> String -> ParseResult AlexInput Token (ProgramFile A0)
+fortran90ParserWithModFilesWithTransforms transforms mods sourceCode filename =
+    fmap (pfSetFilename filename . transformWithModFiles mods transforms) $ parse parseState
   where
     parseState = initParseState sourceCode Fortran90 filename
 

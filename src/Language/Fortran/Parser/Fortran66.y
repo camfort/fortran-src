@@ -4,11 +4,9 @@
 module Language.Fortran.Parser.Fortran66 ( expressionParser
                                          , statementParser
                                          , fortran66Parser
-                                         , fortran66ParserWithTrans
-                                         , fortran66ParserNoTrans
+                                         , fortran66ParserWithTransforms
                                          , fortran66ParserWithModFiles
-                                         , fortran66ParserWithModFilesWithTrans
-                                         , fortran66ParserWithModFilesNoTrans
+                                         , fortran66ParserWithModFilesWithTransforms
                                          ) where
 
 import Prelude hiding (EQ,LT,GT) -- Same constructors exist in the AST
@@ -509,41 +507,32 @@ makeReal i1 dot i2 exp =
       expStr  = case exp of { Just (_, s) -> s ; _ -> "" } in
     ExpValue () span2 (ValReal $ i1Str ++ dotStr ++ i2Str ++ expStr)
 
-transformations66 = defaultTransformations Fortran66
+parse = runParse programParser
+defTransforms = defaultTransformations Fortran66
 
 fortran66Parser
     :: B.ByteString -> String -> ParseResult AlexInput Token (ProgramFile A0)
-fortran66Parser = fortran66ParserWithTrans (defaultTransformations Fortran66)
+fortran66Parser = fortran66ParserWithTransforms defTransforms
 
-fortran66ParserWithTrans
+fortran66ParserWithTransforms
     :: [Transformation]
     -> B.ByteString -> String -> ParseResult AlexInput Token (ProgramFile A0)
-fortran66ParserWithTrans =
-    flip fortran66ParserWithModFilesWithTrans emptyModFiles
-
-fortran66ParserNoTrans
-    :: B.ByteString -> String -> ParseResult AlexInput Token (ProgramFile A0)
-fortran66ParserNoTrans = fortran66ParserWithTrans []
+fortran66ParserWithTransforms =
+    flip fortran66ParserWithModFilesWithTransforms emptyModFiles
 
 fortran66ParserWithModFiles
     :: ModFiles
     -> B.ByteString -> String -> ParseResult AlexInput Token (ProgramFile A0)
 fortran66ParserWithModFiles =
-    fortran66ParserWithModFilesWithTrans (defaultTransformations Fortran66)
+    fortran66ParserWithModFilesWithTransforms defTransforms
 
-fortran66ParserWithModFilesWithTrans
+fortran66ParserWithModFilesWithTransforms
     :: [Transformation] -> ModFiles
     -> B.ByteString -> String -> ParseResult AlexInput Token (ProgramFile A0)
-fortran66ParserWithModFilesWithTrans transes mods sourceCode filename =
-    fmap (pfSetFilename filename . transformWithModFiles mods transes) $ parse parseState
+fortran66ParserWithModFilesWithTransforms transforms mods sourceCode filename =
+    fmap (pfSetFilename filename . transformWithModFiles mods transforms) $ parse parseState
   where
-    parse = runParse programParser
     parseState = initParseState sourceCode Fortran66 filename
-
-fortran66ParserWithModFilesNoTrans
-    :: ModFiles
-    -> B.ByteString -> String -> ParseResult AlexInput Token (ProgramFile A0)
-fortran66ParserWithModFilesNoTrans = fortran66ParserWithModFilesWithTrans []
 
 parseError :: Token -> LexAction a
 parseError _ = do
