@@ -72,7 +72,3 @@ fortranParserWithModFilesAndVersion :: FortranVersion -> ParserWithModFiles
 fortranParserWithModFilesAndVersion v mods contents filename =
    let parserF = parserWithModFilesVersions v
     in parserF mods contents filename
-
--- | TODO. Base helper function.
---fortranParserWithModFilesAndVersionAndTrans
---    :: FortranVersion -> ModFiles
