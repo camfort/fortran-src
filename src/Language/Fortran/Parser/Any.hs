@@ -68,3 +68,7 @@ fortranParserWithModFilesAndVersion :: FortranVersion -> ParserWithModFiles
 fortranParserWithModFilesAndVersion v mods contents filename = do
    let Just parserF = lookup v parserWithModFilesVersions
    parserF mods contents filename
+
+-- | TODO. Base helper function.
+--fortranParserWithModFilesAndVersionAndTrans
+--    :: FortranVersion -> ModFiles

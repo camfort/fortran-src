@@ -4,13 +4,21 @@ module Language.Fortran.Parser.Fortran77
   ( expressionParser
   , statementParser
   , fortran77Parser
-  , extended77Parser
-  , legacy77Parser
-  , includeParser
+  , fortran77ParserWithTransforms
   , fortran77ParserWithModFiles
+  , fortran77ParserWithModFilesWithTransforms
+  , extended77Parser
+  , extended77ParserWithTransforms
   , extended77ParserWithModFiles
+  , extended77ParserWithModFilesWithTransforms
+  , legacy77Parser
+  , legacy77ParserWithTransforms
   , legacy77ParserWithModFiles
+  , legacy77ParserWithModFilesWithTransforms
   , legacy77ParserWithIncludes
+  , legacy77ParserWithIncludesWithTransforms
+  , includeParser
+
   ) where
 
 import Prelude hiding (EQ,LT,GT) -- Same constructors exist in the AST
@@ -1059,45 +1067,94 @@ makeReal i1 dot i2 exp =
 
 parse = runParse programParser
 
-fortran77Parser ::
-    B.ByteString -> String -> ParseResult AlexInput Token (ProgramFile A0)
-fortran77Parser = fortran77ParserWithModFiles emptyModFiles
+defTransforms77 = defaultTransformations Fortran77
+defTransforms77e = defaultTransformations Fortran77Extended
+defTransforms77l = defaultTransformations Fortran77Legacy
 
-fortran77ParserWithModFiles ::
-    ModFiles -> B.ByteString -> String -> ParseResult AlexInput Token (ProgramFile A0)
-fortran77ParserWithModFiles mods sourceCode filename =
+fortran77Parser
+    :: B.ByteString -> String -> ParseResult AlexInput Token (ProgramFile A0)
+fortran77Parser = fortran77ParserWithTransforms defTransforms77
+
+fortran77ParserWithTransforms
+    :: [Transformation]
+    -> B.ByteString -> String -> ParseResult AlexInput Token (ProgramFile A0)
+fortran77ParserWithTransforms =
+    flip fortran77ParserWithModFilesWithTransforms emptyModFiles
+
+fortran77ParserWithModFiles
+    :: ModFiles
+    -> B.ByteString -> String -> ParseResult AlexInput Token (ProgramFile A0)
+fortran77ParserWithModFiles =
+    fortran77ParserWithModFilesWithTransforms defTransforms77
+
+fortran77ParserWithModFilesWithTransforms
+    :: [Transformation] -> ModFiles
+    -> B.ByteString -> String -> ParseResult AlexInput Token (ProgramFile A0)
+fortran77ParserWithModFilesWithTransforms transforms mods sourceCode filename =
     fmap (pfSetFilename filename . transform) $ parse parseState
   where
-    transform  = transformWithModFiles mods (defaultTransformations Fortran77)
+    transform  = transformWithModFiles mods transforms
     parseState = initParseState sourceCode Fortran77Extended filename
 
-extended77Parser ::
-    B.ByteString -> String -> ParseResult AlexInput Token (ProgramFile A0)
-extended77Parser = extended77ParserWithModFiles emptyModFiles
+extended77Parser
+    :: B.ByteString -> String -> ParseResult AlexInput Token (ProgramFile A0)
+extended77Parser = extended77ParserWithTransforms defTransforms77e
 
-extended77ParserWithModFiles ::
-    ModFiles -> B.ByteString -> String -> ParseResult AlexInput Token (ProgramFile A0)
-extended77ParserWithModFiles mods sourceCode filename =
+extended77ParserWithTransforms
+    :: [Transformation]
+    -> B.ByteString -> String -> ParseResult AlexInput Token (ProgramFile A0)
+extended77ParserWithTransforms =
+    flip extended77ParserWithModFilesWithTransforms emptyModFiles
+
+extended77ParserWithModFiles
+    :: ModFiles
+    -> B.ByteString -> String -> ParseResult AlexInput Token (ProgramFile A0)
+extended77ParserWithModFiles =
+    extended77ParserWithModFilesWithTransforms defTransforms77e
+
+extended77ParserWithModFilesWithTransforms
+    :: [Transformation] -> ModFiles
+    -> B.ByteString -> String -> ParseResult AlexInput Token (ProgramFile A0)
+extended77ParserWithModFilesWithTransforms transforms mods sourceCode filename =
     fmap (pfSetFilename filename . transform) $ parse parseState
   where
-    transform = transformWithModFiles mods (defaultTransformations Fortran77Extended)
+    transform = transformWithModFiles mods transforms
     parseState = initParseState sourceCode Fortran77Extended filename
 
-legacy77Parser ::
-    B.ByteString -> String -> ParseResult AlexInput Token (ProgramFile A0)
-legacy77Parser = legacy77ParserWithModFiles emptyModFiles
+legacy77Parser
+    :: B.ByteString -> String -> ParseResult AlexInput Token (ProgramFile A0)
+legacy77Parser = legacy77ParserWithTransforms defTransforms77l
 
-legacy77ParserWithModFiles ::
-    ModFiles -> B.ByteString -> String -> ParseResult AlexInput Token (ProgramFile A0)
-legacy77ParserWithModFiles mods sourceCode filename =
+legacy77ParserWithTransforms
+    :: [Transformation]
+    -> B.ByteString -> String -> ParseResult AlexInput Token (ProgramFile A0)
+legacy77ParserWithTransforms = flip legacy77ParserWithModFilesWithTransforms emptyModFiles
+
+legacy77ParserWithModFiles
+    :: ModFiles
+    -> B.ByteString -> String -> ParseResult AlexInput Token (ProgramFile A0)
+legacy77ParserWithModFiles =
+    legacy77ParserWithModFilesWithTransforms defTransforms77l
+
+legacy77ParserWithModFilesWithTransforms
+    :: [Transformation] -> ModFiles
+    -> B.ByteString -> String -> ParseResult AlexInput Token (ProgramFile A0)
+legacy77ParserWithModFilesWithTransforms transforms mods sourceCode filename =
     fmap (pfSetFilename filename . transform) $ parse parseState
   where
-    transform = transformWithModFiles mods (defaultTransformations Fortran77Legacy)
+    transform = transformWithModFiles mods transforms
     parseState = initParseState sourceCode Fortran77Legacy filename
 
-legacy77ParserWithIncludes ::
-  [String] -> B.ByteString -> String -> IO (ParseResult AlexInput Token (ProgramFile A0))
-legacy77ParserWithIncludes incs sourceCode filename =
+legacy77ParserWithIncludes
+    :: [String]
+    -> B.ByteString -> String -> IO (ParseResult AlexInput Token (ProgramFile A0))
+legacy77ParserWithIncludes =
+    legacy77ParserWithIncludesWithTransforms defTransforms77l
+
+legacy77ParserWithIncludesWithTransforms
+    :: [Transformation] -> [String]
+    -> B.ByteString -> String -> IO (ParseResult AlexInput Token (ProgramFile A0))
+legacy77ParserWithIncludesWithTransforms transforms incs sourceCode filename =
     fmap (pfSetFilename filename . transform) <$> doParse
   where
     doParse = case parse parseState of
@@ -1105,7 +1162,7 @@ legacy77ParserWithIncludes incs sourceCode filename =
       ParseOk p x -> do
         p' <- descendBiM (inlineInclude Fortran77Legacy incs []) p
         return (ParseOk p' x)
-    transform = transformWithModFiles emptyModFiles (defaultTransformations Fortran77Legacy)
+    transform = transformWithModFiles emptyModFiles transforms
     parseState = initParseState sourceCode Fortran77Legacy filename
 
 includeParser ::

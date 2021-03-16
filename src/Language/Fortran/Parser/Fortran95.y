@@ -3,8 +3,11 @@
 module Language.Fortran.Parser.Fortran95 ( functionParser
                                          , statementParser
                                          , fortran95Parser
+                                         , fortran95ParserWithTransforms
                                          , fortran95ParserWithModFiles
+                                         , fortran95ParserWithModFilesWithTransforms
                                          ) where
+
 
 import Prelude hiding (EQ,LT,GT) -- Same constructors exist in the AST
 import Control.Monad.State
@@ -1146,22 +1149,29 @@ unitNameCheck (TId _ name1) name2
 unitNameCheck _ _ = return ()
 
 parse = runParse programParser
+defTransforms = defaultTransformations Fortran95
 
-transformations95 = defaultTransformations Fortran95
+fortran95Parser
+    :: B.ByteString -> String -> ParseResult AlexInput Token (ProgramFile A0)
+fortran95Parser = fortran95ParserWithTransforms defTransforms
 
-fortran95Parser ::
-     B.ByteString -> String -> ParseResult AlexInput Token (ProgramFile A0)
-fortran95Parser sourceCode filename =
-    (pfSetFilename filename . transform transformations95) <$> parse parseState
+fortran95ParserWithTransforms
+    :: [Transformation]
+    -> B.ByteString -> String -> ParseResult AlexInput Token (ProgramFile A0)
+fortran95ParserWithTransforms =
+    flip fortran95ParserWithModFilesWithTransforms emptyModFiles
+
+fortran95ParserWithModFiles
+    :: ModFiles
+    -> B.ByteString -> String -> ParseResult AlexInput Token (ProgramFile A0)
+fortran95ParserWithModFiles = fortran95ParserWithModFilesWithTransforms defTransforms
+
+fortran95ParserWithModFilesWithTransforms
+    :: [Transformation] -> ModFiles
+    -> B.ByteString -> String -> ParseResult AlexInput Token (ProgramFile A0)
+fortran95ParserWithModFilesWithTransforms transforms mods sourceCode filename =
+    fmap (pfSetFilename filename . transformWithModFiles mods transforms) $ parse parseState
   where
-    parseState = initParseState sourceCode Fortran95 filename
-
-fortran95ParserWithModFiles ::
-     ModFiles -> B.ByteString -> String -> ParseResult AlexInput Token (ProgramFile A0)
-fortran95ParserWithModFiles mods sourceCode filename =
-    fmap (pfSetFilename filename . transform) $ parse parseState
-  where
-    transform = transformWithModFiles mods transformations95
     parseState = initParseState sourceCode Fortran95 filename
 
 parseError :: Token -> LexAction a
