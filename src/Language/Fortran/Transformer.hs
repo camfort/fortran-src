@@ -48,7 +48,7 @@ transform trs = runTransform empty empty trans
   where
     trans = mapM_ transformationMapping trs
 
--- TODO: explicit, or concise?
+-- | The default post-parse AST transformations for each Fortran version.
 defaultTransformations :: FortranVersion -> [Transformation]
 defaultTransformations = \case
   Fortran66 ->
@@ -56,27 +56,9 @@ defaultTransformations = \case
     , DisambiguateIntrinsic
     , DisambiguateFunction
     ]
-  Fortran77 -> -- GroupIf : defaultTransformations Fortran66
-    [ GroupLabeledDo
-    , GroupIf
-    , DisambiguateIntrinsic
-    , DisambiguateFunction
-    ]
-  Fortran77Legacy -> -- GroupDo : defaultTransformations Fortran77
-    [ GroupLabeledDo
-    , GroupDo
-    , GroupIf
-    , DisambiguateIntrinsic
-    , DisambiguateFunction
-    ]
-  Fortran77Extended -> -- GroupCase : defaultTransformations Fortran77Legacy
-    [ GroupLabeledDo
-    , GroupDo
-    , GroupIf
-    , GroupCase
-    , DisambiguateIntrinsic
-    , DisambiguateFunction
-    ]
+  Fortran77         -> GroupIf   : defaultTransformations Fortran66
+  Fortran77Legacy   -> GroupDo   : defaultTransformations Fortran77
+  Fortran77Extended -> GroupCase : defaultTransformations Fortran77Legacy
   Fortran90   -> defaultTransformations Fortran77Extended
   Fortran95   -> defaultTransformations Fortran77Extended
   Fortran2003 -> defaultTransformations Fortran77Extended
