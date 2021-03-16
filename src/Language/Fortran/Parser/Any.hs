@@ -1,3 +1,5 @@
+{-# LANGUAGE LambdaCase #-}
+
 module Language.Fortran.Parser.Any where
 
 import Language.Fortran.AST
@@ -15,29 +17,31 @@ import Language.Fortran.Parser.Fortran2003 ( fortran2003Parser, fortran2003Parse
 
 import qualified Data.ByteString.Char8 as B
 
--- TODO: rewrite in lambda case style?
 type Parser = B.ByteString -> String -> Either ParseErrorSimple (ProgramFile A0)
-parserVersions :: [(FortranVersion, Parser)]
-parserVersions =
-  [ (Fortran66, fromParseResult `after` fortran66Parser)
-  , (Fortran77, fromParseResult `after` fortran77Parser)
-  , (Fortran77Extended, fromParseResult `after` extended77Parser)
-  , (Fortran77Legacy, fromParseResult `after` legacy77Parser)
-  , (Fortran90, fromParseResult `after` fortran90Parser)
-  , (Fortran95, fromParseResult `after` fortran95Parser)
-  , (Fortran2003, fromParseResult `after` fortran2003Parser) ]
+parserVersions :: FortranVersion -> Parser
+parserVersions = \case
+  Fortran66         -> fromParseResult `after` fortran66Parser
+  Fortran77         -> fromParseResult `after` fortran77Parser
+  Fortran77Extended -> fromParseResult `after` extended77Parser
+  Fortran77Legacy   -> fromParseResult `after` legacy77Parser
+  Fortran90         -> fromParseResult `after` fortran90Parser
+  Fortran95         -> fromParseResult `after` fortran95Parser
+  Fortran2003       -> fromParseResult `after` fortran2003Parser
+  _                 -> error "no parser available for requested Fortran version"
 
--- TODO: rewrite in lambda case style?
 type ParserWithModFiles = ModFiles -> B.ByteString -> String -> Either ParseErrorSimple (ProgramFile A0)
-parserWithModFilesVersions :: [(FortranVersion, ParserWithModFiles)]
-parserWithModFilesVersions =
-  [ (Fortran66, \m s -> fromParseResult . fortran66ParserWithModFiles m s)
-  , (Fortran77, \m s -> fromParseResult . fortran77ParserWithModFiles m s)
-  , (Fortran77Extended, \m s -> fromParseResult . extended77ParserWithModFiles m s)
-  , (Fortran77Legacy, \m s -> fromParseResult . legacy77ParserWithModFiles m s)
-  , (Fortran90, \m s -> fromParseResult . fortran90ParserWithModFiles m s)
-  , (Fortran95, \m s -> fromParseResult . fortran95ParserWithModFiles m s)
-  , (Fortran2003, \m s -> fromParseResult . fortran2003ParserWithModFiles m s) ]
+parserWithModFilesVersions :: FortranVersion -> ParserWithModFiles
+parserWithModFilesVersions = \case
+  Fortran66         -> helper fortran66ParserWithModFiles
+  Fortran77         -> helper fortran77ParserWithModFiles
+  Fortran77Extended -> helper extended77ParserWithModFiles
+  Fortran77Legacy   -> helper legacy77ParserWithModFiles
+  Fortran90         -> helper fortran90ParserWithModFiles
+  Fortran95         -> helper fortran95ParserWithModFiles
+  Fortran2003       -> helper fortran2003ParserWithModFiles
+  _                 -> error "no parser available for requested Fortran version"
+  where
+    helper parser m s = fromParseResult . parser m s
 
 after :: (b -> c) -> (t -> a -> b) -> t -> a -> c
 after g f x = g . f x
@@ -45,29 +49,29 @@ after g f x = g . f x
 -- | Deduce the type of parser from the filename and parse the
 -- contents of the file.
 fortranParser :: Parser
-fortranParser contents filename = do
-   let Just parserF = lookup (deduceFortranVersion filename) parserVersions
-   parserF contents filename
+fortranParser contents filename =
+   let parserF = parserVersions (deduceFortranVersion filename)
+    in parserF contents filename
 
 -- | Deduce the type of parser from the filename and parse the
 -- contents of the file, within the context of given "mod files".
 fortranParserWithModFiles :: ParserWithModFiles
-fortranParserWithModFiles mods contents filename = do
-   let Just parserF = lookup (deduceFortranVersion filename) parserWithModFilesVersions
-   parserF mods contents filename
+fortranParserWithModFiles mods contents filename =
+   let parserF = parserWithModFilesVersions (deduceFortranVersion filename)
+    in parserF mods contents filename
 
 -- | Given a FortranVersion, parse the contents of the file.
 fortranParserWithVersion :: FortranVersion -> Parser
-fortranParserWithVersion v contents filename = do
-   let Just parserF = lookup v parserVersions
-   parserF contents filename
+fortranParserWithVersion v contents filename =
+   let parserF = parserVersions v
+    in parserF contents filename
 
 -- | Given a FortranVersion, parse the contents of the file, within
 -- the context of given "mod files".
 fortranParserWithModFilesAndVersion :: FortranVersion -> ParserWithModFiles
-fortranParserWithModFilesAndVersion v mods contents filename = do
-   let Just parserF = lookup v parserWithModFilesVersions
-   parserF mods contents filename
+fortranParserWithModFilesAndVersion v mods contents filename =
+   let parserF = parserWithModFilesVersions v
+    in parserF mods contents filename
 
 -- | TODO. Base helper function.
 --fortranParserWithModFilesAndVersionAndTrans

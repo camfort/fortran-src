@@ -105,7 +105,7 @@ main = do
     (path:_, actionOpt) -> do
       contents <- flexReadFile path
       let version = fromMaybe (deduceFortranVersion path) (fortranVersion opts)
-      let (Just parserF0) = lookup version parserWithModFilesVersions
+      let parserF0 = parserWithModFilesVersions version
       let parserF m b s = fromRight (parserF0 m b s)
       let outfmt = outputFormat opts
       mods <- decodeModFiles $ includeDirs opts
@@ -244,7 +244,7 @@ compileFileToMod :: Maybe FortranVersion -> ModFiles -> FilePath -> Maybe FilePa
 compileFileToMod mvers mods path moutfile = do
   contents <- flexReadFile path
   let version = fromMaybe (deduceFortranVersion path) mvers
-  let (Just parserF0) = lookup version parserWithModFilesVersions
+  let parserF0 = parserWithModFilesVersions version
   let parserF m b s = fromRight (parserF0 m b s)
   let mmap = combinedModuleMap mods
   let tenv = combinedTypeEnv mods

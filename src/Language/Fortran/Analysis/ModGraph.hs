@@ -86,7 +86,7 @@ genModGraph mversion includeDirs paths = do
       iter path = do
         contents <- liftIO $ flexReadFile path
         let version = fromMaybe (deduceFortranVersion path) mversion
-        let (Just parserF0) = lookup version parserWithModFilesVersions
+        let parserF0 = parserWithModFilesVersions version
         let parserF m b s = fromRight (parserF0 m b s)
         fileMods <- liftIO $ decodeModFiles includeDirs
         let mods = map snd fileMods
