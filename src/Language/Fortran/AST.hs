@@ -299,6 +299,7 @@ data Statement a  =
   | StVolatile            a SrcSpan (AList Declarator a)
   | StData                a SrcSpan (AList DataGroup a)
   | StAutomatic           a SrcSpan (AList Declarator a)
+  | StStatic              a SrcSpan (AList Declarator a)
   | StNamelist            a SrcSpan (AList Namelist a)
   | StParameter           a SrcSpan (AList Declarator a)
   | StExternal            a SrcSpan (AList Expression a)

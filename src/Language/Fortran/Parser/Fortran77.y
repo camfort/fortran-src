@@ -121,6 +121,7 @@ import Control.Exception
   none                  { TNone _ }
   data                  { TData _ }
   automatic             { TAutomatic _ }
+  static                { TStatic _ }
   format                { TFormat _ }
   blob                  { TBlob _ _ }
   int                   { TInt _ _ }
@@ -492,6 +493,7 @@ NONEXECUTABLE_STATEMENT
 | pointer POINTER_LIST { StPointer () (getTransSpan $1 $2) (fromReverseList $2) }
 | data DATA_GROUPS { StData () (getTransSpan $1 $2) (fromReverseList $2) }
 | automatic DECLARATORS { StAutomatic () (getTransSpan $1 $2) (aReverse $2) }
+| static DECLARATORS { StStatic () (getTransSpan $1 $2) (aReverse $2) }
 -- Following is a fake node to make arbitrary FORMAT statements parsable.
 -- Must be fixed in the future. TODO
 | format blob

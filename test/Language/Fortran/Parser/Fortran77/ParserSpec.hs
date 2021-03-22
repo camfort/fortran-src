@@ -348,6 +348,14 @@ spec =
             tgt3 = ExpSubscript () u (ExpDataRef () u (ExpValue () u (ValVariable "x")) (ExpValue () u (ValVariable "foo"))) (AList () u [mkIdx "0"])
             st3 = StExpressionAssign () u tgt3 (ExpValue () u (ValInteger "0"))
         resetSrcSpan (slParser src3) `shouldBe` st3
+      it "parses automatic and static statements" $ do
+        let decl = DeclVariable () u (varGen "x") Nothing Nothing
+            autoStmt = StAutomatic () u (AList () u [decl])
+            staticStmt = StStatic () u (AList () u [decl])
+            autoSrc =  "      automatic x"
+            staticSrc = "      static x"
+        resetSrcSpan (slParser autoSrc) `shouldBe` autoStmt
+        resetSrcSpan (slParser staticSrc) `shouldBe` staticStmt
 
 exampleProgram1 :: String
 exampleProgram1 = unlines
