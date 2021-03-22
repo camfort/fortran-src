@@ -1067,7 +1067,7 @@ makeReal i1 dot i2 exp =
 
 parse = runParse programParser
 
-defTransforms77 = defaultTransformations Fortran77
+defTransforms77  = defaultTransformations Fortran77
 defTransforms77e = defaultTransformations Fortran77Extended
 defTransforms77l = defaultTransformations Fortran77Legacy
 
