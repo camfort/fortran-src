@@ -1,5 +1,17 @@
 {-# LANGUAGE LambdaCase #-}
 
+-- | = Note on these parsers
+--
+-- Seperate parsers are provided for different Fortran versions. A few parsers
+-- are provided for each version, offering built-in defaults or allowing you to
+-- configure them yourself. They can be identified by their suffix:
+--
+--   * @parser@: all defaults (without mod files, default transformations)
+--   * @parserWithModFiles@: select mod files, default transformations
+--   * @parserWithTransforms@: without mod files, select transformations
+--   * @parserWithModFilesWithTransforms@: select mod files, select transformations
+--
+
 module Language.Fortran.Parser.Any where
 
 import Language.Fortran.AST
@@ -28,6 +40,9 @@ parserVersions = \case
   Fortran95         -> fromParseResult `after` fortran95Parser
   Fortran2003       -> fromParseResult `after` fortran2003Parser
   _                 -> error "no parser available for requested Fortran version"
+  where
+    after :: (b -> c) -> (t -> a -> b) -> t -> a -> c
+    after g f x = g . f x
 
 type ParserWithModFiles = ModFiles -> B.ByteString -> String -> Either ParseErrorSimple (ProgramFile A0)
 parserWithModFilesVersions :: FortranVersion -> ParserWithModFiles
@@ -42,9 +57,6 @@ parserWithModFilesVersions = \case
   _                 -> error "no parser available for requested Fortran version"
   where
     helper parser m s = fromParseResult . parser m s
-
-after :: (b -> c) -> (t -> a -> b) -> t -> a -> c
-after g f x = g . f x
 
 -- | Deduce the type of parser from the filename and parse the
 -- contents of the file.
