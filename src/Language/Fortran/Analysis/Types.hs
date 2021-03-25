@@ -1,4 +1,6 @@
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE LambdaCase          #-}
+
 module Language.Fortran.Analysis.Types
   ( analyseTypes, analyseTypesWithEnv, analyseAndCheckTypesWithEnv, extractTypeEnv, TypeEnv, TypeError )
 where
@@ -82,9 +84,9 @@ analyseTypesWithEnv' env pf@(ProgramFile mi _) = runInfer (miVersion mi) env $ d
     mFType <- getRecordedType fName
     case mFType of
       Just (IDType fVType fCType kind fvextType) -> do
-        recordMType fVType fCType kind eName
+        recordMType fVType fCType kind fvextType eName
         -- FIXME: what about functions that return arrays?
-        maybe (return ()) (error "Entry points with result variables unsupported" >> recordMType fVType Nothing Nothing) mRetName
+        maybe (return ()) (error "Entry points with result variables unsupported" >> recordMType fVType Nothing Nothing Nothing) mRetName
       _                           -> return ()
 
   annotateTypes pf              -- Annotate AST nodes with their types.
@@ -151,6 +153,45 @@ dimDeclarator ddAList = [ (lb, ub) | DimensionDeclarator _ _ lbExp ubExp <- aStr
                                    , let ub = do ExpValue _ _ (ValInteger i) <- ubExp
                                                  return $ read i ]
 
+-- | Conjure an FV type from a 'BaseType' and a 'Kind'.
+conjureFVType :: BaseType -> Kind -> FV.Type
+conjureFVType bt k =
+    case bt of
+      TypeInteger         -> FV.TInteger k
+      TypeReal            -> FV.TReal k
+      TypeComplex         -> FV.TComplex k
+      TypeLogical         -> FV.TLogical k
+      TypeByte            -> FV.TByte k
+
+      -- TODO: unsure on the overlap between syntax and semantics here
+      -- (I think one or two of these map to error in FV)
+      ClassStar           -> FV.TCustom "ClassStar"
+      TypeCustom    str   -> FV.TCustom ("TypeCustom "  <> str)
+      ClassCustom   str   -> FV.TCustom ("ClassCustom " <> str)
+
+      -- TODO: what's the kind stored in a TypeCharacter, how different to
+      -- Selector (apart from String vs. Expr)
+      TypeCharacter tLen tKind -> FV.TCharacter (maybe Nothing fvCharLen tLen)
+
+      -- TODO: Likely TypeReal, TypeComplex with static kinds.
+      -- According to ~2004 gfortran docs, KIND=2 corresponds to the double
+      -- precision types: DOUBLE PRECISION = REAL*8, DOUBLE COMPLEX =
+      -- COMPLEX*16. I shall hardcode those for now.
+      TypeDoublePrecision -> FV.TReal 2
+      TypeDoubleComplex   -> FV.TComplex 2
+
+-- | Constant ints are copied, all others are replaced with Nothing.
+--
+-- This is due to FV dropping much of the type info strings have.
+fvCharLen :: CharacterLen -> Maybe FV.Kind
+fvCharLen = \case
+  CharLenInt x -> Just x
+  _            -> Nothing
+
+-- | gfortran seems to often use 1 for default :)
+conjureFVDefaultKind :: BaseType -> Kind
+conjureFVDefaultKind = const 1
+
 statement :: Data a => InferFunc (Statement (Analysis a))
 -- maybe FIXME: should Kind Selectors be part of types?
 statement (StDeclaration _ _ (TypeSpec _ _ baseType sel) mAttrAList declAList)
@@ -163,7 +204,7 @@ statement (StDeclaration _ _ (TypeSpec _ _ baseType sel) mAttrAList declAList)
     let cType n | isExtrn                                     = CTExternal
                 | Just (AttrDimension _ _ ddAList) <- attrDim = CTArray (dimDeclarator ddAList)
                 | isParam                                     = CTParameter
-                | Just (IDType _ (Just ct) _) <- M.lookup n env
+                | Just (IDType _ (Just ct) _ _) <- M.lookup n env
                 , ct /= CTIntrinsic                           = ct
                 | otherwise                                   = CTVariable
     let charLen (ExpValue _ _ (ValInteger i)) = CharLenInt (read i)
@@ -173,13 +214,14 @@ statement (StDeclaration _ _ (TypeSpec _ _ baseType sel) mAttrAList declAList)
           | TypeCharacter _ kind <- baseType = TypeCharacter (Just $ charLen e) kind
           | otherwise                        = TypeCharacter (Just $ charLen e) Nothing
         bType Nothing  = baseType
-    let kind (Just (Selector _ _ _ (Just (ExpValue _ _ (ValInteger k))))) = Just k
-        kind _ = Nothing
-    let fvType = FV.TInteger fvKind
-        fvKind = 0
+    let selKind (Just (Selector _ _ _ (Just (ExpValue _ _ (ValInteger k))))) = Just (read k)
+        selKind _ = Nothing
+        kind = maybe (conjureFVDefaultKind baseType) id (selKind sel)
+    let fvType = conjureFVType baseType kind
+    -- TODO: probably OK to use 'StDeclaration' 'BaseType', @bType@ only wraps
     forM_ decls $ \ decl -> case decl of
-      DeclArray _ _ v ddAList e _ -> recordType (bType e) (CTArray $ dimDeclarator ddAList) (kind sel) (Just fvType) (varName v)
-      DeclVariable _ _ v e _      -> recordType (bType e) (cType n) (kind sel) (Just fvType) n where n = varName v
+      DeclArray _ _ v ddAList e _ -> recordType (bType e) (CTArray $ dimDeclarator ddAList) kind fvType (varName v)
+      DeclVariable _ _ v e _      -> recordType (bType e) (cType n) kind fvType n where n = varName v
 
 statement (StExternal _ _ varAList) = do
   let vars = aStrip varAList
@@ -190,7 +232,7 @@ statement (StExpressionAssign _ _ (ExpSubscript _ _ v ixAList) _)
     let n = varName v
     mIDType <- getRecordedType n
     case mIDType of
-      Just (IDType _ (Just CTArray{}) _) -> return ()                -- do nothing, it's already known to be an array
+      Just (IDType _ (Just CTArray{}) _ _) -> return ()                -- do nothing, it's already known to be an array
       _                                  -> recordCType CTFunction n -- assume it's a function statement
 
 -- FIXME: if StFunctions can only be identified after types analysis
@@ -232,17 +274,17 @@ realLiteralType r | 'd' `elem` r = IDType (Just TypeDoublePrecision) Nothing Not
 
 complexLiteralType :: Expression a -> Expression a -> IDType
 complexLiteralType (ExpValue _ _ (ValReal r)) _
- | IDType (Just TypeDoublePrecision) _ _ <- realLiteralType r = IDType (Just TypeDoubleComplex) Nothing Nothing
- | otherwise                                                  = IDType (Just TypeComplex) Nothing Nothing
-complexLiteralType _ _ = IDType (Just TypeComplex) Nothing Nothing
+ | IDType (Just TypeDoublePrecision) _ _ _ <- realLiteralType r = IDType (Just TypeDoubleComplex) Nothing Nothing Nothing
+ | otherwise                                                  = IDType (Just TypeComplex) Nothing Nothing Nothing
+complexLiteralType _ _ = IDType (Just TypeComplex) Nothing Nothing Nothing
 
 binaryOpType :: Data a => SrcSpan -> BinaryOp -> Expression (Analysis a) -> Expression (Analysis a) -> Infer IDType
 binaryOpType ss op e1 e2 = do
   mbt1 <- case getIDType e1 of
-            Just (IDType (Just bt) _ _) -> return $ Just bt
+            Just (IDType (Just bt) _ _ _) -> return $ Just bt
             _ -> typeError "Unable to obtain type for first operand" (getSpan e1) >> return Nothing
   mbt2 <- case getIDType e2 of
-            Just (IDType (Just bt) _ _) -> return $ Just bt
+            Just (IDType (Just bt) _ _ _) -> return $ Just bt
             _ -> typeError "Unable to obtain type for second operand" (getSpan e2) >> return Nothing
   case (mbt1, mbt2) of
     (_, Nothing) -> return emptyType
@@ -279,12 +321,12 @@ binaryOpType ss op e1 e2 = do
           | BinCustom{} <- op -> typeError "custom binary ops not supported" ss >> return Nothing
         _ -> return Nothing
 
-      return $ IDType mbt' Nothing Nothing -- FIXME: might have to check kinds of each operand
+      return $ IDType mbt' Nothing Nothing Nothing -- FIXME: might have to check kinds of each operand
 
 unaryOpType :: Data a => SrcSpan -> UnaryOp -> Expression (Analysis a) -> Infer IDType
 unaryOpType ss op e = do
   mbt <- case getIDType e of
-           Just (IDType (Just bt) _ _) -> return $ Just bt
+           Just (IDType (Just bt) _ _ _) -> return $ Just bt
            _ -> typeError "Unable to obtain type for" (getSpan e) >> return Nothing
   mbt' <- case (mbt, op) of
     (Nothing, _)               -> return Nothing
@@ -295,11 +337,11 @@ unaryOpType ss op e = do
       | op `elem` [Plus, Minus] &&
         bt `elem` numericTypes -> return $ Just bt
     _ -> typeError "Type error for unary operator" ss >> return Nothing
-  return $ IDType mbt' Nothing Nothing -- FIXME: might have to check kind of operand
+  return $ IDType mbt' Nothing Nothing Nothing -- FIXME: might have to check kind of operand
 
 subscriptType :: Data a => SrcSpan -> Expression (Analysis a) -> AList Index (Analysis a) -> Infer IDType
 subscriptType ss e1 (AList _ _ idxs) = do
-  let isInteger ie | Just (IDType (Just TypeInteger) _ _) <- getIDType ie = True | otherwise = False
+  let isInteger ie | Just (IDType (Just TypeInteger) _ _ _) <- getIDType ie = True | otherwise = False
   forM_ idxs $ \ idx -> case idx of
     IxSingle _ _ _ ie
       | not (isInteger ie) -> typeError "Invalid or unknown type for index" (getSpan ie)
@@ -309,11 +351,11 @@ subscriptType ss e1 (AList _ _ idxs) = do
       | Just ie3 <- mie3, not (isInteger ie3) -> typeError "Invalid or unknown type for index" (getSpan ie3)
     _ -> return ()
   case getIDType e1 of
-    Just ty@(IDType mbt (Just (CTArray dds)) kind) -> do
+    Just ty@(IDType mbt (Just (CTArray dds)) kind _) -> do
       when (length idxs /= length dds) $ typeError "Length of indices does not match rank of array." ss
       let isSingle (IxSingle{}) = True; isSingle _ = False
       if all isSingle idxs
-        then return $ IDType mbt Nothing kind
+        then return $ IDType mbt Nothing kind Nothing
         else return ty
     _ -> return emptyType
 
@@ -337,10 +379,10 @@ functionCallType ss (ExpValue _ _ (ValIntrinsic n)) (Just (AList _ _ params)) = 
               | otherwise -> typeError ("Invalid parameter list to intrinsic '" ++ n ++ "'") ss >> return Nothing
       case mbt of
         Nothing -> return emptyType
-        Just _ -> return $ IDType mbt Nothing Nothing
+        Just _ -> return $ IDType mbt Nothing Nothing Nothing
 functionCallType ss e1 _ = case getIDType e1 of
-  Just (IDType (Just bt) (Just CTFunction) kind) -> return $ IDType (Just bt) Nothing kind
-  Just (IDType (Just bt) (Just CTExternal) kind) -> return $ IDType (Just bt) Nothing kind
+  Just (IDType (Just bt) (Just CTFunction) kind _) -> return $ IDType (Just bt) Nothing kind Nothing
+  Just (IDType (Just bt) (Just CTExternal) kind _) -> return $ IDType (Just bt) Nothing kind Nothing
   _ -> typeError "non-function invoked by call" ss >> return emptyType
 
 charLenConcat :: CharacterLen -> CharacterLen -> CharacterLen
@@ -369,25 +411,25 @@ typeError :: String -> SrcSpan -> Infer ()
 typeError msg ss = modify $ \ s -> s { typeErrors = (msg, ss):typeErrors s }
 
 emptyType :: IDType
-emptyType = IDType Nothing Nothing Nothing
+emptyType = IDType Nothing Nothing Nothing Nothing
 
 -- Record the type of the given name.
-recordType :: BaseType -> ConstructType -> Maybe Kind -> Maybe FV.Type -> Name -> Infer ()
-recordType bt ct k n = modify $ \ s -> s { environ = insert n (IDType (Just bt) (Just ct) k) (environ s) }
+recordType :: BaseType -> ConstructType -> Kind -> FV.Type -> Name -> Infer ()
+recordType bt ct k fvt n = modify $ \ s -> s { environ = insert n (IDType (Just bt) (Just ct) (Just k) (Just fvt)) (environ s) }
 
 -- Record the type (maybe) of the given name.
-recordMType :: Maybe BaseType -> Maybe ConstructType -> Maybe Kind -> Name -> Infer ()
-recordMType bt ct k n = modify $ \ s -> s { environ = insert n (IDType bt ct k) (environ s) }
+recordMType :: Maybe BaseType -> Maybe ConstructType -> Maybe Kind -> Maybe FV.Type -> Name -> Infer ()
+recordMType bt ct k fvt n = modify $ \ s -> s { environ = insert n (IDType bt ct k fvt) (environ s) }
 
 -- Record the CType of the given name.
 recordCType :: ConstructType -> Name -> Infer ()
 recordCType ct n = modify $ \ s -> s { environ = M.alter changeFunc n (environ s) }
-  where changeFunc mIDType = Just (IDType (mIDType >>= idVType) (Just ct) (mIDType >>= idKind))
+  where changeFunc mIDType = Just (IDType (mIDType >>= idVType) (Just ct) (mIDType >>= idKind) Nothing)
 
 -- Record the BaseType of the given name.
 recordBaseType :: BaseType -> Name -> Infer ()
 recordBaseType bt n = modify $ \ s -> s { environ = M.alter changeFunc n (environ s) }
-  where changeFunc mIDType = Just (IDType (Just bt) (mIDType >>= idCType) (mIDType >>= idKind))
+  where changeFunc mIDType = Just (IDType (Just bt) (mIDType >>= idCType) (mIDType >>= idKind) Nothing)
 
 recordEntryPoint :: Name -> Name -> Maybe Name -> Infer ()
 recordEntryPoint fn en mRetName = modify $ \ s -> s { entryPoints = M.insert en (fn, mRetName) (entryPoints s) }

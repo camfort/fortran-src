@@ -32,69 +32,68 @@ spec = do
   describe "Global type inference" $ do
     it "types integer returning function" $ do
       let entry = inferTable ex1 ! "f1"
-      entry `shouldBe` IDType (Just TypeInteger) (Just CTFunction) Nothing
+      entry `shouldBe` IDType (Just TypeInteger) (Just CTFunction) Nothing Nothing
 
     it "types multiples program units" $ do
       let mapping = inferTable ex2
-      mapping ! "f1" `shouldBe` IDType (Just TypeInteger) (Just CTFunction) Nothing
-      mapping ! "s1" `shouldBe` IDType Nothing (Just CTSubroutine) Nothing
+      mapping ! "f1" `shouldBe` IDType (Just TypeInteger) (Just CTFunction) Nothing Nothing
+      mapping ! "s1" `shouldBe` IDType Nothing (Just CTSubroutine) Nothing Nothing
 
     it "types ENTRY points within subprograms" $ do
       let mapping = inferTable ex3
-      mapping ! "e1" `shouldBe` IDType Nothing (Just CTSubroutine) Nothing
-      mapping ! "e2" `shouldBe` IDType Nothing (Just CTSubroutine) Nothing
-      mapping ! "e3" `shouldBe` IDType Nothing (Just CTSubroutine) Nothing
+      mapping ! "e1" `shouldBe` IDType Nothing (Just CTSubroutine) Nothing Nothing
+      mapping ! "e2" `shouldBe` IDType Nothing (Just CTSubroutine) Nothing Nothing
+      mapping ! "e3" `shouldBe` IDType Nothing (Just CTSubroutine) Nothing Nothing
 
   describe "Local type inference" $ do
     it "infers from type declarations" $ do
       let mapping = inferTable ex4
       let pf = typedProgramFile ex4
-      mapping ! "x" `shouldBe` IDType (Just TypeInteger) (Just CTVariable) Nothing
-      mapping ! "y" `shouldBe` IDType (Just TypeInteger) (Just $ CTArray [(Nothing, Just 10)]) Nothing
-      mapping ! "c" `shouldBe` IDType (Just $ TypeCharacter Nothing Nothing) (Just CTVariable) Nothing
-      mapping ! "log" `shouldBe` IDType (Just TypeLogical) (Just CTVariable) Nothing
+      mapping ! "y" `shouldBe` IDType (Just TypeInteger) (Just $ CTArray [(Nothing, Just 10)]) Nothing Nothing
+      mapping ! "c" `shouldBe` IDType (Just $ TypeCharacter Nothing Nothing) (Just CTVariable) Nothing Nothing
+      mapping ! "log" `shouldBe` IDType (Just TypeLogical) (Just CTVariable) Nothing Nothing
       [ () | ExpValue a _ (ValVariable "x") <- uniExpr pf
-           , idType a == Just (IDType (Just TypeInteger) (Just CTVariable) Nothing) ]
+           , idType a == Just (IDType (Just TypeInteger) (Just CTVariable) Nothing Nothing) ]
         `shouldNotSatisfy` null
       [ () | ExpValue a _ (ValVariable "y") <- uniExpr pf
-           , idType a == Just (IDType (Just TypeInteger) (Just $ CTArray [(Nothing, Just 10)]) Nothing) ]
+           , idType a == Just (IDType (Just TypeInteger) (Just $ CTArray [(Nothing, Just 10)]) Nothing Nothing) ]
         `shouldNotSatisfy` null
 
     it "infers from dimension declarations" $ do
       let mapping = inferTable ex5
-      mapping ! "x" `shouldBe` IDType Nothing (Just $ CTArray [(Nothing, Just 1)]) Nothing
-      mapping ! "y" `shouldBe` IDType Nothing (Just $ CTArray [(Nothing, Just 1)]) Nothing
+      mapping ! "x" `shouldBe` IDType Nothing (Just $ CTArray [(Nothing, Just 1)]) Nothing Nothing
+      mapping ! "y" `shouldBe` IDType Nothing (Just $ CTArray [(Nothing, Just 1)]) Nothing Nothing
 
     it "infers from function statements" $ do
       let mapping = inferTable ex6
-      mapping ! "a" `shouldBe` IDType (Just TypeInteger) (Just $ CTArray [(Nothing, Just 1)]) Nothing
-      mapping ! "b" `shouldBe` IDType (Just TypeInteger) (Just $ CTArray [(Nothing, Just 1)]) Nothing
-      mapping ! "c" `shouldBe` IDType (Just TypeInteger) (Just CTFunction) Nothing
-      mapping ! "d" `shouldBe` IDType Nothing (Just CTFunction) Nothing
+      mapping ! "a" `shouldBe` IDType (Just TypeInteger) (Just $ CTArray [(Nothing, Just 1)]) Nothing Nothing
+      mapping ! "b" `shouldBe` IDType (Just TypeInteger) (Just $ CTArray [(Nothing, Just 1)]) Nothing Nothing
+      mapping ! "c" `shouldBe` IDType (Just TypeInteger) (Just CTFunction) Nothing Nothing
+      mapping ! "d" `shouldBe` IDType Nothing (Just CTFunction) Nothing Nothing
 
     describe "Intrinsics type analysis" $ do
       it "disambiguates intrinsics from functions and variables" $ do
         let mapping = inferTable intrinsics1
         let pf = typedProgramFile intrinsics1
         [ () | ExpValue a _ (ValVariable "x") <- uniExpr pf
-             , idType a == Just (IDType (Just TypeReal) (Just CTVariable) Nothing) ]
+             , idType a == Just (IDType (Just TypeReal) (Just CTVariable) Nothing Nothing) ]
           `shouldSatisfy` ((== 5) . length)
 
         -- the following are true because dabs and cabs are defined as function and array in this program.
         idCType (mapping ! "dabs") `shouldBe` Just CTFunction
         [ a | ExpValue a _ (ValIntrinsic "dabs") <- uniExpr pf
-             ] -- , idType a == Just (IDType (Just TypeReal) (Just CTVariable) Nothing) ]
+             ] -- , idType a == Just (IDType (Just TypeReal) (Just CTVariable) Nothing Nothing) ]
           `shouldSatisfy` null
 
         idCType (mapping ! "cabs") `shouldBe` Just (CTArray [(Nothing, Just 3)])
         [ a | ExpValue a _ (ValIntrinsic "cabs") <- uniExpr pf
-             ] -- , idType a == Just (IDType (Just TypeReal) (Just CTVariable) Nothing) ]
+             ] -- , idType a == Just (IDType (Just TypeReal) (Just CTVariable) Nothing Nothing) ]
           `shouldSatisfy` null
 
         -- abs is an actual intrinsic
         idCType (mapping ! "abs") `shouldBe` Just CTIntrinsic
         [ a | ExpFunctionCall a _ (ExpValue _ _ (ValIntrinsic "abs")) _ <- uniExpr pf
-            , idType a == Just (IDType (Just TypeInteger) Nothing Nothing) ]
+            , idType a == Just (IDType (Just TypeInteger) Nothing Nothing Nothing) ]
           `shouldNotSatisfy` null
 
       it "intrinsics and numeric types" $ do
@@ -104,26 +103,26 @@ spec = do
         idCType (mapping ! "cabs") `shouldBe` Just CTIntrinsic
         idCType (mapping ! "dabs") `shouldBe` Just CTIntrinsic
         [ ty | ExpFunctionCall a _ (ExpValue _ _ (ValIntrinsic "abs")) _ <- uniExpr pf
-             , Just (IDType (Just ty) Nothing Nothing) <- [idType a] ]
+             , Just (IDType (Just ty) Nothing Nothing Nothing) <- [idType a] ]
           `shouldBe` [TypeDoublePrecision, TypeComplex]
         [ a | ExpFunctionCall a _ (ExpValue _ _ (ValIntrinsic "cabs")) _ <- uniExpr pf
-            , idType a == Just (IDType (Just TypeComplex) Nothing Nothing) ]
+            , idType a == Just (IDType (Just TypeComplex) Nothing Nothing Nothing) ]
           `shouldNotSatisfy` null
         [ a | ExpFunctionCall a _ (ExpValue _ _ (ValIntrinsic "dabs")) _ <- uniExpr pf
-            , idType a == Just (IDType (Just TypeDoublePrecision) Nothing Nothing) ]
+            , idType a == Just (IDType (Just TypeDoublePrecision) Nothing Nothing Nothing) ]
           `shouldNotSatisfy` null
 
     describe "Numeric types" $ do
       it "Widening / upgrading" $ do
         let pf = typedProgramFile numerics1
         [ a | ExpFunctionCall a _ (ExpValue _ _ (ValIntrinsic "abs")) _ <- uniExpr pf
-            , idType a == Just (IDType (Just TypeReal) Nothing Nothing) ]
+            , idType a == Just (IDType (Just TypeReal) Nothing Nothing Nothing) ]
           `shouldNotSatisfy` null
         [ a | ExpBinary a _ Addition (ExpValue _ _ (ValInteger "1")) _ <- uniExpr pf
-            , idType a == Just (IDType (Just TypeComplex) Nothing Nothing) ]
+            , idType a == Just (IDType (Just TypeComplex) Nothing Nothing Nothing) ]
           `shouldNotSatisfy` null
         [ a | ExpBinary a _ Addition (ExpValue _ _ (ValInteger "2")) _ <- uniExpr pf
-            , idType a == Just (IDType (Just TypeDoublePrecision) Nothing Nothing) ]
+            , idType a == Just (IDType (Just TypeDoublePrecision) Nothing Nothing Nothing) ]
           `shouldNotSatisfy` null
 
     describe "Character string types" $
@@ -140,6 +139,7 @@ spec = do
         [ () | ExpValue a _ (ValVariable "e") <- uniExpr pf
              , idType a == Just (IDType (Just (TypeCharacter (Just (CharLenInt 10)) Nothing))
                                         (Just (CTArray [(Nothing, Just 20)]))
+                                        Nothing
                                         Nothing) ]
           `shouldNotSatisfy` null
 

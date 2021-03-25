@@ -98,7 +98,7 @@ data ConstructType =
 instance Out ConstructType
 instance Binary ConstructType
 
-type Kind = String
+type Kind = Int
 
 data IDType = IDType
   { idVType :: Maybe BaseType

@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: f5d7e99716015530592de9c1b2546f0d2ad31a230d0574adb8385118e8bdba1f
+-- hash: 3eb3f3e8de907d8c4626c9351665c46eb008759e3b74f7459007de21a166fa86
 
 name:           fortran-src
 version:        0.4.3
@@ -28,6 +28,7 @@ source-repository head
 
 library
   exposed-modules:
+      Language.Fortran.Vars.Types
       Language.Fortran.Analysis
       Language.Fortran.Analysis.Renaming
       Language.Fortran.Analysis.ModGraph

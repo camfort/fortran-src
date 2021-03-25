@@ -128,6 +128,9 @@ main = do
                  , b <- concatMap snd $ labNodes (bbgrGr bbgr)
                  , insLabel (getAnnotation b) == Just astBlockId ]
       case actionOpt of
+        Tmp        ->
+            let pf = parserF mods contents path
+             in (print . snd) $ analyseTypes (initAnalysis pf)
         Lex | version `elem` [ Fortran66, Fortran77, Fortran77Extended, Fortran77Legacy ] ->
           print $ FixedForm.collectFixedTokens version contents
         Lex | version `elem` [Fortran90, Fortran2003, Fortran2008] ->
@@ -327,8 +330,10 @@ showStringMap = showGenericMap
 showModuleMap :: ModuleMap -> String
 showModuleMap = concatMap (\ (n, m) -> show n ++ ":\n" ++ (unlines . map ("  "++) . lines . showGenericMap $ m)) . M.toList
 showTypes :: TypeEnv -> String
-showTypes tenv = flip concatMap (M.toList tenv) $ \ (name, IDType { idVType = vt, idCType = ct }) ->
-    printf "%s\t\t%s %s\n" name (drop 4 $ maybe "  -" show vt) (drop 2 $ maybe "   " show ct)
+showTypes tenv =
+    flip concatMap (M.toList tenv) $
+      \ (name, IDType { idVType = vt, idCType = ct, idKind = k, idFVType = fvt }) ->
+        printf "%s\t\t%s %s %s %s\n" name (drop 4 $ maybe "  -" show vt) (drop 2 $ maybe "   " show ct) (show k) (show fvt)
 printTypes :: TypeEnv -> IO ()
 printTypes = putStrLn . showTypes
 showTypeErrors :: [TypeError] -> String
@@ -338,7 +343,7 @@ printTypeErrors = putStrLn . showTypeErrors
 
 data Action
   = Lex | Parse | Typecheck | Rename | BBlocks | SuperGraph | Reprint | DumpModFile | Compile
-  | ShowFlows Bool Bool Int | ShowBlocks (Maybe Int) | ShowMakeGraph | Make
+  | ShowFlows Bool Bool Int | ShowBlocks (Maybe Int) | ShowMakeGraph | Make | Tmp
   deriving Eq
 
 instance Read Action where
@@ -370,6 +375,10 @@ options =
       ["fortranVersion"]
       (ReqArg (\v opts -> opts { fortranVersion = selectFortranVersion v }) "VERSION")
       "Fortran version to use, format: Fortran[66/77/77Legacy/77Extended/90]"
+  , Option []
+      ["tmp"]
+      (NoArg $ \ opts -> opts { action = Tmp })
+      "tmp action"
   , Option ['a']
       ["action"]
       (ReqArg (\a opts -> opts { action = read a }) "ACTION")
