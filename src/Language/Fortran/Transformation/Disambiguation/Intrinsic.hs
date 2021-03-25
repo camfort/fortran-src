@@ -17,7 +17,7 @@ disambiguateIntrinsic = modifyProgramFile (trans expression)
   where
     trans = transformBi :: Data a => TransFunc Expression ProgramFile a
     expression (ExpValue a s (ValVariable v))
-      | Just (IDType _ (Just CTIntrinsic) _) <- idType a = ExpValue a s (ValIntrinsic v)
+      | Just (IDType _ (Just CTIntrinsic) _ _) <- idType a = ExpValue a s (ValIntrinsic v)
     expression e                                         = e
 
 --------------------------------------------------
