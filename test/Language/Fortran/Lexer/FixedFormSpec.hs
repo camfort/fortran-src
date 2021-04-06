@@ -118,6 +118,9 @@ spec =
       it "should lex continuation lines properly" $
         resetSrcSpan (collectFixedTokens' Fortran66 continuationExample) `shouldBe` resetSrcSpan [ TType u "integer", TId u "ix", TNewline u, TId u "ix", TOpAssign u, TInt u "42", TNewline u, TEnd u, TNewline u, TEOF u ]
 
+      it "should lex continuation lines properly 2 (TODO)" $
+        resetSrcSpan (collectFixedTokens' Fortran66 continuationExample2) `shouldBe` resetSrcSpan continuationExample2Expectation
+
       it "lexes 'ASSIGN 100 TO FOO'" $
         resetSrcSpan (collectFixedTokens' Fortran66 "      ASSIGN 100 TO FOO") `shouldBe` resetSrcSpan [TAssign u, TInt u "100", TTo u, TId u "foo", TEOF u]
 
@@ -294,6 +297,30 @@ continuationExample = unlines [
   "      ix = 4",
   "     .2",
   "      end"]
+
+continuationExample2 :: String
+continuationExample2 = unlines
+  [ "      program main"
+  , "      integer x, y,"
+  , ""
+  , "     +       z"
+  , "      end program main"
+  ]
+
+-- TODO not correct
+continuationExample2Expectation :: [Token]
+continuationExample2Expectation =
+  [ TType u "integer"
+  , TId u "ix"
+  , TNewline u
+  , TId u "ix"
+  , TOpAssign u
+  , TInt u "42"
+  , TNewline u
+  , TEnd u
+  , TNewline u
+  , TEOF u
+  ]
 
 example1Expectation :: [Token]
 example1Expectation = [
