@@ -34,7 +34,7 @@ iParser sourceCode =
   fromParseResultUnsafe $ includeParser Fortran77Legacy (B.pack sourceCode) "<unknown>"
 
 pParser :: String -> ProgramFile ()
-pParser source = fromParseResultUnsafe $ fortran77Parser (B.pack source) "<unknown>"
+pParser source = fromParseResultUnsafe $ legacy77Parser (B.pack source) "<unknown>"
 
 spec :: Spec
 spec =
@@ -286,6 +286,18 @@ spec =
             st = StStructure () u (Just "foo") $ AList () u [innerst]
         resetSrcSpan (slParser src) `shouldBe` st
 
+      it "parse special intrinsics to arguments" $ do
+        let blStmt stmt = BlStatement () u Nothing stmt
+            var = ExpValue () u . ValVariable
+            ext = blStmt $ StExternal () u $ AList () u [var "bar"]
+            arg = Just . AList () u . pure . Argument () u Nothing
+            valBar = ExpFunctionCall () u (ExpValue () u (ValIntrinsic "%val"))
+                     $ arg $ var "baz"
+            call = blStmt $ StCall () u (var "bar") $ arg valBar
+            pu = ProgramFile mi77 [ PUSubroutine () u (Nothing, Nothing) "foo"
+                                   (Just $ AList () u [var "baz"]) [ ext, call ] Nothing ]
+        resetSrcSpan (pParser exampleProgram3) `shouldBe` pu
+
       it "parses character declarations with unspecfied lengths" $ do
         let src = "      character s*(*)"
             st = StDeclaration () u (TypeSpec () u (TypeCharacter Nothing Nothing) Nothing) Nothing $
@@ -368,6 +380,13 @@ exampleProgram2 = unlines
   [ "      block data hello"
   , "      integer x"
   , "      end" ]
+
+exampleProgram3 :: String
+exampleProgram3 = unlines
+  [ "      subroutine foo(baz)"
+  , "      external bar"
+  , "      call bar(%val(baz))"
+  , "      end subroutine foo"]
 
 -- Local variables:
 -- mode: haskell
