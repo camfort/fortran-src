@@ -286,6 +286,14 @@ spec =
             st = StStructure () u (Just "foo") $ AList () u [innerst]
         resetSrcSpan (slParser src) `shouldBe` st
 
+      it "parses structure data references " $ do
+        let src = init $ unlines [ "      print *, foo % bar"
+                                 , "      print *, foo.bar" ]
+            expStar = ExpValue () u ValStar
+            foobar = ExpDataRef () u (ExpValue () u (ValVariable "foo")) (ExpValue () u (ValVariable "bar"))
+            blStmt = BlStatement () u Nothing $ StPrint () u expStar $ Just $ AList () u [foobar]
+        resetSrcSpan (iParser src) `shouldBe` [ blStmt, blStmt ]
+
       it "parse special intrinsics to arguments" $ do
         let blStmt stmt = BlStatement () u Nothing stmt
             var = ExpValue () u . ValVariable

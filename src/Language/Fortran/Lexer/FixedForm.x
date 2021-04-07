@@ -55,7 +55,7 @@ $special = [\ \=\+\-\*\/\(\)\,\.\$]
 @id = $letter $alphanumeric{0,5}
 @label = $digit{1,5}
 
-@idLegacy = [$letter \_ \%] [$alphanumericExtended \$]*
+@idLegacy = [$letter \_] [$alphanumericExtended \$]*
 
 @datatype = "integer" | "real" | "doubleprecision" | "complex" | "logical"
           -- legacy extensions
@@ -97,6 +97,7 @@ tokens :-
   <st,iif> "/)" / { formatExtendedP }         { addSpan TRightArrayPar }
   <st,iif,doo,keyword> ","                    { addSpan TComma }
   <st,iif,keyword> "."                        { addSpan TDot }
+  <st,iif,keyword> "%"                        { addSpan TPercent }
   <keyword> "." / { legacy77P }               { addSpan TDot }
   <st,iif> ":" / { fortran77P }               { addSpan TColon }
 
@@ -730,6 +731,7 @@ data Token = TLeftPar             SrcSpan
            | TRightArrayPar       SrcSpan
            | TComma               SrcSpan
            | TDot                 SrcSpan
+           | TPercent             SrcSpan
            | TColon               SrcSpan
            | TInclude             SrcSpan
            | TProgram             SrcSpan
