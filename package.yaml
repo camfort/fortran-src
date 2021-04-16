@@ -45,7 +45,7 @@ library:
   - happy >=1.19
   other-modules: []
   exposed-modules:
-  - Language.Fortran.Vars.Types
+  - Language.Fortran.Analysis.SemanticTypes
   - Language.Fortran.Analysis
   - Language.Fortran.Analysis.Renaming
   - Language.Fortran.Analysis.ModGraph

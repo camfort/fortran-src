@@ -332,8 +332,8 @@ showModuleMap = concatMap (\ (n, m) -> show n ++ ":\n" ++ (unlines . map ("  "++
 showTypes :: TypeEnv -> String
 showTypes tenv =
     flip concatMap (M.toList tenv) $
-      \ (name, IDType { idVType = vt, idCType = ct, idKind = k, idFVType = fvt }) ->
-        printf "%s\t\t%s %s %s %s\n" name (drop 4 $ maybe "  -" show vt) (drop 2 $ maybe "   " show ct) (show k) (show fvt)
+      \ (name, IDType { idVType = vt, idCType = ct }) ->
+        printf "%s\t\t%s %s\n" name (drop 2 $ maybe "  -" show vt) (drop 2 $ maybe "   " show ct)
 printTypes :: TypeEnv -> IO ()
 printTypes = putStrLn . showTypes
 showTypeErrors :: [TypeError] -> String

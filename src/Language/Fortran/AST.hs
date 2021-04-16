@@ -213,6 +213,8 @@ data Selector a =
   Selector a SrcSpan (Maybe (Expression a)) (Maybe (Expression a))
   deriving (Eq, Show, Data, Typeable, Generic, Functor)
 
+type Kind = Int
+
 data MetaInfo = MetaInfo { miVersion :: FortranVersion, miFilename :: String }
   deriving (Eq, Show, Data, Typeable, Generic)
 

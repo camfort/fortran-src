@@ -22,7 +22,7 @@ disambiguateFunctionStatements = modifyProgramFile (trans statement)
   where
     trans = transformBi :: Data a => TransFunc Statement ProgramFile a
     statement (StExpressionAssign a1 s (ExpSubscript _ _ v@(ExpValue a _ (ValVariable _)) indicies) e2)
-      | Just (IDType _ (Just CTFunction) _ _) <- idType a
+      | Just (IDType _ (Just CTFunction)) <- idType a
       , indiciesRangeFree indicies = StFunction a1 s v (aMap fromIndex indicies) e2
     -- nullary statement function
     statement (StExpressionAssign a1 s1 (ExpFunctionCall _ _ v@(ExpValue a s (ValVariable _)) Nothing) e2)
@@ -34,16 +34,16 @@ disambiguateFunctionCalls = modifyProgramFile (trans expression)
   where
     trans = transformBi :: Data a => TransFunc Expression ProgramFile a
     expression (ExpSubscript a1 s v@(ExpValue a _ (ValVariable _)) indicies)
-      | Just (IDType _ (Just CTFunction) _ _) <- idType a
+      | Just (IDType _ (Just CTFunction)) <- idType a
       , indiciesRangeFree indicies = ExpFunctionCall a1 s v (Just $ aMap fromIndex indicies)
-      | Just (IDType _ (Just CTExternal) _ _) <- idType a
+      | Just (IDType _ (Just CTExternal)) <- idType a
       , indiciesRangeFree indicies = ExpFunctionCall a1 s v (Just $ aMap fromIndex indicies)
-      | Just (IDType _ (Just CTVariable) _ _) <- idType a
+      | Just (IDType _ (Just CTVariable)) <- idType a
       , indiciesRangeFree indicies = ExpFunctionCall a1 s v (Just $ aMap fromIndex indicies)
       | Nothing <- idType a
       , indiciesRangeFree indicies = ExpFunctionCall a1 s v (Just $ aMap fromIndex indicies)
     expression (ExpSubscript a1 s v@(ExpValue a _ (ValIntrinsic _)) indicies)
-      | Just (IDType _ (Just CTIntrinsic) _ _) <- idType a
+      | Just (IDType _ (Just CTIntrinsic)) <- idType a
       , indiciesRangeFree indicies = ExpFunctionCall a1 s v (Just $ aMap fromIndex indicies)
     expression e                                      = e
 

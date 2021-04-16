@@ -1,16 +1,19 @@
+-- | TODO: copied from fortran-vars (then edited)
+
 {-# LANGUAGE DeriveDataTypeable #-}
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE DeriveAnyClass #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 
-module Language.Fortran.Vars.Types where
+module Language.Fortran.Analysis.SemanticTypes where
 
 import           Data.Data                      ( Data )
 import           Data.Map                       ( Map )
 import           Data.Typeable                  ( Typeable )
 import           GHC.Generics                   ( Generic )
 import           Control.DeepSeq                ( NFData )
-import           Language.Fortran.AST           ( Name
+import           Language.Fortran.AST           ( Kind
+                                                , Name
                                                 , ProgramUnitName
                                                 , Expression
                                                 )
@@ -20,6 +23,18 @@ import           Language.Fortran.Util.Position ( SrcSpan(..)
 
 import           Text.PrettyPrint.GenericPretty (Out(..))
 import           Data.Binary (Binary(..))
+
+-- | Term type representation.
+data SemType
+  = STInteger Kind
+  | STReal Kind
+  | STComplex Kind
+  | STLogical Kind
+  | STByte Kind
+  | STCharacter (Maybe Kind) -- ^ Nothing denotes dynamic length
+  | STArray SemType (Maybe Dimensions) -- ^ Nothing denotes dynamic dimensions
+  | STCustom String          -- use for F77 structures, F90 DDTs
+  deriving (Eq, Ord, Show, Data, Typeable, Generic)
 
 -- | The evaluated value of a FORTRAN expression
 data ExpVal
@@ -55,27 +70,14 @@ type Dimensions = [(Int, Int)]
 
 -- | An entry in the 'SymbolTable' for some variable
 data SymbolTableEntry
-  = SParameter { parType :: Type , parVal :: ExpVal }
-  | SVariable { varType :: Type , varLoc :: Location }
-  | SDummy { dumType :: Type }
-  | SExternal {extType :: Type }
+  = SParameter { parType :: SemType , parVal :: ExpVal }
+  | SVariable { varType :: SemType , varLoc :: Location }
+  | SDummy { dumType :: SemType }
+  | SExternal {extType :: SemType }
   deriving (Eq, Ord, Show, Data, Typeable, Generic)
 
-type Kind = Int
-
-data Type
-  = TInteger Kind
-  | TReal Kind
-  | TComplex Kind
-  | TLogical Kind
-  | TByte Kind
-  | TCharacter (Maybe Kind) -- ^ Nothing denotes dynamic length
-  | TArray Type (Maybe Dimensions) -- ^ Nothing denotes dynamic dimensions
-  | TCustom String
-  deriving (Eq, Ord, Show, Data, Typeable, Generic)
-
-instance Binary Type
-instance Out    Type
+instance Binary SemType
+instance Out    SemType
 
 -- | Symbol table containing all non-intrisic symbols declared in a program
 type SymbolTable = Map Name SymbolTableEntry
@@ -98,7 +100,7 @@ type Structure = [StructureTableEntry]
 
 -- | Data structurue for a single field of a structure
 data StructureTableEntry
-  = FieldEntry String Type
+  = FieldEntry String SemType
   | UnionEntry [Structure]
   deriving (Eq, Show, Data)
 
@@ -126,4 +128,4 @@ data TypeError
 typeError :: SrcSpan -> String -> TypeError
 typeError sp = let SrcSpan p _ = sp in TypeError (filePath p) sp
 
-type TypeOf a = Expression a -> Either TypeError Type
+type TypeOf a = Expression a -> Either TypeError SemType
