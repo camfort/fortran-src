@@ -1144,6 +1144,7 @@ data Token =
   | TComment            SrcSpan String
   | TString             SrcSpan String
   | TIntegerLiteral     SrcSpan String
+  -- | TRealLiteral        SrcSpan String (Maybe RealExponent) (Maybe KindParam)
   | TRealLiteral        SrcSpan String
   | TBozLiteral         SrcSpan String
   | TComma              SrcSpan
