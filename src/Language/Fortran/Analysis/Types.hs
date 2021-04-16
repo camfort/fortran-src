@@ -348,9 +348,10 @@ parseRealLiteral r =
     parseRealLitExponent = \case
       l:chs ->
         -- TODO: are we already lowercased perhaps?
-        let expLetter = case toLower l of 'e' -> ExpLetterE
-                                          'd' -> ExpLetterD
-         in Just (expLetter, read (takeWhile isDigit chs))
+        case toLower l of
+          'e' -> Just (ExpLetterE, read (takeWhile isDigit chs))
+          'd' -> Just (ExpLetterD, read (takeWhile isDigit chs))
+          _   -> Nothing
       _ -> Nothing
 
 -- | A REAL literal may have an optional exponent and kind.
