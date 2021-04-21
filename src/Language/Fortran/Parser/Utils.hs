@@ -1,7 +1,21 @@
+{-# LANGUAGE LambdaCase #-}
+
 {-| Simple module to provide functions that read Fortran literals -}
-module Language.Fortran.Parser.Utils (readReal, readInteger) where
+module Language.Fortran.Parser.Utils
+  ( readReal
+  , readInteger
+  , parseRealLiteral
+  , RealLit(..)
+  , Exponent(..)
+  , NumSign(..)
+  , ExponentLetter(..)
+  ) where
+
+import Language.Fortran.AST (Kind)
+
 import Data.Char
 import Numeric
+import Text.Read (readMaybe)
 
 breakAtDot :: String -> (String, String)
 replaceDwithE :: Char -> Char
@@ -41,3 +55,73 @@ replaceDwithE c     = c
 readsToMaybe r = case r of
   (x, _):_ -> Just x
   _ -> Nothing
+
+--------------------------------------------------------------------------------
+
+-- TODO incorrect, kind params also allow 'Name's
+type KindParam = Kind
+
+-- | A REAL literal may have an optional exponent and kind.
+--
+-- The value can be retrieved as a 'Double' by using these parts.
+data RealLit = RealLit
+  { realLitValue     :: String
+  , realLitExponent  :: Maybe Exponent
+  , realLitKindParam :: Maybe KindParam
+  } deriving Show
+
+-- | An exponent is an exponent letter (E, D) and a value (with an optional
+-- sign).
+data Exponent = Exponent
+  { expLetter :: ExponentLetter
+  , expSign   :: Maybe NumSign
+  , expNum    :: String
+  } deriving Show
+
+-- Note: Some Fortran language references include extensions here. HP's F90
+-- reference provides a Q exponent letter which sets kind to 16.
+data ExponentLetter
+  = ExpLetterD
+  | ExpLetterE
+    deriving Show
+
+data NumSign
+  = SignPos
+  | SignNeg
+    deriving Show
+
+-- | Parse a Fortran literal real to its constituent parts.
+parseRealLiteral :: String -> RealLit
+parseRealLiteral r =
+    RealLit { realLitValue     = takeWhile isValuePart r
+            , realLitExponent  = parseRealLitExponent (dropWhile isValuePart r)
+            , realLitKindParam = parseRealLitKindInt (dropWhile (/= '_') r)
+            }
+  where
+    isValuePart :: Char -> Bool
+    isValuePart ch
+      | isDigit ch = True
+      | ch == '.'  = True
+      | otherwise  = False
+    parseRealLitKindInt :: String -> Maybe Kind
+    parseRealLitKindInt = \case
+      '_':chs -> readMaybe chs
+      _       -> Nothing
+    parseRealLitExponent :: String -> Maybe Exponent
+    parseRealLitExponent "" = Nothing
+    parseRealLitExponent (c:cs) = do
+        letter <-
+                case toLower c of
+                  'e' -> Just ExpLetterE
+                  'd' -> Just ExpLetterD
+                  _   -> Nothing
+        let (sign, cs'') =
+                case cs of
+                  ""       -> (Nothing, cs)
+                  c':cs'  -> -- TODO: want to locally scope cs'' but unsure how to??
+                    case c' of
+                      '-' -> (Just SignNeg, cs')
+                      '+' -> (Just SignPos, cs')
+                      _   -> (Nothing     , cs)
+            digitStr = read (takeWhile isDigit cs'')
+        return $ Exponent letter sign digitStr
