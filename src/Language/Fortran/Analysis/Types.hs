@@ -23,7 +23,8 @@ import Language.Fortran.Analysis
 import Language.Fortran.Analysis.SemanticTypes (SemType(..))
 import Language.Fortran.Intrinsics
 import Language.Fortran.Util.Position
-import Language.Fortran.ParserMonad (FortranVersion(..))
+import Language.Fortran.Version (FortranVersion(..))
+import Language.Fortran.Parser.Utils
 
 --------------------------------------------------
 
@@ -301,75 +302,32 @@ annotateProgramUnit pu                        = return pu
 
 -- upgraded to Infer so we can return type errors
 -- logic taken from HP's F90 reference pg.33, and matches gfortran's behaviour
+-- TODO: overview in haddock
 realLiteralKind :: SrcSpan -> String -> Infer Kind
 realLiteralKind ss r =
     case realLitKindParam realLit of
-      -- no kind param: infer from exponent
       Nothing -> return kindFromExpOrDefault
       Just k  ->
         case realLitExponent realLit of
-          -- can only use kind param with 'e' or no exponent
-          Just (ExpLetterE, _) -> return k
-          Nothing              -> return k
-          Just (l, _)          -> do
-            -- badly formed literal, but we'll allow and default to kind param
-            typeError "only real literals with exponent letter 'e' can specify explicit kind parameter" ss
-            return k
+          Nothing  -> return k  -- no exponent, use kind param
+          Just expo ->
+            -- can only use kind param with 'e' or no exponent
+            case expLetter expo of
+              ExpLetterE -> return k
+              _          -> do
+                -- badly formed literal, but we'll allow and default to kind param
+                typeError "only real literals with exponent letter 'e' can specify explicit kind parameter" ss
+                return k
   where
     realLit = parseRealLiteral r
     kindFromExpOrDefault =
         case realLitExponent realLit of
           -- no exponent: select default real kind
           Nothing             -> 4
-          Just (expLetter, _) ->
-            case expLetter of
+          Just expo           ->
+            case expLetter expo of
               ExpLetterE -> 4
               ExpLetterD -> 8
-
--- TODO: I think adding this info to the TRealLiteral token is better? ideally
--- we do this parsing once only
-parseRealLiteral :: String -> RealLit
-parseRealLiteral r =
-    RealLit { realLitValue     = takeWhile isValuePart r
-            , realLitExponent  = parseRealLitExponent (dropWhile isValuePart r)
-            , realLitKindParam = parseRealLitKindInt (dropWhile (/= '_') r)
-            }
-  where
-    isValuePart :: Char -> Bool
-    isValuePart ch
-      | isDigit ch = True
-      | ch == '.'  = True
-      | otherwise  = False
-    parseRealLitKindInt :: String -> Maybe Kind
-    parseRealLitKindInt = \case
-      '_':chs -> readMaybe chs
-      _       -> Nothing
-    parseRealLitExponent :: String -> Maybe RealExponent
-    parseRealLitExponent = \case
-      l:chs ->
-        -- TODO: are we already lowercased perhaps?
-        case toLower l of
-          'e' -> Just (ExpLetterE, read (takeWhile isDigit chs))
-          'd' -> Just (ExpLetterD, read (takeWhile isDigit chs))
-          _   -> Nothing
-      _ -> Nothing
-
--- | A REAL literal may have an optional exponent and kind.
--- TODO: kind supports using a param here instead (it's a digit string or name)
-data RealLit = RealLit
-  { realLitValue :: String
-  , realLitExponent :: Maybe RealExponent
-  , realLitKindParam :: Maybe Kind          -- TODO should support vars too
-  }
-
--- | An exponent is an exponent letter (E, D) plus a value.
-type RealExponent = (ExponentLetter, Int)
-
--- Note: Some Fortran language references include extensions here. HP's F90
--- reference provides a Q exponent letter which sets kind to 16.
-data ExponentLetter
-  = ExpLetterD
-  | ExpLetterE
 
 complexLiteralType :: SrcSpan -> Expression a -> Expression a -> Infer SemType
 complexLiteralType ss (ExpValue _ _ (ValReal r)) _ = do
