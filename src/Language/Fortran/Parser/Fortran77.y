@@ -57,6 +57,7 @@ import Control.Exception
   '/)'                  { TRightArrayPar _ }
   ','                   { TComma _ }
   '.'                   { TDot _ }
+  '%'                   { TPercent _ }
   ':'                   { TColon _ }
   include               { TInclude _ }
   program               { TProgram _ }
@@ -793,7 +794,15 @@ ARGUMENTS_LEVEL1
 -- Expression all by itself subsumes all other callable expressions.
 CALLABLE_EXPRESSION :: { Argument A0 }
 CALLABLE_EXPRESSION
-: id '=' EXPRESSION
+-- Explicitly parse special intrinsics for argument passing types
+: '%' id '(' EXPRESSION ')'
+  { let { args = AList () (getSpan $4) $ [Argument () (getSpan $4) Nothing $4];
+          TId _ name = $2;
+          intr = ExpFunctionCall () (getTransSpan $1 $5)
+                   (ExpValue () (getTransSpan $1 $2) (ValIntrinsic ('%':name)))
+                   (Just args) }
+    in Argument () (getTransSpan $1 $5) Nothing intr }
+| id '=' EXPRESSION
   { let TId span keyword = $1
     in Argument () (getTransSpan span $3) (Just keyword) $3 }
 | EXPRESSION  { Argument () (getSpan $1) Nothing $1 }
@@ -906,6 +915,8 @@ RELATIONAL_OPERATOR
 SUBSCRIPT :: { Expression A0 }
 SUBSCRIPT
 : SUBSCRIPT '.' VARIABLE
+  { ExpDataRef () (getTransSpan $1 $3) $1 $3 }
+| SUBSCRIPT '%' VARIABLE
   { ExpDataRef () (getTransSpan $1 $3) $1 $3 }
 | SUBSCRIPT '(' ')'
   { ExpFunctionCall () (getTransSpan $1 $3) $1 Nothing }
