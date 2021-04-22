@@ -65,30 +65,30 @@ type KindParam = Kind
 --
 -- The value can be retrieved as a 'Double' by using these parts.
 data RealLit = RealLit
-  { realLitValue     :: String
+  { realLitValue     :: String -- xyz.abc, xyz, xyz., .abc
   , realLitExponent  :: Maybe Exponent
   , realLitKindParam :: Maybe KindParam
-  } deriving Show
+  } deriving (Eq, Ord, Show)
 
 -- | An exponent is an exponent letter (E, D) and a value (with an optional
 -- sign).
 data Exponent = Exponent
   { expLetter :: ExponentLetter
   , expSign   :: Maybe NumSign
-  , expNum    :: String
-  } deriving Show
+  , expNum    :: Int
+  } deriving (Eq, Ord, Show)
 
 -- Note: Some Fortran language references include extensions here. HP's F90
 -- reference provides a Q exponent letter which sets kind to 16.
 data ExponentLetter
   = ExpLetterD
   | ExpLetterE
-    deriving Show
+    deriving (Eq, Ord, Show)
 
 data NumSign
   = SignPos
   | SignNeg
-    deriving Show
+    deriving (Eq, Ord, Show)
 
 -- | Parse a Fortran literal real to its constituent parts.
 parseRealLiteral :: String -> RealLit
@@ -98,11 +98,12 @@ parseRealLiteral r =
             , realLitKindParam = parseRealLitKindInt (dropWhile (/= '_') r)
             }
   where
+    -- slightly ugly: we add the signs in here to allow -1.0 easily
     isValuePart :: Char -> Bool
     isValuePart ch
-      | isDigit ch = True
-      | ch == '.'  = True
-      | otherwise  = False
+      | isDigit ch                 = True
+      | ch `elem` ['.', '-', '+']  = True
+      | otherwise                  = False
     parseRealLitKindInt :: String -> Maybe Kind
     parseRealLitKindInt = \case
       '_':chs -> readMaybe chs
@@ -118,7 +119,7 @@ parseRealLiteral r =
         let (sign, cs'') =
                 case cs of
                   ""       -> (Nothing, cs)
-                  c':cs'  -> -- TODO: want to locally scope cs'' but unsure how to??
+                  c':cs'  -> -- TODO: want to locally scope cs' but unsure how to??
                     case c' of
                       '-' -> (Just SignNeg, cs')
                       '+' -> (Just SignPos, cs')
