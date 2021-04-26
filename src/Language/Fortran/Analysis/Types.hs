@@ -12,15 +12,12 @@ import Data.Map (insert)
 import qualified Data.Map as M
 import Data.Maybe (maybeToList)
 import Data.List (find)
-import Data.Char (isDigit, toLower)
-import Text.Read (readMaybe)
 import Control.Monad.State.Strict
 import Data.Generics.Uniplate.Data
 import Data.Data
 import Data.Functor.Identity (Identity ())
 import Control.Applicative (liftA2)
 import Language.Fortran.Analysis
-import Language.Fortran.Analysis.SemanticTypes (SemType(..))
 import Language.Fortran.Intrinsics
 import Language.Fortran.Util.Position
 import Language.Fortran.Version (FortranVersion(..))
@@ -83,7 +80,7 @@ analyseTypesWithEnv' env pf@(ProgramFile mi _) = runInfer (miVersion mi) env $ d
 
   -- Gather types for known entry points.
   eps <- gets (M.toList . entryPoints)
-  _ <- forM eps $ \ (eName, (fName, mRetName)) -> do
+  forM_ eps $ \ (eName, (fName, mRetName)) -> do
     mFType <- getRecordedType fName
     case mFType of
       Just (IDType fVType fCType ) -> do
@@ -131,11 +128,12 @@ programUnit pu@(PUFunction _ _ mRetType _ _ _ mRetVar blocks _)
     -- record some type information that we can glean
     recordCType CTFunction n
     case (mRetType, mRetVar) of
-      (Just (TypeSpec _ _ baseType _), Just v) -> do
-        let semType = conjureFVType baseType conjuredKind
+      -- TODO: what exactly is going on here (accessing uniqueName/sourceName)
+      (Just ts@(TypeSpec _ _ baseType _), Just v) -> do
+        semType <- deriveSemTypeFromTypeSpec ts
         recordSemType semType n >> recordSemType semType (varName v)
-      (Just (TypeSpec _ _ baseType _), _)      -> do
-        let semType = conjureFVType baseType conjuredKind
+      (Just ts@(TypeSpec _ _ baseType _), _)      -> do
+        semType <- deriveSemTypeFromTypeSpec ts
         recordSemType semType n
       _                                        -> return ()
     -- record entry points for later annotation
@@ -160,71 +158,8 @@ dimDeclarator ddAList = [ (lb, ub) | DimensionDeclarator _ _ lbExp ubExp <- aStr
                                    , let ub = do ExpValue _ _ (ValInteger i) <- ubExp
                                                  return $ read i ]
 
--- | Conjure an FV type from a 'BaseType' and a 'Kind'.
-conjureFVType :: BaseType -> Kind -> SemType
-conjureFVType bt k =
-    case bt of
-      TypeInteger         -> STInteger k
-      TypeReal            -> STReal k
-      TypeComplex         -> STComplex k
-      TypeLogical         -> STLogical k
-      TypeByte            -> STByte k
-
-      -- TODO: unsure on the overlap between syntax and semantics here
-      -- (I think one or two of these map to error in FV)
-      ClassStar           -> STCustom "ClassStar"
-      TypeCustom    str   -> STCustom ("TypeCustom "  <> str)
-      ClassCustom   str   -> STCustom ("ClassCustom " <> str)
-
-      -- TODO: what's the kind stored in a TypeCharacter, how different to
-      -- Selector (apart from String vs. Expr)
-      TypeCharacter tLen tKind -> STCharacter (maybe Nothing fvCharLen tLen)
-
-      -- TODO: Likely TypeReal, TypeComplex with static kinds.
-      -- According to ~2004 gfortran docs, KIND=2 corresponds to the double
-      -- precision types: DOUBLE PRECISION = REAL*8, DOUBLE COMPLEX =
-      -- COMPLEX*16. I shall hardcode those for now.
-      TypeDoublePrecision -> STReal 2
-      TypeDoubleComplex   -> STComplex 2
-
--- Constant ints are copied, all others are replaced with Nothing.
---
--- This is due to FV dropping much of the type info strings have.
-fvCharLen :: CharacterLen -> Maybe Kind
-fvCharLen = \case
-  CharLenInt x -> Just x
-  _            -> Nothing
-
--- https://gcc.gnu.org/onlinedocs/gfortran/KIND-Type-Parameters.html
-conjureFVDefaultKind :: BaseType -> Kind
-conjureFVDefaultKind = \case
-  -- TODO: what's the kind stored in a TypeCharacter, how different to
-  -- Selector (apart from String vs. Expr)
-  TypeCharacter _ _ -> 1
-
-  TypeDoublePrecision -> 8
-
-  -- guess
-  TypeCustom  _ -> 1
-  ClassStar     -> 1
-  ClassCustom _ -> 1
-  TypeByte      -> 1
-
-  -- ints, logicals, reals, complexes appear to default to 4
-  _                 -> 4
-
--- https://gcc.gnu.org/onlinedocs/gfortran/KIND-Type-Parameters.html
--- matches storage size in bytes except for COMPLEX, which is *2
-type StorageBytes = Int
-typeSizeMapGFortran :: BaseType -> Kind -> StorageBytes
-typeSizeMapGFortran bt k =
-    case bt of
-      TypeComplex -> k*2
-      _           -> k
-
 statement :: Data a => InferFunc (Statement (Analysis a))
--- maybe FIXME: should Kind Selectors be part of types?
-statement (StDeclaration _ _ (TypeSpec _ _ baseType sel) mAttrAList declAList)
+statement (StDeclaration _ _ ts@(TypeSpec _ _ baseType _) mAttrAList declAList)
   | mAttrs  <- maybe [] aStrip mAttrAList
   , attrDim <- find isAttrDimension mAttrs
   , isParam <- any isAttrParameter mAttrs
@@ -237,20 +172,12 @@ statement (StDeclaration _ _ (TypeSpec _ _ baseType sel) mAttrAList declAList)
                 | Just (IDType _ (Just ct)) <- M.lookup n env
                 , ct /= CTIntrinsic                           = ct
                 | otherwise                                   = CTVariable
-    let charLen (ExpValue _ _ (ValInteger i)) = CharLenInt (read i)
-        charLen (ExpValue _ _ ValStar)        = CharLenStar
-        charLen _                             = CharLenExp
-    let selKind (Just (Selector _ _ _ (Just (ExpValue _ _ (ValInteger k))))) = Just (read k)
-        selKind _ = Nothing
-        kind = maybe (conjureFVDefaultKind baseType) id (selKind sel)
-    let sType (Just e)
-          | TypeCharacter len kind <- baseType = STCharacter (maybe Nothing fvCharLen len)
-          | otherwise                          = STCharacter Nothing
-        sType Nothing  = conjureFVType baseType kind
-    -- TODO: probably OK to use 'StDeclaration' 'BaseType', @bType@ only wraps
+    semType <- deriveSemTypeFromTypeSpec ts
     forM_ decls $ \ decl -> case decl of
-      DeclArray _ _ v ddAList e _ -> recordType (sType e) (CTArray $ dimDeclarator ddAList) (varName v)
-      DeclVariable _ _ v e _      -> recordType (sType e) (cType n) n where n = varName v
+        -- TODO: we're throwing away the (Maybe Expr) in the Declarator -- is
+        -- that bad? the original usage was confusing
+        DeclArray _ _ v ddAList _ _ -> recordType semType (CTArray $ dimDeclarator ddAList) (varName v)
+        DeclVariable _ _ v _ _      -> recordType semType (cType n) n where n = varName v
 
 statement (StExternal _ _ varAList) = do
   let vars = aStrip varAList
@@ -262,7 +189,7 @@ statement (StExpressionAssign _ _ (ExpSubscript _ _ v ixAList) _)
     mIDType <- getRecordedType n
     case mIDType of
       Just (IDType _ (Just CTArray{})) -> return ()                -- do nothing, it's already known to be an array
-      _                                  -> recordCType CTFunction n -- assume it's a function statement
+      _                                -> recordCType CTFunction n -- assume it's a function statement
 
 -- FIXME: if StFunctions can only be identified after types analysis
 -- is complete and disambiguation is performed, then how do we get
@@ -280,16 +207,23 @@ statement (StDimension _ _ declAList) = do
 statement _ = return ()
 
 annotateExpression :: Data a => Expression (Analysis a) -> Infer (Expression (Analysis a))
+
+-- handle the various literals
 annotateExpression e@(ExpValue _ _ (ValVariable _))    = maybe e (`setIDType` e) `fmap` getRecordedType (varName e)
 annotateExpression e@(ExpValue _ _ (ValIntrinsic _))   = maybe e (`setIDType` e) `fmap` getRecordedType (varName e)
 annotateExpression e@(ExpValue _ ss (ValReal r))        = do
-    k <- realLiteralKind ss r
-    return $ IDType (Just (STReal k)) Nothing `setIDType` e
+    k <- deriveRealLiteralKind ss r
+    return $ setSemType (STReal k) e
 annotateExpression e@(ExpValue _ ss (ValComplex e1 e2)) = do
     st <- complexLiteralType ss e1 e2
-    return $ IDType (Just st) Nothing `setIDType` e
-annotateExpression e@(ExpValue _ _ (ValInteger _))     = return $ IDType (Just (STInteger conjuredKind)) Nothing `setIDType` e
-annotateExpression e@(ExpValue _ _ (ValLogical _))     = return $ IDType (Just (STLogical conjuredKind)) Nothing `setIDType` e
+    return $ setSemType st e
+annotateExpression e@(ExpValue _ _ (ValInteger _))     =
+    -- TODO: in >F90, int lits can have kind info on end, same as real lits. We
+    -- do parse this
+    return $ setSemType (deriveSemTypeFromBaseType TypeInteger) e
+annotateExpression e@(ExpValue _ _ (ValLogical _))     =
+    return $ setSemType (deriveSemTypeFromBaseType TypeLogical) e
+
 annotateExpression e@(ExpBinary _ _ op e1 e2)          = flip setIDType e `fmap` binaryOpType (getSpan e) op e1 e2
 annotateExpression e@(ExpUnary _ _ op e1)              = flip setIDType e `fmap` unaryOpType (getSpan e1) op e1
 annotateExpression e@(ExpSubscript _ _ e1 idxAList)    = flip setIDType e `fmap` subscriptType (getSpan e) e1 idxAList
@@ -300,11 +234,12 @@ annotateProgramUnit :: Data a => ProgramUnit (Analysis a) -> Infer (ProgramUnit 
 annotateProgramUnit pu | Named n <- puName pu = maybe pu (`setIDType` pu) `fmap` getRecordedType n
 annotateProgramUnit pu                        = return pu
 
--- upgraded to Infer so we can return type errors
--- logic taken from HP's F90 reference pg.33, and matches gfortran's behaviour
--- TODO: overview in haddock
-realLiteralKind :: SrcSpan -> String -> Infer Kind
-realLiteralKind ss r =
+-- | Derive the kind of a REAL literal constant.
+--
+-- Logic taken from HP's F90 reference pg.33, written to gfortran's behaviour.
+-- Stays in the 'Infer' monad so it can report type errors
+deriveRealLiteralKind :: SrcSpan -> String -> Infer Kind
+deriveRealLiteralKind ss r =
     case realLitKindParam realLit of
       Nothing -> return kindFromExpOrDefault
       Just k  ->
@@ -315,7 +250,8 @@ realLiteralKind ss r =
             case expLetter expo of
               ExpLetterE -> return k
               _          -> do
-                -- badly formed literal, but we'll allow and default to kind param
+                -- badly formed literal, but we'll allow and use the provided
+                -- kind param (with no doubling or anything)
                 typeError "only real literals with exponent letter 'e' can specify explicit kind parameter" ss
                 return k
   where
@@ -329,11 +265,14 @@ realLiteralKind ss r =
               ExpLetterE -> 4
               ExpLetterD -> 8
 
+-- | Get the type of a COMPLEX literal constant.
+--
+-- The kind is derived only from the first expression, the second is ignored.
 complexLiteralType :: SrcSpan -> Expression a -> Expression a -> Infer SemType
 complexLiteralType ss (ExpValue _ _ (ValReal r)) _ = do
-    k1 <- realLiteralKind ss r
+    k1 <- deriveRealLiteralKind ss r
     return $ STComplex k1
-complexLiteralType _ _ _ = return $ STComplex conjuredKind
+complexLiteralType _ _ _ = return $ deriveSemTypeFromBaseType TypeComplex
 
 binaryOpType :: Data a => SrcSpan -> BinaryOp -> Expression (Analysis a) -> Expression (Analysis a) -> Infer IDType
 binaryOpType ss op e1 e2 = do
@@ -352,41 +291,38 @@ binaryOpType ss op e1 e2 = do
         Just st
           | op `elem` [ Addition, Subtraction, Multiplication, Division
                       , Exponentiation, Concatenation, Or, XOr, And ]       -> return $ Just st
-          | op `elem` [GT, GTE, LT, LTE, EQ, NE, Equivalent, NotEquivalent] -> return $ Just (STLogical conjuredKind)
+          | op `elem` [GT, GTE, LT, LTE, EQ, NE, Equivalent, NotEquivalent] -> return $ Just (deriveSemTypeFromBaseType TypeLogical)
           | BinCustom{} <- op -> typeError "custom binary ops not supported" ss >> return Nothing
         _ -> return Nothing
 
       return $ IDType mst' Nothing -- FIXME: might have to check kinds of each operand
 
--- TODO
+-- | Combine two 'SemType's with a 'BinaryOp'.
+--
+-- No real work done here, no kind combining, just selection.
 binopSimpleCombineSemTypes :: SrcSpan -> BinaryOp -> SemType -> SemType -> Infer (Maybe SemType)
 binopSimpleCombineSemTypes ss op st1 st2 = do
     case (st1, st2) of
-      (_, STComplex k2) -> ret $ STComplex k2
-      (_, STReal k2)    -> ret $ STReal k2
-      (_, STInteger k2) -> ret $ STInteger k2
-      (_, STByte k2)    -> ret $ STByte k2
-      (_, STLogical k2) -> ret $ STLogical k2
-      (STCustom n1, STCustom n2) -> do
+      (_           , STComplex k2) -> ret $ STComplex k2
+      (STComplex k1, _           ) -> ret $ STComplex k1
+      (_           , STReal    k2) -> ret $ STReal k2
+      (STReal    k1, _           ) -> ret $ STReal k1
+      (_           , STInteger k2) -> ret $ STInteger k2
+      (STInteger k1, _           ) -> ret $ STInteger k1
+      (STByte    k1, STByte    _ ) -> ret $ STByte k1
+      (STLogical k1, STLogical _ ) -> ret $ STLogical k1
+      (STCustom  n1, STCustom  n2) -> do
         typeError "custom types / binary op not supported" ss
         return Nothing
       (STCharacter k1, STCharacter k2)
-        | op == Concatenation -> ret $ STCharacter (charLen'Concat k1 k2)
-        | op `elem` [EQ, NE]  -> ret $ STLogical conjuredKind
+        | op == Concatenation -> ret $ STCharacter (liftA2 (+) k1 k2)
+        | op `elem` [EQ, NE]  -> ret $ deriveSemTypeFromBaseType TypeLogical
         | otherwise -> do typeError "Invalid op on character strings" ss
                           return Nothing
       _ -> do typeError "Type error between operands of binary operator" ss
               return Nothing
   where
     ret = return . Just
-
-conjuredKind :: Kind
-conjuredKind = 0
-
--- Simpler than original because FV's type rep drops extra syntactic info about
--- char lengths (all non-ints pushed into Nothing)
-charLen'Concat :: Maybe Kind -> Maybe Kind -> Maybe Kind
-charLen'Concat = liftA2 (+)
 
 unaryOpType :: Data a => SrcSpan -> UnaryOp -> Expression (Analysis a) -> Infer IDType
 unaryOpType ss op e = do
@@ -446,7 +382,7 @@ functionCallType ss e1 _ = case getIDType e1 of
   Just (IDType (Just st) (Just CTExternal)) -> return $ IDType (Just st) Nothing
   _ -> typeError "non-function invoked by call" ss >> return emptyType
 
--- TODO: use default kinds
+-- TODO: do this (what is 'IntrinsicType'?)
 intrinsicToMaybeSemType :: IntrinsicType -> Maybe SemType
 intrinsicToMaybeSemType = const Nothing
 
@@ -517,6 +453,19 @@ setIDType ty x
 getIDType :: (Annotated f, Data a) => f (Analysis a) -> Maybe IDType
 getIDType x = idType (getAnnotation x)
 
+-- | For all types holding an 'IDType' (in an 'Analysis'), set the 'SemType'
+--   field of the 'IDType'.
+setSemType :: (Annotated f, Data a) => SemType -> f (Analysis a) -> f (Analysis a)
+setSemType st x =
+    let anno  = getAnnotation x
+        idt   = idType anno
+        anno' = anno { idType = Just (setIDTypeSemType idt) }
+     in setAnnotation anno' x
+  where
+    setIDTypeSemType :: Maybe IDType -> IDType
+    setIDTypeSemType (Just (IDType _ mCt)) = IDType (Just st) mCt
+    setIDTypeSemType Nothing               = IDType (Just st) Nothing
+
 -- Set the CType part of idType annotation
 --setCType :: (Annotated f, Data a) => ConstructType -> f (Analysis a) -> f (Analysis a)
 --setCType ct x
@@ -552,6 +501,122 @@ isAttrExternal _               = False
 isIxSingle :: Index a -> Bool
 isIxSingle IxSingle {} = True
 isIxSingle _           = False
+
+--------------------------------------------------
+
+-- Most, but not all deriving functions can report type errors. So most of these
+-- functions are in the Infer monad.
+
+-- | Attempt to derive a 'SemType' from a 'TypeSpec' (and the 'BaseType' etc.
+--   inside).
+--
+-- This is an 'Infer' action so that it can report type errors.
+deriveSemTypeFromTypeSpec :: TypeSpec a -> Infer SemType
+deriveSemTypeFromTypeSpec (TypeSpec _ _ bt mSel) =
+    case mSel of
+      -- Selector present: we might have kind/other info provided
+      Just sel -> deriveSemTypeFromBaseTypeAndSelector bt sel
+
+      -- no Selector: derive using default kinds
+      Nothing  -> return $ deriveSemTypeFromBaseType bt
+
+-- | Attempt to derive a SemType from a 'BaseType' and a 'Selector' (e.g.
+--   extracted from a 'TypeSpec').
+deriveSemTypeFromBaseTypeAndSelector :: BaseType -> Selector a -> Infer SemType
+deriveSemTypeFromBaseTypeAndSelector bt (Selector _ ss mLen mKindExpr) =
+    case mLen of
+      Nothing  ->
+        case mKindExpr of
+          Nothing       -> defaultSemType
+          Just kindExpr ->
+            -- only support integer kind selectors for now, no params
+            case kindExpr of
+              ExpValue _ _ (ValInteger k) ->
+                deriveSemTypeFromBaseTypeAndKind bt (read k)
+              _ -> do
+                typeError "unsupported or invalid kind selector" (getSpan kindExpr)
+                defaultSemType
+      Just len ->
+        -- length only makes sense with a CHARACTER (AST does not enforce)
+        case bt of
+          TypeCharacter mCharLenExpr mKindStr ->
+            -- soft todo: OK, here we have:
+            --   * the Selector (a Maybe lenexpr and Maybe kindexp)
+            --   * the Selector parsed into a CharacterLen and a stricter kind
+            -- and we need to stuff those into a single Maybe Kind (Int). I
+            -- can't see how fortran-vars does it! TypeCheck.typeOfValue is for
+            -- constants, and sets Just (length str). The stuff in Kind sets
+            -- Just 1??? As a placeholder, I assume.
+            -- So if we got a CharLenInt, we'll use that. Otherwise we'll leave
+            -- a placeholder saying it's invalid for now.
+            case mCharLenExpr of
+              Just (CharLenInt chLen) -> return $ STCharacter (Just chLen)
+              Just charLenExpr -> do
+                typeError "non-int char length spec currently unsupported, invalidating" ss
+                return $ STCharacter (Just invalidKind)
+              _ -> return $ STCharacter (Just invalidKind)
+          _ -> do
+            -- (upon tests, likely unreachable due to parser behaviour)
+            typeError "only CHARACTER types can specify length (separate to kind)" ss
+            defaultSemType
+  where
+    -- Same behaviour as for no Selector, intended to handle type error cases or
+    -- empty Selectors (though latter should not occur).
+    defaultSemType = return $ deriveSemTypeFromBaseType bt
+
+deriveSemTypeFromBaseType :: BaseType -> SemType
+deriveSemTypeFromBaseType = \case
+  TypeInteger         -> STInteger 4
+  TypeReal            -> STReal    4
+  TypeComplex         -> STComplex 4
+  TypeLogical         -> STLogical 4
+
+  -- Fortran specs & compilers seem to agree on equating these intrinsic types
+  -- to others with a larger kind, so we drop the extra syntactic info here.
+  TypeDoublePrecision -> STReal    8
+  TypeDoubleComplex   -> STComplex 8
+
+  -- BYTE: HP's Fortran 90 reference says that BYTE is an HP extension, equates
+  -- it to INTEGER(1), and indicates that it doesn't take a kind selector.
+  -- Don't know how BYTEs are used in the wild. I wonder if we could safely
+  -- equate BYTE to (STInteger 1)?
+  TypeByte            -> STByte    noKind
+
+  -- (see deriveSemTypeFromBaseTypeAndSelector)
+  TypeCharacter mLen mKindExpr ->
+    -- If we're here, mLen and mKindExpr are almost certainly Nothing. So we'll
+    -- ignore them and say "dynamic length" (unsure if that's true)
+    STCharacter Nothing
+
+  -- TODO: no clue what to do here. SemType maybe doesn't support F90 properly.
+  -- (I think one or two of these map to error in FV)
+  ClassStar           -> STCustom "ClassStar"
+  TypeCustom    str   -> STCustom ("TypeCustom "  <> str)
+  ClassCustom   str   -> STCustom ("ClassCustom " <> str)
+
+noKind, invalidKind :: Kind
+noKind      = -1
+invalidKind = -2
+
+-- in the Infer monad because some intrinsic types may not take a kind, so it'd
+-- be best to type error here to inform
+-- but it's small fry stuff so we just write the given kind regardless
+deriveSemTypeFromBaseTypeAndKind :: BaseType -> Kind -> Infer SemType
+deriveSemTypeFromBaseTypeAndKind bt k =
+    return $ setTypeKind (deriveSemTypeFromBaseType bt) k
+
+setTypeKind :: SemType -> Kind -> SemType
+setTypeKind st k = case st of
+  STInteger   _ -> STInteger   k
+  STReal      _ -> STReal      k
+  STComplex   _ -> STComplex   k
+  STLogical   _ -> STLogical   k
+  STByte      _ -> STByte      k
+  STCharacter _ -> STCharacter (Just k)
+  STCustom    s -> STCustom s
+  STArray st' mDims ->
+    -- TODO: appears invalid -- however none of my code creates 'STArray's
+    STArray st' mDims
 
 --------------------------------------------------
 
