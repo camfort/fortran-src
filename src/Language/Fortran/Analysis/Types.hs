@@ -213,13 +213,13 @@ annotateExpression e@(ExpValue _ _ (ValVariable _))    = maybe e (`setIDType` e)
 annotateExpression e@(ExpValue _ _ (ValIntrinsic _))   = maybe e (`setIDType` e) `fmap` getRecordedType (varName e)
 annotateExpression e@(ExpValue _ ss (ValReal r))        = do
     k <- deriveRealLiteralKind ss r
-    return $ setSemType (STReal k) e
+    return $ setSemType (STyReal k) e
 annotateExpression e@(ExpValue _ ss (ValComplex e1 e2)) = do
     st <- complexLiteralType ss e1 e2
     return $ setSemType st e
 annotateExpression e@(ExpValue _ _ (ValInteger _))     =
     -- TODO: in >F90, int lits can have kind info on end, same as real lits. We
-    -- do parse this
+    -- do parse this into the lit string.
     return $ setSemType (deriveSemTypeFromBaseType TypeInteger) e
 annotateExpression e@(ExpValue _ _ (ValLogical _))     =
     return $ setSemType (deriveSemTypeFromBaseType TypeLogical) e
@@ -271,7 +271,7 @@ deriveRealLiteralKind ss r =
 complexLiteralType :: SrcSpan -> Expression a -> Expression a -> Infer SemType
 complexLiteralType ss (ExpValue _ _ (ValReal r)) _ = do
     k1 <- deriveRealLiteralKind ss r
-    return $ STComplex k1
+    return $ STyComplex k1
 complexLiteralType _ _ _ = return $ deriveSemTypeFromBaseType TypeComplex
 
 binaryOpType :: Data a => SrcSpan -> BinaryOp -> Expression (Analysis a) -> Expression (Analysis a) -> Infer IDType
@@ -303,19 +303,19 @@ binaryOpType ss op e1 e2 = do
 binopSimpleCombineSemTypes :: SrcSpan -> BinaryOp -> SemType -> SemType -> Infer (Maybe SemType)
 binopSimpleCombineSemTypes ss op st1 st2 = do
     case (st1, st2) of
-      (_           , STComplex k2) -> ret $ STComplex k2
-      (STComplex k1, _           ) -> ret $ STComplex k1
-      (_           , STReal    k2) -> ret $ STReal k2
-      (STReal    k1, _           ) -> ret $ STReal k1
-      (_           , STInteger k2) -> ret $ STInteger k2
-      (STInteger k1, _           ) -> ret $ STInteger k1
-      (STByte    k1, STByte    _ ) -> ret $ STByte k1
-      (STLogical k1, STLogical _ ) -> ret $ STLogical k1
-      (STCustom  n1, STCustom  n2) -> do
+      (_           , STyComplex k2) -> ret $ STyComplex k2
+      (STyComplex k1, _           ) -> ret $ STyComplex k1
+      (_           , STyReal    k2) -> ret $ STyReal k2
+      (STyReal    k1, _           ) -> ret $ STyReal k1
+      (_           , STyInteger k2) -> ret $ STyInteger k2
+      (STyInteger k1, _           ) -> ret $ STyInteger k1
+      (STyByte    k1, STyByte    _ ) -> ret $ STyByte k1
+      (STyLogical k1, STyLogical _ ) -> ret $ STyLogical k1
+      (STyCustom  n1, STyCustom  n2) -> do
         typeError "custom types / binary op not supported" ss
         return Nothing
-      (STCharacter k1, STCharacter k2)
-        | op == Concatenation -> ret $ STCharacter (liftA2 (+) k1 k2)
+      (STyCharacter k1, STyCharacter k2)
+        | op == Concatenation -> ret $ STyCharacter (liftA2 (+) k1 k2)
         | op `elem` [EQ, NE]  -> ret $ deriveSemTypeFromBaseType TypeLogical
         | otherwise -> do typeError "Invalid op on character strings" ss
                           return Nothing
@@ -331,9 +331,9 @@ unaryOpType ss op e = do
            _ -> typeError "Unable to obtain type for" (getSpan e) >> return Nothing
   mst' <- case (mst, op) of
     (Nothing, _)               -> return Nothing
-    (Just STCustom{}, _)     -> typeError "custom types / unary ops not supported" ss >> return Nothing
+    (Just STyCustom{}, _)      -> typeError "custom types / unary ops not supported" ss >> return Nothing
     (_, UnCustom{})            -> typeError "custom unary ops not supported" ss >> return Nothing
-    (Just st@(STLogical _), Not)    -> return $ Just st
+    (Just st@(STyLogical _), Not)    -> return $ Just st
     (Just st, _)
       | op `elem` [Plus, Minus] &&
         isNumericType st -> return $ Just st
@@ -342,7 +342,7 @@ unaryOpType ss op e = do
 
 subscriptType :: Data a => SrcSpan -> Expression (Analysis a) -> AList Index (Analysis a) -> Infer IDType
 subscriptType ss e1 (AList _ _ idxs) = do
-  let isInteger ie | Just (IDType (Just (STInteger _)) _) <- getIDType ie = True
+  let isInteger ie | Just (IDType (Just (STyInteger _)) _) <- getIDType ie = True
                    | otherwise = False
   forM_ idxs $ \ idx -> case idx of
     IxSingle _ _ _ ie
@@ -398,11 +398,11 @@ charLenConcat l1 l2 = case (l1, l2) of
 
 isNumericType :: SemType -> Bool
 isNumericType = \case
-  STComplex{} -> True
-  STReal{}    -> True
-  STInteger{} -> True
-  STByte{}    -> True
-  _           -> False
+  STyComplex{} -> True
+  STyReal{}    -> True
+  STyInteger{} -> True
+  STyByte{}    -> True
+  _            -> False
 
 --------------------------------------------------
 -- Monadic helper combinators.
@@ -550,11 +550,11 @@ deriveSemTypeFromBaseTypeAndSelector bt (Selector _ ss mLen mKindExpr) =
             -- So if we got a CharLenInt, we'll use that. Otherwise we'll leave
             -- a placeholder saying it's invalid for now.
             case mCharLenExpr of
-              Just (CharLenInt chLen) -> return $ STCharacter (Just chLen)
+              Just (CharLenInt chLen) -> return $ STyCharacter (Just chLen)
               Just charLenExpr -> do
                 typeError "non-int char length spec currently unsupported, invalidating" ss
-                return $ STCharacter (Just invalidKind)
-              _ -> return $ STCharacter (Just invalidKind)
+                return $ STyCharacter (Just invalidKind)
+              _ -> return $ STyCharacter (Just invalidKind)
           _ -> do
             -- (upon tests, likely unreachable due to parser behaviour)
             typeError "only CHARACTER types can specify length (separate to kind)" ss
@@ -566,33 +566,33 @@ deriveSemTypeFromBaseTypeAndSelector bt (Selector _ ss mLen mKindExpr) =
 
 deriveSemTypeFromBaseType :: BaseType -> SemType
 deriveSemTypeFromBaseType = \case
-  TypeInteger         -> STInteger 4
-  TypeReal            -> STReal    4
-  TypeComplex         -> STComplex 4
-  TypeLogical         -> STLogical 4
+  TypeInteger         -> STyInteger 4
+  TypeReal            -> STyReal    4
+  TypeComplex         -> STyComplex 4
+  TypeLogical         -> STyLogical 4
 
   -- Fortran specs & compilers seem to agree on equating these intrinsic types
   -- to others with a larger kind, so we drop the extra syntactic info here.
-  TypeDoublePrecision -> STReal    8
-  TypeDoubleComplex   -> STComplex 8
+  TypeDoublePrecision -> STyReal    8
+  TypeDoubleComplex   -> STyComplex 8
 
   -- BYTE: HP's Fortran 90 reference says that BYTE is an HP extension, equates
   -- it to INTEGER(1), and indicates that it doesn't take a kind selector.
   -- Don't know how BYTEs are used in the wild. I wonder if we could safely
-  -- equate BYTE to (STInteger 1)?
-  TypeByte            -> STByte    noKind
+  -- equate BYTE to (STyInteger 1)?
+  TypeByte            -> STyByte    noKind
 
   -- (see deriveSemTypeFromBaseTypeAndSelector)
   TypeCharacter mLen mKindExpr ->
     -- If we're here, mLen and mKindExpr are almost certainly Nothing. So we'll
     -- ignore them and say "dynamic length" (unsure if that's true)
-    STCharacter Nothing
+    STyCharacter Nothing
 
   -- TODO: no clue what to do here. SemType maybe doesn't support F90 properly.
   -- (I think one or two of these map to error in FV)
-  ClassStar           -> STCustom "ClassStar"
-  TypeCustom    str   -> STCustom ("TypeCustom "  <> str)
-  ClassCustom   str   -> STCustom ("ClassCustom " <> str)
+  ClassStar           -> STyCustom "ClassStar"
+  TypeCustom    str   -> STyCustom ("TypeCustom "  <> str)
+  ClassCustom   str   -> STyCustom ("ClassCustom " <> str)
 
 noKind, invalidKind :: Kind
 noKind      = -1
@@ -607,16 +607,16 @@ deriveSemTypeFromBaseTypeAndKind bt k =
 
 setTypeKind :: SemType -> Kind -> SemType
 setTypeKind st k = case st of
-  STInteger   _ -> STInteger   k
-  STReal      _ -> STReal      k
-  STComplex   _ -> STComplex   k
-  STLogical   _ -> STLogical   k
-  STByte      _ -> STByte      k
-  STCharacter _ -> STCharacter (Just k)
-  STCustom    s -> STCustom s
-  STArray st' mDims ->
-    -- TODO: appears invalid -- however none of my code creates 'STArray's
-    STArray st' mDims
+  STyInteger   _ -> STyInteger   k
+  STyReal      _ -> STyReal      k
+  STyComplex   _ -> STyComplex   k
+  STyLogical   _ -> STyLogical   k
+  STyByte      _ -> STyByte      k
+  STyCharacter _ -> STyCharacter (Just k)
+  STyCustom    s -> STyCustom s
+  STyArray st' mDims ->
+    -- TODO: appears invalid -- however none of my code creates 'STyArray's
+    STyArray st' mDims
 
 --------------------------------------------------
 

@@ -16,14 +16,14 @@ import           Text.PrettyPrint.GenericPretty ( Out(..) )
 
 -- | Term type representation.
 data SemType
-  = STInteger Kind
-  | STReal Kind
-  | STComplex Kind
-  | STLogical Kind
-  | STByte Kind
-  | STCharacter (Maybe Kind) -- ^ Nothing denotes dynamic length
-  | STArray SemType (Maybe Dimensions) -- ^ Nothing denotes dynamic dimensions
-  | STCustom String          -- use for F77 structures, F90 DDTs
+  = STyInteger Kind
+  | STyReal Kind
+  | STyComplex Kind
+  | STyLogical Kind
+  | STyByte Kind
+  | STyCharacter (Maybe Kind) -- ^ Nothing denotes dynamic length
+  | STyArray SemType (Maybe Dimensions) -- ^ Nothing denotes dynamic dimensions
+  | STyCustom String          -- use for F77 structures, F90 DDTs
   deriving (Eq, Ord, Show, Data, Typeable, Generic)
 
 instance Binary SemType
