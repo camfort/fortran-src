@@ -2,7 +2,7 @@
 {-# LANGUAGE LambdaCase          #-}
 
 module Language.Fortran.Analysis.Types
-  ( analyseTypes, analyseTypesWithEnv, analyseAndCheckTypesWithEnv, extractTypeEnv, TypeEnv, TypeError )
+  ( analyseTypes, analyseTypesWithEnv, analyseAndCheckTypesWithEnv, extractTypeEnv, TypeEnv, TypeError, deriveSemTypeFromBaseType )
 where
 
 import Language.Fortran.AST
