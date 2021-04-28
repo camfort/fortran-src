@@ -109,12 +109,12 @@ spec = do
         idCType (mapping ! "dabs") `shouldBe` Just CTIntrinsic
         [ ty | ExpFunctionCall a _ (ExpValue _ _ (ValIntrinsic "abs")) _ <- uniExpr pf
              , Just (IDType (Just ty) Nothing) <- [idType a] ]
-          `shouldBe` [STyInteger 8, defSTy TypeComplex]
+          `shouldBe` [defSTy TypeDoublePrecision, defSTy TypeComplex]
         [ a | ExpFunctionCall a _ (ExpValue _ _ (ValIntrinsic "cabs")) _ <- uniExpr pf
             , idType a == Just (IDType (Just (defSTy TypeComplex)) Nothing) ]
           `shouldNotSatisfy` null
         [ a | ExpFunctionCall a _ (ExpValue _ _ (ValIntrinsic "dabs")) _ <- uniExpr pf
-            , idType a == Just (IDType (Just (STyInteger 8)) Nothing) ]
+            , idType a == Just (IDType (Just (defSTy TypeDoublePrecision)) Nothing) ]
           `shouldNotSatisfy` null
 
     describe "Numeric types" $ do
@@ -127,22 +127,22 @@ spec = do
             , idType a == Just (IDType (Just (defSTy TypeComplex)) Nothing) ]
           `shouldNotSatisfy` null
         [ a | ExpBinary a _ Addition (ExpValue _ _ (ValInteger "2")) _ <- uniExpr pf
-            , idType a == Just (IDType (Just (STyInteger 8)) Nothing) ]
+            , idType a == Just (IDType (Just (STyReal 8)) Nothing) ]
           `shouldNotSatisfy` null
 
     describe "Character string types" $
       it "examples of various character variables" $ do
         let mapping = inferTable teststrings1
-        idVType (mapping ! "a") `shouldBe` Just (STyCharacter (Just 5))
-        idVType (mapping ! "b") `shouldBe` Just (STyCharacter (Just 10))
-        idVType (mapping ! "c") `shouldBe` Just (STyCharacter (Just 3))
-        idVType (mapping ! "d") `shouldBe` Just (STyCharacter (Just (-2)))
+        idVType (mapping ! "a") `shouldBe` Just (STyCharacter (CharLenInt 5))
+        idVType (mapping ! "b") `shouldBe` Just (STyCharacter (CharLenInt 10))
+        idVType (mapping ! "c") `shouldBe` Just (STyCharacter (CharLenInt 3))
+        idVType (mapping ! "d") `shouldBe` Just (STyCharacter CharLenExp)
         idCType (mapping ! "d") `shouldBe` Just (CTArray [(Nothing, Just 10)])
-        idVType (mapping ! "e") `shouldBe` Just (STyCharacter (Just 10))
+        idVType (mapping ! "e") `shouldBe` Just (STyCharacter (CharLenInt 10))
         idCType (mapping ! "e") `shouldBe` Just (CTArray [(Nothing, Just 20)])
         let pf = typedProgramFile teststrings1
         [ () | ExpValue a _ (ValVariable "e") <- uniExpr pf
-             , idType a == Just (IDType (Just (STyCharacter (Just 10)))
+             , idType a == Just (IDType (Just (STyCharacter (CharLenInt 10)))
                                         (Just (CTArray [(Nothing, Just 20)])))]
           `shouldNotSatisfy` null
 
