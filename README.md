@@ -49,12 +49,12 @@ cabal install fortran-src
 ```
 
 Otherwise, we suggest building from source if you want to use the fortran-src
-CLI tool. See [#Build from source](build-from-source) for details.
+CLI tool. See [#Build from source](#build-from-source) for details.
 
 ## Development
-As of 2021-04-27, fortran-src supports and is regularly tested on **GHC 8.6, 8.8
-and 8.10**. Releases prior to/newer than those may have issues. We welcome fixes
-that would let us support a wider range of compilers.
+As of 2021-04-28, fortran-src supports and is regularly tested on **GHC 8.6,
+8.8, 8.10 and 9.0**. Releases prior to/newer than those may have issues. We
+welcome fixes that would let us support a wider range of compilers.
 
 ### Build from source
 #### Stack
