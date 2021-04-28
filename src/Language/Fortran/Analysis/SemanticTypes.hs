@@ -10,7 +10,7 @@ module Language.Fortran.Analysis.SemanticTypes where
 import           Data.Data                      ( Data )
 import           Data.Typeable                  ( Typeable )
 import           GHC.Generics                   ( Generic )
-import           Language.Fortran.AST           ( Kind )
+import           Language.Fortran.AST           ( Kind, CharacterLen(..) )
 import           Data.Binary                    ( Binary )
 import           Text.PrettyPrint.GenericPretty ( Out(..) )
 
@@ -21,7 +21,7 @@ data SemType
   | STyComplex Kind
   | STyLogical Kind
   | STyByte Kind
-  | STyCharacter (Maybe Kind) -- ^ Nothing denotes dynamic length
+  | STyCharacter CharacterLen
   | STyArray SemType (Maybe Dimensions) -- ^ Nothing denotes dynamic dimensions
   | STyCustom String          -- use for F77 structures, F90 DDTs
   deriving (Eq, Ord, Show, Data, Typeable, Generic)
