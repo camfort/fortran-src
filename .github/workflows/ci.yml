@@ -38,12 +38,16 @@ jobs:
     runs-on: ubuntu-latest
     name: Ubuntu / GHC ${{ matrix.ghc }}, Cabal ${{ matrix.cabal }}
     strategy:
+      fail-fast: false      # don't stop if one job (= GHC version) fails
       matrix:
-        cabal: ["3.2"] # latest as of 2021-02-23
+        cabal: ["3.4"]      # latest as of 2021-04-28
         ghc:
         - "8.6"
         - "8.8"
         - "8.10"
+        - "9.0"
+        #- "9.2"    # not supported by haskell/actions as of 2021-04-28, see
+                    # https://github.com/haskell/actions/issues/55
     steps:
 
     # TODO: GHC decides to recompile based on timestamp, so cache isn't used
