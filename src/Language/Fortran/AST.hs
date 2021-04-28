@@ -71,7 +71,17 @@ aStrip' (Just a) = aStrip a
 aMap :: (t a -> r a) -> AList t a -> AList r a
 aMap f (AList a s xs) = AList a s (map f xs)
 
+--------------------------------------------------------------------------------
 -- Basic AST nodes
+--------------------------------------------------------------------------------
+
+-- | Type name referenced in syntax.
+--
+-- Some of these are transformed into other types with specific kinds (e.g.
+-- DOUBLE PRECISION -> REAL(8)). It's unclear how strong this syntactic sugar is
+-- and whether it differs between Fortran specifications. So we parse types
+-- pretty directly, and handle those transformations at type analysis (see
+-- 'Analysis.SemType').
 data BaseType =
     TypeInteger
   | TypeReal
@@ -111,9 +121,24 @@ charLenSelector (Just (Selector _ _ mlen mkind)) = (l, k)
       -- FIXME: some references refer to things like kind=kanji but I can't find any spec for it
       | otherwise                                    = Nothing
 
+-- | The type specification of a declaration statement, containing the syntactic
+--   type name and kind selector.
+--
+-- See HP's F90 spec pg.24.
 data TypeSpec a = TypeSpec a SrcSpan BaseType (Maybe (Selector a))
   deriving (Eq, Show, Data, Typeable, Generic, Functor)
 
+-- | The "kind selector" of a declaration statement.
+--
+-- HP's F90 spec (pg.24) actually differentiates between "kind selectors" and
+-- "char selectors", where char selectors can specify a length (alongside kind),
+-- and the default meaning of an unlabelled kind parameter (the 8 in INTEGER(8))
+-- is length instead of kind. We handle this correctly in the parsers, but place
+-- both into this 'Selector' type.
+--
+-- The upshot is, length is invalid for non-CHARACTER types, and the parser
+-- guarantees that it will be Nothing. For CHARACTER types, both maybe or may
+-- not be present.
 data Selector a =
 --                   Maybe length         | Maybe kind
   Selector a SrcSpan (Maybe (Expression a)) (Maybe (Expression a))
@@ -546,16 +571,45 @@ data Value a =
   | ValColon                   -- see R402 / C403 in Fortran2003 spec.
   deriving (Eq, Show, Data, Typeable, Generic, Functor)
 
+-- | Declarators.
+--
+-- Declaration statements can have multiple variables on the right of the double
+-- colon, separated by commas. A 'Declarator' identifies a single one of these.
+--
+-- Each declared variable can have an initializing expression. These expressions
+-- are defined in HP's F90 spec to be /initialization expressions/, which are
+-- specialized constant expressions.
+--
+-- The length expressions here are defined in HP's F90 spec to be specifications
+-- expressions, which are scalar integer expressions with a bunch of
+-- restrictions similar to initialization expressions.
+--
+-- 'Declarator's are also used for some less-used syntax that let you set
+-- variable attributes using statements, like:
+--
+--     integer arr
+--     dimension arr(10)
+--
+-- Some of these only set part of the 'Declarator' (e.g. @parameter@ only sets
+-- the initial value).
+--
+-- Syntax note: length is set like @character :: str*10@, dimensions are set
+-- like @integer :: arr(10)@. Careful to not get confused.
+--
+-- Note that according to HP's F90 spec, lengths may only be specified for
+-- CHARACTER types. So for any declarations that aren't 'TypeCharacter' in the
+-- outer 'TypeSpec', the length expression should be Nothing. However, this is
+-- not enforced by the AST or parser, so be warned.
 data Declarator a =
     DeclVariable a SrcSpan
-                 (Expression a) -- Variable
-                 (Maybe (Expression a)) -- Length (character)
-                 (Maybe (Expression a)) -- Initial value
+                 (Expression a) -- ^ Variable
+                 (Maybe (Expression a)) -- ^ Length (character)
+                 (Maybe (Expression a)) -- ^ Initial value
   | DeclArray a SrcSpan
-              (Expression a) -- Array
-              (AList DimensionDeclarator a) -- Dimensions
-              (Maybe (Expression a)) -- Length (character)
-              (Maybe (Expression a)) -- Initial value
+              (Expression a) -- ^ Array
+              (AList DimensionDeclarator a) -- ^ Dimensions
+              (Maybe (Expression a)) -- ^ Length (character)
+              (Maybe (Expression a)) -- ^ Initial value
   deriving (Eq, Show, Data, Typeable, Generic, Functor)
 
 setInitialisation :: Declarator a -> Expression a -> Declarator a
@@ -566,6 +620,7 @@ setInitialisation (DeclArray a s v ds l Nothing) init =
 -- do nothing when there is already a value
 setInitialisation d _ = d
 
+-- | Dimension declarator stored in @dimension@ attributes and 'Declarator's.
 data DimensionDeclarator a =
   DimensionDeclarator a SrcSpan (Maybe (Expression a)) (Maybe (Expression a))
   deriving (Eq, Show, Data, Typeable, Generic, Functor)
