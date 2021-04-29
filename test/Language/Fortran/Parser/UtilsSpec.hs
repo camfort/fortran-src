@@ -30,11 +30,13 @@ spec =
 
     describe "parseRealLiteral" $ do
       it "parses various well-formed valid real literals" $ do
-        prl "1"         `shouldBe` rl "1" n n
-        prl "1e0"       `shouldBe` rl "1" (jExp expE n 0) n
-        prl "1e0_4"     `shouldBe` rl "1" (jExp expE n 0) (j 4)
+        prl "1"         `shouldBe` rl "1"    n n
+        prl "1."        `shouldBe` rl "1."   n n
+        prl ".0"        `shouldBe` rl ".0"   n n
+        prl "1e0"       `shouldBe` rl "1"    (jExp expE n 0) n
+        prl "1e0_4"     `shouldBe` rl "1"    (jExp expE n 0) (j 4)
         --prl "1e0_k"     `shouldBe` rl "1" _ _
-        prl "1.0e0_4"   `shouldBe` rl "1.0" (jExp expE n 0) (j 4)
+        prl "1.0e0_4"   `shouldBe` rl "1.0"  (jExp expE n 0) (j 4)
         prl "+1.0e0_4"  `shouldBe` rl "+1.0" (jExp expE n 0) (j 4)
         prl "-1.0e0_4"  `shouldBe` rl "-1.0" (jExp expE n 0) (j 4)
         prl "-1.0e+0_4" `shouldBe` rl "-1.0" (jExp expE (j SignPos) 0) (j 4)
