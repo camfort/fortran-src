@@ -561,17 +561,15 @@ deriveSemTypeFromDeclaration stmtSs declSs ts@(TypeSpec _ _ bt mSel) mLenExpr =
           TypeCharacter {} ->
             case mSel of
               Just (Selector selA selSs mSelLenExpr mKindExpr) -> do
-                -- HACK: TODO rewrite this
                 -- we do some further inspection for warnings and type
                 -- errors (fine), then overwrite the Selector with the RHS length
-                -- expression and use the generic 'BaseType' + 'Selector' deriver.
-                -- Absolutely fine /so long as/ you don't expect to use the
-                -- 'Selector''s 'SrcSpan'.
-                -- if also got a LHS length, notify user (surprising syntax)
+                -- expression. /Ideally/ we'd then use the the generic
+                -- 'BaseType' + 'Selector' deriver, but woe! It uses the
+                -- TypeCharacter info if present, which has been derived from
+                -- the 'Selector' len expr. So we sigh and re-use a parser util.
                 _ <- case mSelLenExpr of
-                       Just selLenExpr -> do
-                          -- TODO: want to show exprs but can't without adding
-                          -- (Show a) to calling functions as well, aww
+                       Just _ -> do
+                          -- LHS & RHS lengths: notify user (surprising syntax)
                          flip typeError declSs $
                              "warning: CHARACTER variable at declaration "
                           <> show stmtSs
@@ -579,11 +577,18 @@ deriveSemTypeFromDeclaration stmtSs declSs ts@(TypeSpec _ _ bt mSel) mLenExpr =
                           <> " -- using declarator length"
                        _ -> return ()
                 let sel' = Selector selA selSs (Just lenExpr) mKindExpr
-                deriveSemTypeFromBaseTypeAndSelector bt sel'
+                let (Just charLen, _) = charLenSelector (Just sel')
+                return $ STyCharacter charLen
               Nothing ->
                 -- got RHS len, no Selector (e.g. @CHARACTER :: x*3 = "sup"@)
                 -- HACK: awkward edge case. Attempt to push the len into the
                 -- STyCharacter.
+                -- This case appears similar to one when deriving from
+                -- 'BaseType' and 'TypeSpec' which uses the 'Maybe CharacterLen'
+                -- in the 'TypeCharacter'. But 'CharacterLen' is derived from
+                -- the declaration's 'Selector' (see 'AST.charLenSelector'), so
+                -- here, once we know there's no 'Selector' present, we also
+                -- know the 'TypeCharacter' has no useful information to use.
                 conjureSemChar lenExpr
 
           _ -> do
@@ -601,7 +606,9 @@ conjureSemChar expr = case expr of
   ExpValue _ ss value ->
     case value of
       ValStar      -> return $ STyCharacter (CharLenStar)
-      ValColon     -> return $ STyCharacter (CharLenColon)
+      ValColon     ->
+        -- this (`CHARACTER :: s*(:)`) doesn't seem to parse (F90). Should it?
+        return $ STyCharacter (CharLenColon)
       ValInteger i -> return $ STyCharacter (CharLenInt (read i))
       _            -> do
         typeError "potentially unsupported or invalid length expression" (getSpan expr)
@@ -706,8 +713,13 @@ setTypeKind st k = case st of
   STyComplex   _ -> STyComplex   k
   STyLogical   _ -> STyLogical   k
   STyByte      _ -> STyByte      k
-  STyCharacter _ -> -- STyCharacter (Just k)
-    error "can't set kind of STyCharacter"
+  --STyCharacter _ -> -- STyCharacter (Just k)
+    --error "can't set kind of STyCharacter"
+  STyCharacter k ->
+    -- TODO no idea what to do here lol
+    -- I've written my code so that STyCharacters store len, not kind. so if
+    -- this gets called, the only thing we can do is throw the kind away
+    STyCharacter k
   STyCustom    s -> STyCustom s
   STyArray st' mDims ->
     -- TODO unsure really
