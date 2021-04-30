@@ -570,11 +570,15 @@ deriveSemTypeFromDeclaration stmtSs declSs ts@(TypeSpec _ _ bt mSel) mLenExpr =
                 _ <- case mSelLenExpr of
                        Just _ -> do
                           -- LHS & RHS lengths: notify user (surprising syntax)
+                          -- Ben has seen this IRL: a high-ranking Fortran
+                          -- tutorial site uses it (2021-04-30):
+                          -- http://web.archive.org/web/20210118202503/https://www.tutorialspoint.com/fortran/fortran_strings.htm
+                          -- TODO: is this actually surprising or just to me lol
                          flip typeError declSs $
                              "warning: CHARACTER variable at declaration "
                           <> show stmtSs
                           <> " has length in LHS type spec and RHS declarator"
-                          <> " -- using declarator length"
+                          <> " -- declarator overrides"
                        _ -> return ()
                 let sel' = Selector selA selSs (Just lenExpr) mKindExpr
                 let (Just charLen, _) = charLenSelector (Just sel')
