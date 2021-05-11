@@ -12,7 +12,7 @@ import Data.List (foldl')
 import Prelude hiding (EQ,LT,GT,pred,exp,(<>))
 
 import Language.Fortran.AST
-import Language.Fortran.ParserMonad
+import Language.Fortran.Version
 import Language.Fortran.Util.FirstParameter
 
 import Text.PrettyPrint
@@ -353,7 +353,7 @@ instance Pretty BaseType where
       | v == Fortran77Extended = "double complex"
       | otherwise = tooOld v "Double complex" Fortran77Extended
     pprint' _ TypeLogical = "logical"
-    pprint' v (TypeCharacter _ _)
+    pprint' v TypeCharacter
       | v >= Fortran77 = "character"
       | otherwise = tooOld v "Character data type" Fortran77
     pprint' v (TypeCustom str)
@@ -369,12 +369,6 @@ instance Pretty BaseType where
     pprint' v (ClassCustom str)
       | v >= Fortran2003 = "class" <> parens (text str)
       | otherwise = tooOld v "Class(spec)" Fortran2003
-
-instance Pretty CharacterLen where
-  pprint' _ CharLenStar = "*"
-  pprint' _ CharLenColon = ":"
-  pprint' _ CharLenExp  = "*" -- FIXME, possibly, with a more robust const-exp
-  pprint' _ (CharLenInt i) = text (show i)
 
 instance Pretty (TypeSpec a) where
     pprint' v (TypeSpec _ _ baseType mSelector) =

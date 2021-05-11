@@ -7,7 +7,7 @@ module Language.Fortran.Analysis
   ( initAnalysis, stripAnalysis, Analysis(..), Constant(..)
   , varName, srcName, lvVarName, lvSrcName, isNamedExpression
   , genVar, puName, puSrcName, blockRhsExprs, rhsExprs
-  , ModEnv, NameType(..), IDType(..), ConstructType(..), SemType(..)
+  , ModEnv, NameType(..), IDType(..), ConstructType(..)
   , lhsExprs, isLExpr, allVars, analyseAllLhsVars, analyseAllLhsVars1, allLhsVars
   , blockVarUses, blockVarDefs
   , BB, BBNode, BBGr(..), bbgrMap, bbgrMapM, bbgrEmpty
