@@ -1019,17 +1019,15 @@ LABEL_IN_STATEMENT :: { Expression A0 } : int { ExpValue () (getSpan $1) (let (T
 
 TYPE_SPEC :: { TypeSpec A0 }
 TYPE_SPEC
-: integer KIND_SELECTOR { TypeSpec () (getSpan ($1, $2)) TypeInteger $2 }
-| real KIND_SELECTOR { TypeSpec () (getSpan ($1, $2)) TypeReal $2  }
-| doublePrecision KIND_SELECTOR
-  { TypeSpec () (getSpan ($1, $2)) TypeDoublePrecision $2 }
-| logical KIND_SELECTOR { TypeSpec () (getSpan ($1, $2)) TypeLogical $2 }
-| complex KIND_SELECTOR { TypeSpec () (getSpan ($1, $2)) TypeComplex $2 }
-| doubleComplex KIND_SELECTOR
-  { TypeSpec () (getSpan ($1, $2)) TypeDoubleComplex $2 }
-| character CHAR_SELECTOR { TypeSpec () (getSpan ($1, $2)) (uncurry TypeCharacter $ charLenSelector $2) $2 }
-| byte KIND_SELECTOR { TypeSpec () (getSpan ($1, $2)) TypeByte $2 }
-| record '/' NAME '/' { TypeSpec () (getSpan ($1, $4)) (TypeCustom $3) Nothing }
+: integer   KIND_SELECTOR { TypeSpec () (getSpan ($1, $2)) TypeInteger $2 }
+| real      KIND_SELECTOR { TypeSpec () (getSpan ($1, $2)) TypeReal $2  }
+| doublePrecision         { TypeSpec () (getSpan $1)       TypeDoublePrecision Nothing}
+| logical   KIND_SELECTOR { TypeSpec () (getSpan ($1, $2)) TypeLogical $2 }
+| complex   KIND_SELECTOR { TypeSpec () (getSpan ($1, $2)) TypeComplex $2 }
+| doubleComplex           { TypeSpec () (getSpan $1)       TypeDoubleComplex Nothing}
+| character CHAR_SELECTOR { TypeSpec () (getSpan ($1, $2)) TypeCharacter $2 }
+| byte      KIND_SELECTOR { TypeSpec () (getSpan ($1, $2)) TypeByte $2 }
+| record    '/' NAME '/'  { TypeSpec () (getSpan ($1, $4)) (TypeCustom $3) Nothing }
 
 KIND_SELECTOR :: { Maybe (Selector A0) }
 KIND_SELECTOR

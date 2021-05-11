@@ -26,6 +26,7 @@ import Data.Data
 import Data.Functor.Identity (Identity ())
 import Control.Applicative (liftA2)
 import Language.Fortran.Analysis
+import Language.Fortran.Analysis.SemanticTypes
 import Language.Fortran.Intrinsics
 import Language.Fortran.Util.Position
 import Language.Fortran.Version (FortranVersion(..))
@@ -387,7 +388,7 @@ functionCallType ss (ExpValue _ _ (ValIntrinsic n)) (Just (AList _ _ params)) = 
             ITComplex   -> wrapBaseType TypeComplex
             ITDouble    -> wrapBaseType TypeDoublePrecision
             ITLogical   -> wrapBaseType TypeLogical
-            ITCharacter -> wrapBaseType (TypeCharacter Nothing Nothing)
+            ITCharacter -> wrapBaseType TypeCharacter
             ITParam i
               | length params >= i, Argument _ _ _ e <- params !! (i-1)
                 -> return $ idVType =<< getIDType e
@@ -558,7 +559,7 @@ deriveSemTypeFromDeclaration stmtSs declSs ts@(TypeSpec _ _ bt mSel) mLenExpr =
       Just lenExpr ->
         -- we got a RHS length; only CHARACTERs permit this
         case bt of
-          TypeCharacter {} ->
+          TypeCharacter ->
             case mSel of
               Just (Selector selA selSs mSelLenExpr mKindExpr) -> do
                 -- we do some further inspection for warnings and type
@@ -653,12 +654,7 @@ deriveSemTypeFromBaseTypeAndSelector bt (Selector _ ss mLen mKindExpr) =
       Just len ->
         -- length only makes sense with a CHARACTER (AST does not enforce)
         case bt of
-          TypeCharacter mCharLenExpr mKindStr ->
-            case mCharLenExpr of
-              Just charLen -> return $ STyCharacter charLen
-              Nothing      ->
-                -- no kind or length for a CHARACTER: defaults
-                defaultSemType
+          TypeCharacter -> defaultSemType -- TODO ????
           _ -> do
             -- (unreachable code path in correct parser operation)
             typeError "only CHARACTER types can specify length (separate to kind)" ss
@@ -688,10 +684,8 @@ deriveSemTypeFromBaseType = \case
   TypeByte            -> STyByte    noKind
 
   -- (see deriveSemTypeFromBaseTypeAndSelector)
-  TypeCharacter mLen mKindExpr ->
-    -- If we're here, mLen and mKindExpr are almost certainly Nothing. So we'll
-    -- ignore them and use default length.
-    STyCharacter (CharLenInt 1)
+  -- TODO
+  TypeCharacter       -> STyCharacter (CharLenInt 1)
 
   -- TODO: no clue what to do here. SemType maybe doesn't support F90 properly.
   -- (I think one or two of these map to error in FV)
