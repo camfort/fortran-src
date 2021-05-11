@@ -14,11 +14,13 @@ import GHC.Generics (Generic)
 import Control.DeepSeq (NFData)
 import Text.PrettyPrint.GenericPretty (Out)
 
--- | A location-tagged list of @t@s decorated with @a@ annotations.
+-- | A location-tagged list of @t a@s (@t@ decorated with an @a@ annotation).
 --
 -- The AST is polymorphic on some type @a@, which is used for arbitrary
 -- annotations. Since many AST nodes use lists (e.g. executable statements,
 -- declarations), we define a dedicated annotated list type to reuse.
+--
+-- Note that the list itself also holds an @a@ annotation.
 data AList t a = AList a SrcSpan [t a] deriving (Eq, Show, Data, Typeable, Generic)
 instance Functor t => Functor (AList t) where
   fmap f (AList a s xs) = AList (f a) s (map (fmap f) xs)
