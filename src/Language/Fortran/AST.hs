@@ -5,13 +5,30 @@
 {-# LANGUAGE DeriveFunctor #-}
 {-# LANGUAGE DefaultSignatures #-}
 {-# LANGUAGE FlexibleContexts #-}
--- orphans are instances of package-natives
-{-# OPTIONS_GHC -Wno-orphans #-}
+
+-- This module holds the data types used to represent Fortran code of various
+-- versions.
+--
+-- fortran-src supports Fortran 66 through to Fortran 2003, and uses the same
+-- types to represent them. The Fortran standard was largely refined as it grew,
+-- often assimilating popular compiler extensions for the previous standard. We
+-- try to be as permissible as reasonable when parsing; similarly, this AST
+-- keeps close to the syntax, and includes statements, expressions, types etc.
+-- only applicable to certain (newer) versions of Fortran.
+--
+-- Useful Fortran standard references:
+--
+--   * Fortran 77 ANSI standard: ANSI X3.9-1978
+--   * Fortran 90 ANSI standard: ANSI X3.198-1992 (also ISO/IEC 1539:1991)
+--   * Fortran 90 Handbook (J. Adams)
+--
+-- (The Fortran 66 ANSI standard lacks detail, and isn't as useful as the later
+-- standards for implementing the language.)
 
 module Language.Fortran.AST
   (
   -- * AST nodes and types
-  -- ** Fortran code
+  -- ** Statements and expressions
     ProgramFile(..)
   , ProgramUnit(..)
   , Block(..)
@@ -22,7 +39,7 @@ module Language.Fortran.AST
   , UnaryOp(..)
   , BinaryOp(..)
 
-  -- ** Fortran types and declarations
+  -- ** Types and declarations
   , Name
   , BaseType(..)
   , CharacterLen(..)
@@ -116,11 +133,17 @@ type Name = String
 
 -- | Type name referenced in syntax.
 --
--- Some of these are transformed into other types with specific kinds (e.g.
--- DOUBLE PRECISION -> REAL(8)). It's unclear how strong this syntactic sugar is
--- and whether it differs between Fortran specifications. So we parse types
--- pretty directly, and handle those transformations at type analysis (see
--- 'Analysis.SemType').
+-- In many Fortran specs and compilers, certain types are actually "synonyms"
+-- for other types with specified kinds. The primary example is DOUBLE PRECISION
+-- being equivalent to REAL(8). Type kinds were introduced in Fortran 90, and it
+-- should be safe to replace all instances of DOUBLE PRECISION with REAL(8) in
+-- Fortran 90 code. However, type kinds weren't present in (standard) Fortran
+-- 77, so this equivalence was detached from the user.
+--
+-- In any case, it's unclear how strong the equivalence is and whether it can
+-- be retroactively applied to previous standards. We choose to parse types
+-- directly, and handle those transformations during type analysis, where we
+-- assign most scalars a kind (see 'Analysis.SemType').
 data BaseType =
     TypeInteger
   | TypeReal
