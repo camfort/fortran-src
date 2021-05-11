@@ -8,9 +8,10 @@ import Data.Map ((!))
 import Data.Data
 import Data.Generics.Uniplate.Data
 import Language.Fortran.AST
-import Language.Fortran.Analysis.Types
-import Language.Fortran.Analysis.Renaming
 import Language.Fortran.Analysis
+import Language.Fortran.Analysis.Types
+import Language.Fortran.Analysis.SemanticTypes
+import Language.Fortran.Analysis.Renaming
 import qualified Language.Fortran.Parser.Fortran90 as F90
 import Language.Fortran.ParserMonad
 import qualified Data.ByteString.Char8 as B
@@ -55,7 +56,7 @@ spec = do
       let mapping = inferTable ex4
       let pf = typedProgramFile ex4
       mapping ! "y" `shouldBe` IDType (Just (defSTy TypeInteger)) (Just $ CTArray [(Nothing, Just 10)])
-      mapping ! "c" `shouldBe` IDType (Just (defSTy (TypeCharacter Nothing Nothing))) (Just CTVariable)
+      mapping ! "c" `shouldBe` IDType (Just (defSTy TypeCharacter)) (Just CTVariable)
       mapping ! "log" `shouldBe` IDType (Just (defSTy TypeLogical)) (Just CTVariable)
       [ () | ExpValue a _ (ValVariable "x") <- uniExpr pf
            , idType a == Just (IDType (Just (defSTy TypeInteger)) (Just CTVariable)) ]
@@ -177,7 +178,7 @@ ex4pu1bs =
         [ DeclVariable () u (varGen "x") Nothing Nothing
         , DeclArray () u (varGen "y")
             (AList () u [ DimensionDeclarator () u Nothing (Just $ intGen 10) ]) Nothing Nothing ]))
-  , BlStatement () u Nothing (StDeclaration () u (TypeSpec () u (TypeCharacter Nothing Nothing) Nothing) Nothing
+  , BlStatement () u Nothing (StDeclaration () u (TypeSpec () u TypeCharacter Nothing) Nothing
       (AList () u [ DeclVariable () u (varGen "c") Nothing Nothing ]))
   , BlStatement () u Nothing (StDeclaration () u (TypeSpec () u TypeLogical Nothing) Nothing
       (AList () u [ DeclVariable () u (varGen "log") Nothing Nothing ])) ]

@@ -2,8 +2,7 @@
 
 {-# LANGUAGE DeriveDataTypeable #-}
 {-# LANGUAGE DeriveGeneric #-}
-{-# LANGUAGE DeriveAnyClass #-}
-{-# OPTIONS_GHC -fno-warn-orphans #-}
+{-# LANGUAGE LambdaCase #-}
 
 module Language.Fortran.Analysis.SemanticTypes where
 
@@ -48,12 +47,15 @@ charLenSelector :: Maybe (Selector a) -> (Maybe CharacterLen, Maybe String)
 charLenSelector Nothing                          = (Nothing, Nothing)
 charLenSelector (Just (Selector _ _ mlen mkind)) = (l, k)
   where
-    l | Just (ExpValue _ _ ValStar) <- mlen        = Just CharLenStar
-      | Just (ExpValue _ _ ValColon) <- mlen       = Just CharLenColon
-      | Just (ExpValue _ _ (ValInteger i)) <- mlen = Just $ CharLenInt (read i)
-      | Nothing <- mlen                            = Nothing
-      | otherwise                                  = Just CharLenExp
+    l = charLenSelector' <$> mlen
     k | Just (ExpValue _ _ (ValInteger i)) <- mkind  = Just i
       | Just (ExpValue _ _ (ValVariable s)) <- mkind = Just s
       -- FIXME: some references refer to things like kind=kanji but I can't find any spec for it
       | otherwise                                    = Nothing
+
+charLenSelector' :: Expression a -> CharacterLen
+charLenSelector' = \case
+  ExpValue _ _ ValStar        -> CharLenStar
+  ExpValue _ _ ValColon       -> CharLenColon
+  ExpValue _ _ (ValInteger i) -> CharLenInt (read i)
+  _                           -> CharLenExp

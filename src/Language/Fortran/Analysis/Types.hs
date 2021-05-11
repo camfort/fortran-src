@@ -545,9 +545,6 @@ isIxSingle _           = False
 -- If a length was defined on both sides, the declaration length (RHS) is used.
 -- This matches gfortran's behaviour, though even with -Wall they don't warn on
 -- this rather confusing syntax usage. We report a (soft) type error.
---
--- Complicating the matter is that 'TypeCharacter's store a partly-parsed
--- version of the 'Selector'.
 deriveSemTypeFromDeclaration
     :: SrcSpan -> SrcSpan -> TypeSpec a -> Maybe (Expression a) -> Infer SemType
 deriveSemTypeFromDeclaration stmtSs declSs ts@(TypeSpec _ _ bt mSel) mLenExpr =
@@ -637,6 +634,8 @@ deriveSemTypeFromTypeSpec (TypeSpec _ _ bt mSel) =
 
 -- | Attempt to derive a SemType from a 'BaseType' and a 'Selector' (e.g.
 --   extracted from a 'TypeSpec').
+--
+-- TODO needs cleaning up once we put kind in STyCharacter too
 deriveSemTypeFromBaseTypeAndSelector :: BaseType -> Selector a -> Infer SemType
 deriveSemTypeFromBaseTypeAndSelector bt (Selector _ ss mLen mKindExpr) =
     case mLen of
@@ -654,7 +653,7 @@ deriveSemTypeFromBaseTypeAndSelector bt (Selector _ ss mLen mKindExpr) =
       Just len ->
         -- length only makes sense with a CHARACTER (AST does not enforce)
         case bt of
-          TypeCharacter -> defaultSemType -- TODO ????
+          TypeCharacter -> return $ STyCharacter (charLenSelector' len)
           _ -> do
             -- (unreachable code path in correct parser operation)
             typeError "only CHARACTER types can specify length (separate to kind)" ss
