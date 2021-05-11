@@ -8,7 +8,89 @@
 -- orphans are instances of package-natives
 {-# OPTIONS_GHC -Wno-orphans #-}
 
-module Language.Fortran.AST where
+module Language.Fortran.AST
+  (
+  -- * AST nodes and types
+  -- ** Fortran code
+    ProgramFile(..)
+  , ProgramUnit(..)
+  , Block(..)
+  , Statement(..)
+  , Expression(..)
+  , Index(..)
+  , Value(..)
+  , UnaryOp(..)
+  , BinaryOp(..)
+
+  -- ** Fortran types and declarations
+  , Name
+  , BaseType(..)
+  , CharacterLen(..)
+  , TypeSpec(..)
+  , Declarator(..)
+  , Selector(..)
+  , DimensionDeclarator(..)
+
+  -- ** Annotated node list (re-export)
+  , module Language.Fortran.AST.AList
+
+  -- ** Other
+  , Attribute(..)
+  , Prefix(..)
+  , Suffix(..)
+  , ProcDecl(..)
+  , ProcInterface(..)
+  , Comment(..)
+  , ForallHeader(..)
+  , Only(..)
+  , MetaInfo(..)
+  , Prefixes
+  , Suffixes
+  , PrefixSuffix
+  , ModuleNature(..)
+  , Use(..)
+  , Argument(..)
+  , Intent(..)
+  , ControlPair(..)
+  , AllocOpt(..)
+  , ImpList(..)
+  , ImpElement(..)
+  , CommonGroup(..)
+  , Namelist(..)
+  , DataGroup(..)
+  , StructureItem(..)
+  , UnionMap(..)
+  , FormatItem(..)
+  , FlushSpec(..)
+  , DoSpecification(..)
+  , ProgramUnitName(..)
+
+  -- * Retrieving node annotations etc.
+  , Annotated(..)
+  , A0
+  , Labeled(..)
+  , Conditioned(..)
+  , Named(..)
+
+  -- * Helpers
+  , charLenSelector
+  , validPrefixSuffix
+  , emptyPrefixes
+  , emptySuffixes
+  , emptyPrefixSuffix
+  , nonExecutableStatement
+  , nonExecutableStatementBlock
+  , executableStatement
+  , executableStatementBlock
+  , setInitialisation
+
+  -- ** Assorted getters & setters
+  , pfSetFilename
+  , pfGetFilename
+  , programUnitBody
+  , updateProgramUnitBody
+  , programUnitSubprograms
+  ) where
 
 import Prelude hiding (init)
 import Data.Data
@@ -17,59 +99,16 @@ import Data.Typeable ()
 import Data.Binary
 import Control.DeepSeq
 import Text.PrettyPrint.GenericPretty
-import Language.Fortran.ParserMonad (FortranVersion(..))
+import Language.Fortran.Version (FortranVersion(..))
 
 import Language.Fortran.Util.Position
 import Language.Fortran.Util.FirstParameter
 import Language.Fortran.Util.SecondParameter
-
+import Language.Fortran.AST.AList
 
 type A0 = ()
 
 type Name = String
-
--- AST is polymorphic on some type a as that type is used for arbitrary
--- annotations
-
--- Many AST nodes such as executable statements, declerations, etc. may
--- appear in lists, hence a dedicated annotated list type is defined
-data AList t a = AList a SrcSpan [t a] deriving (Eq, Show, Data, Typeable, Generic)
-instance Functor t => Functor (AList t) where
-  fmap f (AList a s xs) = AList (f a) s (map (fmap f) xs)
-
-
--- Convert non-empty list to AList.
-fromList :: Spanned (t a) => a -> [ t a ] -> AList t a
-fromList a xs = AList a (getSpan xs) xs
-
--- Nothing iff list is empty
-fromList' :: Spanned (t a) => a -> [ t a ] -> Maybe (AList t a)
-fromList' _ [] = Nothing
-fromList' a xs = Just $ fromList a xs
-
-fromReverseList :: Spanned (t ()) => [ t () ] -> AList t ()
-fromReverseList = fromList () . reverse
-
-fromReverseList' :: Spanned (t ()) => [ t () ] -> Maybe (AList t ())
-fromReverseList' = fromList' () . reverse
-
-aCons :: t a -> AList t a -> AList t a
-aCons x (AList a s xs) = AList a s $ x:xs
-
-infixr 5 `aCons`
-
-aReverse :: AList t a -> AList t a
-aReverse (AList a s xs) = AList a s $ reverse xs
-
-aStrip :: AList t a -> [t a]
-aStrip (AList _ _ l) = l
-
-aStrip' :: Maybe (AList t a) -> [t a]
-aStrip' Nothing = []
-aStrip' (Just a) = aStrip a
-
-aMap :: (t a -> r a) -> AList t a -> AList r a
-aMap f (AList a s xs) = AList a s (map f xs)
 
 --------------------------------------------------------------------------------
 -- Basic AST nodes
@@ -670,7 +709,6 @@ class Annotated f where
 
   modifyAnnotation f x = setAnnotation (f (getAnnotation x)) x
 
-instance FirstParameter (AList t a) a
 instance FirstParameter (ProgramUnit a) a
 instance FirstParameter (Prefix a) a
 instance FirstParameter (Suffix a) a
@@ -700,7 +738,6 @@ instance FirstParameter (DimensionDeclarator a) a
 instance FirstParameter (ControlPair a) a
 instance FirstParameter (AllocOpt a) a
 
-instance SecondParameter (AList t a) SrcSpan
 instance SecondParameter (ProgramUnit a) SrcSpan
 instance SecondParameter (Prefix a) SrcSpan
 instance SecondParameter (Suffix a) SrcSpan
@@ -758,7 +795,6 @@ instance Annotated DimensionDeclarator
 instance Annotated ControlPair
 instance Annotated AllocOpt
 
-instance Spanned (AList t a)
 instance Spanned (ProgramUnit a)
 instance Spanned (Prefix a)
 instance Spanned (Suffix a)
@@ -795,78 +831,6 @@ instance Spanned (ProgramFile a) where
       pus' -> getSpan pus'
 
   setSpan _ _ = error "Cannot set span to a program unit"
-
-instance (Spanned a) => Spanned [a] where
-  getSpan [] = error "Trying to find how long an empty list spans for."
-  getSpan [x]   = getSpan x
-  getSpan (x:xs) = getTransSpan x (last xs)
-  setSpan _ _ = error "Cannot set span to an array"
-
-instance (Spanned a, Spanned b) => Spanned (a, Maybe b) where
-  getSpan (x, Just y) = getTransSpan x y
-  getSpan (x,_) = getSpan x
-  setSpan _ = undefined
-
-instance (Spanned a, Spanned b) => Spanned (Maybe a, b) where
-  getSpan (Just x,y) = getTransSpan x y
-  getSpan (_,y) = getSpan y
-  setSpan _ = undefined
-
-instance (Spanned a, Spanned b) => Spanned (Either a b) where
-  getSpan (Left x) = getSpan x
-  getSpan (Right x) = getSpan x
-  setSpan _ = undefined
-
-instance {-# OVERLAPPABLE #-} (Spanned a, Spanned b) => Spanned (a, b) where
-  getSpan (x,y) = getTransSpan x y
-  setSpan _ = undefined
-
-instance {-# OVERLAPPING #-}(Spanned a, Spanned b, Spanned c) => Spanned (Maybe a, Maybe b, Maybe c) where
-  getSpan (Just x,_,Just z) = getTransSpan x z
-  getSpan (Just x,Just y,Nothing) = getTransSpan x y
-  getSpan (Nothing,Just y,Just z) = getTransSpan y z
-  getSpan (Just x,Nothing,Nothing) = getSpan x
-  getSpan (Nothing,Just y,Nothing) = getSpan y
-  getSpan (Nothing,Nothing,Just z) = getSpan z
-  getSpan (Nothing,Nothing,Nothing) = undefined
-  setSpan _ = undefined
-
-instance {-# OVERLAPPING #-}(Spanned a, Spanned b, Spanned c) => Spanned (a, Maybe b, Maybe c) where
-  getSpan (x,_,Just z) = getTransSpan x z
-  getSpan (x,Just y,Nothing) = getTransSpan x y
-  getSpan (x,Nothing,Nothing) = getSpan x
-  setSpan _ = undefined
-
-instance {-# OVERLAPPING #-} (Spanned a, Spanned b, Spanned c) => Spanned (Maybe a, b, c) where
-  getSpan (Just x,_,z) = getTransSpan x z
-  getSpan (_,y,z) = getSpan (y,z)
-  setSpan _ = undefined
-
-instance {-# OVERLAPPABLE #-} (Spanned a, Spanned b, Spanned c) => Spanned (a, b, c) where
-  getSpan (x,_,z) = getTransSpan x z
-  setSpan _ = undefined
-
-class (Spanned a, Spanned b) => SpannedPair a b where
-  getTransSpan :: a -> b -> SrcSpan
-
-instance {-# OVERLAPPABLE #-} (Spanned a, Spanned b) => SpannedPair a b where
-  getTransSpan x y = SrcSpan l1 l2'
-    where SrcSpan l1 _ = getSpan x
-          SrcSpan _ l2' = getSpan y
-
-instance {-# OVERLAPS #-} (Spanned a, Spanned b) => SpannedPair a [b] where
-  getTransSpan x [] = getSpan x
-  getTransSpan x y = SrcSpan l1 l2'
-    where SrcSpan l1 _ = getSpan x
-          SrcSpan _ l2' = getSpan y
-
-instance {-# OVERLAPS #-} (Spanned a, Spanned b) => SpannedPair a [[b]] where
-  getTransSpan x [] = getSpan x
-  getTransSpan x y | all null y = getSpan x
-  getTransSpan x y | any null y = getTransSpan x (filter (not . null) y)
-  getTransSpan x y = SrcSpan l1 l2'
-    where SrcSpan l1 _ = getSpan x
-          SrcSpan _ l2' = getSpan y
 
 class Labeled f where
   getLabel :: f a -> Maybe (Expression a)
@@ -941,13 +905,11 @@ instance Named (ProgramUnit a) where
   -- Identity function if first arg is nameless or second arg is comment.
   setName _ a = a
 
-instance Out FortranVersion
 instance Out MetaInfo
 instance Out a => Out (ProgramFile a)
 instance Out a => Out (ProgramUnit a)
 instance Out a => Out (Prefix a)
 instance Out a => Out (Suffix a)
-instance (Out a, Out (t a)) => Out (AList t a)
 instance Out a => Out (Statement a)
 instance Out a => Out (ProcDecl a)
 instance Out a => Out (ProcInterface a)
@@ -1037,7 +999,6 @@ nonExecutableStatementBlock v (BlStatement _ _ _ s) = nonExecutableStatement v s
 nonExecutableStatementBlock _ BlInterface{} = True
 nonExecutableStatementBlock _ _ = False
 
-instance (NFData a, NFData (t a)) => NFData (AList t a)
 instance NFData a => NFData (ProgramFile a)
 instance NFData a => NFData (ProgramUnit a)
 instance NFData a => NFData (Block a)
@@ -1071,7 +1032,6 @@ instance NFData a => NFData (Suffix a)
 instance NFData a => NFData (StructureItem a)
 instance NFData a => NFData (UnionMap a)
 instance NFData MetaInfo
-instance NFData FortranVersion
 instance NFData CharacterLen
 instance NFData BaseType
 instance NFData UnaryOp
