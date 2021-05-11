@@ -14,8 +14,10 @@ module Language.Fortran.Version
 import           Data.Char (toLower)
 import           Data.List (isInfixOf, isSuffixOf, find)
 
-import Data.Data (Data, Typeable)
+import Data.Data    (Data, Typeable)
 import GHC.Generics (Generic)
+import Control.DeepSeq (NFData)
+import Text.PrettyPrint.GenericPretty (Out)
 
 data FortranVersion = Fortran66
                     | Fortran77
@@ -36,6 +38,9 @@ instance Show FortranVersion where
   show Fortran95         = "Fortran 95"
   show Fortran2003       = "Fortran 2003"
   show Fortran2008       = "Fortran 2008"
+
+instance Out    FortranVersion
+instance NFData FortranVersion
 
 fortranVersionAliases :: [(String, FortranVersion)]
 fortranVersionAliases = [ ("66" , Fortran66)

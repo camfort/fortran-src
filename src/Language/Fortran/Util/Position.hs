@@ -1,6 +1,8 @@
 {-# LANGUAGE DeriveDataTypeable #-}
 {-# LANGUAGE DefaultSignatures #-}
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE DeriveGeneric #-}
 
 module Language.Fortran.Util.Position where
@@ -91,3 +93,77 @@ class Spanned a where
 
   default setSpan :: (SecondParameter a SrcSpan) => SrcSpan -> a -> a
   setSpan = setSecondParameter
+
+class (Spanned a, Spanned b) => SpannedPair a b where
+  getTransSpan :: a -> b -> SrcSpan
+
+--------------------------------------------------------------------------------
+
+instance (Spanned a) => Spanned [a] where
+  getSpan [] = error "Trying to find how long an empty list spans for."
+  getSpan [x]   = getSpan x
+  getSpan (x:xs) = getTransSpan x (last xs)
+  setSpan _ _ = error "Cannot set span to an array"
+
+instance (Spanned a, Spanned b) => Spanned (a, Maybe b) where
+  getSpan (x, Just y) = getTransSpan x y
+  getSpan (x,_) = getSpan x
+  setSpan _ = undefined
+
+instance (Spanned a, Spanned b) => Spanned (Maybe a, b) where
+  getSpan (Just x,y) = getTransSpan x y
+  getSpan (_,y) = getSpan y
+  setSpan _ = undefined
+
+instance (Spanned a, Spanned b) => Spanned (Either a b) where
+  getSpan (Left x) = getSpan x
+  getSpan (Right x) = getSpan x
+  setSpan _ = undefined
+
+instance {-# OVERLAPPABLE #-} (Spanned a, Spanned b) => Spanned (a, b) where
+  getSpan (x,y) = getTransSpan x y
+  setSpan _ = undefined
+
+instance {-# OVERLAPPING #-}(Spanned a, Spanned b, Spanned c) => Spanned (Maybe a, Maybe b, Maybe c) where
+  getSpan (Just x,_,Just z) = getTransSpan x z
+  getSpan (Just x,Just y,Nothing) = getTransSpan x y
+  getSpan (Nothing,Just y,Just z) = getTransSpan y z
+  getSpan (Just x,Nothing,Nothing) = getSpan x
+  getSpan (Nothing,Just y,Nothing) = getSpan y
+  getSpan (Nothing,Nothing,Just z) = getSpan z
+  getSpan (Nothing,Nothing,Nothing) = undefined
+  setSpan _ = undefined
+
+instance {-# OVERLAPPING #-}(Spanned a, Spanned b, Spanned c) => Spanned (a, Maybe b, Maybe c) where
+  getSpan (x,_,Just z) = getTransSpan x z
+  getSpan (x,Just y,Nothing) = getTransSpan x y
+  getSpan (x,Nothing,Nothing) = getSpan x
+  setSpan _ = undefined
+
+instance {-# OVERLAPPING #-} (Spanned a, Spanned b, Spanned c) => Spanned (Maybe a, b, c) where
+  getSpan (Just x,_,z) = getTransSpan x z
+  getSpan (_,y,z) = getSpan (y,z)
+  setSpan _ = undefined
+
+instance {-# OVERLAPPABLE #-} (Spanned a, Spanned b, Spanned c) => Spanned (a, b, c) where
+  getSpan (x,_,z) = getTransSpan x z
+  setSpan _ = undefined
+
+instance {-# OVERLAPPABLE #-} (Spanned a, Spanned b) => SpannedPair a b where
+  getTransSpan x y = SrcSpan l1 l2'
+    where SrcSpan l1 _ = getSpan x
+          SrcSpan _ l2' = getSpan y
+
+instance {-# OVERLAPS #-} (Spanned a, Spanned b) => SpannedPair a [b] where
+  getTransSpan x [] = getSpan x
+  getTransSpan x y = SrcSpan l1 l2'
+    where SrcSpan l1 _ = getSpan x
+          SrcSpan _ l2' = getSpan y
+
+instance {-# OVERLAPS #-} (Spanned a, Spanned b) => SpannedPair a [[b]] where
+  getTransSpan x [] = getSpan x
+  getTransSpan x y | all null y = getSpan x
+  getTransSpan x y | any null y = getTransSpan x (filter (not . null) y)
+  getTransSpan x y = SrcSpan l1 l2'
+    where SrcSpan l1 _ = getSpan x
+          SrcSpan _ l2' = getSpan y
