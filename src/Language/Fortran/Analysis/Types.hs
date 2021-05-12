@@ -24,7 +24,6 @@ import Control.Monad.State.Strict
 import Data.Generics.Uniplate.Data
 import Data.Data
 import Data.Functor.Identity (Identity ())
-import Control.Applicative (liftA2)
 import Language.Fortran.Analysis
 import Language.Fortran.Analysis.SemanticTypes
 import Language.Fortran.Intrinsics
@@ -138,10 +137,10 @@ programUnit pu@(PUFunction _ _ mRetType _ _ _ mRetVar blocks _)
     recordCType CTFunction n
     case (mRetType, mRetVar) of
       -- TODO: what exactly is going on here (accessing uniqueName/sourceName)
-      (Just ts@(TypeSpec _ _ baseType _), Just v) -> do
+      (Just ts@(TypeSpec _ _ _ _), Just v) -> do
         semType <- deriveSemTypeFromTypeSpec ts
         recordSemType semType n >> recordSemType semType (varName v)
-      (Just ts@(TypeSpec _ _ baseType _), _)      -> do
+      (Just ts@(TypeSpec _ _ _ _), _)      -> do
         semType <- deriveSemTypeFromTypeSpec ts
         recordSemType semType n
       _                                        -> return ()
@@ -171,7 +170,7 @@ statement :: Data a => InferFunc (Statement (Analysis a))
 
 -- TODO: Make notes on this (specifically StDeclaration). StDeclaration means we
 -- have the single LHS, plus a list of RHSs (for each var).
-statement (StDeclaration _ stmtSs ts@(TypeSpec _ _ baseType _) mAttrAList declAList)
+statement (StDeclaration _ stmtSs ts@(TypeSpec _ _ _ _) mAttrAList declAList)
   | mAttrs  <- maybe [] aStrip mAttrAList
   , attrDim <- find isAttrDimension mAttrs
   , isParam <- any isAttrParameter mAttrs
@@ -325,7 +324,7 @@ binopSimpleCombineSemTypes ss op st1 st2 = do
       (STyInteger k1, _           ) -> ret $ STyInteger k1
       (STyByte    k1, STyByte    _ ) -> ret $ STyByte k1
       (STyLogical k1, STyLogical _ ) -> ret $ STyLogical k1
-      (STyCustom  n1, STyCustom  n2) -> do
+      (STyCustom  _, STyCustom   _) -> do
         typeError "custom types / binary op not supported" ss
         return Nothing
       (STyCharacter k1, STyCharacter k2)
