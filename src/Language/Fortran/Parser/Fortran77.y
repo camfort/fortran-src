@@ -27,6 +27,7 @@ import Control.Monad.State
 import Data.List
 import Data.Maybe (isNothing, fromJust)
 import qualified Data.ByteString.Char8 as B
+import qualified Data.Map as M
 import Language.Fortran.Util.Position
 import Language.Fortran.Util.ModFile
 import Language.Fortran.ParserMonad
@@ -1173,7 +1174,7 @@ legacy77ParserWithIncludesWithTransforms transforms incs sourceCode filename =
     doParse = case parse parseState of
       ParseFailed e -> return (ParseFailed e)
       ParseOk p x -> do
-        p' <- descendBiM (inlineInclude Fortran77Legacy incs []) p
+        p' <- evalStateT (descendBiM (inlineInclude Fortran77Legacy incs []) p) M.empty
         return (ParseOk p' x)
     transform = transformWithModFiles emptyModFiles transforms
     parseState = initParseState sourceCode Fortran77Legacy filename
@@ -1186,16 +1187,22 @@ includeParser version sourceCode filename =
     -- ensure the file ends with a newline..
     parseState = initParseState (sourceCode `B.snoc` '\n') version filename
 
-inlineInclude :: FortranVersion -> [String] -> [String] -> Statement A0 -> IO (Statement A0)
+inlineInclude :: FortranVersion -> [String] -> [String] -> Statement A0 ->
+  StateT (M.Map String [Block A0]) IO (Statement A0)
 inlineInclude fv dirs seen st = case st of
   StInclude a s e@(ExpValue _ _ (ValString path)) Nothing -> do
     if notElem path seen then do
-      inc <- readInDirs dirs path
-      case includeParser fv inc path of
-        ParseOk blocks _ -> do
-          blocks' <- descendBiM (inlineInclude fv dirs (path:seen)) blocks
-          return $ StInclude a s e (Just blocks')
-        ParseFailed e -> throwIO e
+      incMap <- get
+      case M.lookup path incMap of
+        Just blocks' -> pure $ StInclude a s e (Just blocks')
+        Nothing -> do
+          inc <- liftIO $ readInDirs dirs path
+          case includeParser fv inc path of
+            ParseOk blocks _ -> do
+              blocks' <- descendBiM (inlineInclude fv dirs (path:seen)) blocks
+              modify (M.insert path blocks')
+              return $ StInclude a s e (Just blocks')
+            ParseFailed e -> liftIO $ throwIO e
     else return st
   _ -> return st
 
