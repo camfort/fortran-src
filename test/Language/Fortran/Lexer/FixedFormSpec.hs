@@ -226,6 +226,9 @@ spec =
         resetSrcSpan (collectFixedTokens' Fortran77Legacy "      integer i; integer j")
           `shouldBe` resetSrcSpan [TType u "integer", TId u "i", TNewline u, TType u "integer", TId u "j", TEOF u]
 
+      it "does not lex ';' as a line-terminator in first 6 columns" $
+        safeLex66 "; integer i; integer j" `shouldBe` Nothing
+
       it "lexes subscripts in assignments" $
         resetSrcSpan (collectFixedTokens' Fortran77Legacy "      x(0,0) = 0")
           `shouldBe` resetSrcSpan [TId u "x", TLeftPar u, TInt u "0", TComma u, TInt u "0", TRightPar u, TOpAssign u, TInt u "0", TEOF u]
