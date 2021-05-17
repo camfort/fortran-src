@@ -128,9 +128,6 @@ main = do
                  , b <- concatMap snd $ labNodes (bbgrGr bbgr)
                  , insLabel (getAnnotation b) == Just astBlockId ]
       case actionOpt of
-        Tmp        ->
-            let pf = parserF mods contents path
-             in (print . snd) $ analyseTypes (initAnalysis pf)
         Lex | version `elem` [ Fortran66, Fortran77, Fortran77Extended, Fortran77Legacy ] ->
           print $ FixedForm.collectFixedTokens version contents
         Lex | version `elem` [Fortran90, Fortran2003, Fortran2008] ->
@@ -343,7 +340,7 @@ printTypeErrors = putStrLn . showTypeErrors
 
 data Action
   = Lex | Parse | Typecheck | Rename | BBlocks | SuperGraph | Reprint | DumpModFile | Compile
-  | ShowFlows Bool Bool Int | ShowBlocks (Maybe Int) | ShowMakeGraph | Make | Tmp
+  | ShowFlows Bool Bool Int | ShowBlocks (Maybe Int) | ShowMakeGraph | Make
   deriving Eq
 
 instance Read Action where
@@ -375,10 +372,6 @@ options =
       ["fortranVersion"]
       (ReqArg (\v opts -> opts { fortranVersion = selectFortranVersion v }) "VERSION")
       "Fortran version to use, format: Fortran[66/77/77Legacy/77Extended/90]"
-  , Option []
-      ["tmp"]
-      (NoArg $ \ opts -> opts { action = Tmp })
-      "tmp action"
   , Option ['a']
       ["action"]
       (ReqArg (\a opts -> opts { action = read a }) "ACTION")
