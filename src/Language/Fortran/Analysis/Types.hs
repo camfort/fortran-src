@@ -136,7 +136,6 @@ programUnit pu@(PUFunction _ _ mRetType _ _ _ mRetVar blocks _)
     -- record some type information that we can glean
     recordCType CTFunction n
     case (mRetType, mRetVar) of
-      -- TODO: what exactly is going on here (accessing uniqueName/sourceName)
       (Just ts@(TypeSpec _ _ _ _), Just v) -> do
         semType <- deriveSemTypeFromTypeSpec ts
         recordSemType semType n >> recordSemType semType (varName v)
@@ -168,8 +167,6 @@ dimDeclarator ddAList = [ (lb, ub) | DimensionDeclarator _ _ lbExp ubExp <- aStr
 
 statement :: Data a => InferFunc (Statement (Analysis a))
 
--- TODO: Make notes on this (specifically StDeclaration). StDeclaration means we
--- have the single LHS, plus a list of RHSs (for each var).
 statement (StDeclaration _ stmtSs ts@(TypeSpec _ _ _ _) mAttrAList declAList)
   | mAttrs  <- maybe [] aStrip mAttrAList
   , attrDim <- find isAttrDimension mAttrs
@@ -231,8 +228,8 @@ annotateExpression e@(ExpValue _ ss (ValComplex e1 e2)) = do
     st <- complexLiteralType ss e1 e2
     return $ setSemType st e
 annotateExpression e@(ExpValue _ _ (ValInteger _))     =
-    -- TODO: in >F90, int lits can have kind info on end, same as real lits. We
-    -- do parse this into the lit string.
+    -- FIXME: in >F90, int lits can have kind info on end @_8@, same as real
+    -- lits. We do parse this into the lit string, it is available to us.
     return $ setSemType (deriveSemTypeFromBaseType TypeInteger) e
 annotateExpression e@(ExpValue _ _ (ValLogical _))     =
     return $ setSemType (deriveSemTypeFromBaseType TypeLogical) e
@@ -327,8 +324,10 @@ binopSimpleCombineSemTypes ss op st1 st2 = do
       (STyCustom  _, STyCustom   _) -> do
         typeError "custom types / binary op not supported" ss
         return Nothing
-      (STyCharacter k1, STyCharacter k2)
-        | op == Concatenation -> ret $ STyCharacter (charLenConcat k1 k2)
+      (STyCharacter l1 k1, STyCharacter l2 k2)
+        | k1 /= k2 -> do typeError "operation on character strings of different kinds" ss
+                         return Nothing
+        | op == Concatenation -> ret $ STyCharacter (charLenConcat l1 l2) k1
         | op `elem` [EQ, NE]  -> ret $ deriveSemTypeFromBaseType TypeLogical
         | otherwise -> do typeError "Invalid op on character strings" ss
                           return Nothing
@@ -555,43 +554,7 @@ deriveSemTypeFromDeclaration stmtSs declSs ts@(TypeSpec _ _ bt mSel) mLenExpr =
       Just lenExpr ->
         -- we got a RHS length; only CHARACTERs permit this
         case bt of
-          TypeCharacter ->
-            case mSel of
-              Just (Selector selA selSs mSelLenExpr mKindExpr) -> do
-                -- we do some further inspection for warnings and type
-                -- errors (fine), then overwrite the Selector with the RHS length
-                -- expression. /Ideally/ we'd then use the the generic
-                -- 'BaseType' + 'Selector' deriver, but woe! It uses the
-                -- TypeCharacter info if present, which has been derived from
-                -- the 'Selector' len expr. So we sigh and re-use a parser util.
-                _ <- case mSelLenExpr of
-                       Just _ -> do
-                          -- LHS & RHS lengths: notify user (surprising syntax)
-                          -- Ben has seen this IRL: a high-ranking Fortran
-                          -- tutorial site uses it (2021-04-30):
-                          -- http://web.archive.org/web/20210118202503/https://www.tutorialspoint.com/fortran/fortran_strings.htm
-                          -- TODO: is this actually surprising or just to me lol
-                         flip typeError declSs $
-                             "warning: CHARACTER variable at declaration "
-                          <> show stmtSs
-                          <> " has length in LHS type spec and RHS declarator"
-                          <> " -- declarator overrides"
-                       _ -> return ()
-                let sel' = Selector selA selSs (Just lenExpr) mKindExpr
-                let (Just charLen, _) = charLenSelector (Just sel')
-                return $ STyCharacter charLen
-              Nothing ->
-                -- got RHS len, no Selector (e.g. @CHARACTER :: x*3 = "sup"@)
-                -- HACK: awkward edge case. Attempt to push the len into the
-                -- STyCharacter.
-                -- This case appears similar to one when deriving from
-                -- 'BaseType' and 'TypeSpec' which uses the 'Maybe CharacterLen'
-                -- in the 'TypeCharacter'. But 'CharacterLen' is derived from
-                -- the declaration's 'Selector' (see 'AST.charLenSelector'), so
-                -- here, once we know there's no 'Selector' present, we also
-                -- know the 'TypeCharacter' has no useful information to use.
-                conjureSemChar lenExpr
-
+          TypeCharacter -> deriveCharWithLen lenExpr
           _ -> do
             -- can't use RHS @var*length = x@ syntax on non-CHARACTER: complain,
             -- continue regular deriving without length
@@ -600,66 +563,71 @@ deriveSemTypeFromDeclaration stmtSs declSs ts@(TypeSpec _ _ bt mSel) mLenExpr =
              <> show stmtSs
              <> " given a length"
             deriveSemTypeFromTypeSpec ts
+  where
+    -- Function called when we have a TypeCharacter and a RHS declarator length.
+    -- (no function signature due to type variable scoping)
+    --deriveCharWithLen :: Expression a -> Infer SemType
+    deriveCharWithLen lenExpr =
+        case mSel of
+          Just (Selector selA selSs mSelLenExpr mKindExpr) -> do
+            _ <- case mSelLenExpr of
+                   Just _ -> do
+                      -- both LHS & RHS lengths: surprising syntax, notify user
+                      -- Ben has seen this IRL: a high-ranking Fortran
+                      -- tutorial site uses it (2021-04-30):
+                      -- http://web.archive.org/web/20210118202503/https://www.tutorialspoint.com/fortran/fortran_strings.htm
+                     flip typeError declSs $
+                         "warning: CHARACTER variable at declaration "
+                      <> show stmtSs
+                      <> " has length in LHS type spec and RHS declarator"
+                      <> " -- specific RHS declarator overrides"
+                   _ -> return ()
+            -- overwrite the Selector with RHS length expr & continue
+            let sel' = Selector selA selSs (Just lenExpr) mKindExpr
+            deriveSemTypeFromBaseTypeAndSelector TypeCharacter sel'
+          Nothing ->
+            -- got RHS len, no Selector (e.g. @CHARACTER :: x*3 = "sup"@)
+            -- naughty let binding to avoid re-hardcoding default char kind
+            let (STyCharacter _ k) = deriveSemTypeFromBaseType TypeCharacter
+             in return $ STyCharacter (charLenSelector' lenExpr) k
 
--- TODO: parts of AST.charLenSelector here. Maybe refactor that so I can reuse.
-conjureSemChar :: Expression a -> Infer SemType
-conjureSemChar expr = case expr of
-  ExpValue _ ss value ->
-    case value of
-      ValStar      -> return $ STyCharacter (CharLenStar)
-      ValColon     ->
-        -- this (`CHARACTER :: s*(:)`) doesn't seem to parse (F90). Should it?
-        return $ STyCharacter (CharLenColon)
-      ValInteger i -> return $ STyCharacter (CharLenInt (read i))
-      _            -> do
-        typeError "potentially unsupported or invalid length expression" (getSpan expr)
-        return $ STyCharacter CharLenExp
-  _                   -> do
-    typeError "potentially unsupported or invalid length expression" (getSpan expr)
-    return $ STyCharacter CharLenExp
-
--- | Attempt to derive a 'SemType' from a 'TypeSpec' (and the 'BaseType' etc.
---   inside).
---
--- This is an 'Infer' action so that it can report type errors.
+-- | Attempt to derive a 'SemType' from a 'TypeSpec'.
 deriveSemTypeFromTypeSpec :: TypeSpec a -> Infer SemType
 deriveSemTypeFromTypeSpec (TypeSpec _ _ bt mSel) =
     case mSel of
       -- Selector present: we might have kind/other info provided
       Just sel -> deriveSemTypeFromBaseTypeAndSelector bt sel
-
-      -- no Selector: derive using default kinds
+      -- no Selector: derive using default kinds etc.
       Nothing  -> return $ deriveSemTypeFromBaseType bt
 
--- | Attempt to derive a SemType from a 'BaseType' and a 'Selector' (e.g.
---   extracted from a 'TypeSpec').
---
--- TODO needs cleaning up once we put kind in STyCharacter too
+-- | Attempt to derive a SemType from a 'BaseType' and a 'Selector'.
 deriveSemTypeFromBaseTypeAndSelector :: BaseType -> Selector a -> Infer SemType
-deriveSemTypeFromBaseTypeAndSelector bt (Selector _ ss mLen mKindExpr) =
+deriveSemTypeFromBaseTypeAndSelector bt (Selector _ ss mLen mKindExpr) = do
+    st <- deriveFromBaseTypeAndKindExpr mKindExpr
     case mLen of
-      Nothing  ->
-        case mKindExpr of
-          Nothing       -> defaultSemType
-          Just kindExpr ->
-            -- FIXME: only support integer kind selectors for now, no params
-            case kindExpr of
-              ExpValue _ _ (ValInteger k) ->
-                deriveSemTypeFromBaseTypeAndKind bt (read k)
-              _ -> do
-                typeError "unsupported or invalid kind selector, only literal integers allowed" (getSpan kindExpr)
-                defaultSemType
-      Just len ->
-        -- length only makes sense with a CHARACTER (AST does not enforce)
-        case bt of
-          TypeCharacter -> return $ STyCharacter (charLenSelector' len)
+      Nothing      -> return st
+      Just lenExpr ->
+        case st of
+          STyCharacter _ kind ->
+            let charLen = charLenSelector' lenExpr
+             in return $ STyCharacter charLen kind
           _ -> do
             -- (unreachable code path in correct parser operation)
             typeError "only CHARACTER types can specify length (separate to kind)" ss
-            defaultSemType
+            return st
   where
-    -- Same behaviour as for no Selector, intended to handle type error cases or
-    -- empty Selectors (though latter should not occur).
+    deriveFromBaseTypeAndKindExpr :: Maybe (Expression a) -> Infer SemType
+    deriveFromBaseTypeAndKindExpr = \case
+      Nothing -> defaultSemType
+      Just kindExpr ->
+        case kindExpr of
+          -- FIXME: only support integer kind selectors for now, no params/exprs
+          -- (would require a wide change across codebase)
+          ExpValue _ _ (ValInteger k) ->
+            deriveSemTypeFromBaseTypeAndKind bt (read k)
+          _ -> do
+            typeError "unsupported or invalid kind selector, only literal integers allowed" (getSpan kindExpr)
+            defaultSemType
     defaultSemType = return $ deriveSemTypeFromBaseType bt
 
 -- | Derive 'SemType' directly from 'BaseType', using relevant default kinds.
@@ -681,23 +649,18 @@ deriveSemTypeFromBaseType = \case
   -- equate BYTE to (STyInteger 1)?
   TypeByte            -> STyByte    noKind
 
-  -- (see deriveSemTypeFromBaseTypeAndSelector)
-  -- TODO
-  TypeCharacter       -> STyCharacter (CharLenInt 1)
+  -- CHARACTERs default to len=1, kind=1 (non-1 is rare)
+  TypeCharacter       -> STyCharacter (CharLenInt 1) 1
 
-  -- TODO: no clue what to do here. SemType maybe doesn't support F90 properly.
-  -- (I think one or two of these map to error in FV)
+  -- FIXME: no clue what to do here. SemType maybe doesn't support F90 properly.
+  -- (I think one or two of these map to error in fortran-vars.)
   ClassStar           -> STyCustom "ClassStar"
   TypeCustom    str   -> STyCustom ("TypeCustom "  <> str)
   ClassCustom   str   -> STyCustom ("ClassCustom " <> str)
 
-noKind, invalidKind :: Kind
-noKind      = -1
-invalidKind = -2
+noKind :: Kind
+noKind = -1
 
--- in the Infer monad because some intrinsic types may not take a kind, so it'd
--- be best to type error here to inform
--- but it's small fry stuff so we just write the given kind regardless
 deriveSemTypeFromBaseTypeAndKind :: BaseType -> Kind -> Infer SemType
 deriveSemTypeFromBaseTypeAndKind bt k =
     return $ setTypeKind (deriveSemTypeFromBaseType bt) k
@@ -709,17 +672,9 @@ setTypeKind st k = case st of
   STyComplex   _ -> STyComplex   k
   STyLogical   _ -> STyLogical   k
   STyByte      _ -> STyByte      k
-  --STyCharacter _ -> -- STyCharacter (Just k)
-    --error "can't set kind of STyCharacter"
-  STyCharacter k ->
-    -- TODO no idea what to do here lol
-    -- I've written my code so that STyCharacters store len, not kind. so if
-    -- this gets called, the only thing we can do is throw the kind away
-    STyCharacter k
-  STyCustom    s -> STyCustom s
-  STyArray st' mDims ->
-    -- TODO unsure really
-    error "can't set kind of STyArray"
+  STyCharacter charLen _ -> STyCharacter charLen k
+  STyCustom    _ -> error "can't set kind of STyCustom"
+  STyArray _ _   -> error "can't set kind of STyArray"
 
 --------------------------------------------------
 

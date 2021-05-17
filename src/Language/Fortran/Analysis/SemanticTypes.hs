@@ -1,5 +1,3 @@
--- | TODO: copied from fortran-vars (then edited)
-
 {-# LANGUAGE DeriveDataTypeable #-}
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE LambdaCase #-}
@@ -13,21 +11,25 @@ import           Language.Fortran.AST           ( Kind, Expression(..), Value(..
 import           Data.Binary                    ( Binary )
 import           Text.PrettyPrint.GenericPretty ( Out(..) )
 
--- | Term type representation.
+-- TODO:
+--   * cleaner arrays: separate into scalar & array types?
+--   * how is F77 structure, F90 DDT support really? (F90 likely untested)
 data SemType
   = STyInteger Kind
   | STyReal Kind
   | STyComplex Kind
   | STyLogical Kind
   | STyByte Kind
-  | STyCharacter CharacterLen
+  | STyCharacter CharacterLen Kind
   | STyArray SemType (Maybe Dimensions) -- ^ Nothing denotes dynamic dimensions
-  | STyCustom String          -- use for F77 structures, F90 DDTs
+  | STyCustom String                    -- use for F77 structures, F90 DDTs
   deriving (Eq, Ord, Show, Data, Typeable, Generic)
 
 instance Binary SemType
 instance Out    SemType
 
+-- | The declared dimensions of a staticically typed array variable
+-- type is of the form [(dim1_lower, dim1_upper), (dim2_lower, dim2_upper)]
 type Dimensions = [(Int, Int)]
 
 --------------------------------------------------------------------------------
