@@ -85,6 +85,7 @@ module Language.Fortran.AST
   , FlushSpec(..)
   , DoSpecification(..)
   , ProgramUnitName(..)
+  , Kind
 
   -- * Node annotations & related typeclasses
   , A0
