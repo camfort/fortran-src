@@ -665,17 +665,6 @@ deriveSemTypeFromBaseTypeAndKind :: BaseType -> Kind -> Infer SemType
 deriveSemTypeFromBaseTypeAndKind bt k =
     return $ setTypeKind (deriveSemTypeFromBaseType bt) k
 
-setTypeKind :: SemType -> Kind -> SemType
-setTypeKind st k = case st of
-  STyInteger   _ -> STyInteger   k
-  STyReal      _ -> STyReal      k
-  STyComplex   _ -> STyComplex   k
-  STyLogical   _ -> STyLogical   k
-  STyByte      _ -> STyByte      k
-  STyCharacter charLen _ -> STyCharacter charLen k
-  STyCustom    _ -> error "can't set kind of STyCustom"
-  STyArray _ _   -> error "can't set kind of STyArray"
-
 --------------------------------------------------
 
 -- Local variables:

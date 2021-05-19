@@ -61,3 +61,14 @@ charLenSelector' = \case
   ExpValue _ _ ValColon       -> CharLenColon
   ExpValue _ _ (ValInteger i) -> CharLenInt (read i)
   _                           -> CharLenExp
+
+setTypeKind :: SemType -> Kind -> SemType
+setTypeKind st k = case st of
+  STyInteger   _ -> STyInteger   k
+  STyReal      _ -> STyReal      k
+  STyComplex   _ -> STyComplex   k
+  STyLogical   _ -> STyLogical   k
+  STyByte      _ -> STyByte      k
+  STyCharacter charLen _ -> STyCharacter charLen k
+  STyCustom    _ -> error "can't set kind of STyCustom"
+  STyArray _ _   -> error "can't set kind of STyArray"
