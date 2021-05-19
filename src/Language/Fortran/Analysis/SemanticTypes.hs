@@ -62,6 +62,17 @@ charLenSelector' = \case
   ExpValue _ _ (ValInteger i) -> CharLenInt (read i)
   _                           -> CharLenExp
 
+getTypeKind :: SemType -> Kind
+getTypeKind = \case
+  STyInteger   k -> k
+  STyReal      k -> k
+  STyComplex   k -> k
+  STyLogical   k -> k
+  STyByte      k -> k
+  STyCharacter _ k -> k
+  STyCustom    _ -> error "STyCustom does not have a kind"
+  STyArray t _   -> getTypeKind t
+
 setTypeKind :: SemType -> Kind -> SemType
 setTypeKind st k = case st of
   STyInteger   _ -> STyInteger   k
