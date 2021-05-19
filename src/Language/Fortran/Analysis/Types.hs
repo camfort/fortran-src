@@ -403,16 +403,6 @@ functionCallType ss e1 _ = case getIDType e1 of
   Just (IDType (Just st) (Just CTExternal)) -> return $ IDType (Just st) Nothing
   _ -> typeError "non-function invoked by call" ss >> return emptyType
 
-charLenConcat :: CharacterLen -> CharacterLen -> CharacterLen
-charLenConcat l1 l2 = case (l1, l2) of
-  (CharLenExp    , _             ) -> CharLenExp
-  (_             , CharLenExp    ) -> CharLenExp
-  (CharLenStar   , _             ) -> CharLenStar
-  (_             , CharLenStar   ) -> CharLenStar
-  (CharLenColon  , _             ) -> CharLenColon
-  (_             , CharLenColon  ) -> CharLenColon
-  (CharLenInt i1 , CharLenInt i2 ) -> CharLenInt (i1 + i2)
-
 isNumericType :: SemType -> Bool
 isNumericType = \case
   STyComplex{} -> True

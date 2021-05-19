@@ -83,3 +83,14 @@ setTypeKind st k = case st of
   STyCharacter charLen _ -> STyCharacter charLen k
   STyCustom    _ -> error "can't set kind of STyCustom"
   STyArray _ _   -> error "can't set kind of STyArray"
+
+charLenConcat :: CharacterLen -> CharacterLen -> CharacterLen
+charLenConcat l1 l2 = case (l1, l2) of
+  (CharLenExp    , _             ) -> CharLenExp
+  (_             , CharLenExp    ) -> CharLenExp
+  (CharLenStar   , _             ) -> CharLenStar
+  (_             , CharLenStar   ) -> CharLenStar
+  (CharLenColon  , _             ) -> CharLenColon
+  (_             , CharLenColon  ) -> CharLenColon
+  (CharLenInt i1 , CharLenInt i2 ) -> CharLenInt (i1 + i2)
+
