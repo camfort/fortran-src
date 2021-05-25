@@ -1,3 +1,18 @@
+### 0.4.3 (May 25, 2021)
+
+  * Add Haddock documentation to AST module. Many parts of the AST now have
+    commentary on meaning and usage, and the Haddock page is sectioned.
+  * Add STATIC statement (should be similar/identical to SAVE attribute) to
+    fixed-form lexer, support in Fortran 77 Extended parser.
+  * Rewrite post-parse transformation handling. Parser modules now export more
+    parsers which allow you to select post-parse transformations to apply,
+    intended to enable quicker parsing if you know you don't need to certain
+    transformations.
+  * Support percent data references in fixed-form lexer, enable in Fortran 77
+    parser
+  * Now also testing on GHC 9.0
+  * Cache INCLUDE-ed files to avoid unnecessary re-parsing
+
 ### 0.4.2 (March 03, 2021)
 
   * `FortranVersion` from `ParserMonad` moved to its own module
