@@ -24,6 +24,9 @@
 --
 -- (The Fortran 66 ANSI standard lacks detail, and isn't as useful as the later
 -- standards for implementing the language.)
+--
+-- /Some comments aren't reflected in the Haddock documentation, so you may also
+-- wish to view this file's source./
 
 module Language.Fortran.AST
   (
@@ -82,9 +85,9 @@ module Language.Fortran.AST
   , DoSpecification(..)
   , ProgramUnitName(..)
 
-  -- * Retrieving node annotations etc.
-  , Annotated(..)
+  -- * Node annotations & related typeclasses
   , A0
+  , Annotated(..)
   , Labeled(..)
   , Conditioned(..)
   , Named(..)
@@ -107,6 +110,7 @@ module Language.Fortran.AST
   , programUnitBody
   , updateProgramUnitBody
   , programUnitSubprograms
+
   ) where
 
 import Prelude hiding (init)
@@ -123,6 +127,7 @@ import Language.Fortran.Util.FirstParameter
 import Language.Fortran.Util.SecondParameter
 import Language.Fortran.AST.AList
 
+-- | The empty annotation.
 type A0 = ()
 
 type Name = String
@@ -396,7 +401,11 @@ data Statement a  =
   | StFormat              a SrcSpan (AList FormatItem a)
   | StImplicit            a SrcSpan (Maybe (AList ImpList a))
   | StEntry               a SrcSpan (Expression a) (Maybe (AList Expression a)) (Maybe (Expression a))
+
   | StInclude             a SrcSpan (Expression a) (Maybe [Block a])
+  -- ^ Nothing indicates an yet-to-be processed include. (The F77 parser parses
+  -- Nothing, then fills out each include statement in a post-parse step.)
+
   | StDo                  a SrcSpan (Maybe String) (Maybe (Expression a)) (Maybe (DoSpecification a))
   | StDoWhile             a SrcSpan (Maybe String) (Maybe (Expression a)) (Expression a)
   | StEnddo               a SrcSpan (Maybe String)
