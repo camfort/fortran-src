@@ -37,7 +37,7 @@ resolver: ...
 
 extra-deps:
 - ...
-- fortran-src-0.4.2
+- fortran-src-$VERSION
 ```
 
 ### As a CLI tool
