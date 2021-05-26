@@ -128,23 +128,23 @@ spec = do
             , idType a == Just (IDType (Just (defSTy TypeComplex)) Nothing) ]
           `shouldNotSatisfy` null
         [ a | ExpBinary a _ Addition (ExpValue _ _ (ValInteger "2")) _ <- uniExpr pf
-            , idType a == Just (IDType (Just (STyReal 8)) Nothing) ]
+            , idType a == Just (IDType (Just (TReal 8)) Nothing) ]
           `shouldNotSatisfy` null
 
     describe "Character string types" $
       it "examples of various character variables" $ do
         let mapping = inferTable teststrings1
-        idVType (mapping ! "a") `shouldBe` Just (STyCharacter (CharLenInt 5) 1)
-        idVType (mapping ! "b") `shouldBe` Just (STyCharacter (CharLenInt 10) 1)
-        idVType (mapping ! "c") `shouldBe` Just (STyCharacter (CharLenInt 3) 1)
-        idVType (mapping ! "d") `shouldBe` Just (STyCharacter CharLenExp 1)
+        idVType (mapping ! "a") `shouldBe` Just (TCharacter (CharLenInt 5) 1)
+        idVType (mapping ! "b") `shouldBe` Just (TCharacter (CharLenInt 10) 1)
+        idVType (mapping ! "c") `shouldBe` Just (TCharacter (CharLenInt 3) 1)
+        idVType (mapping ! "d") `shouldBe` Just (TCharacter CharLenExp 1)
         idCType (mapping ! "d") `shouldBe` Just (CTArray [(Nothing, Just 10)])
-        idVType (mapping ! "e") `shouldBe` Just (STyCharacter (CharLenInt 10) 1)
+        idVType (mapping ! "e") `shouldBe` Just (TCharacter (CharLenInt 10) 1)
         idCType (mapping ! "e") `shouldBe` Just (CTArray [(Nothing, Just 20)])
-        idVType (mapping ! "f") `shouldBe` Just (STyCharacter (CharLenInt 1) 2)
+        idVType (mapping ! "f") `shouldBe` Just (TCharacter (CharLenInt 1) 2)
         let pf = typedProgramFile teststrings1
         [ () | ExpValue a _ (ValVariable "e") <- uniExpr pf
-             , idType a == Just (IDType (Just (STyCharacter (CharLenInt 10) 1))
+             , idType a == Just (IDType (Just (TCharacter (CharLenInt 10) 1))
                                         (Just (CTArray [(Nothing, Just 20)])))]
           `shouldNotSatisfy` null
 

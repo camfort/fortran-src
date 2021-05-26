@@ -15,14 +15,14 @@ import           Text.PrettyPrint.GenericPretty ( Out(..) )
 --   * cleaner arrays: separate into scalar & array types?
 --   * how is F77 structure, F90 DDT support really? (F90 likely untested)
 data SemType
-  = STyInteger Kind
-  | STyReal Kind
-  | STyComplex Kind
-  | STyLogical Kind
-  | STyByte Kind
-  | STyCharacter CharacterLen Kind
-  | STyArray SemType (Maybe Dimensions) -- ^ Nothing denotes dynamic dimensions
-  | STyCustom String                    -- use for F77 structures, F90 DDTs
+  = TInteger Kind
+  | TReal Kind
+  | TComplex Kind
+  | TLogical Kind
+  | TByte Kind
+  | TCharacter CharacterLen Kind
+  | TArray SemType (Maybe Dimensions) -- ^ Nothing denotes dynamic dimensions
+  | TCustom String                    -- use for F77 structures, F90 DDTs
   deriving (Eq, Ord, Show, Data, Typeable, Generic)
 
 instance Binary SemType
@@ -64,25 +64,25 @@ charLenSelector' = \case
 
 getTypeKind :: SemType -> Kind
 getTypeKind = \case
-  STyInteger   k -> k
-  STyReal      k -> k
-  STyComplex   k -> k
-  STyLogical   k -> k
-  STyByte      k -> k
-  STyCharacter _ k -> k
-  STyCustom    _ -> error "STyCustom does not have a kind"
-  STyArray t _   -> getTypeKind t
+  TInteger   k -> k
+  TReal      k -> k
+  TComplex   k -> k
+  TLogical   k -> k
+  TByte      k -> k
+  TCharacter _ k -> k
+  TCustom    _ -> error "TCustom does not have a kind"
+  TArray t _   -> getTypeKind t
 
 setTypeKind :: SemType -> Kind -> SemType
 setTypeKind st k = case st of
-  STyInteger   _ -> STyInteger   k
-  STyReal      _ -> STyReal      k
-  STyComplex   _ -> STyComplex   k
-  STyLogical   _ -> STyLogical   k
-  STyByte      _ -> STyByte      k
-  STyCharacter charLen _ -> STyCharacter charLen k
-  STyCustom    _ -> error "can't set kind of STyCustom"
-  STyArray _ _   -> error "can't set kind of STyArray"
+  TInteger   _ -> TInteger   k
+  TReal      _ -> TReal      k
+  TComplex   _ -> TComplex   k
+  TLogical   _ -> TLogical   k
+  TByte      _ -> TByte      k
+  TCharacter charLen _ -> TCharacter charLen k
+  TCustom    _ -> error "can't set kind of TCustom"
+  TArray _ _   -> error "can't set kind of TArray"
 
 charLenConcat :: CharacterLen -> CharacterLen -> CharacterLen
 charLenConcat l1 l2 = case (l1, l2) of

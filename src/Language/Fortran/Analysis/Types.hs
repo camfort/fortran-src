@@ -223,7 +223,7 @@ annotateExpression e@(ExpValue _ _ (ValVariable _))    = maybe e (`setIDType` e)
 annotateExpression e@(ExpValue _ _ (ValIntrinsic _))   = maybe e (`setIDType` e) `fmap` getRecordedType (varName e)
 annotateExpression e@(ExpValue _ ss (ValReal r))        = do
     k <- deriveRealLiteralKind ss r
-    return $ setSemType (STyReal k) e
+    return $ setSemType (TReal k) e
 annotateExpression e@(ExpValue _ ss (ValComplex e1 e2)) = do
     st <- complexLiteralType ss e1 e2
     return $ setSemType st e
@@ -281,7 +281,7 @@ deriveRealLiteralKind ss r =
 complexLiteralType :: SrcSpan -> Expression a -> Expression a -> Infer SemType
 complexLiteralType ss (ExpValue _ _ (ValReal r)) _ = do
     k1 <- deriveRealLiteralKind ss r
-    return $ STyComplex k1
+    return $ TComplex k1
 complexLiteralType _ _ _ = return $ deriveSemTypeFromBaseType TypeComplex
 
 binaryOpType :: Data a => SrcSpan -> BinaryOp -> Expression (Analysis a) -> Expression (Analysis a) -> Infer IDType
@@ -313,21 +313,21 @@ binaryOpType ss op e1 e2 = do
 binopSimpleCombineSemTypes :: SrcSpan -> BinaryOp -> SemType -> SemType -> Infer (Maybe SemType)
 binopSimpleCombineSemTypes ss op st1 st2 = do
     case (st1, st2) of
-      (_           , STyComplex k2) -> ret $ STyComplex k2
-      (STyComplex k1, _           ) -> ret $ STyComplex k1
-      (_           , STyReal    k2) -> ret $ STyReal k2
-      (STyReal    k1, _           ) -> ret $ STyReal k1
-      (_           , STyInteger k2) -> ret $ STyInteger k2
-      (STyInteger k1, _           ) -> ret $ STyInteger k1
-      (STyByte    k1, STyByte    _ ) -> ret $ STyByte k1
-      (STyLogical k1, STyLogical _ ) -> ret $ STyLogical k1
-      (STyCustom  _, STyCustom   _) -> do
+      (_           , TComplex k2) -> ret $ TComplex k2
+      (TComplex k1, _           ) -> ret $ TComplex k1
+      (_           , TReal    k2) -> ret $ TReal k2
+      (TReal    k1, _           ) -> ret $ TReal k1
+      (_           , TInteger k2) -> ret $ TInteger k2
+      (TInteger k1, _           ) -> ret $ TInteger k1
+      (TByte    k1, TByte     _ ) -> ret $ TByte k1
+      (TLogical k1, TLogical  _ ) -> ret $ TLogical k1
+      (TCustom  _, TCustom   _) -> do
         typeError "custom types / binary op not supported" ss
         return Nothing
-      (STyCharacter l1 k1, STyCharacter l2 k2)
+      (TCharacter l1 k1, TCharacter l2 k2)
         | k1 /= k2 -> do typeError "operation on character strings of different kinds" ss
                          return Nothing
-        | op == Concatenation -> ret $ STyCharacter (charLenConcat l1 l2) k1
+        | op == Concatenation -> ret $ TCharacter (charLenConcat l1 l2) k1
         | op `elem` [EQ, NE]  -> ret $ deriveSemTypeFromBaseType TypeLogical
         | otherwise -> do typeError "Invalid op on character strings" ss
                           return Nothing
@@ -343,9 +343,9 @@ unaryOpType ss op e = do
            _ -> typeError "Unable to obtain type for" (getSpan e) >> return Nothing
   mst' <- case (mst, op) of
     (Nothing, _)               -> return Nothing
-    (Just STyCustom{}, _)      -> typeError "custom types / unary ops not supported" ss >> return Nothing
+    (Just TCustom{}, _)        -> typeError "custom types / unary ops not supported" ss >> return Nothing
     (_, UnCustom{})            -> typeError "custom unary ops not supported" ss >> return Nothing
-    (Just st@(STyLogical _), Not)    -> return $ Just st
+    (Just st@(TLogical _), Not)    -> return $ Just st
     (Just st, _)
       | op `elem` [Plus, Minus] &&
         isNumericType st -> return $ Just st
@@ -354,7 +354,7 @@ unaryOpType ss op e = do
 
 subscriptType :: Data a => SrcSpan -> Expression (Analysis a) -> AList Index (Analysis a) -> Infer IDType
 subscriptType ss e1 (AList _ _ idxs) = do
-  let isInteger ie | Just (IDType (Just (STyInteger _)) _) <- getIDType ie = True
+  let isInteger ie | Just (IDType (Just (TInteger _)) _) <- getIDType ie = True
                    | otherwise = False
   forM_ idxs $ \ idx -> case idx of
     IxSingle _ _ _ ie
@@ -405,10 +405,10 @@ functionCallType ss e1 _ = case getIDType e1 of
 
 isNumericType :: SemType -> Bool
 isNumericType = \case
-  STyComplex{} -> True
-  STyReal{}    -> True
-  STyInteger{} -> True
-  STyByte{}    -> True
+  TComplex{} -> True
+  TReal{}    -> True
+  TInteger{} -> True
+  TByte{}    -> True
   _            -> False
 
 --------------------------------------------------
@@ -578,8 +578,8 @@ deriveSemTypeFromDeclaration stmtSs declSs ts@(TypeSpec _ _ bt mSel) mLenExpr =
           Nothing ->
             -- got RHS len, no Selector (e.g. @CHARACTER :: x*3 = "sup"@)
             -- naughty let binding to avoid re-hardcoding default char kind
-            let (STyCharacter _ k) = deriveSemTypeFromBaseType TypeCharacter
-             in return $ STyCharacter (charLenSelector' lenExpr) k
+            let (TCharacter _ k) = deriveSemTypeFromBaseType TypeCharacter
+             in return $ TCharacter (charLenSelector' lenExpr) k
 
 -- | Attempt to derive a 'SemType' from a 'TypeSpec'.
 deriveSemTypeFromTypeSpec :: TypeSpec a -> Infer SemType
@@ -598,9 +598,9 @@ deriveSemTypeFromBaseTypeAndSelector bt (Selector _ ss mLen mKindExpr) = do
       Nothing      -> return st
       Just lenExpr ->
         case st of
-          STyCharacter _ kind ->
+          TCharacter _ kind ->
             let charLen = charLenSelector' lenExpr
-             in return $ STyCharacter charLen kind
+             in return $ TCharacter charLen kind
           _ -> do
             -- (unreachable code path in correct parser operation)
             typeError "only CHARACTER types can specify length (separate to kind)" ss
@@ -623,30 +623,30 @@ deriveSemTypeFromBaseTypeAndSelector bt (Selector _ ss mLen mKindExpr) = do
 -- | Derive 'SemType' directly from 'BaseType', using relevant default kinds.
 deriveSemTypeFromBaseType :: BaseType -> SemType
 deriveSemTypeFromBaseType = \case
-  TypeInteger         -> STyInteger 4
-  TypeReal            -> STyReal    4
-  TypeComplex         -> STyComplex 4
-  TypeLogical         -> STyLogical 4
+  TypeInteger         -> TInteger 4
+  TypeReal            -> TReal    4
+  TypeComplex         -> TComplex 4
+  TypeLogical         -> TLogical 4
 
   -- Fortran specs & compilers seem to agree on equating these intrinsic types
   -- to others with a larger kind, so we drop the extra syntactic info here.
-  TypeDoublePrecision -> STyReal    8
-  TypeDoubleComplex   -> STyComplex 8
+  TypeDoublePrecision -> TReal    8
+  TypeDoubleComplex   -> TComplex 8
 
   -- BYTE: HP's Fortran 90 reference says that BYTE is an HP extension, equates
   -- it to INTEGER(1), and indicates that it doesn't take a kind selector.
   -- Don't know how BYTEs are used in the wild. I wonder if we could safely
-  -- equate BYTE to (STyInteger 1)?
-  TypeByte            -> STyByte    noKind
+  -- equate BYTE to (TInteger 1)?
+  TypeByte            -> TByte    noKind
 
   -- CHARACTERs default to len=1, kind=1 (non-1 is rare)
-  TypeCharacter       -> STyCharacter (CharLenInt 1) 1
+  TypeCharacter       -> TCharacter (CharLenInt 1) 1
 
   -- FIXME: no clue what to do here. SemType maybe doesn't support F90 properly.
   -- (I think one or two of these map to error in fortran-vars.)
-  ClassStar           -> STyCustom "ClassStar"
-  TypeCustom    str   -> STyCustom ("TypeCustom "  <> str)
-  ClassCustom   str   -> STyCustom ("ClassCustom " <> str)
+  ClassStar           -> TCustom "ClassStar"
+  TypeCustom    str   -> TCustom ("TypeCustom "  <> str)
+  ClassCustom   str   -> TCustom ("ClassCustom " <> str)
 
 noKind :: Kind
 noKind = -1
