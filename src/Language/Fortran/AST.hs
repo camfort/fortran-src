@@ -6,6 +6,8 @@
 {-# LANGUAGE DefaultSignatures #-}
 {-# LANGUAGE FlexibleContexts #-}
 
+-- |
+--
 -- This module holds the data types used to represent Fortran code of various
 -- versions.
 --
@@ -25,8 +27,8 @@
 -- (The Fortran 66 ANSI standard lacks detail, and isn't as useful as the later
 -- standards for implementing the language.)
 --
--- /Some comments aren't reflected in the Haddock documentation, so you may also
--- wish to view this file's source./
+-- /Note:/ some comments aren't reflected in the Haddock documentation, so you
+-- may also wish to view this file's source.
 
 module Language.Fortran.AST
   (
