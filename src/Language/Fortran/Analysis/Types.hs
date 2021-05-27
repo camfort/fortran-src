@@ -642,11 +642,11 @@ deriveSemTypeFromBaseType = \case
   -- CHARACTERs default to len=1, kind=1 (non-1 is rare)
   TypeCharacter       -> TCharacter (CharLenInt 1) 1
 
-  -- FIXME: no clue what to do here. SemType maybe doesn't support F90 properly.
-  -- (I think one or two of these map to error in fortran-vars.)
+  -- FIXME: this is where Fortran specs diverge, and fortran-vars doesn't
+  -- support beyond F77e. Sticking with what passes the fortran-vars tests.
   ClassStar           -> TCustom "ClassStar"
-  TypeCustom    str   -> TCustom ("TypeCustom "  <> str)
-  ClassCustom   str   -> TCustom ("ClassCustom " <> str)
+  TypeCustom    str   -> TCustom str
+  ClassCustom   str   -> TCustom str
 
 noKind :: Kind
 noKind = -1
