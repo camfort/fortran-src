@@ -11,6 +11,8 @@ module Language.Fortran.Analysis.Types
   , deriveSemTypeFromDeclaration
   , deriveSemTypeFromTypeSpec
   , deriveSemTypeFromBaseType
+  , runInfer
+  , inferState0
   ) where
 
 import Language.Fortran.AST
