@@ -47,7 +47,6 @@ module Language.Fortran.AST
   -- ** Types and declarations
   , Name
   , BaseType(..)
-  , CharacterLen(..)
   , TypeSpec(..)
   , Declarator(..)
   , Selector(..)
@@ -86,6 +85,7 @@ module Language.Fortran.AST
   , FlushSpec(..)
   , DoSpecification(..)
   , ProgramUnitName(..)
+  , Kind
 
   -- * Node annotations & related typeclasses
   , A0
@@ -95,7 +95,6 @@ module Language.Fortran.AST
   , Named(..)
 
   -- * Helpers
-  , charLenSelector
   , validPrefixSuffix
   , emptyPrefixes
   , emptySuffixes
@@ -158,7 +157,7 @@ data BaseType =
   | TypeComplex
   | TypeDoubleComplex
   | TypeLogical
-  | TypeCharacter (Maybe CharacterLen) (Maybe String) -- ^ len and kind, if specified
+  | TypeCharacter
   | TypeCustom String
   | ClassStar
   | ClassCustom String
@@ -166,29 +165,6 @@ data BaseType =
   deriving (Ord, Eq, Show, Data, Typeable, Generic)
 
 instance Binary BaseType
-
-data CharacterLen = CharLenStar    -- ^ specified with a *
-                  | CharLenColon   -- ^ specified with a : (Fortran2003)
-                    -- FIXME, possibly, with a more robust const-exp:
-                  | CharLenExp     -- ^ specified with a non-trivial expression
-                  | CharLenInt Int -- ^ specified with a constant integer
-  deriving (Ord, Eq, Show, Data, Typeable, Generic)
-
-instance Binary CharacterLen
-
-charLenSelector :: Maybe (Selector a) -> (Maybe CharacterLen, Maybe String)
-charLenSelector Nothing                          = (Nothing, Nothing)
-charLenSelector (Just (Selector _ _ mlen mkind)) = (l, k)
-  where
-    l | Just (ExpValue _ _ ValStar) <- mlen        = Just CharLenStar
-      | Just (ExpValue _ _ ValColon) <- mlen       = Just CharLenColon
-      | Just (ExpValue _ _ (ValInteger i)) <- mlen = Just $ CharLenInt (read i)
-      | Nothing <- mlen                            = Nothing
-      | otherwise                                  = Just CharLenExp
-    k | Just (ExpValue _ _ (ValInteger i)) <- mkind  = Just i
-      | Just (ExpValue _ _ (ValVariable s)) <- mkind = Just s
-      -- FIXME: some references refer to things like kind=kanji but I can't find any spec for it
-      | otherwise                                    = Nothing
 
 -- | The type specification of a declaration statement, containing the syntactic
 --   type name and kind selector.
@@ -212,6 +188,8 @@ data Selector a =
 --                   Maybe length         | Maybe kind
   Selector a SrcSpan (Maybe (Expression a)) (Maybe (Expression a))
   deriving (Eq, Show, Data, Typeable, Generic, Functor)
+
+type Kind = Int
 
 data MetaInfo = MetaInfo { miVersion :: FortranVersion, miFilename :: String }
   deriving (Eq, Show, Data, Typeable, Generic)
@@ -970,7 +948,6 @@ instance Out a => Out (FlushSpec a)
 instance Out a => Out (Value a)
 instance Out a => Out (TypeSpec a)
 instance Out a => Out (Selector a)
-instance Out CharacterLen
 instance Out BaseType
 instance Out a => Out (Declarator a)
 instance Out a => Out (DimensionDeclarator a)
@@ -1066,7 +1043,6 @@ instance NFData a => NFData (Suffix a)
 instance NFData a => NFData (StructureItem a)
 instance NFData a => NFData (UnionMap a)
 instance NFData MetaInfo
-instance NFData CharacterLen
 instance NFData BaseType
 instance NFData UnaryOp
 instance NFData BinaryOp

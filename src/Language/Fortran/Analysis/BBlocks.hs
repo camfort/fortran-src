@@ -884,21 +884,11 @@ showBaseType TypeDoublePrecision = "double"
 showBaseType TypeComplex         = "complex"
 showBaseType TypeDoubleComplex   = "doublecomplex"
 showBaseType TypeLogical         = "logical"
-showBaseType (TypeCharacter l k) = case (l, k) of
-  (Just cl, Just ki) -> "character(" ++ showCharLen cl ++ "," ++ ki ++ ")"
-  (Just cl, Nothing) -> "character(" ++ showCharLen cl ++ ")"
-  (Nothing, Just ki) -> "character(kind=" ++ ki ++ ")"
-  (Nothing, Nothing) -> "character"
+showBaseType TypeCharacter       = "character"
 showBaseType (TypeCustom s)      = "type(" ++ s ++ ")"
 showBaseType TypeByte            = "byte"
 showBaseType ClassStar           = "class(*)"
 showBaseType (ClassCustom s)     = "class(" ++ s ++ ")"
-
-showCharLen :: CharacterLen -> String
-showCharLen CharLenStar = "*"
-showCharLen CharLenColon = ":"
-showCharLen CharLenExp  = "*" -- FIXME, possibly, with a more robust const-exp
-showCharLen (CharLenInt i) = show i
 
 showDecl :: Declarator a -> String
 showDecl (DeclArray _ _ e adims length' initial) =

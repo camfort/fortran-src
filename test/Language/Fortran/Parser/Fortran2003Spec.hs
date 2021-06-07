@@ -122,14 +122,14 @@ spec =
 
       it "parses allocate with type_spec" $ do
         let sel = Selector () u (Just (ExpValue () u ValColon)) (Just (varGen "foo"))
-        let ty = TypeSpec () u (TypeCharacter (Just $ CharLenColon) (Just "foo")) (Just sel)
+        let ty = TypeSpec () u TypeCharacter (Just sel)
         let decls = [DeclVariable () u (varGen "s") Nothing Nothing]
         let st = StDeclaration () u ty (Just (AList () u [AttrAllocatable () u])) (AList () u decls)
         sParser "character(len=:,kind=foo), allocatable :: s" `shouldBe'` st
 
       it "parses allocate with type_spec" $ do
         let sel = Selector () u (Just (intGen 3)) (Just (varGen "foo"))
-        let ty = TypeSpec () u (TypeCharacter (Just $ CharLenInt 3) (Just "foo")) (Just sel)
+        let ty = TypeSpec () u TypeCharacter (Just sel)
         let st = StAllocate () u (Just ty) (AList () u [varGen "s"]) Nothing
         sParser "allocate(character(len=3,kind=foo) :: s)" `shouldBe'` st
 

@@ -8,9 +8,10 @@ import Data.Map ((!))
 import Data.Data
 import Data.Generics.Uniplate.Data
 import Language.Fortran.AST
-import Language.Fortran.Analysis.Types
-import Language.Fortran.Analysis.Renaming
 import Language.Fortran.Analysis
+import Language.Fortran.Analysis.Types
+import Language.Fortran.Analysis.SemanticTypes
+import Language.Fortran.Analysis.Renaming
 import qualified Language.Fortran.Parser.Fortran90 as F90
 import Language.Fortran.ParserMonad
 import qualified Data.ByteString.Char8 as B
@@ -27,16 +28,21 @@ fortran90Parser src file = fromParseResultUnsafe $ F90.fortran90Parser (B.pack s
 uniExpr :: ProgramFile (Analysis A0) -> [Expression (Analysis A0)]
 uniExpr = universeBi
 
+-- | Get the default 'SemType' for the given 'BaseType' (i.e. get its 'SemType'
+--   and use the default kind).
+defSTy :: BaseType -> SemType
+defSTy = deriveSemTypeFromBaseType
+
 spec :: Spec
 spec = do
   describe "Global type inference" $ do
     it "types integer returning function" $ do
       let entry = inferTable ex1 ! "f1"
-      entry `shouldBe` IDType (Just TypeInteger) (Just CTFunction)
+      entry `shouldBe` IDType (Just (defSTy TypeInteger)) (Just CTFunction)
 
     it "types multiples program units" $ do
       let mapping = inferTable ex2
-      mapping ! "f1" `shouldBe` IDType (Just TypeInteger) (Just CTFunction)
+      mapping ! "f1" `shouldBe` IDType (Just (defSTy TypeInteger)) (Just CTFunction)
       mapping ! "s1" `shouldBe` IDType Nothing (Just CTSubroutine)
 
     it "types ENTRY points within subprograms" $ do
@@ -49,15 +55,14 @@ spec = do
     it "infers from type declarations" $ do
       let mapping = inferTable ex4
       let pf = typedProgramFile ex4
-      mapping ! "x" `shouldBe` IDType (Just TypeInteger) (Just CTVariable)
-      mapping ! "y" `shouldBe` IDType (Just TypeInteger) (Just $ CTArray [(Nothing, Just 10)])
-      mapping ! "c" `shouldBe` IDType (Just $ TypeCharacter Nothing Nothing) (Just CTVariable)
-      mapping ! "log" `shouldBe` IDType (Just TypeLogical) (Just CTVariable)
+      mapping ! "y" `shouldBe` IDType (Just (defSTy TypeInteger)) (Just $ CTArray [(Nothing, Just 10)])
+      mapping ! "c" `shouldBe` IDType (Just (defSTy TypeCharacter)) (Just CTVariable)
+      mapping ! "log" `shouldBe` IDType (Just (defSTy TypeLogical)) (Just CTVariable)
       [ () | ExpValue a _ (ValVariable "x") <- uniExpr pf
-           , idType a == Just (IDType (Just TypeInteger) (Just CTVariable)) ]
+           , idType a == Just (IDType (Just (defSTy TypeInteger)) (Just CTVariable)) ]
         `shouldNotSatisfy` null
       [ () | ExpValue a _ (ValVariable "y") <- uniExpr pf
-           , idType a == Just (IDType (Just TypeInteger) (Just $ CTArray [(Nothing, Just 10)])) ]
+           , idType a == Just (IDType (Just (defSTy TypeInteger)) (Just $ CTArray [(Nothing, Just 10)])) ]
         `shouldNotSatisfy` null
 
     it "infers from dimension declarations" $ do
@@ -67,9 +72,9 @@ spec = do
 
     it "infers from function statements" $ do
       let mapping = inferTable ex6
-      mapping ! "a" `shouldBe` IDType (Just TypeInteger) (Just $ CTArray [(Nothing, Just 1)])
-      mapping ! "b" `shouldBe` IDType (Just TypeInteger) (Just $ CTArray [(Nothing, Just 1)])
-      mapping ! "c" `shouldBe` IDType (Just TypeInteger) (Just CTFunction)
+      mapping ! "a" `shouldBe` IDType (Just (defSTy TypeInteger)) (Just $ CTArray [(Nothing, Just 1)])
+      mapping ! "b" `shouldBe` IDType (Just (defSTy TypeInteger)) (Just $ CTArray [(Nothing, Just 1)])
+      mapping ! "c" `shouldBe` IDType (Just (defSTy TypeInteger)) (Just CTFunction)
       mapping ! "d" `shouldBe` IDType Nothing (Just CTFunction)
 
     describe "Intrinsics type analysis" $ do
@@ -77,7 +82,7 @@ spec = do
         let mapping = inferTable intrinsics1
         let pf = typedProgramFile intrinsics1
         [ () | ExpValue a _ (ValVariable "x") <- uniExpr pf
-             , idType a == Just (IDType (Just TypeReal) (Just CTVariable)) ]
+             , idType a == Just (IDType (Just (defSTy TypeReal)) (Just CTVariable)) ]
           `shouldSatisfy` ((== 5) . length)
 
         -- the following are true because dabs and cabs are defined as function and array in this program.
@@ -94,7 +99,7 @@ spec = do
         -- abs is an actual intrinsic
         idCType (mapping ! "abs") `shouldBe` Just CTIntrinsic
         [ a | ExpFunctionCall a _ (ExpValue _ _ (ValIntrinsic "abs")) _ <- uniExpr pf
-            , idType a == Just (IDType (Just TypeInteger) Nothing) ]
+            , idType a == Just (IDType (Just (defSTy TypeInteger)) Nothing) ]
           `shouldNotSatisfy` null
 
       it "intrinsics and numeric types" $ do
@@ -105,41 +110,42 @@ spec = do
         idCType (mapping ! "dabs") `shouldBe` Just CTIntrinsic
         [ ty | ExpFunctionCall a _ (ExpValue _ _ (ValIntrinsic "abs")) _ <- uniExpr pf
              , Just (IDType (Just ty) Nothing) <- [idType a] ]
-          `shouldBe` [TypeDoublePrecision, TypeComplex]
+          `shouldBe` [defSTy TypeDoublePrecision, defSTy TypeComplex]
         [ a | ExpFunctionCall a _ (ExpValue _ _ (ValIntrinsic "cabs")) _ <- uniExpr pf
-            , idType a == Just (IDType (Just TypeComplex) Nothing) ]
+            , idType a == Just (IDType (Just (defSTy TypeComplex)) Nothing) ]
           `shouldNotSatisfy` null
         [ a | ExpFunctionCall a _ (ExpValue _ _ (ValIntrinsic "dabs")) _ <- uniExpr pf
-            , idType a == Just (IDType (Just TypeDoublePrecision) Nothing) ]
+            , idType a == Just (IDType (Just (defSTy TypeDoublePrecision)) Nothing) ]
           `shouldNotSatisfy` null
 
     describe "Numeric types" $ do
       it "Widening / upgrading" $ do
         let pf = typedProgramFile numerics1
         [ a | ExpFunctionCall a _ (ExpValue _ _ (ValIntrinsic "abs")) _ <- uniExpr pf
-            , idType a == Just (IDType (Just TypeReal) Nothing) ]
+            , idType a == Just (IDType (Just (defSTy TypeReal)) Nothing) ]
           `shouldNotSatisfy` null
         [ a | ExpBinary a _ Addition (ExpValue _ _ (ValInteger "1")) _ <- uniExpr pf
-            , idType a == Just (IDType (Just TypeComplex) Nothing) ]
+            , idType a == Just (IDType (Just (defSTy TypeComplex)) Nothing) ]
           `shouldNotSatisfy` null
         [ a | ExpBinary a _ Addition (ExpValue _ _ (ValInteger "2")) _ <- uniExpr pf
-            , idType a == Just (IDType (Just TypeDoublePrecision) Nothing) ]
+            , idType a == Just (IDType (Just (TReal 8)) Nothing) ]
           `shouldNotSatisfy` null
 
     describe "Character string types" $
       it "examples of various character variables" $ do
         let mapping = inferTable teststrings1
-        idVType (mapping ! "a") `shouldBe` Just (TypeCharacter (Just (CharLenInt 5)) (Just "1"))
-        idVType (mapping ! "b") `shouldBe` Just (TypeCharacter (Just (CharLenInt 10)) Nothing)
-        idVType (mapping ! "c") `shouldBe` Just (TypeCharacter (Just (CharLenInt 3)) (Just "1"))
-        idVType (mapping ! "d") `shouldBe` Just (TypeCharacter (Just CharLenExp) Nothing)
+        idVType (mapping ! "a") `shouldBe` Just (TCharacter (CharLenInt 5) 1)
+        idVType (mapping ! "b") `shouldBe` Just (TCharacter (CharLenInt 10) 1)
+        idVType (mapping ! "c") `shouldBe` Just (TCharacter (CharLenInt 3) 1)
+        idVType (mapping ! "d") `shouldBe` Just (TCharacter CharLenExp 1)
         idCType (mapping ! "d") `shouldBe` Just (CTArray [(Nothing, Just 10)])
-        idVType (mapping ! "e") `shouldBe` Just (TypeCharacter (Just (CharLenInt 10)) Nothing)
+        idVType (mapping ! "e") `shouldBe` Just (TCharacter (CharLenInt 10) 1)
         idCType (mapping ! "e") `shouldBe` Just (CTArray [(Nothing, Just 20)])
+        idVType (mapping ! "f") `shouldBe` Just (TCharacter (CharLenInt 1) 2)
         let pf = typedProgramFile teststrings1
         [ () | ExpValue a _ (ValVariable "e") <- uniExpr pf
-             , idType a == Just (IDType (Just (TypeCharacter (Just (CharLenInt 10)) Nothing))
-                                        (Just (CTArray [(Nothing, Just 20)]))) ]
+             , idType a == Just (IDType (Just (TCharacter (CharLenInt 10) 1))
+                                        (Just (CTArray [(Nothing, Just 20)])))]
           `shouldNotSatisfy` null
 
 ex1 :: ProgramFile ()
@@ -173,7 +179,7 @@ ex4pu1bs =
         [ DeclVariable () u (varGen "x") Nothing Nothing
         , DeclArray () u (varGen "y")
             (AList () u [ DimensionDeclarator () u Nothing (Just $ intGen 10) ]) Nothing Nothing ]))
-  , BlStatement () u Nothing (StDeclaration () u (TypeSpec () u (TypeCharacter Nothing Nothing) Nothing) Nothing
+  , BlStatement () u Nothing (StDeclaration () u (TypeSpec () u TypeCharacter Nothing) Nothing
       (AList () u [ DeclVariable () u (varGen "c") Nothing Nothing ]))
   , BlStatement () u Nothing (StDeclaration () u (TypeSpec () u TypeLogical Nothing) Nothing
       (AList () u [ DeclVariable () u (varGen "log") Nothing Nothing ])) ]
@@ -296,6 +302,7 @@ teststrings1 = resetSrcSpan . flip fortran90Parser "" $ unlines [
   , "  integer, parameter :: k = 8"
   , "  character(k), dimension(10) :: d"
   , "  character :: e(20)*10"
+  , "  character(kind=2) :: f"
   , "end program teststrings"
   ]
 

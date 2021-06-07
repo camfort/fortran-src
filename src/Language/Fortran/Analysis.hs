@@ -7,7 +7,7 @@ module Language.Fortran.Analysis
   ( initAnalysis, stripAnalysis, Analysis(..), Constant(..)
   , varName, srcName, lvVarName, lvSrcName, isNamedExpression
   , genVar, puName, puSrcName, blockRhsExprs, rhsExprs
-  , ModEnv, NameType(..), IDType(..), ConstructType(..), BaseType(..)
+  , ModEnv, NameType(..), IDType(..), ConstructType(..)
   , lhsExprs, isLExpr, allVars, analyseAllLhsVars, analyseAllLhsVars1, allLhsVars
   , blockVarUses, blockVarDefs
   , BB, BBNode, BBGr(..), bbgrMap, bbgrMapM, bbgrEmpty
@@ -29,6 +29,8 @@ import Data.Maybe
 import Data.Binary
 import Language.Fortran.Intrinsics (getIntrinsicDefsUses, allIntrinsics)
 import Data.Bifunctor (first)
+
+import           Language.Fortran.Analysis.SemanticTypes (SemType(..))
 
 --------------------------------------------------
 
@@ -97,7 +99,7 @@ instance Out ConstructType
 instance Binary ConstructType
 
 data IDType = IDType
-  { idVType :: Maybe BaseType
+  { idVType :: Maybe SemType
   , idCType :: Maybe ConstructType }
   deriving (Ord, Eq, Show, Data, Typeable, Generic)
 
@@ -169,7 +171,7 @@ isNamedExpression (ExpValue _ _ (ValIntrinsic _)) = True
 isNamedExpression _                               = False
 
 -- | Obtain either uniqueName or source name from an ExpValue variable.
-varName :: Expression (Analysis a) -> String
+varName :: Expression (Analysis a) -> Name
 varName (ExpValue Analysis { uniqueName = Just n } _ ValVariable{})  = n
 varName (ExpValue Analysis { sourceName = Just n } _ ValVariable{})  = n
 varName (ExpValue _ _ (ValVariable n))                               = n
@@ -179,7 +181,7 @@ varName (ExpValue _ _ (ValIntrinsic n))                              = n
 varName _                                                            = error "Use of varName on non-variable."
 
 -- | Obtain the source name from an ExpValue variable.
-srcName :: Expression (Analysis a) -> String
+srcName :: Expression (Analysis a) -> Name
 srcName (ExpValue Analysis { sourceName = Just n } _ ValVariable{})  = n
 srcName (ExpValue _ _ (ValVariable n))                               = n
 srcName (ExpValue Analysis { sourceName = Just n } _ ValIntrinsic{}) = n
@@ -187,20 +189,20 @@ srcName (ExpValue _ _ (ValIntrinsic n))                              = n
 srcName _                                                            = error "Use of srcName on non-variable."
 
 -- | Obtain either uniqueName or source name from an LvSimpleVar variable.
-lvVarName :: LValue (Analysis a) -> String
+lvVarName :: LValue (Analysis a) -> Name
 lvVarName (LvSimpleVar Analysis { uniqueName = Just n } _ _)  = n
 lvVarName (LvSimpleVar Analysis { sourceName = Just n } _ _)  = n
 lvVarName (LvSimpleVar _ _ n)                                 = n
 lvVarName _                                                   = error "Use of lvVarName on non-variable."
 
 -- | Obtain the source name from an LvSimpleVar variable.
-lvSrcName :: LValue (Analysis a) -> String
+lvSrcName :: LValue (Analysis a) -> Name
 lvSrcName (LvSimpleVar Analysis { sourceName = Just n } _ _) = n
 lvSrcName (LvSimpleVar _ _ n) = n
 lvSrcName _ = error "Use of lvSrcName on a non-variable"
 
 -- | Generate an ExpValue variable with its source name == to its uniqueName.
-genVar :: Analysis a -> SrcSpan -> String -> Expression (Analysis a)
+genVar :: Analysis a -> SrcSpan -> Name -> Expression (Analysis a)
 genVar a s n = ExpValue (a { uniqueName = Just n, sourceName = Just n }) s v
   where
     v | Just CTIntrinsic <- idCType =<< idType a = ValIntrinsic n

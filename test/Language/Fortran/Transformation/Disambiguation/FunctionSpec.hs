@@ -3,7 +3,6 @@ module Language.Fortran.Transformation.Disambiguation.FunctionSpec (spec) where
 import Test.Hspec
 import TestUtil
 
-import Language.Fortran.Analysis
 import Language.Fortran.AST
 import Language.Fortran.Transformer
 

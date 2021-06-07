@@ -106,7 +106,7 @@ spec =
       describe "Declaration" $ do
         it "prints 90 style with attributes" $ do
           let sel = Selector () u (Just $ intGen 3) Nothing
-          let typeSpec = TypeSpec () u (TypeCharacter Nothing Nothing) (Just sel)
+          let typeSpec = TypeSpec () u TypeCharacter (Just sel)
           let attrs = [ AttrIntent () u In , AttrPointer () u ]
           let declList =
                 [ DeclVariable () u (varGen "x") Nothing (Just $ intGen 42)
@@ -254,7 +254,7 @@ spec =
           it "prints allocate statement with type spec" $ do
             let stat = AOStat () u (varGen "s")
             let sel = Selector () u (Just (intGen 30)) Nothing
-            let ty = TypeSpec () u (TypeCharacter (Just $ CharLenInt 30) Nothing) (Just sel)
+            let ty = TypeSpec () u TypeCharacter (Just sel)
             let st = StAllocate () u (Just ty) (AList () u [ varGen "x" ]) (Just (AList () u [stat]))
             pprint Fortran2003 st Nothing `shouldBe` "allocate (character(len=30) :: x, stat=s)"
 
