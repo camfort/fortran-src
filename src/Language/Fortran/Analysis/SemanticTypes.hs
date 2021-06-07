@@ -15,9 +15,13 @@ import           Language.Fortran.AST           ( BaseType(..)
 import           Data.Binary                    ( Binary )
 import           Text.PrettyPrint.GenericPretty ( Out(..) )
 
--- TODO:
---   * cleaner arrays: separate into scalar & array types?
---   * how is F77 structure, F90 DDT support really? (F90 likely untested)
+-- | Semantic type assigned to variables.
+--
+-- 'BaseType' stores the "type tag" given in syntax. 'SemType's add metadata
+-- (kind and length), and resolve some "simple" types to a core type with a
+-- preset kind (e.g. `DOUBLE PRECISION` -> `REAL(8)`).
+--
+-- Fortran 90 (and beyond) features may not be well supported.
 data SemType
   = TInteger Kind
   | TReal Kind
