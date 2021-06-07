@@ -58,7 +58,11 @@ readsToMaybe r = case r of
 
 --------------------------------------------------------------------------------
 
--- TODO incorrect, kind params also allow 'Name's
+-- TODO limitation
+-- Kind params allow 'Name's as well (which are checked at compile time to be a
+-- special type of constant expression). We limit ourselves to integer kind
+-- params only, because currently we don't handle full kind params in the later
+-- stages anyway.
 type KindParam = Kind
 
 -- | A REAL literal may have an optional exponent and kind.
