@@ -1,3 +1,19 @@
+### 0.5.0 (Unreleased)
+  * Introduce a second-stage type representation including kind info alongside
+    types, and resolving some types to semantic type with preset kinds (e.g.
+    `DOUBLE PRECISION` -> `REAL(8)`).
+    * The type analysis in Language.Fortran.Analysis.Types uses this
+      representation now (`IDType` stores a `SemType` instead of a `BaseType`).
+  * Move `CharacterLen` from parsing to type analysis.
+    * This makes `BaseType` now a plain tag/enum with no extra info.
+  * Add extended Fortran 90 real literal parser (parses kind info).
+  * Export some infer monad utils (potentially useful for running just parts of
+    type analysis)
+  * Parser & lexer tweaks
+    * Fortran 77 parser should no longer attempt to parse kind selectors for
+      `DOUBLE` types
+    * Fix an edge case with the fixed form lexer (#150)
+
 ### 0.4.3 (May 25, 2021)
 
   * Add Haddock documentation to AST module. Many parts of the AST now have
