@@ -29,6 +29,9 @@ slParser :: String -> Statement ()
 slParser sourceCode =
   evalParse statementParser $ initParseState (B.pack sourceCode) Fortran77Legacy "<unknown>"
 
+blParser :: String -> Block ()
+blParser src = evalParse blockParser $ initParseState (B.pack src) Fortran77Legacy "<unknown>"
+
 iParser :: String -> [Block ()]
 iParser sourceCode =
   fromParseResultUnsafe $ includeParser Fortran77Legacy (B.pack sourceCode) "<unknown>"
@@ -220,6 +223,31 @@ spec =
           st = StDeclaration () u typeSpec Nothing (AList () u [ decl ])
           bl = BlStatement () u Nothing st
       iParser "      integer a" `shouldBe'` [bl]
+
+    describe "parses if blocks" $ do
+      let printArgs  = Just $ AList () u [ExpValue () u $ ValString "foo"]
+          printStmt  = StPrint () u (ExpValue () u ValStar) printArgs
+          printBlock = BlStatement () u Nothing printStmt
+          trueLit = ExpValue () u $ ValLogical ".true."
+      it "unlabelled" $ do
+        let bl = BlIf () u Nothing Nothing [ Just trueLit, Nothing ] [[printBlock], [printBlock]]  Nothing
+            src = unlines [ "      if (.true.) then"
+                          , "        print *, 'foo'"
+                          , "      else"
+                          , "        print *, 'foo'"
+                          , "       endif"
+                          ]
+        blParser src `shouldBe'` bl
+      it "labelled" $ do
+        let label str = Just $ ExpValue () u $ ValInteger str
+            bl = BlIf () u (label "10")  Nothing [Just trueLit, Nothing] [[printBlock], [printBlock]] (label "30")
+            src = unlines [ "10    if (.true.) then"
+                          , "        print *, 'foo'"
+                          , "20    else"
+                          , "        print *, 'foo'"
+                          , "30     endif"
+                          ]
+        blParser src `shouldBe'` bl
 
     describe "Legacy Extensions" $ do
       it "parses structure/union/map blocks" $ do

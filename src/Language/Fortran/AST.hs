@@ -91,7 +91,6 @@ module Language.Fortran.AST
   , A0
   , Annotated(..)
   , Labeled(..)
-  , Conditioned(..)
   , Named(..)
 
   -- * Helpers
@@ -393,10 +392,6 @@ data Statement a  =
   | StExit                a SrcSpan (Maybe (Expression a))
   | StIfLogical           a SrcSpan (Expression a) (Statement a) -- Statement should not further recurse
   | StIfArithmetic        a SrcSpan (Expression a) (Expression a) (Expression a) (Expression a)
-  | StIfThen              a SrcSpan (Maybe String) (Expression a)
-  | StElse                a SrcSpan (Maybe String)
-  | StElsif               a SrcSpan (Maybe String) (Expression a)
-  | StEndif               a SrcSpan (Maybe String)
   | StSelectCase          a SrcSpan (Maybe String) (Expression a)
   | StCase                a SrcSpan (Maybe String) (Maybe (AList Index a))
   | StEndcase             a SrcSpan (Maybe String)
@@ -869,18 +864,6 @@ instance Labeled Block where
   setLabel (BlDo a s _ mn tl spec bs el) l = BlDo a s (Just l) mn tl spec bs el
   setLabel (BlDoWhile a s _ n tl spec bs el) l = BlDoWhile a s (Just l) n tl spec bs el
   setLabel b _ = b
-
-class Conditioned f where
-  getCondition :: f a -> Maybe (Expression a)
-
-instance Conditioned Block where
-  getCondition (BlStatement _ _ _ s) = getCondition s
-  getCondition _ = Nothing
-
-instance Conditioned Statement where
-  getCondition (StIfThen _ _ _ c) = Just c
-  getCondition (StElsif _ _ _ c) = Just c
-  getCondition _ = Nothing
 
 data ProgramUnitName =
     Named String

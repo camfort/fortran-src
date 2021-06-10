@@ -3,6 +3,7 @@
 module Language.Fortran.Parser.Fortran77
   ( expressionParser
   , statementParser
+  , blockParser
   , fortran77Parser
   , fortran77ParserWithTransforms
   , fortran77ParserWithModFiles
@@ -44,6 +45,7 @@ import Control.Exception
 
 %name programParser PROGRAM
 %name includesParser INCLUDES
+%name blockParser BLOCK
 %name statementParser STATEMENT
 %name expressionParser EXPRESSION
 %monad { LexAction }
@@ -272,9 +274,30 @@ BLOCKS
 
 BLOCK :: { Block A0 }
 BLOCK
-: LABEL_IN_6COLUMN STATEMENT NEWLINE { BlStatement () (getTransSpan $1 $2) (Just $1) $2 }
+: IF_BLOCK NEWLINE { $1 }
+| LABEL_IN_6COLUMN STATEMENT NEWLINE { BlStatement () (getTransSpan $1 $2) (Just $1) $2 }
 | STATEMENT NEWLINE { BlStatement () (getSpan $1) Nothing $1 }
 | COMMENT_BLOCK { $1 }
+
+IF_BLOCK :: { Block A0 }
+IF_BLOCK
+: if '(' EXPRESSION ')' then NEWLINE BLOCKS ELSE_BLOCKS {
+    let (endSpan, endLabel, conds, blocks) = $8
+    in BlIf () (getTransSpan $1 endSpan) Nothing Nothing ((Just $3):conds) ((reverse $7):blocks) endLabel
+  }
+| LABEL_IN_6COLUMN if '(' EXPRESSION ')' then NEWLINE BLOCKS ELSE_BLOCKS {
+    let (endSpan, endLabel, conds, blocks) = $9
+    in BlIf () (getTransSpan $1 endSpan) (Just $1) Nothing ((Just $4):conds) ((reverse $8):blocks) endLabel
+  }
+
+ELSE_BLOCKS :: { (SrcSpan, Maybe (Expression A0), [Maybe (Expression A0)], [[Block A0]]) }
+ELSE_BLOCKS
+: maybe(LABEL_IN_6COLUMN) elsif '(' EXPRESSION ')' then NEWLINE BLOCKS ELSE_BLOCKS
+  { let (endSpan, endLabel, conds, blocks) = $9
+    in (endSpan, endLabel, Just $4 : conds, reverse $8 : blocks) }
+| maybe(LABEL_IN_6COLUMN) else NEWLINE BLOCKS maybe(LABEL_IN_6COLUMN) endif
+  { (getSpan $6, $5, [Nothing], [reverse $4]) }
+| maybe(LABEL_IN_6COLUMN) endif { (getSpan $2, $1, [], []) }
 
 COMMENT_BLOCK :: { Block A0 }
 COMMENT_BLOCK
@@ -313,10 +336,6 @@ EXECUTABLE_STATEMENT
 | assign LABEL_IN_STATEMENT to VARIABLE { StLabelAssign () (getTransSpan $1 $4) $2 $4 }
 | GOTO_STATEMENT { $1 }
 | if '(' EXPRESSION ')' LABEL_IN_STATEMENT ',' LABEL_IN_STATEMENT ',' LABEL_IN_STATEMENT { StIfArithmetic () (getTransSpan $1 $9) $3 $5 $7 $9 }
-| if '(' EXPRESSION ')' then { StIfThen () (getTransSpan $1 $5) Nothing $3 }
-| elsif '(' EXPRESSION ')' then { StElsif () (getTransSpan $1 $5) Nothing $3 }
-| else { StElse () (getSpan $1) Nothing }
-| endif { StEndif () (getSpan $1) Nothing }
 | doWhile '(' EXPRESSION ')'
   { StDoWhile () (getTransSpan $1 $4) Nothing Nothing $3 }
 | do LABEL_IN_STATEMENT while '(' EXPRESSION ')'

@@ -209,10 +209,6 @@ spec =
           let logIf = StIfLogical () u valFalse as
           pprint Fortran90 logIf Nothing `shouldBe` "if (.false.) x = 42"
 
-        it "prints named if-then" $ do
-          let ifThen = StIfThen () u (Just "mistral") valTrue
-          pprint Fortran90 ifThen Nothing `shouldBe` "mistral: if (.true.) then"
-
       describe "Case" $ do
         it "prints select case" $ do
           let sc = StSelectCase () u Nothing (varGen "x")

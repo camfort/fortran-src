@@ -231,6 +231,10 @@ import Debug.Trace
 
 %%
 
+maybe(p)
+: p           { Just $1 }
+| {- empty -} { Nothing }
+
 -- This rule is to ignore leading whitespace
 PROGRAM :: { ProgramFile A0 }
 : NEWLINE PROGRAM_INNER { $2 }
@@ -352,7 +356,8 @@ IMPORT_NAME_LIST :: { [Expression A0] }
 BLOCKS :: { [ Block A0 ] } : BLOCKS BLOCK { $2 : $1 } | {- EMPTY -} { [ ] }
 
 BLOCK :: { Block A0 }
-: INTEGER_LITERAL STATEMENT MAYBE_COMMENT NEWLINE
+: IF_BLOCK NEWLINE { $1 }
+| INTEGER_LITERAL STATEMENT MAYBE_COMMENT NEWLINE
   { BlStatement () (getTransSpan $1 $2) (Just $1) $2 }
 | STATEMENT MAYBE_COMMENT NEWLINE { BlStatement () (getSpan $1) Nothing $1 }
 | ABSTRACTP interface MAYBE_EXPRESSION MAYBE_COMMENT NEWLINE SUBPROGRAM_UNITS2 MODULE_PROCEDURES INTERFACE_END MAYBE_COMMENT NEWLINE
@@ -360,6 +365,57 @@ BLOCK :: { Block A0 }
 | ABSTRACTP interface MAYBE_EXPRESSION MAYBE_COMMENT NEWLINE MODULE_PROCEDURES INTERFACE_END MAYBE_COMMENT NEWLINE
   { BlInterface () (getTransSpan $2 $9) $3 $1 [ ] (reverse $6) }
 | COMMENT_BLOCK { $1 }
+
+IF_BLOCK :: { Block A0 }
+IF_BLOCK
+: if '(' EXPRESSION ')' then NEWLINE BLOCKS ELSE_BLOCKS
+  {% let { startSpan = getSpan $1;
+           (endSpan, conds, blocks, endLabel, endName) = $8;
+           span = getTransSpan startSpan endSpan }
+      in if Nothing == endName
+         then pure $ BlIf () span Nothing Nothing ((Just $3):conds) ((reverse $7):blocks) endLabel
+         else fail $ "Start and end construct names don't match for if block at " <> show span }
+| id ':' if '(' EXPRESSION ')' then NEWLINE BLOCKS ELSE_BLOCKS
+  {% let { TId startSpan startName = $1;
+           (endSpan, conds, blocks, endLabel, endName) = $10;
+           span = getTransSpan startSpan endSpan }
+      in if Just startName == endName
+         then pure $ BlIf () span Nothing (Just startName) ((Just $5):conds) ((reverse $9):blocks) endLabel
+         else fail $ "Start and end construct names don't match for if block at " <> show span }
+| INTEGER_LITERAL if '(' EXPRESSION ')' then NEWLINE BLOCKS ELSE_BLOCKS
+  {% let { startSpan = getSpan $1;
+           startLabel = Just $1;
+           (endSpan, conds, blocks, endLabel, endName) = $9;
+           span = getTransSpan startSpan endSpan }
+      in if Nothing == endName
+         then pure $ BlIf () span startLabel Nothing ((Just $4):conds) ((reverse $8):blocks) endLabel
+         else fail $ "Start and end construct names don't match for if block at " <> show span }
+| INTEGER_LITERAL id ':' if '(' EXPRESSION ')' then NEWLINE BLOCKS ELSE_BLOCKS
+  {% let { startSpan = getSpan $1;
+           startLabel = Just $1;
+           TId _ startName = $2;
+           (endSpan, conds, blocks, endLabel, endName) = $11;
+           span = getTransSpan startSpan endSpan }
+      in if Just startName == endName
+         then pure $ BlIf () span startLabel (Just startName) ((Just $6):conds) ((reverse $10):blocks) endLabel
+         else fail $ "Start and end construct names don't match for if block at " <> show span }
+
+ELSE_BLOCKS :: { (SrcSpan, [Maybe (Expression A0)], [[Block A0]], Maybe (Expression A0), Maybe String) }
+ELSE_BLOCKS
+: maybe(INTEGER_LITERAL) elsif '(' EXPRESSION ')' then NEWLINE BLOCKS ELSE_BLOCKS
+  { let (endSpan, conds, blocks, endLabel, endString) = $9
+    in (endSpan, Just $4 : conds, reverse $8 : blocks, endLabel, endString) }
+| maybe(INTEGER_LITERAL) else NEWLINE BLOCKS END_IF 
+  { let (endSpan, endLabel, endId) = $5
+    in (endSpan, [Nothing], [reverse $4], endLabel, endId) }
+| END_IF { let (endSpan, endLabel, endId) = $1 in (endSpan, [], [], endLabel, endId) }
+
+END_IF :: { (SrcSpan, Maybe (Expression A0), Maybe String) }
+END_IF
+: endif { (getSpan $1, Nothing, Nothing) }
+| endif id { let TId s id = $2 in (s, Nothing, Just id) }
+| INTEGER_LITERAL endif { (getSpan $2, Just $1, Nothing) }
+| INTEGER_LITERAL endif id { let TId s id = $3 in (s, Just $1, Just id) }
 
 ABSTRACTP :: { Bool }
 : abstract { True }
@@ -565,16 +621,6 @@ EXECUTABLE_STATEMENT :: { Statement A0 }
 | endwhere { StEndWhere () (getSpan $1) Nothing }
 | if '(' EXPRESSION ')' INTEGER_LITERAL ',' INTEGER_LITERAL ',' INTEGER_LITERAL
   { StIfArithmetic () (getTransSpan $1 $9) $3 $5 $7 $9 }
-| if '(' EXPRESSION ')' then { StIfThen () (getTransSpan $1 $5) Nothing $3 }
-| id ':' if '(' EXPRESSION ')' then
-  { let TId s id = $1 in StIfThen () (getTransSpan s $7) (Just id) $5 }
-| elsif '(' EXPRESSION ')' then { StElsif () (getTransSpan $1 $5) Nothing $3 }
-| elsif '(' EXPRESSION ')' then id
-  { let TId s id = $6 in StElsif () (getTransSpan $1 s) (Just id) $3 }
-| else { StElse () (getSpan $1) Nothing }
-| else id { let TId s id = $2 in StElse () (getTransSpan $1 s) (Just id) }
-| endif { StEndif () (getSpan $1) Nothing }
-| endif id { let TId s id = $2 in StEndif () (getTransSpan $1 s) (Just id) }
 | do { StDo () (getSpan $1) Nothing Nothing Nothing }
 | id ':' do
   { let TId s id = $1
