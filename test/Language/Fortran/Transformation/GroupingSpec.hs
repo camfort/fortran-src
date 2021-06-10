@@ -14,8 +14,6 @@ import Language.Fortran.ParserMonad
 import Language.Fortran.Parser.Fortran95
 import Language.Fortran.Parser.Fortran77
 
-groupIf :: ProgramFile () -> ProgramFile ()
-groupIf = transform [ GroupIf ]
 groupDo :: ProgramFile () -> ProgramFile ()
 groupDo = transform [ GroupLabeledDo ]
 groupForall :: ProgramFile () -> ProgramFile ()
@@ -33,12 +31,6 @@ spec = do
     it "groups unlabelled FORALL blocks" $ do
       let lhs = (evaluate . force) (groupForall $ exampleForall name endName)
       lhs `shouldThrow` anyErrorCall
-  describe "Block IF-THEN and related statements" $ do
-    it "groups example1" $
-      groupIf example1 `shouldBe'` expectedExample1
-
-    it "groups example2" $
-      groupIf example2 `shouldBe'` expectedExample2
 
   describe "Block DO statements" $ do
     it "do group example1" $
@@ -78,58 +70,6 @@ exampleForall name nameEnd = buildExampleProgram "forall"
 expectedForall :: Maybe String -> ProgramFile ()
 expectedForall name  = buildExampleProgram "forall"
     [BlForall () u Nothing name exampleHeader [exampleComment] Nothing]
-
-
--- if (.true.) then
--- end if
-example1 :: ProgramFile ()
-example1 = ProgramFile mi77 [ PUMain () u (Just "example1") example1Blocks Nothing ]
-example1Blocks :: [Block ()]
-example1Blocks =
-  [ BlStatement () u Nothing (StIfThen () u Nothing valTrue)
-  , BlStatement () u Nothing (StEndif () u Nothing) ]
-
-expectedExample1 :: ProgramFile ()
-expectedExample1 = ProgramFile mi77 [ PUMain () u (Just "example1") expectedExample1Blocks Nothing ]
-expectedExample1Blocks :: [Block ()]
-expectedExample1Blocks = [ BlIf () u Nothing Nothing [ Just valTrue ] [ [ ] ] Nothing ]
-
--- if (.true.) then
---   integer x
---   if (.false.) then
---   endif
--- else if (.true.) then
--- else
---   if (.false.) then
---   endif
--- end if
-example2 :: ProgramFile ()
-example2 = ProgramFile mi77 [ PUMain () u (Just "example2") example2Blocks Nothing ]
-example2Blocks :: [Block ()]
-example2Blocks =
-  [ BlStatement () u Nothing (StIfThen () u Nothing valTrue)
-  , BlStatement () u Nothing (StDeclaration () u (TypeSpec () u TypeInteger Nothing) Nothing (AList () u [ DeclVariable () u (varGen "x") Nothing Nothing ]))
-  , BlStatement () u Nothing (StIfThen () u Nothing valFalse)
-  , BlStatement () u Nothing (StEndif () u Nothing)
-  , BlStatement () u Nothing (StElsif () u Nothing valTrue)
-  , BlStatement () u Nothing (StElse () u Nothing)
-  , BlStatement () u Nothing (StIfThen () u Nothing valFalse)
-  , BlStatement () u Nothing (StEndif () u Nothing)
-  , BlStatement () u Nothing (StEndif () u Nothing) ]
-
-expectedExample2 :: ProgramFile ()
-expectedExample2 = ProgramFile mi77 [ PUMain () u (Just "example2") expectedExample2Blocks Nothing ]
-expectedExample2Blocks :: [Block ()]
-expectedExample2Blocks = [ BlIf () u Nothing Nothing [ Just valTrue, Just valTrue, Nothing ] blockGroups Nothing ]
-blockGroups :: [[Block ()]]
-blockGroups =
-  [ [ BlStatement () u Nothing (StDeclaration () u (TypeSpec () u TypeInteger Nothing) Nothing (AList () u [ DeclVariable () u (varGen "x") Nothing Nothing ]))
-    , innerIf ]
-  , [ ]
-  , [ innerIf ] ]
-innerIf :: Block ()
-innerIf = BlIf () u Nothing Nothing [ Just valFalse ] [ [ ] ] Nothing
-
 
 -- do 10 i = 0, 10
 -- 10   continue

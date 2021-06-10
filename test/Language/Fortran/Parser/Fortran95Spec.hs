@@ -29,6 +29,10 @@ sParser :: String -> Statement ()
 sParser sourceCode =
   evalParse statementParser $ initParseState (B.pack sourceCode) Fortran95 "<unknown>"
 
+blParser :: String -> Block ()
+blParser sourceCode =
+  evalParse blockParser $ initParseState (B.pack sourceCode) Fortran95 "<unknown>"
+
 fParser :: String -> ProgramUnit ()
 fParser sourceCode =
   evalParse functionParser $ initParseState (B.pack sourceCode) Fortran95 "<unknown>"
@@ -484,21 +488,17 @@ spec =
             sParser "endwhere" `shouldBe'` StEndWhere () u Nothing
 
     describe "If" $ do
-      it "parses if-then statement" $
-        sParser "if (.false.) then" `shouldBe'` StIfThen () u Nothing valFalse
+      let stPrint = StPrint () u starVal (Just $ fromList () [ ExpValue () u (ValString "foo")])
+      it "parser if block" $
+        let ifBlockSrc = unlines [ "if (.false.) then", "print *, 'foo'", "end if"]
+            falseLit = ExpValue () u (ValLogical ".false.")
+        in blParser ifBlockSrc `shouldBe'` BlIf () u Nothing Nothing [Just falseLit] [[BlStatement () u Nothing stPrint]] Nothing
 
-      it "parses if-then statement with construct name" $ do
-        let st = StIfThen () u (Just "my_if") valFalse
-        sParser "my_if: if (.false.) then" `shouldBe'` st
-
-      it "parses else statement" $
-        sParser "else" `shouldBe'` StElse () u Nothing
-
-      it "parses else-if statement" $
-        sParser "else if (.true.) then" `shouldBe'` StElsif () u Nothing valTrue
-
-      it "parses end if statement" $
-        sParser "end if" `shouldBe'` StEndif () u Nothing
+      it "parses named if block" $ do
+        let ifBlockSrc = unlines [ "mylabel : if (.true.) then", "print *, 'foo'", "end if mylabel"]
+            trueLit = ExpValue () u (ValLogical ".true.")
+            ifBlock = BlIf () u Nothing (Just "mylabel") [Just trueLit] [[BlStatement () u Nothing stPrint]] Nothing
+        blParser ifBlockSrc `shouldBe'` ifBlock
 
       it "parses logical if statement" $ do
         let assignment = StExpressionAssign () u (varGen "a") (varGen "b")

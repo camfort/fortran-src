@@ -562,41 +562,6 @@ instance Pretty (Statement a) where
       pprint' v eqPred <> comma <+>
       pprint' v gtPred
 
-    pprint' v (StIfThen _ _ mConstructor condition)
-      | v >= Fortran90 =
-        pprint' v mConstructor <?> colon <+>
-        "if" <+> parens (pprint' v condition) <+> "then"
-      | v >= Fortran77Extended =
-        case mConstructor of
-          Nothing -> "if" <+> parens (pprint' v condition) <+> "then"
-          _ -> tooOld v "Else" Fortran77Extended
-      | otherwise = tooOld v "Structured if" Fortran90
-
-    pprint' v (StElse _ _ mConstructor)
-      | v >= Fortran90 = "else" <+> pprint' v mConstructor
-      | v >= Fortran77Extended =
-        case mConstructor of
-          Nothing -> "else"
-          Just _ -> tooOld v "Named else" Fortran90
-      | otherwise = tooOld v "Else" Fortran77Extended
-
-    pprint' v (StElsif _ _ mConstructor condition)
-      | v >= Fortran90 =
-        "else if" <+> parens (pprint' v condition) <+> pprint' v mConstructor
-      | v >= Fortran77Extended =
-        case mConstructor of
-          Nothing -> "else if" <+> parens (pprint' v condition)
-          _ -> tooOld v "Named else if" Fortran90
-      | otherwise = tooOld v "Else if" Fortran77Extended
-
-    pprint' v (StEndif _ _ mConstructor)
-      | v >= Fortran90 = "end if" <+> pprint' v mConstructor
-      | v >= Fortran77Extended =
-        case mConstructor of
-          Nothing -> "end if"
-          Just _ -> tooOld v "Named end if" Fortran90
-      | otherwise = tooOld v "End if" Fortran77Extended
-
     pprint' v (StSelectCase _ _ mConstructor exp)
       | v >= Fortran90 =
         pprint' v mConstructor <?> colon <+>
