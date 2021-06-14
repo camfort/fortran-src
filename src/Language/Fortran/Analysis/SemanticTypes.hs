@@ -2,6 +2,7 @@
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE OverloadedStrings #-}
 
 module Language.Fortran.Analysis.SemanticTypes where
 
@@ -18,6 +19,8 @@ import           Language.Fortran.Util.Position ( SrcSpan(..) )
 import           Language.Fortran.Version       ( FortranVersion(..) )
 import           Data.Binary                    ( Binary )
 import           Text.PrettyPrint.GenericPretty ( Out(..) )
+import           Text.PrettyPrint               ( (<+>), parens )
+import           Language.Fortran.PrettyPrint   ( Pretty(..) )
 
 -- | Semantic type assigned to variables.
 --
@@ -39,6 +42,21 @@ data SemType
 
 instance Binary SemType
 instance Out    SemType
+
+-- TODO placeholder, not final or tested
+-- should really attempt to print with kind info, and change to DOUBLE PRECISION
+-- etc. for <F90. Maybe cheat, use 'recoverSemTypeTypeSpec' and print resulting
+-- TypeSpec?
+instance Pretty SemType where
+  pprint' v = \case
+    TInteger k -> "integer"
+    TReal k    -> "real"
+    TComplex k -> "complex"
+    TLogical k -> "logical"
+    TByte k    -> "byte"
+    TCharacter len k -> "character"
+    TArray st dims -> pprint' v st <+> parens "(A)"
+    TCustom str -> pprint' v (TypeCustom str)
 
 -- | The declared dimensions of a staticically typed array variable
 -- type is of the form [(dim1_lower, dim1_upper), (dim2_lower, dim2_upper)]
