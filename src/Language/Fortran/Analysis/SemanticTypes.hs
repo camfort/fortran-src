@@ -1,5 +1,6 @@
 {-# LANGUAGE DeriveDataTypeable #-}
 {-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE LambdaCase #-}
 
 module Language.Fortran.Analysis.SemanticTypes where
@@ -11,7 +12,10 @@ import           Language.Fortran.AST           ( BaseType(..)
                                                 , Kind
                                                 , Expression(..)
                                                 , Value(..)
+                                                , TypeSpec(..)
                                                 , Selector(..) )
+import           Language.Fortran.Util.Position ( SrcSpan(..) )
+import           Language.Fortran.Version       ( FortranVersion(..) )
 import           Data.Binary                    ( Binary )
 import           Text.PrettyPrint.GenericPretty ( Out(..) )
 
@@ -70,6 +74,14 @@ charLenSelector' = \case
   ExpValue _ _ (ValInteger i) -> CharLenInt (read i)
   _                           -> CharLenExp
 
+-- | Attempt to recover the 'Value' that generated the given 'CharacterLen'.
+charLenToValue :: CharacterLen -> Maybe (Value a)
+charLenToValue = \case
+  CharLenStar  -> Just ValStar
+  CharLenColon -> Just ValColon
+  CharLenInt i -> Just (ValInteger (show i))
+  CharLenExp   -> Nothing
+
 getTypeKind :: SemType -> Kind
 getTypeKind = \case
   TInteger   k -> k
@@ -101,6 +113,56 @@ charLenConcat l1 l2 = case (l1, l2) of
   (CharLenColon  , _             ) -> CharLenColon
   (_             , CharLenColon  ) -> CharLenColon
   (CharLenInt i1 , CharLenInt i2 ) -> CharLenInt (i1 + i2)
+
+-- | Recover the most appropriate 'TypeSpec' for the given 'SemType', depending
+--   on the given 'FortranVersion'.
+--
+-- Kinds weren't formalized as a syntactic feature until Fortran 90, so we ask
+-- for a context. If possible (>=F90), we prefer the more explicit
+-- representation e.g. @REAL(8)@. For older versions, for specific type-kind
+-- combinations, @DOUBLE PRECISION@ and @DOUBLE COMPLEX@ are used instead.
+-- However, we otherwise don't shy away from adding kind info regardless of
+-- theoretical version support.
+recoverSemTypeTypeSpec :: forall a. a -> SrcSpan
+                       -> FortranVersion -> SemType -> TypeSpec a
+recoverSemTypeTypeSpec a ss v = \case
+  TInteger k -> wrapBaseAndKind TypeInteger k
+  TLogical k -> wrapBaseAndKind TypeLogical k
+  TByte    k -> wrapBaseAndKind TypeByte k
+
+  TCustom str -> ts (TypeCustom str) Nothing
+
+  -- TODO how do we do array decls in syntax again?
+  TArray     st  _   -> recoverSemTypeTypeSpec a ss v st
+
+  TReal    k ->
+      if k == 8 && v < Fortran90
+    then ts TypeDoublePrecision Nothing
+    else wrapBaseAndKind TypeReal k
+  TComplex k ->
+      if k == 16 && v < Fortran90
+    then ts TypeDoubleComplex Nothing
+    else wrapBaseAndKind TypeComplex k
+
+  TCharacter len k   ->
+    -- TODO can improve, use no selector if len=1, kind=1
+    -- only include kind if != 1
+    let sel = Selector a ss (ExpValue a ss <$> charLenToValue len) (if k == 1 then Nothing else Just (intValExpr k))
+     in ts TypeCharacter (Just sel)
+
+  where
+    ts = TypeSpec a ss
+    intValExpr :: Int -> Expression a
+    intValExpr x = ExpValue a ss (ValInteger (show x))
+
+    -- | Wraps 'BaseType' and 'Kind' into 'TypeSpec'. If the kind is the
+    --   'BaseType''s default kind, it is omitted.
+    wrapBaseAndKind :: BaseType -> Kind -> TypeSpec a
+    wrapBaseAndKind bt k = ts bt sel
+      where
+        sel =   if k == kindOfBaseType bt
+              then Nothing
+              else Just $ Selector a ss Nothing (Just (intValExpr k))
 
 --------------------------------------------------------------------------------
 
