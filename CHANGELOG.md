@@ -2,6 +2,8 @@
   * Introduce a second-stage type representation including kind info alongside
     types, and resolving some types to semantic type with preset kinds (e.g.
     `DOUBLE PRECISION` -> `REAL(8)`).
+    * Module is at Language.Fortran.Analysis.SemanticTypes . Includes utils and
+      instances.
     * The type analysis in Language.Fortran.Analysis.Types uses this
       representation now (`IDType` stores a `SemType` instead of a `BaseType`).
   * Move `CharacterLen` from parsing to type analysis.
