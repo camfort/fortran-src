@@ -317,6 +317,7 @@ BLOCKS :: { [ Block A0 ] } : BLOCKS BLOCK { $2 : $1 } | {- EMPTY -} { [ ] }
 
 BLOCK :: { Block A0 }
 : IF_BLOCK NEWLINE { $1 }
+| CASE_BLOCK NEWLINE { $1 }
 | INTEGER_LITERAL STATEMENT MAYBE_COMMENT NEWLINE
   { BlStatement () (getTransSpan $1 $2) (Just $1) $2 }
 | STATEMENT MAYBE_COMMENT NEWLINE { BlStatement () (getSpan $1) Nothing $1 }
@@ -368,6 +369,42 @@ END_IF
 | endif id { (getSpan $2, Nothing) }
 | INTEGER_LITERAL endif { (getSpan $2, Just $1) }
 | INTEGER_LITERAL endif id { (getSpan $3, Just $1) }
+
+CASE_BLOCK :: { Block A0 }
+CASE_BLOCK
+: selectcase '(' EXPRESSION ')' NEWLINE CASES
+  { let { (caseRanges, blocks, endLabel, endSpan) = $6;
+          span = getTransSpan $1 endSpan }
+    in BlCase () span Nothing Nothing $3 caseRanges blocks endLabel }
+| INTEGER_LITERAL selectcase '(' EXPRESSION ')' NEWLINE CASES
+  { let { (caseRanges, blocks, endLabel, endSpan) = $7;
+          span = getTransSpan $1 endSpan }
+    in BlCase () span (Just $1) Nothing $4 caseRanges blocks endLabel }
+| id ':' selectcase '(' EXPRESSION ')' NEWLINE CASES
+  { let { (caseRanges, blocks, endLabel, endSpan) = $8;
+          TId s startName = $1;
+          span = getTransSpan s endSpan }
+    in BlCase () span Nothing (Just startName) $5 caseRanges blocks endLabel }
+| INTEGER_LITERAL id ':' selectcase '(' EXPRESSION ')' NEWLINE CASES
+  { let { (caseRanges, blocks, endLabel, endSpan) = $9;
+          TId s startName = $2;
+          span = getTransSpan s endSpan }
+    in BlCase () span (Just $1) (Just startName) $6 caseRanges blocks endLabel }
+
+CASES :: { ([Maybe (AList Index A0)], [[Block A0]], Maybe (Expression A0), SrcSpan) }
+: maybe(INTEGER_LITERAL) case '(' INDICIES ')' NEWLINE BLOCKS CASES
+  { let (scrutinees, blocks, endLabel, endSpan) = $8
+    in  (Just (fromReverseList $4) : scrutinees, reverse $7 : blocks, endLabel, endSpan) }
+| maybe(INTEGER_LITERAL) case default NEWLINE BLOCKS END_SELECT
+  { let (endLabel, endSpan) = $6
+    in ([Nothing], [$5], endLabel, endSpan) }
+| END_SELECT
+  { let (endLabel, endSpan) = $1
+    in ([], [], endLabel, endSpan) }
+
+END_SELECT :: { (Maybe (Expression A0), SrcSpan) }
+: maybe(INTEGER_LITERAL) endselect maybe(id)
+  { ($1, maybe (getSpan $2) getSpan $3) }
 
 MAYBE_EXPRESSION :: { Maybe (Expression A0) }
 : EXPRESSION { Just $1 }
@@ -549,21 +586,6 @@ EXECUTABLE_STATEMENT :: { Statement A0 }
 | continue { StContinue () (getSpan $1) }
 | stop { StStop () (getSpan $1) Nothing }
 | stop EXPRESSION { StStop () (getTransSpan $1 $2) (Just $2) }
-| selectcase '(' EXPRESSION ')'
-  { StSelectCase () (getTransSpan $1 $4) Nothing $3 }
-| id ':' selectcase '(' EXPRESSION ')'
-  { let TId s id = $1 in StSelectCase () (getTransSpan s $6) (Just id) $5 }
-| case default { StCase () (getTransSpan $1 $2) Nothing Nothing }
-| case default id
-  { let TId s id = $3 in StCase () (getTransSpan $1 s) (Just id) Nothing }
-| case '(' INDICIES ')'
-  { StCase () (getTransSpan $1 $4) Nothing (Just $ fromReverseList $3) }
-| case '(' INDICIES ')' id
-  { let TId s id = $5
-    in StCase () (getTransSpan $1 s) (Just id) (Just $ fromReverseList $3) }
-| endselect { StEndcase () (getSpan $1) Nothing }
-| endselect id
-  { let TId s id = $2 in StEndcase () (getTransSpan $1 s) (Just id) }
 | if '(' EXPRESSION ')' EXECUTABLE_STATEMENT
   { StIfLogical () (getTransSpan $1 $5) $3 $5 }
 | read CILIST IN_IOLIST
