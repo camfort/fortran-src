@@ -306,6 +306,7 @@ BLOCKS :: { [ Block A0 ] } : BLOCKS BLOCK { $2 : $1 } | {- EMPTY -} { [ ] }
 
 BLOCK :: { Block A0 }
 : IF_BLOCK NEWLINE { $1 }
+| CASE_BLOCK NEWLINE { $1 }
 | INTEGER_LITERAL STATEMENT MAYBE_COMMENT NEWLINE
   { BlStatement () (getTransSpan $1 $2) (Just $1) $2 }
 | STATEMENT MAYBE_COMMENT NEWLINE { BlStatement () (getSpan $1) Nothing $1 }
@@ -365,6 +366,52 @@ END_IF
 | endif id { let TId s id = $2 in (s, Nothing, Just id) }
 | INTEGER_LITERAL endif { (getSpan $2, Just $1, Nothing) }
 | INTEGER_LITERAL endif id { let TId s id = $3 in (s, Just $1, Just id) }
+
+CASE_BLOCK :: { Block A0 }
+CASE_BLOCK
+: selectcase '(' EXPRESSION ')' NEWLINE CASES
+  {% let { (caseRanges, blocks, endLabel, endName, endSpan) = $6;
+           span = getTransSpan $1 endSpan }
+     in if endName == Nothing
+       then pure $ BlCase () span Nothing Nothing $3 caseRanges blocks endLabel
+       else fail $ "Mismatched names for case block at " <> show span }
+| INTEGER_LITERAL selectcase '(' EXPRESSION ')' NEWLINE CASES
+  {% let { (caseRanges, blocks, endLabel, endName, endSpan) = $7;
+           span = getTransSpan $1 endSpan }
+     in if endName == Nothing
+       then pure $ BlCase () span (Just $1) Nothing $4 caseRanges blocks endLabel
+       else fail $ "Mismatched names for case block at " <> show span }
+| id ':' selectcase '(' EXPRESSION ')' NEWLINE CASES
+  {% let { (caseRanges, blocks, endLabel, endName, endSpan) = $8;
+           TId s startName = $1;
+           span = getTransSpan s endSpan }
+     in if Just startName == endName
+       then pure $ BlCase () span Nothing (Just startName) $5 caseRanges blocks endLabel
+       else fail $ "Mismatched names for case block at " <> show span }
+| INTEGER_LITERAL id ':' selectcase '(' EXPRESSION ')' NEWLINE CASES
+  {% let { (caseRanges, blocks, endLabel, endName, endSpan) = $9;
+           TId s startName = $2;
+           span = getTransSpan s endSpan }
+     in if Just startName == endName
+       then pure $ BlCase () span (Just $1) endName $6 caseRanges blocks endLabel
+       else fail $ "Mismatched names for case block at " <> show span }
+
+CASES :: { ([Maybe (AList Index A0)], [[Block A0]], Maybe (Expression A0), Maybe String, SrcSpan) }
+: maybe(INTEGER_LITERAL) case '(' INDICIES ')' NEWLINE BLOCKS CASES
+  { let (scrutinees, blocks, endLabel, endName, endSpan) = $8
+    in  (Just (fromReverseList $4) : scrutinees, reverse $7 : blocks, endLabel, endName, endSpan) }
+| maybe(INTEGER_LITERAL) case default NEWLINE BLOCKS END_SELECT
+  { let (endLabel, endName, endSpan) = $6
+    in ([Nothing], [$5], endLabel, endName, endSpan) }
+| END_SELECT
+  { let (endLabel, endName, endSpan) = $1
+    in ([], [], endLabel, endName, endSpan) }
+
+END_SELECT :: { (Maybe (Expression A0), Maybe String, SrcSpan) }
+: maybe(INTEGER_LITERAL) endselect maybe(id)
+  { case $3 of
+      Just (TId s id) -> ($1, Just id, s)
+      Nothing -> ($1, Nothing, getSpan $2) }
 
 MAYBE_EXPRESSION :: { Maybe (Expression A0) }
 : EXPRESSION { Just $1 }
@@ -549,21 +596,6 @@ EXECUTABLE_STATEMENT :: { Statement A0 }
 | stop EXPRESSION { StStop () (getTransSpan $1 $2) (Just $2) }
 | pause { StPause () (getSpan $1) Nothing }
 | pause EXPRESSION { StPause () (getTransSpan $1 $2) (Just $2) }
-| selectcase '(' EXPRESSION ')'
-  { StSelectCase () (getTransSpan $1 $4) Nothing $3 }
-| id ':' selectcase '(' EXPRESSION ')'
-  { let TId s id = $1 in StSelectCase () (getTransSpan s $6) (Just id) $5 }
-| case default { StCase () (getTransSpan $1 $2) Nothing Nothing }
-| case default id
-  { let TId s id = $3 in StCase () (getTransSpan $1 s) (Just id) Nothing }
-| case '(' INDICIES ')'
-  { StCase () (getTransSpan $1 $4) Nothing (Just $ fromReverseList $3) }
-| case '(' INDICIES ')' id
-  { let TId s id = $5
-    in StCase () (getTransSpan $1 s) (Just id) (Just $ fromReverseList $3) }
-| endselect { StEndcase () (getSpan $1) Nothing }
-| endselect id
-  { let TId s id = $2 in StEndcase () (getTransSpan $1 s) (Just id) }
 | if '(' EXPRESSION ')' EXECUTABLE_STATEMENT
   { StIfLogical () (getTransSpan $1 $5) $3 $5 }
 | read CILIST IN_IOLIST
