@@ -1,7 +1,6 @@
 module Language.Fortran.Transformation.Grouping ( groupForall
                                                 , groupDo
                                                 , groupLabeledDo
-                                                , groupCase
                                                 ) where
 
 import Language.Fortran.AST
@@ -185,74 +184,6 @@ isLabeledDo s = case s of
   StDo _ _ _ Just{} _       -> True
   StDoWhile _ _ _ Just{} _  -> True
   _                         -> False
-
---------------------------------------------------------------------------------
--- Grouping case statements
---------------------------------------------------------------------------------
-
-groupCase :: Data a => Transform a ()
-groupCase = genericGroup groupCase' isCase
-
-groupCase' :: ABlocks a -> ABlocks a
-groupCase' [] = []
-groupCase' (b:bs) = b' : bs'
-  where
-    (b', bs') = case b of
-      BlStatement a s label st
-        | StSelectCase _ _ mName scrutinee <- st ->
-          let blocksToDecomp = dropWhile isComment groupedBlocks
-              ( conds, blocks, leftOverBlocks, endLabel ) = decomposeCase blocksToDecomp mName
-          in ( BlCase a (getTransSpan s blocks) label mName scrutinee conds blocks endLabel
-             , leftOverBlocks)
-      b'' | containsGroups b'' -> -- Map to subblocks for groupable blocks
-        ( applyGroupingToSubblocks groupCase' b'', groupedBlocks )
-      _ -> ( b , groupedBlocks )
-    groupedBlocks = groupCase' bs -- Assume everything to the right is grouped.
-    isComment b'' = case b'' of { BlComment{} -> True; _ -> False }
-
-decomposeCase :: ABlocks a -> Maybe String
-              -> ( [ Maybe (AList Index (Analysis a)) ]
-                 , [ ABlocks a ]
-                 , ABlocks a
-                 , Maybe (Expression (Analysis a)) )
-decomposeCase (BlStatement _ _ mLabel st:rest) mTargetName =
-    case st of
-      StCase _ _ mName mCondition
-        | Nothing <- mName -> go mCondition rest
-        | mName == mTargetName -> go mCondition rest
-        | otherwise -> error $ "Case name does not match that of " ++
-                                 "the corresponding select case statement."
-      StEndcase _ _ mName
-        | mName == mTargetName -> ([], [], rest, mLabel)
-        | otherwise -> error $ "End case name does not match that of " ++
-                                 "the corresponding select case statement."
-      _ -> error "Block with non-case related statement. Must not occur."
-  where
-    go mCondition blocks =
-      let (nonCaseBlocks, rest') = collectNonCaseBlocks blocks
-          (conditions, listOfBlocks, rest'', endLabel) = decomposeCase rest' mTargetName
-      in ( mCondition : conditions
-         , nonCaseBlocks : listOfBlocks
-         , rest'', endLabel )
-decomposeCase _ _ = error "can't decompose case"
-
--- This compiles the executable blocks under various if conditions.
-collectNonCaseBlocks :: ABlocks a -> (ABlocks a, ABlocks a)
-collectNonCaseBlocks blocks =
-  case blocks of
-    BlStatement _ _ _ st:_
-      | StCase{} <- st -> ( [], blocks )
-      | StEndcase{} <- st -> ( [], blocks )
-    -- In this case case block is malformed and the file ends prematurely.
-    b:bs -> let (bs', rest) = collectNonCaseBlocks bs in (b : bs', rest)
-    _ -> error "Premature file ending while parsing select case block."
-
-isCase :: Statement a -> Bool
-isCase s = case s of
-  StCase{}       -> True
-  StEndcase{}    -> True
-  StSelectCase{} -> True
-  _              -> False
 
 --------------------------------------------------------------------------------
 -- Helpers for grouping of structured blocks with more blocks inside.
