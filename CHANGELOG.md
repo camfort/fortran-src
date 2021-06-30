@@ -1,4 +1,4 @@
-### 0.5.0 (Unreleased)
+### 0.5.0 (Jun 30, 2021)
   * Introduce a second-stage type representation including kind info alongside
     types, and resolving some types to semantic type with preset kinds (e.g.
     `DOUBLE PRECISION` -> `REAL(8)`).
