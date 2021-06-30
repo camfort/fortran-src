@@ -141,6 +141,9 @@ charLenConcat l1 l2 = case (l1, l2) of
 -- combinations, @DOUBLE PRECISION@ and @DOUBLE COMPLEX@ are used instead.
 -- However, we otherwise don't shy away from adding kind info regardless of
 -- theoretical version support.
+--
+-- Array types don't work properly, due to array type info being in a parent
+-- node that holds individual elements.
 recoverSemTypeTypeSpec :: forall a. a -> SrcSpan
                        -> FortranVersion -> SemType -> TypeSpec a
 recoverSemTypeTypeSpec a ss v = \case
@@ -150,7 +153,6 @@ recoverSemTypeTypeSpec a ss v = \case
 
   TCustom str -> ts (TypeCustom str) Nothing
 
-  -- TODO how do we do array decls in syntax again?
   TArray     st  _   -> recoverSemTypeTypeSpec a ss v st
 
   TReal    k ->
