@@ -116,6 +116,7 @@ test-suite spec
       Language.Fortran.Analysis.BBlocksSpec
       Language.Fortran.Analysis.DataFlowSpec
       Language.Fortran.Analysis.RenamingSpec
+      Language.Fortran.Analysis.SemanticTypesSpec
       Language.Fortran.Analysis.TypesSpec
       Language.Fortran.AnalysisSpec
       Language.Fortran.Lexer.FixedFormSpec
