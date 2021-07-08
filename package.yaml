@@ -98,3 +98,11 @@ tests:
     - fortran-src
     - deepseq >=1.4 && <1.5
     - hspec >=2.2 && <3
+
+benchmarks:
+  bench:
+    main: Bench.hs
+    source-dirs: bench
+    dependencies:
+    - fortran-src
+    - criterion >= 1.5 && <1.6
