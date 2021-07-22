@@ -451,6 +451,11 @@ spec =
             ifBlock = BlIf () u Nothing (Just "mylabel") [Just trueLit] [[BlStatement () u Nothing stPrint]] Nothing
         blParser ifBlockSrc `shouldBe'` ifBlock
 
+      it "parses if-else block with inline comments (stripped)" $
+        let ifBlockSrc = unlines [ "if (.false.) then ! comment if", "print *, 'foo'", "else ! comment else", "print *, 'foo'", "end if ! comment end"]
+            falseLit = ExpValue () u (ValLogical ".false.")
+        in blParser ifBlockSrc `shouldBe'` BlIf () u Nothing Nothing [Just falseLit, Nothing] [[BlStatement () u Nothing stPrint], [BlStatement () u Nothing stPrint]] Nothing
+
       it "parses logical if statement" $ do
         let assignment = StExpressionAssign () u (varGen "a") (varGen "b")
         let stIf = StIfLogical () u valTrue assignment
@@ -470,28 +475,28 @@ spec =
           ind2 = AList () u . pure $ IxSingle () u Nothing $ intLit "2"
           ind3Plus = AList () u . pure $ IxRange () u (Just $ intLit "3") Nothing Nothing
           conds = [Just ind2, Just ind3Plus, Nothing]
-      it "unlabelled case block" $ do
-        let src = unlines [ "select case (x)"
-                          , "case (2)"
+      it "unlabelled case block (with inline comments to be stripped)" $ do
+        let src = unlines [ "select case (x) ! comment select"
+                          , "case (2) ! comment case 1"
                           , "print *, 'foo'"
-                          , "case (3:)"
+                          , "case (3:) ! comment case 2"
                           , "print *, 'bar'"
-                          , "case default"
+                          , "case default ! comment case 3"
                           , "print *, 'baz'"
-                          , "end select"
+                          , "end select ! comment end"
                           ]
             blocks = (fmap . fmap) printBlock [["foo"], ["bar"], ["baz"]]
             block = BlCase () u Nothing Nothing (varGen "x") conds blocks Nothing
         blParser src `shouldBe'` block
       it "labelled case block" $ do
-        let src = unlines [ "10 mylabel: select case (x)"
-                          , "20 case (2)"
+        let src = unlines [ "10 mylabel: select case (x) ! comment select"
+                          , "20 case (2) ! comment case 1"
                           , "30 print *, 'foo'"
-                          , "40 case (3:)"
+                          , "40 case (3:) ! comment case 2"
                           , "50 print *, 'bar'"
-                          , "60 case default"
+                          , "60 case default ! comment case 3"
                           , "70 print *, 'baz'"
-                          , "80 end select mylabel"
+                          , "80 end select mylabel ! comment end"
                           ]
             blocks = (fmap . fmap)
                      (\(label, arg) -> BlStatement () u (Just $ intLit label) $ printStmt arg)
