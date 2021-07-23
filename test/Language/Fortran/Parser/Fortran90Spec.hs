@@ -488,7 +488,7 @@ spec =
             blocks = (fmap . fmap) printBlock [["foo"], ["bar"], ["baz"]]
             block = BlCase () u Nothing Nothing (varGen "x") conds blocks Nothing
         blParser src `shouldBe'` block
-      it "labelled case block" $ do
+      it "labelled case block (with inline comments to be stripped" $ do
         let src = unlines [ "10 mylabel: select case (x) ! comment select"
                           , "20 case (2) ! comment case 1"
                           , "30 print *, 'foo'"
