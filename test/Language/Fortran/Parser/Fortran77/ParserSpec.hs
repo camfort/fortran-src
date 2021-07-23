@@ -231,21 +231,21 @@ spec =
           trueLit = ExpValue () u $ ValLogical ".true."
       it "unlabelled" $ do
         let bl = BlIf () u Nothing Nothing [ Just trueLit, Nothing ] [[printBlock], [printBlock]]  Nothing
-            src = unlines [ "      if (.true.) then"
+            src = unlines [ "      if (.true.) then ! comment if"
                           , "        print *, 'foo'"
-                          , "      else"
+                          , "      else ! comment else"
                           , "        print *, 'foo'"
-                          , "       endif"
+                          , "       endif ! comment end"
                           ]
         blParser src `shouldBe'` bl
       it "labelled" $ do
         let label str = Just $ ExpValue () u $ ValInteger str
             bl = BlIf () u (label "10")  Nothing [Just trueLit, Nothing] [[printBlock], [printBlock]] (label "30")
-            src = unlines [ "10    if (.true.) then"
+            src = unlines [ "10    if (.true.) then ! comment if"
                           , "        print *, 'foo'"
-                          , "20    else"
+                          , "20    else ! comment else"
                           , "        print *, 'foo'"
-                          , "30     endif"
+                          , "30     endif ! comment end"
                           ]
         blParser src `shouldBe'` bl
 
