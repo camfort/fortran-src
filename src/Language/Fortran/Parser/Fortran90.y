@@ -360,16 +360,15 @@ END_IF
 | INTEGER_LITERAL endif id { (getSpan $3, Just $1) }
 
 CASE_BLOCK :: { Block A0 }
-CASE_BLOCK
-: selectcase '(' EXPRESSION ')' MAYBE_COMMENT NEWLINE CASES
+:                        selectcase '(' EXPRESSION ')' MAYBE_COMMENT NEWLINE CASES
   { let { (caseRanges, blocks, endLabel, endSpan) = $7;
           span = getTransSpan $1 endSpan }
     in BlCase () span Nothing Nothing $3 caseRanges blocks endLabel }
-| INTEGER_LITERAL selectcase '(' EXPRESSION ')' MAYBE_COMMENT NEWLINE CASES
+| INTEGER_LITERAL        selectcase '(' EXPRESSION ')' MAYBE_COMMENT NEWLINE CASES
   { let { (caseRanges, blocks, endLabel, endSpan) = $8;
           span = getTransSpan $1 endSpan }
     in BlCase () span (Just $1) Nothing $4 caseRanges blocks endLabel }
-| id ':' selectcase '(' EXPRESSION ')' MAYBE_COMMENT NEWLINE CASES
+|                 id ':' selectcase '(' EXPRESSION ')' MAYBE_COMMENT NEWLINE CASES
   { let { (caseRanges, blocks, endLabel, endSpan) = $9;
           TId s startName = $1;
           span = getTransSpan s endSpan }
@@ -380,8 +379,16 @@ CASE_BLOCK
           span = getTransSpan s endSpan }
     in BlCase () span (Just $1) (Just startName) $6 caseRanges blocks endLabel }
 
+-- We store line comments as statements, but this raises an issue: we have
+-- nowhere to place comments after a SELECT CASE but before a CASE. So we drop
+-- them. The inner CASES_ rule does /not/ use this, because comments can always
+-- be parsed as belonging to to the above CASE block.
 CASES :: { ([Maybe (AList Index A0)], [[Block A0]], Maybe (Expression A0), SrcSpan) }
-: maybe(INTEGER_LITERAL) case '(' INDICIES ')' MAYBE_COMMENT NEWLINE BLOCKS CASES
+: COMMENT_BLOCK CASES_ { $2 }
+|               CASES_ { $1 }
+
+CASES_ :: { ([Maybe (AList Index A0)], [[Block A0]], Maybe (Expression A0), SrcSpan) }
+: maybe(INTEGER_LITERAL) case '(' INDICIES ')' MAYBE_COMMENT NEWLINE BLOCKS CASES_
   { let (scrutinees, blocks, endLabel, endSpan) = $9
     in  (Just (fromReverseList $4) : scrutinees, reverse $8 : blocks, endLabel, endSpan) }
 | maybe(INTEGER_LITERAL) case default MAYBE_COMMENT NEWLINE BLOCKS END_SELECT
