@@ -526,6 +526,7 @@ spec =
           conds = [Just ind2, Just ind3Plus, Nothing]
       it "unlabelled case block (with inline comments to be stripped)" $ do
         let src = unlines [ "select case (x) ! comment select"
+                          , "! full line before first case (unrepresentable)"
                           , "case (2) ! comment case 1"
                           , "print *, 'foo'"
                           , "case (3:) ! comment case 2"
