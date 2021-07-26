@@ -53,7 +53,7 @@ defaultTransformations = \case
     , DisambiguateFunction
     ]
   Fortran77         -> defaultTransformations Fortran66
-  Fortran77Legacy   -> GroupDo   : defaultTransformations Fortran77
+  Fortran77Legacy   -> defaultTransformations Fortran77
   Fortran77Extended -> defaultTransformations Fortran77Legacy
   Fortran90   -> defaultTransformations Fortran77Extended
   Fortran95   -> defaultTransformations Fortran77Extended
