@@ -356,8 +356,8 @@ IMPORT_NAME_LIST :: { [Expression A0] }
 BLOCKS :: { [ Block A0 ] } : BLOCKS BLOCK { $2 : $1 } | {- EMPTY -} { [ ] }
 
 BLOCK :: { Block A0 }
-: IF_BLOCK NEWLINE { $1 }
-| CASE_BLOCK NEWLINE { $1 }
+: IF_BLOCK MAYBE_COMMENT NEWLINE { $1 }
+| CASE_BLOCK MAYBE_COMMENT NEWLINE { $1 }
 | INTEGER_LITERAL STATEMENT MAYBE_COMMENT NEWLINE
   { BlStatement () (getTransSpan $1 $2) (Just $1) $2 }
 | STATEMENT MAYBE_COMMENT NEWLINE { BlStatement () (getSpan $1) Nothing $1 }
@@ -369,38 +369,38 @@ BLOCK :: { Block A0 }
 
 IF_BLOCK :: { Block A0 }
 IF_BLOCK
-: if '(' EXPRESSION ')' then NEWLINE BLOCKS ELSE_BLOCKS
+:                        if '(' EXPRESSION ')' then MAYBE_COMMENT NEWLINE BLOCKS ELSE_BLOCKS
   { let { startSpan = getSpan $1;
-          (endSpan, conds, blocks, endLabel) = $8;
-          span = getTransSpan startSpan endSpan }
-     in BlIf () span Nothing Nothing ((Just $3):conds) ((reverse $7):blocks) endLabel }
-| id ':' if '(' EXPRESSION ')' then NEWLINE BLOCKS ELSE_BLOCKS
-  { let { TId startSpan startName = $1;
-          (endSpan, conds, blocks, endLabel) = $10;
-          span = getTransSpan startSpan endSpan }
-     in BlIf () span Nothing (Just startName) ((Just $5):conds) ((reverse $9):blocks) endLabel }
-| INTEGER_LITERAL if '(' EXPRESSION ')' then NEWLINE BLOCKS ELSE_BLOCKS
-  { let { startSpan = getSpan $1;
-          startLabel = Just $1;
           (endSpan, conds, blocks, endLabel) = $9;
           span = getTransSpan startSpan endSpan }
-     in BlIf () span startLabel Nothing ((Just $4):conds) ((reverse $8):blocks) endLabel }
-| INTEGER_LITERAL id ':' if '(' EXPRESSION ')' then NEWLINE BLOCKS ELSE_BLOCKS
+     in BlIf () span Nothing Nothing ((Just $3):conds) ((reverse $8):blocks) endLabel }
+|                 id ':' if '(' EXPRESSION ')' then MAYBE_COMMENT NEWLINE BLOCKS ELSE_BLOCKS
+  { let { TId startSpan startName = $1;
+          (endSpan, conds, blocks, endLabel) = $11;
+          span = getTransSpan startSpan endSpan }
+     in BlIf () span Nothing (Just startName) ((Just $5):conds) ((reverse $10):blocks) endLabel }
+| INTEGER_LITERAL        if '(' EXPRESSION ')' then MAYBE_COMMENT NEWLINE BLOCKS ELSE_BLOCKS
+  { let { startSpan = getSpan $1;
+          startLabel = Just $1;
+          (endSpan, conds, blocks, endLabel) = $10;
+          span = getTransSpan startSpan endSpan }
+     in BlIf () span startLabel Nothing ((Just $4):conds) ((reverse $9):blocks) endLabel }
+| INTEGER_LITERAL id ':' if '(' EXPRESSION ')' then MAYBE_COMMENT NEWLINE BLOCKS ELSE_BLOCKS
   { let { startSpan = getSpan $1;
           startLabel = Just $1;
           TId _ startName = $2;
-          (endSpan, conds, blocks, endLabel) = $11;
+          (endSpan, conds, blocks, endLabel) = $12;
           span = getTransSpan startSpan endSpan }
-     in BlIf () span startLabel (Just startName) ((Just $6):conds) ((reverse $10):blocks) endLabel }
+     in BlIf () span startLabel (Just startName) ((Just $6):conds) ((reverse $11):blocks) endLabel }
 
 ELSE_BLOCKS :: { (SrcSpan, [Maybe (Expression A0)], [[Block A0]], Maybe (Expression A0)) }
 ELSE_BLOCKS
-: maybe(INTEGER_LITERAL) elsif '(' EXPRESSION ')' then NEWLINE BLOCKS ELSE_BLOCKS
-  { let (endSpan, conds, blocks, endLabel) = $9
-    in (endSpan, Just $4 : conds, reverse $8 : blocks, endLabel) }
-| maybe(INTEGER_LITERAL) else NEWLINE BLOCKS END_IF 
-  { let (endSpan, endLabel) = $5
-    in (endSpan, [Nothing], [reverse $4], endLabel) }
+: maybe(INTEGER_LITERAL) elsif '(' EXPRESSION ')' then MAYBE_COMMENT NEWLINE BLOCKS ELSE_BLOCKS
+  { let (endSpan, conds, blocks, endLabel) = $10
+    in (endSpan, Just $4 : conds, reverse $9 : blocks, endLabel) }
+| maybe(INTEGER_LITERAL) else                          MAYBE_COMMENT NEWLINE BLOCKS END_IF
+  { let (endSpan, endLabel) = $6
+    in (endSpan, [Nothing], [reverse $5], endLabel) }
 | END_IF { let (endSpan, endLabel) = $1 in (endSpan, [], [], endLabel) }
 
 END_IF :: { (SrcSpan, Maybe (Expression A0)) }
@@ -412,32 +412,40 @@ END_IF
 
 CASE_BLOCK :: { Block A0 }
 CASE_BLOCK
-: selectcase '(' EXPRESSION ')' NEWLINE CASES
-  { let { (caseRanges, blocks, endLabel, endSpan) = $6;
-          span = getTransSpan $1 endSpan }
-    in BlCase () span Nothing Nothing $3 caseRanges blocks endLabel }
-| INTEGER_LITERAL selectcase '(' EXPRESSION ')' NEWLINE CASES
+:                        selectcase '(' EXPRESSION ')' MAYBE_COMMENT NEWLINE CASES
   { let { (caseRanges, blocks, endLabel, endSpan) = $7;
           span = getTransSpan $1 endSpan }
-    in BlCase () span (Just $1) Nothing $4 caseRanges blocks endLabel }
-| id ':' selectcase '(' EXPRESSION ')' NEWLINE CASES
+    in BlCase () span Nothing Nothing $3 caseRanges blocks endLabel }
+| INTEGER_LITERAL        selectcase '(' EXPRESSION ')' MAYBE_COMMENT NEWLINE CASES
   { let { (caseRanges, blocks, endLabel, endSpan) = $8;
+          span = getTransSpan $1 endSpan }
+    in BlCase () span (Just $1) Nothing $4 caseRanges blocks endLabel }
+|                 id ':' selectcase '(' EXPRESSION ')' MAYBE_COMMENT NEWLINE CASES
+  { let { (caseRanges, blocks, endLabel, endSpan) = $9;
           TId s startName = $1;
           span = getTransSpan s endSpan }
     in BlCase () span Nothing (Just startName) $5 caseRanges blocks endLabel }
-| INTEGER_LITERAL id ':' selectcase '(' EXPRESSION ')' NEWLINE CASES
-  { let { (caseRanges, blocks, endLabel, endSpan) = $9;
+| INTEGER_LITERAL id ':' selectcase '(' EXPRESSION ')' MAYBE_COMMENT NEWLINE CASES
+  { let { (caseRanges, blocks, endLabel, endSpan) = $10;
           TId s startName = $2;
           span = getTransSpan s endSpan }
     in BlCase () span (Just $1) (Just startName) $6 caseRanges blocks endLabel }
 
+-- We store line comments as statements, but this raises an issue: we have
+-- nowhere to place comments after a SELECT CASE but before a CASE. So we drop
+-- them. The inner CASES_ rule does /not/ use this, because comments can always
+-- be parsed as belonging to to the above CASE block.
 CASES :: { ([Maybe (AList Index A0)], [[Block A0]], Maybe (Expression A0), SrcSpan) }
-: maybe(INTEGER_LITERAL) case '(' INDICIES ')' NEWLINE BLOCKS CASES
-  { let (scrutinees, blocks, endLabel, endSpan) = $8
-    in  (Just (fromReverseList $4) : scrutinees, reverse $7 : blocks, endLabel, endSpan) }
-| maybe(INTEGER_LITERAL) case default NEWLINE BLOCKS END_SELECT
-  { let (endLabel, endSpan) = $6
-    in ([Nothing], [$5], endLabel, endSpan) }
+: COMMENT_BLOCK CASES_ { $2 }
+|               CASES_ { $1 }
+
+CASES_ :: { ([Maybe (AList Index A0)], [[Block A0]], Maybe (Expression A0), SrcSpan) }
+: maybe(INTEGER_LITERAL) case '(' INDICIES ')' MAYBE_COMMENT NEWLINE BLOCKS CASES_
+  { let (scrutinees, blocks, endLabel, endSpan) = $9
+    in  (Just (fromReverseList $4) : scrutinees, reverse $8 : blocks, endLabel, endSpan) }
+| maybe(INTEGER_LITERAL) case default          MAYBE_COMMENT NEWLINE BLOCKS END_SELECT
+  { let (endLabel, endSpan) = $7
+    in ([Nothing], [$6], endLabel, endSpan) }
 | END_SELECT
   { let (endLabel, endSpan) = $1
     in ([], [], endLabel, endSpan) }

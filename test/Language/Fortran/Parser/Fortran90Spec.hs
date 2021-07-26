@@ -476,27 +476,28 @@ spec =
           ind3Plus = AList () u . pure $ IxRange () u (Just $ intLit "3") Nothing Nothing
           conds = [Just ind2, Just ind3Plus, Nothing]
       it "unlabelled case block (with inline comments to be stripped)" $ do
-        let src = unlines [ "select case (x) ! comment select"
-                          , "case (2) ! comment case 1"
+        let src = unlines [ "select case (x) ! inline select"
+                          , "! full line before first case (unrepresentable)"
+                          , "case (2) ! inline case 1"
                           , "print *, 'foo'"
-                          , "case (3:) ! comment case 2"
+                          , "case (3:) ! inline case 2"
                           , "print *, 'bar'"
-                          , "case default ! comment case 3"
+                          , "case default ! inline case 3"
                           , "print *, 'baz'"
-                          , "end select ! comment end"
+                          , "end select ! inline end"
                           ]
             blocks = (fmap . fmap) printBlock [["foo"], ["bar"], ["baz"]]
             block = BlCase () u Nothing Nothing (varGen "x") conds blocks Nothing
         blParser src `shouldBe'` block
       it "labelled case block (with inline comments to be stripped" $ do
         let src = unlines [ "10 mylabel: select case (x) ! comment select"
-                          , "20 case (2) ! comment case 1"
+                          , "20 case (2) ! inline case 1"
                           , "30 print *, 'foo'"
-                          , "40 case (3:) ! comment case 2"
+                          , "40 case (3:) ! inline case 2"
                           , "50 print *, 'bar'"
-                          , "60 case default ! comment case 3"
+                          , "60 case default ! inline case 3"
                           , "70 print *, 'baz'"
-                          , "80 end select mylabel ! comment end"
+                          , "80 end select mylabel ! inline end"
                           ]
             blocks = (fmap . fmap)
                      (\(label, arg) -> BlStatement () u (Just $ intLit label) $ printStmt arg)

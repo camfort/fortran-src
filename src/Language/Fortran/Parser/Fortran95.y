@@ -329,17 +329,17 @@ BLOCK :: { Block A0 }
 
 IF_BLOCK :: { Block A0 }
 IF_BLOCK
-: if '(' EXPRESSION ')' then MAYBE_COMMENT NEWLINE BLOCKS ELSE_BLOCKS
+:                        if '(' EXPRESSION ')' then MAYBE_COMMENT NEWLINE BLOCKS ELSE_BLOCKS
   { let { startSpan = getSpan $1;
           (endSpan, conds, blocks, endLabel) = $9;
           span = getTransSpan startSpan endSpan }
      in BlIf () span Nothing Nothing ((Just $3):conds) ((reverse $8):blocks) endLabel }
-| id ':' if '(' EXPRESSION ')' then MAYBE_COMMENT NEWLINE BLOCKS ELSE_BLOCKS
+|                 id ':' if '(' EXPRESSION ')' then MAYBE_COMMENT NEWLINE BLOCKS ELSE_BLOCKS
   { let { TId startSpan startName = $1;
           (endSpan, conds, blocks, endLabel) = $11;
           span = getTransSpan startSpan endSpan }
      in BlIf () span Nothing (Just startName) ((Just $5):conds) ((reverse $10):blocks) endLabel }
-| INTEGER_LITERAL if '(' EXPRESSION ')' then MAYBE_COMMENT NEWLINE BLOCKS ELSE_BLOCKS
+| INTEGER_LITERAL        if '(' EXPRESSION ')' then MAYBE_COMMENT NEWLINE BLOCKS ELSE_BLOCKS
   { let { startSpan = getSpan $1;
           startLabel = Just $1;
           (endSpan, conds, blocks, endLabel) = $10;
@@ -358,7 +358,7 @@ ELSE_BLOCKS
 : maybe(INTEGER_LITERAL) elsif '(' EXPRESSION ')' then MAYBE_COMMENT NEWLINE BLOCKS ELSE_BLOCKS
   { let (endSpan, conds, blocks, endLabel) = $10
     in (endSpan, Just $4 : conds, reverse $9 : blocks, endLabel) }
-| maybe(INTEGER_LITERAL) else MAYBE_COMMENT NEWLINE BLOCKS END_IF
+| maybe(INTEGER_LITERAL) else                          MAYBE_COMMENT NEWLINE BLOCKS END_IF
   { let (endSpan, endLabel) = $6
     in (endSpan, [Nothing], [reverse $5], endLabel) }
 | END_IF { let (endSpan, endLabel) = $1 in (endSpan, [], [], endLabel) }
@@ -372,15 +372,15 @@ END_IF
 
 CASE_BLOCK :: { Block A0 }
 CASE_BLOCK
-: selectcase '(' EXPRESSION ')' MAYBE_COMMENT NEWLINE CASES
+:                        selectcase '(' EXPRESSION ')' MAYBE_COMMENT NEWLINE CASES
   { let { (caseRanges, blocks, endLabel, endSpan) = $7;
           span = getTransSpan $1 endSpan }
     in BlCase () span Nothing Nothing $3 caseRanges blocks endLabel }
-| INTEGER_LITERAL selectcase '(' EXPRESSION ')' MAYBE_COMMENT NEWLINE CASES
+| INTEGER_LITERAL        selectcase '(' EXPRESSION ')' MAYBE_COMMENT NEWLINE CASES
   { let { (caseRanges, blocks, endLabel, endSpan) = $8;
           span = getTransSpan $1 endSpan }
     in BlCase () span (Just $1) Nothing $4 caseRanges blocks endLabel }
-| id ':' selectcase '(' EXPRESSION ')' MAYBE_COMMENT NEWLINE CASES
+|                 id ':' selectcase '(' EXPRESSION ')' MAYBE_COMMENT NEWLINE CASES
   { let { (caseRanges, blocks, endLabel, endSpan) = $9;
           TId s startName = $1;
           span = getTransSpan s endSpan }
@@ -391,11 +391,19 @@ CASE_BLOCK
           span = getTransSpan s endSpan }
     in BlCase () span (Just $1) (Just startName) $6 caseRanges blocks endLabel }
 
+-- We store line comments as statements, but this raises an issue: we have
+-- nowhere to place comments after a SELECT CASE but before a CASE. So we drop
+-- them. The inner CASES_ rule does /not/ use this, because comments can always
+-- be parsed as belonging to to the above CASE block.
 CASES :: { ([Maybe (AList Index A0)], [[Block A0]], Maybe (Expression A0), SrcSpan) }
-: maybe(INTEGER_LITERAL) case '(' INDICIES ')' MAYBE_COMMENT NEWLINE BLOCKS CASES
+: COMMENT_BLOCK CASES_ { $2 }
+|               CASES_ { $1 }
+
+CASES_ :: { ([Maybe (AList Index A0)], [[Block A0]], Maybe (Expression A0), SrcSpan) }
+: maybe(INTEGER_LITERAL) case '(' INDICIES ')' MAYBE_COMMENT NEWLINE BLOCKS CASES_
   { let (scrutinees, blocks, endLabel, endSpan) = $9
     in  (Just (fromReverseList $4) : scrutinees, reverse $8 : blocks, endLabel, endSpan) }
-| maybe(INTEGER_LITERAL) case default MAYBE_COMMENT NEWLINE BLOCKS END_SELECT
+| maybe(INTEGER_LITERAL) case default          MAYBE_COMMENT NEWLINE BLOCKS END_SELECT
   { let (endLabel, endSpan) = $7
     in ([Nothing], [$6], endLabel, endSpan) }
 | END_SELECT

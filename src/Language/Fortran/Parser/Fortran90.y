@@ -318,17 +318,17 @@ BLOCK :: { Block A0 }
 
 IF_BLOCK :: { Block A0 }
 IF_BLOCK
-: if '(' EXPRESSION ')' then MAYBE_COMMENT NEWLINE BLOCKS ELSE_BLOCKS
+:                        if '(' EXPRESSION ')' then MAYBE_COMMENT NEWLINE BLOCKS ELSE_BLOCKS
   { let { startSpan = getSpan $1;
           (endSpan, conds, blocks, endLabel) = $9;
           span = getTransSpan startSpan endSpan }
      in BlIf () span Nothing Nothing ((Just $3):conds) ((reverse $8):blocks) endLabel }
-| id ':' if '(' EXPRESSION ')' then MAYBE_COMMENT NEWLINE BLOCKS ELSE_BLOCKS
+|                 id ':' if '(' EXPRESSION ')' then MAYBE_COMMENT NEWLINE BLOCKS ELSE_BLOCKS
   { let { TId startSpan startName = $1;
           (endSpan, conds, blocks, endLabel) = $11;
           span = getTransSpan startSpan endSpan }
      in BlIf () span Nothing (Just startName) ((Just $5):conds) ((reverse $10):blocks) endLabel }
-| INTEGER_LITERAL if '(' EXPRESSION ')' then MAYBE_COMMENT NEWLINE BLOCKS ELSE_BLOCKS
+| INTEGER_LITERAL        if '(' EXPRESSION ')' then MAYBE_COMMENT NEWLINE BLOCKS ELSE_BLOCKS
   { let { startSpan = getSpan $1;
           startLabel = Just $1;
           (endSpan, conds, blocks, endLabel) = $10;
@@ -347,7 +347,7 @@ ELSE_BLOCKS
 : maybe(INTEGER_LITERAL) elsif '(' EXPRESSION ')' then MAYBE_COMMENT NEWLINE BLOCKS ELSE_BLOCKS
   { let (endSpan, conds, blocks, endLabel) = $10
     in (endSpan, Just $4 : conds, reverse $9 : blocks, endLabel) }
-| maybe(INTEGER_LITERAL) else MAYBE_COMMENT NEWLINE BLOCKS END_IF
+| maybe(INTEGER_LITERAL) else                          MAYBE_COMMENT NEWLINE BLOCKS END_IF
   { let (endSpan, endLabel) = $6
     in (endSpan, [Nothing], [reverse $5], endLabel) }
 | END_IF { let (endSpan, endLabel) = $1 in (endSpan, [], [], endLabel) }
@@ -391,7 +391,7 @@ CASES_ :: { ([Maybe (AList Index A0)], [[Block A0]], Maybe (Expression A0), SrcS
 : maybe(INTEGER_LITERAL) case '(' INDICIES ')' MAYBE_COMMENT NEWLINE BLOCKS CASES_
   { let (scrutinees, blocks, endLabel, endSpan) = $9
     in  (Just (fromReverseList $4) : scrutinees, reverse $8 : blocks, endLabel, endSpan) }
-| maybe(INTEGER_LITERAL) case default MAYBE_COMMENT NEWLINE BLOCKS END_SELECT
+| maybe(INTEGER_LITERAL) case default          MAYBE_COMMENT NEWLINE BLOCKS END_SELECT
   { let (endLabel, endSpan) = $7
     in ([Nothing], [$6], endLabel, endSpan) }
 | END_SELECT
