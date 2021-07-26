@@ -358,6 +358,7 @@ BLOCKS :: { [ Block A0 ] } : BLOCKS BLOCK { $2 : $1 } | {- EMPTY -} { [ ] }
 BLOCK :: { Block A0 }
 : IF_BLOCK MAYBE_COMMENT NEWLINE { $1 }
 | CASE_BLOCK MAYBE_COMMENT NEWLINE { $1 }
+| DO_BLOCK MAYBE_COMMENT NEWLINE { $1 }
 | INTEGER_LITERAL STATEMENT MAYBE_COMMENT NEWLINE
   { BlStatement () (getTransSpan $1 $2) (Just $1) $2 }
 | STATEMENT MAYBE_COMMENT NEWLINE { BlStatement () (getSpan $1) Nothing $1 }
@@ -368,7 +369,6 @@ BLOCK :: { Block A0 }
 | COMMENT_BLOCK { $1 }
 
 IF_BLOCK :: { Block A0 }
-IF_BLOCK
 :                        if '(' EXPRESSION ')' then MAYBE_COMMENT NEWLINE BLOCKS ELSE_BLOCKS
   { let { startSpan = getSpan $1;
           (endSpan, conds, blocks, endLabel) = $9;
@@ -394,7 +394,6 @@ IF_BLOCK
      in BlIf () span startLabel (Just startName) ((Just $6):conds) ((reverse $11):blocks) endLabel }
 
 ELSE_BLOCKS :: { (SrcSpan, [Maybe (Expression A0)], [[Block A0]], Maybe (Expression A0)) }
-ELSE_BLOCKS
 : maybe(INTEGER_LITERAL) elsif '(' EXPRESSION ')' then MAYBE_COMMENT NEWLINE BLOCKS ELSE_BLOCKS
   { let (endSpan, conds, blocks, endLabel) = $10
     in (endSpan, Just $4 : conds, reverse $9 : blocks, endLabel) }
@@ -404,14 +403,12 @@ ELSE_BLOCKS
 | END_IF { let (endSpan, endLabel) = $1 in (endSpan, [], [], endLabel) }
 
 END_IF :: { (SrcSpan, Maybe (Expression A0)) }
-END_IF
 : endif { (getSpan $1, Nothing) }
 | endif id { (getSpan $2, Nothing) }
 | INTEGER_LITERAL endif { (getSpan $2, Just $1) }
 | INTEGER_LITERAL endif id { (getSpan $3, Just $1) }
 
 CASE_BLOCK :: { Block A0 }
-CASE_BLOCK
 :                        selectcase '(' EXPRESSION ')' MAYBE_COMMENT NEWLINE CASES
   { let { (caseRanges, blocks, endLabel, endSpan) = $7;
           span = getTransSpan $1 endSpan }
@@ -453,6 +450,39 @@ CASES_ :: { ([Maybe (AList Index A0)], [[Block A0]], Maybe (Expression A0), SrcS
 END_SELECT :: { (Maybe (Expression A0), SrcSpan) }
 : maybe(INTEGER_LITERAL) endselect maybe(id)
   { ($1, maybe (getSpan $2) getSpan $3) }
+
+DO_BLOCK :: { Block A0 }
+: START_DO                          MAYBE_COMMENT NEWLINE BLOCKS END_DO
+  {% let { (startSpan, startConstruct, startLabel) = $1;
+           (endSpan, endConstruct, endLabel) = $5; }
+      in if startConstruct /= endConstruct
+         then fail $ "Unexpected id for end do " <> show endConstruct <> " at " <> show endSpan
+         else return $ BlDo () (getTransSpan startSpan endSpan) startLabel startConstruct Nothing Nothing (reverse $4) endLabel }
+| START_DO DO_SPECIFICATION         MAYBE_COMMENT NEWLINE BLOCKS END_DO
+  {% let { (startSpan, startConstruct, startLabel) = $1;
+           (endSpan, endConstruct, endLabel) = $6; }
+      in if startConstruct /= endConstruct
+         then fail $ "Unexpected id for end do " <> show endConstruct <> " at " <> show endSpan
+         else return $ BlDo () (getTransSpan startSpan endSpan) startLabel startConstruct Nothing (Just $2) (reverse $5) endLabel }
+| START_DO while '(' EXPRESSION ')' MAYBE_COMMENT NEWLINE BLOCKS END_DO
+  {% let { (startSpan, startConstruct, startLabel) = $1;
+           (endSpan, endConstruct, endLabel) = $9; }
+     in if startConstruct /= endConstruct
+        then fail $ "Unexpected id for end do " <> show endConstruct <> " at " <> show endSpan
+        else return $ BlDoWhile () (getTransSpan startSpan endSpan) startLabel startConstruct Nothing $4 (reverse $8) endLabel
+  }
+
+START_DO :: { (SrcSpan, Maybe String, Maybe (Expression A0)) }
+: do { (getSpan $1, Nothing, Nothing)}
+| id ':' do { let TId s id = $1 in (s, Just id, Nothing) }
+| INTEGER_LITERAL do { (getSpan $1, Nothing, Just $1) }
+| INTEGER_LITERAL id ':' do { let TId _ id = $2 in (getSpan $1, Just id, Just $1) }
+
+END_DO :: { (SrcSpan, Maybe String, Maybe (Expression A0)) }
+: enddo { (getSpan $1, Nothing, Nothing) }
+| INTEGER_LITERAL enddo { (getSpan $2, Nothing, Just $1)}
+| enddo id { let TId s id = $2 in (s, Just id, Nothing)}
+| INTEGER_LITERAL enddo id { let TId s id = $3 in (s, Just id, Just $1) }
 
 ABSTRACTP :: { Bool }
 : abstract { True }
@@ -658,26 +688,13 @@ EXECUTABLE_STATEMENT :: { Statement A0 }
 | endwhere { StEndWhere () (getSpan $1) Nothing }
 | if '(' EXPRESSION ')' INTEGER_LITERAL ',' INTEGER_LITERAL ',' INTEGER_LITERAL
   { StIfArithmetic () (getTransSpan $1 $9) $3 $5 $7 $9 }
-| do { StDo () (getSpan $1) Nothing Nothing Nothing }
-| id ':' do
-  { let TId s id = $1
-    in StDo () (getTransSpan s $3) (Just id) Nothing Nothing }
 | do INTEGER_LITERAL MAYBE_COMMA DO_SPECIFICATION
   { StDo () (getTransSpan $1 $4) Nothing (Just $2) (Just $4) }
-| do DO_SPECIFICATION { StDo () (getTransSpan $1 $2) Nothing Nothing (Just $2) }
-| id ':' do DO_SPECIFICATION
-  { let TId s id = $1
-    in StDo () (getTransSpan s $4) (Just id) Nothing (Just $4) }
 | do INTEGER_LITERAL MAYBE_COMMA while '(' EXPRESSION ')'
   { StDoWhile () (getTransSpan $1 $7) Nothing (Just $2) $6 }
-| do while '(' EXPRESSION ')'
-  { StDoWhile () (getTransSpan $1 $5) Nothing Nothing $4 }
-| id ':' do while '(' EXPRESSION ')'
-  { let TId s id = $1
-    in StDoWhile () (getTransSpan s $7) (Just id) Nothing $6 }
-| enddo { StEnddo () (getSpan $1) Nothing }
-| enddo id
-  { let TId s id = $2 in StEnddo () (getTransSpan $1 s) (Just id) }
+-- | enddo { StEnddo () (getSpan $1) Nothing }
+-- | enddo id
+--  { let TId s id = $2 in StEnddo () (getTransSpan $1 s) (Just id) }
 | cycle { StCycle () (getSpan $1) Nothing }
 | cycle VARIABLE { StCycle () (getTransSpan $1 $2) (Just $2) }
 | exit { StExit () (getSpan $1) Nothing }

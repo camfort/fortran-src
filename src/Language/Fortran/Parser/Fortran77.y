@@ -275,6 +275,7 @@ BLOCKS
 BLOCK :: { Block A0 }
 BLOCK
 : IF_BLOCK NEWLINE { $1 }
+| DO_BLOCK NEWLINE { $1 }
 | LABEL_IN_6COLUMN STATEMENT NEWLINE { BlStatement () (getTransSpan $1 $2) (Just $1) $2 }
 | STATEMENT NEWLINE { BlStatement () (getSpan $1) Nothing $1 }
 | COMMENT_BLOCK { $1 }
@@ -299,6 +300,17 @@ ELSE_BLOCKS
   { (getSpan $6, $5, [Nothing], [reverse $4]) }
 | maybe(LABEL_IN_6COLUMN) endif { (getSpan $2, $1, [], []) }
 
+DO_BLOCK :: { Block A0 }
+DO_BLOCK
+:                  do DO_SPECIFICATION NEWLINE BLOCKS enddo
+  { BlDo () (getTransSpan $1 $5) Nothing Nothing Nothing (Just $2) $4 Nothing }
+| LABEL_IN_6COLUMN do DO_SPECIFICATION NEWLINE BLOCKS enddo
+  { BlDo () (getTransSpan $1 $6) (Just $1) Nothing Nothing (Just $3) $5 Nothing }
+|                  doWhile '(' EXPRESSION ')' NEWLINE BLOCKS enddo
+  { BlDoWhile () (getTransSpan $1 $7) Nothing Nothing Nothing $3 $6 Nothing }
+| LABEL_IN_6COLUMN doWhile '(' EXPRESSION ')' NEWLINE BLOCKS enddo
+  { BlDoWhile () (getTransSpan $1 $8) (Just $1) Nothing Nothing $4 $7 Nothing }
+
 COMMENT_BLOCK :: { Block A0 }
 COMMENT_BLOCK
 : comment NEWLINE { let (TComment s c) = $1 in BlComment () s (Comment c) }
@@ -322,8 +334,6 @@ DO_STATEMENT :: { Statement A0 }
 DO_STATEMENT
 : do LABEL_IN_STATEMENT DO_SPECIFICATION { StDo () (getTransSpan $1 $3) Nothing (Just $2) (Just $3) }
 | do LABEL_IN_STATEMENT ',' DO_SPECIFICATION { StDo () (getTransSpan $1 $4) Nothing (Just $2) (Just $4) }
-| do DO_SPECIFICATION { StDo () (getTransSpan $1 $2) Nothing Nothing (Just $2) }
-| do { StDo () (getSpan $1) Nothing Nothing Nothing }
 
 DO_SPECIFICATION :: { DoSpecification A0 }
 DO_SPECIFICATION
@@ -336,13 +346,11 @@ EXECUTABLE_STATEMENT
 | assign LABEL_IN_STATEMENT to VARIABLE { StLabelAssign () (getTransSpan $1 $4) $2 $4 }
 | GOTO_STATEMENT { $1 }
 | if '(' EXPRESSION ')' LABEL_IN_STATEMENT ',' LABEL_IN_STATEMENT ',' LABEL_IN_STATEMENT { StIfArithmetic () (getTransSpan $1 $9) $3 $5 $7 $9 }
-| doWhile '(' EXPRESSION ')'
-  { StDoWhile () (getTransSpan $1 $4) Nothing Nothing $3 }
 | do LABEL_IN_STATEMENT while '(' EXPRESSION ')'
   { StDoWhile () (getTransSpan $1 $6) Nothing (Just $2) $5 }
 | do LABEL_IN_STATEMENT ',' while '(' EXPRESSION ')'
   { StDoWhile () (getTransSpan $1 $7) Nothing (Just $2) $6 }
-| enddo { StEnddo () (getSpan $1) Nothing }
+-- | enddo { StEnddo () (getSpan $1) Nothing }
 | call VARIABLE ARGUMENTS
   { StCall () (getTransSpan $1 $3) $2 $ Just $3 }
 | call VARIABLE { StCall () (getTransSpan $1 $2) $2 Nothing }
