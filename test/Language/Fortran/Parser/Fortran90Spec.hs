@@ -529,9 +529,18 @@ spec =
         let st = StEnddo () u (Just "constructor")
         sParser "end do constructor" `shouldBe'` st
 
-      it "parses end do while statement" $ do
+    describe "DO WHILE" $ do
+      it "parses unnamed do while statement" $ do
+        let st = StDoWhile () u Nothing Nothing valTrue
+        sParser "do while (.true.)" `shouldBe'` st
+
+      it "parses named do while statement" $ do
         let st = StDoWhile () u (Just "name") Nothing valTrue
         sParser "name: do while (.true.)" `shouldBe'` st
+
+      it "parses unnamed labelled do while statement" $ do
+        let st = StDoWhile () u Nothing (Just (intGen 999)) valTrue
+        sParser "do 999 while (.true.)" `shouldBe'` st
 
     describe "Goto" $ do
       it "parses vanilla goto" $ do
