@@ -45,6 +45,10 @@ transform trs = runTransform empty empty trans
     trans = mapM_ transformationMapping trs
 
 -- | The default post-parse AST transformations for each Fortran version.
+--
+-- Note that some of these may not be commutative with each other. Specifically,
+-- the DO groupings are written so labeled (nonblock) DO grouping must occur
+-- first, followed by block DO grouping.
 defaultTransformations :: FortranVersion -> [Transformation]
 defaultTransformations = \case
   Fortran66 ->
@@ -53,7 +57,12 @@ defaultTransformations = \case
     , DisambiguateFunction
     ]
   Fortran77         -> defaultTransformations Fortran66
-  Fortran77Legacy   -> GroupDo   : defaultTransformations Fortran77
+  Fortran77Legacy   ->
+    [ GroupLabeledDo
+    , GroupDo
+    , DisambiguateIntrinsic
+    , DisambiguateFunction
+    ]
   Fortran77Extended -> defaultTransformations Fortran77Legacy
   Fortran90   -> defaultTransformations Fortran77Extended
   Fortran95   -> defaultTransformations Fortran77Extended
