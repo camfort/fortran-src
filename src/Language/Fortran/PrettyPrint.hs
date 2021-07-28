@@ -327,6 +327,15 @@ instance IndentablePretty (Block a) where
             then indent i (pprint' v label <+> stDoc)
             else pprint' v mLabel `overlay` indent i stDoc
 
+    pprint v (BlAssociate _ _ mLabel mName abbrevs bodies mEndLabel) i
+      | v >= Fortran90 =
+        indent i ("associate" <+> "ABBREVS" <> newline) <>
+        pprint v bodies nextI <>
+        indent i ("end associate" <> newline)
+      | otherwise = tooOld v "Associate block" Fortran90
+      where
+        nextI = incIndentation i
+
     pprint v (BlComment _ _ (Comment comment)) i
       | v >= Fortran90 = indent i (char '!' <> text comment <> newline)
       | otherwise = char 'c' <> text comment <> newline

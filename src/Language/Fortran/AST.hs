@@ -344,6 +344,15 @@ data Block a =
                 [ Block a ]                  -- ^ Body
                 (Maybe (Expression a))       -- ^ Label to END DO
 
+  | BlAssociate a SrcSpan
+                (Maybe (Expression a))       -- Label
+                (Maybe String)               -- Construct name
+                [(Expression a, Expression a)] -- Expression abbreviations
+                [ Block a ]                  -- Body
+                (Maybe (Expression a))       -- Label to END IF
+  -- ^ The first 'Expression' in the abbreviation tuple is always an
+  --   @ExpValue _ _ (ValVariable id)@. Also guaranteed nonempty.
+
   | BlInterface a SrcSpan
                 (Maybe (Expression a))       -- ^ label
                 Bool                         -- ^ abstract?
