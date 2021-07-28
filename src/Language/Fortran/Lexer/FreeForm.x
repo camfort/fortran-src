@@ -244,6 +244,8 @@ tokens :-
 <0,scI> "pause"                                   { addSpan TPause }
 <0> "forall"                                      { addSpan TForall }
 <0> "end"\ *"forall"                              { addSpan TEndForall }
+<0> "associate"                                   { addSpan TAssociate }
+<0> "end"\ *"associate"                           { addSpan TEndAssociate }
 
 
 -- Where construct
@@ -1283,6 +1285,8 @@ data Token =
   | TExit               SrcSpan
   | TForall             SrcSpan
   | TEndForall          SrcSpan
+  | TAssociate          SrcSpan
+  | TEndAssociate       SrcSpan
   -- Where construct
   | TWhere              SrcSpan
   | TElsewhere          SrcSpan

@@ -193,29 +193,35 @@ containsGroups :: Block (Analysis a) -> Bool
 containsGroups b =
   case b of
     BlStatement{} -> False
-    BlIf{} -> True
-    BlCase{} -> True
-    BlDo{} -> True
-    BlDoWhile{} -> True
+    BlIf{}        -> True
+    BlCase{}      -> True
+    BlDo{}        -> True
+    BlDoWhile{}   -> True
     BlInterface{} -> False
-    BlComment{} -> False
-    BlForall{}  -> True
+    BlComment{}   -> False
+    BlForall{}    -> True
+    BlAssociate{} -> True
 
 applyGroupingToSubblocks :: (ABlocks a -> ABlocks a) -> Block (Analysis a) -> Block (Analysis a)
 applyGroupingToSubblocks f b
   | BlStatement{} <- b =
       error "Individual statements do not have subblocks. Must not occur."
-  | BlIf a s l mn conds blocks el <- b = BlIf a s l mn conds (map f blocks) el
-  | BlCase a s l mn scrutinee conds blocks el <- b =
-      BlCase a s l mn scrutinee conds (map f blocks) el
-  | BlDo a s l n tl doSpec blocks el <- b = BlDo a s l n tl doSpec (f blocks) el
-  | BlDoWhile a s l n tl doSpec blocks el <- b = BlDoWhile a s l n tl doSpec (f blocks) el
+  | BlIf a s l mn conds blocks         el <- b =
+    BlIf a s l mn conds (map f blocks) el
+  | BlCase a s l mn scrutinee conds blocks         el <- b =
+    BlCase a s l mn scrutinee conds (map f blocks) el
+  | BlDo a s l n tl doSpec blocks     el <- b =
+    BlDo a s l n tl doSpec (f blocks) el
+  | BlDoWhile a s l n tl doSpec blocks     el <- b =
+    BlDoWhile a s l n tl doSpec (f blocks) el
   | BlInterface{} <- b =
       error "Interface blocks do not have groupable subblocks. Must not occur."
   | BlComment{} <- b =
       error "Comment statements do not have subblocks. Must not occur."
   | BlForall a s ml mn h blocks mel <- b =
-     BlForall a s ml mn h (f blocks) mel
+    BlForall a s ml mn h (f blocks) mel
+  | BlAssociate a s ml mn abbrevs blocks     mel <- b =
+    BlAssociate a s ml mn abbrevs (f blocks) mel
 
 --------------------------------------------------
 
