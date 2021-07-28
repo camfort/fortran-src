@@ -222,7 +222,7 @@ tokens :-
 <0> "do"                                          { addSpan TDo }
 <scN> "do" / { followsColonP }                    { addSpan TDo }
 <0> "end"\ *"do"                                  { addSpan TEndDo }
-<scN> "while" / { followsDoP }                    { addSpan TWhile }
+<scN> "while" / { followsDoWithOptLabelP }        { addSpan TWhile }
 <0> "if"                                          { addSpan TIf }
 <scN> "if" / { followsColonP }                    { addSpan TIf }
 <scI> "then"                                      { addSpan TThen }
@@ -334,10 +334,17 @@ formatP _ _ _ ai
   | Just TFormat{} <- aiPreviousToken ai = True
   | otherwise = False
 
-followsDoP :: User -> AlexInput -> Int -> AlexInput -> Bool
-followsDoP _ _ _ ai
-  | Just TDo {} <- aiPreviousToken ai = True
+followsDoWithOptLabelP :: User -> AlexInput -> Int -> AlexInput -> Bool
+followsDoWithOptLabelP _ _ _ ai
+  -- DO ...
+  | Just TDo {} <- aiPreviousToken ai        = True
+
+  -- DO 10 ...
+  | TDo{}:TIntegerLiteral{}:[] <- prevTokens = True
+
   | otherwise = False
+  where
+    prevTokens = reverse . aiPreviousTokensInLine $ ai
 
 followsColonP :: User -> AlexInput -> Int -> AlexInput -> Bool
 followsColonP _ _ _ ai
