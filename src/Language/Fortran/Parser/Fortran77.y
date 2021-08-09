@@ -1,5 +1,6 @@
 -- -*- Mode: Haskell -*-
 {
+{-# LANGUAGE TupleSections #-}
 module Language.Fortran.Parser.Fortran77
   ( expressionParser
   , statementParser
@@ -1213,8 +1214,8 @@ inlineInclude fv dirs seen st = case st of
       case M.lookup path incMap of
         Just blocks' -> pure $ StInclude a s e (Just blocks')
         Nothing -> do
-          inc <- liftIO $ readInDirs dirs path
-          case includeParser fv inc path of
+          (fullPath, inc) <- liftIO $ readInDirs dirs path
+          case includeParser fv inc fullPath of
             ParseOk blocks _ -> do
               blocks' <- descendBiM (inlineInclude fv dirs (path:seen)) blocks
               modify (M.insert path blocks')
@@ -1223,12 +1224,13 @@ inlineInclude fv dirs seen st = case st of
     else return st
   _ -> return st
 
-readInDirs :: [String] -> String -> IO B.ByteString
+readInDirs :: [String] -> String -> IO (String, B.ByteString)
 readInDirs [] f = fail $ "cannot find file: " ++ f
 readInDirs (d:ds) f = do
-  b <- doesFileExist (d</>f)
+  let path = d</>f
+  b <- doesFileExist path
   if b then
-    B.readFile (d</>f)
+    (path,) <$> B.readFile path
   else
     readInDirs ds f
 
