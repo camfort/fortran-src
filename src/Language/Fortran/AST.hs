@@ -184,8 +184,9 @@ data TypeSpec a = TypeSpec a SrcSpan BaseType (Maybe (Selector a))
 -- guarantees that it will be Nothing. For CHARACTER types, both maybe or may
 -- not be present.
 data Selector a =
---                   Maybe length         | Maybe kind
-  Selector a SrcSpan (Maybe (Expression a)) (Maybe (Expression a))
+  Selector a SrcSpan
+    (Maybe (Expression a)) -- ^ length (if present)
+    (Maybe (Expression a)) -- ^ kind (if present)
   deriving (Eq, Show, Data, Typeable, Generic, Functor)
 
 type Kind = Int
@@ -302,52 +303,52 @@ newtype Comment a = Comment String
 
 data Block a =
     BlStatement a SrcSpan
-                (Maybe (Expression a))       -- Label
-                (Statement a)                -- Statement
+                (Maybe (Expression a))       -- ^ Label
+                (Statement a)                -- ^ Statement
 
   | BlForall    a SrcSpan
-                (Maybe (Expression a))       -- Label
-                (Maybe String)               -- Construct name
-                (ForallHeader a)             -- Header information
-                [ Block a ]                  -- Body
-                (Maybe (Expression a))       -- Label to END DO
+                (Maybe (Expression a))       -- ^ Label
+                (Maybe String)               -- ^ Construct name
+                (ForallHeader a)             -- ^ Header information
+                [ Block a ]                  -- ^ Body
+                (Maybe (Expression a))       -- ^ Label to END DO
 
   | BlIf        a SrcSpan
-                (Maybe (Expression a))       -- Label
-                (Maybe String)               -- Construct name
-                [ Maybe (Expression a) ]     -- Conditions
-                [ [ Block a ] ]              -- Bodies
-                (Maybe (Expression a))       -- Label to END IF
+                (Maybe (Expression a))       -- ^ Label
+                (Maybe String)               -- ^ Construct name
+                [ Maybe (Expression a) ]     -- ^ Conditions
+                [ [ Block a ] ]              -- ^ Bodies
+                (Maybe (Expression a))       -- ^ Label to END IF
 
   | BlCase      a SrcSpan
-                (Maybe (Expression a))       -- Label
-                (Maybe String)               -- Construct name
-                (Expression a)               -- Scrutinee
-                [ Maybe (AList Index a) ]    -- Case ranges
-                [ [ Block a ] ]              -- Bodies
-                (Maybe (Expression a))       -- Label to END SELECT
+                (Maybe (Expression a))       -- ^ Label
+                (Maybe String)               -- ^ Construct name
+                (Expression a)               -- ^ Scrutinee
+                [ Maybe (AList Index a) ]    -- ^ Case ranges
+                [ [ Block a ] ]              -- ^ Bodies
+                (Maybe (Expression a))       -- ^ Label to END SELECT
 
   | BlDo        a SrcSpan
-                (Maybe (Expression a))       -- Label
-                (Maybe String)               -- Construct name
-                (Maybe (Expression a))       -- Target label
-                (Maybe (DoSpecification a))  -- Do Specification
-                [ Block a ]                  -- Body
-                (Maybe (Expression a))       -- Label to END DO
+                (Maybe (Expression a))       -- ^ Label
+                (Maybe String)               -- ^ Construct name
+                (Maybe (Expression a))       -- ^ Target label
+                (Maybe (DoSpecification a))  -- ^ Do Specification
+                [ Block a ]                  -- ^ Body
+                (Maybe (Expression a))       -- ^ Label to END DO
 
   | BlDoWhile   a SrcSpan
-                (Maybe (Expression a))       -- Label
-                (Maybe String)               -- Construct name
-                (Maybe (Expression a))       -- Target label
-                (Expression a)               -- Condition
-                [ Block a ]                  -- Body
-                (Maybe (Expression a))       -- Label to END DO
+                (Maybe (Expression a))       -- ^ Label
+                (Maybe String)               -- ^ Construct name
+                (Maybe (Expression a))       -- ^ Target label
+                (Expression a)               -- ^ Condition
+                [ Block a ]                  -- ^ Body
+                (Maybe (Expression a))       -- ^ Label to END DO
 
   | BlInterface a SrcSpan
-                (Maybe (Expression a))       -- label
-                Bool                         -- abstract?
-                [ ProgramUnit a ]            -- Routine decls. in the interface
-                [ Block a ]                  -- Module procedures
+                (Maybe (Expression a))       -- ^ label
+                Bool                         -- ^ abstract?
+                [ ProgramUnit a ]            -- ^ Routine decls. in the interface
+                [ Block a ]                  -- ^ Module procedures
 
   | BlComment a SrcSpan (Comment a)
   deriving (Eq, Show, Data, Typeable, Generic, Functor)
@@ -585,9 +586,9 @@ data Expression a =
 data Index a =
     IxSingle a SrcSpan (Maybe String) (Expression a)
   | IxRange a SrcSpan
-            (Maybe (Expression a)) -- Lower index
-            (Maybe (Expression a)) -- Upper index
-            (Maybe (Expression a)) -- Stride
+            (Maybe (Expression a)) -- ^ Lower index
+            (Maybe (Expression a)) -- ^ Upper index
+            (Maybe (Expression a)) -- ^ Stride
   deriving (Eq, Show, Data, Typeable, Generic, Functor)
 
 -- All recursive Values
@@ -648,14 +649,14 @@ data Value a =
 -- not enforced by the AST or parser, so be warned.
 data Declarator a =
     DeclVariable a SrcSpan
-                 (Expression a) -- ^ Variable
-                 (Maybe (Expression a)) -- ^ Length (character)
-                 (Maybe (Expression a)) -- ^ Initial value
+                 (Expression a)             -- ^ Variable
+                 (Maybe (Expression a))     -- ^ Length (character)
+                 (Maybe (Expression a))     -- ^ Initial value
   | DeclArray a SrcSpan
-              (Expression a) -- ^ Array
+              (Expression a)                -- ^ Array
               (AList DimensionDeclarator a) -- ^ Dimensions
-              (Maybe (Expression a)) -- ^ Length (character)
-              (Maybe (Expression a)) -- ^ Initial value
+              (Maybe (Expression a))        -- ^ Length (character)
+              (Maybe (Expression a))        -- ^ Initial value
   deriving (Eq, Show, Data, Typeable, Generic, Functor)
 
 setInitialisation :: Declarator a -> Expression a -> Declarator a
