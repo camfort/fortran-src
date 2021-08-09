@@ -1,5 +1,6 @@
 module Language.Fortran.Parser.Fortran77.IncludeSpec where
 
+import System.FilePath
 import Test.Hspec
 import TestUtil
 
@@ -23,7 +24,7 @@ spec =
                           "      include 'foo.f'",
                           "      end"
                          ]
-        incs = ["./test/Language/Fortran/Parser"]
+        inc = "./test/Language/Fortran/Parser"
         name = "bar"
         pf = ProgramFile mi77 [pu]
         puSpan = makeSrcR (6,7,1,"<unknown>") (48,9,3,"<unknown>")
@@ -32,10 +33,11 @@ spec =
 
         -- the expansion returns the span in the included file
         -- it should return the span at the inclusion
-        st2Span = makeSrcR (6,7,1,"foo.f") (14,15,1,"foo.f")
-        declSpan = makeSrcR (6,7,1,"foo.f") (14,15,1,"foo.f")
-        typeSpan = makeSrcR (6,7,1,"foo.f") (12,13,1,"foo.f")
-        blockSpan = makeSrcR (14,15,1,"foo.f") (14,15,1,"foo.f")
+        foo = inc </> "foo.f"
+        st2Span = makeSrcR (6,7,1, foo) (14,15,1,foo)
+        declSpan = makeSrcR (6,7,1,foo) (14,15,1,foo)
+        typeSpan = makeSrcR (6,7,1,foo) (12,13,1,foo)
+        blockSpan = makeSrcR (14,15,1,foo) (14,15,1,foo)
         varGen' str =  ExpValue () blockSpan $ ValVariable str
 
         pu = PUMain () puSpan (Just name) blocks Nothing
@@ -48,6 +50,6 @@ spec =
         ex = ExpValue () expSpan (ValString "foo.f")
         bl2 = BlStatement () declSpan Nothing st2
     it "includes some files and expands them" $ do
-      ps <- iParser incs source
+      ps <- iParser [inc] source
       let pr = fromParseResultUnsafe ps
       pr `shouldBe` pf
