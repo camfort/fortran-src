@@ -9,10 +9,13 @@ on:
     - opened
     - synchronize
 
+env:
+  EXE_NAME: fortran-src
+
 jobs:
-  build-test-ubuntu-stack:
+  ubuntu-stack-test:
     runs-on: ubuntu-latest
-    name: Ubuntu / Stack
+    name: Ubuntu / Stack / test
     steps:
     - uses: actions/checkout@v2
 
@@ -34,13 +37,22 @@ jobs:
     - name: Build and run tests
       run: stack --no-terminal haddock --test --no-haddock-deps
 
-  build-test-ubuntu-cabal:
+    - name: Install (to place executable at a known location)
+      run: stack --no-terminal install
+
+    - name: Upload executable
+      uses: actions/upload-artifact@v2
+      with:
+        name: ${{ env.EXE_NAME }}-linux-x64-stack-${{ github.sha }}
+        path: ~/.local/bin/${{ env.EXE_NAME }}
+
+  ubuntu-cabal-test:
     runs-on: ubuntu-latest
-    name: Ubuntu / GHC ${{ matrix.ghc }}, Cabal ${{ matrix.cabal }}
+    name: Ubuntu / GHC ${{ matrix.ghc }}, Cabal ${{ matrix.cabal }} / test
     strategy:
       fail-fast: false      # don't stop if one job (= GHC version) fails
       matrix:
-        cabal: ["3.4"]      # latest as of 2021-04-28
+        cabal: ["3.4"]      # latest as of 2021-08-11
         ghc:
         - "8.6"
         - "8.8"
@@ -94,3 +106,54 @@ jobs:
       run: cabal test --test-show-details=streaming
       env:
         HSPEC_OPTIONS: --color
+
+  windows-cabal-test:
+    runs-on: windows-latest
+    name: Windows / GHC ${{ matrix.ghc }}, Cabal ${{ matrix.cabal }} / test
+    strategy:
+      fail-fast: false      # don't stop if one job (= GHC version) fails
+      matrix:
+        cabal: ["3.4"]      # latest as of 2021-08-11
+        ghc: ["9.0"]
+    steps:
+    # TODO can't do cache fixer on Windows b/c it's a Bash script...
+    - uses: actions/checkout@v2
+      with:
+        fetch-depth: 0
+
+    - name: Setup Haskell build environment
+      id: setup-haskell-build-env
+      uses: haskell/actions/setup@v1
+      with:
+        ghc-version: ${{ matrix.ghc }}
+        cabal-version: ${{ matrix.cabal }}
+
+    - name: Freeze Cabal plan
+      run: cabal freeze
+
+    - name: Cache Cabal build artifacts
+      uses: actions/cache@v2
+      with:
+        path: |
+          ${{ steps.setup-haskell-build-env.outputs.cabal-store }}
+          dist-newstyle
+        key: ${{ runner.os }}-cabal-${{ matrix.ghc }}-${{ hashFiles('cabal.project.freeze') }}
+        restore-keys: |
+          ${{ runner.os }}-cabal-${{ matrix.ghc }}
+
+    - name: Build
+      run: cabal build
+
+    - name: Test
+      run: cabal test --test-show-details=streaming
+      env:
+        HSPEC_OPTIONS: --color
+
+    - name: Install (to place executable at a known location)
+      run: cabal install
+
+    - name: Upload executable
+      uses: actions/upload-artifact@v2
+      with:
+        name: ${{ env.EXE_NAME }}-windows-cabal-${{ github.sha }}.exe
+        path: "C:/Users/runneradmin/AppData/Roaming/cabal/bin/${{ env.EXE_NAME }}.exe"
