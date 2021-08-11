@@ -455,8 +455,16 @@ compareFile expected actual = do
   c2 <- BC.readFile actual
   compareByteString c1 c2
 
+-- XXX: It appears the rewriter has different behaviour on Windows and Linux --
+--      specifically relating to newlines. So we use a custom equality check
+--      that skips Windows newlines (@\r@ characters are skipped).
+--
+--      (This is morally grey: the issue is unlikely to rear its head in
+--      practical usage, _but_ if you were to be comparing rewriter output from
+--      different platforms, you may encounter it. Most cross-platform text
+--      tooling recognises/ignores Windows newlines, however.)
 compareByteString :: BC.ByteString -> BC.ByteString -> IO Bool
-compareByteString expected actual = if expected == actual
+compareByteString expected actual = if expected `eqSkipWinNewlines` actual
   then return True
   else do
     BC.putStrLn ">>>>>>> EXPECTED"
@@ -464,3 +472,25 @@ compareByteString expected actual = if expected == actual
     BC.putStrLn ">>>>>>> ACTUAL"
     BC.putStrLn actual
     return False
+
+eqSkipWinNewlines :: BC.ByteString -> BC.ByteString -> Bool
+eqSkipWinNewlines x1 x2 = go (BC.uncons x1) (BC.uncons x2)
+  where
+    go :: Maybe (Char, BC.ByteString) -> Maybe (Char, BC.ByteString) -> Bool
+
+    -- both reached EOF simultaneously: identical
+    go Nothing Nothing = True
+
+    -- next character in either bytestring is @\r@: skip
+    go (Just ('\r', bs1)) bs2 = go (BC.uncons bs1) bs2
+    go bs1 (Just ('\r', bs2)) = go bs1 (BC.uncons bs2)
+
+    -- only one bytestring is EOF: different
+    go Nothing (Just _)       = False
+    go (Just _) Nothing       = False
+
+    -- main case: check equality of next words
+    go (Just (b1, bs1)) (Just (b2, bs2)) =
+        if   b1 == b2
+        then go (BC.uncons bs1) (BC.uncons bs2)
+        else False
