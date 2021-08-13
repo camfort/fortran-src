@@ -2,6 +2,7 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE DeriveDataTypeable #-}
 {-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE DeriveFunctor #-}
 
 module Language.Fortran.AST.AList where
 
@@ -63,3 +64,14 @@ aStrip' (Just a) = aStrip a
 
 aMap :: (t a -> r a) -> AList t a -> AList r a
 aMap f (AList a s xs) = AList a s (map f xs)
+
+--------------------------------------------------------------------------------
+
+data ATuple t1 t2 a = ATuple a SrcSpan (t1 a) (t2 a)
+    deriving (Eq, Show, Data, Typeable, Generic, Functor)
+
+instance FirstParameter (ATuple t1 t2 a) a
+instance SecondParameter (ATuple t1 t2 a) SrcSpan
+instance Spanned (ATuple t1 t2 a)
+instance (Out a, Out (t1 a), Out (t2 a)) => Out (ATuple t1 t2 a)
+instance (NFData a, NFData (t1 a), NFData (t2 a)) => NFData (ATuple t1 t2 a)

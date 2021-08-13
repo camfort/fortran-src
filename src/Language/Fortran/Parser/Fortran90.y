@@ -411,8 +411,8 @@ ASSOCIATE_BLOCK :: { Block A0 }
           mLabel     = Just $1;
           TId _ name = $2;
           mName      = Just name;
-          abbrevs    = $6;
-          body       = $10;
+          abbrevs    = fromReverseList $6;
+          body       = reverse $10;
           (endSpan, mEndLabel) = $11;
           span       = getTransSpan startSpan endSpan }
      in BlAssociate () span mLabel mName abbrevs body mEndLabel }
@@ -420,8 +420,8 @@ ASSOCIATE_BLOCK :: { Block A0 }
   { let { startSpan  = getSpan $1;
           mLabel     = Just $1;
           mName      = Nothing;
-          abbrevs    = $4;
-          body       = $8;
+          abbrevs    = fromReverseList $4;
+          body       = reverse $8;
           (endSpan, mEndLabel) = $9;
           span       = getTransSpan startSpan endSpan }
      in BlAssociate () span mLabel mName abbrevs body mEndLabel }
@@ -430,8 +430,8 @@ ASSOCIATE_BLOCK :: { Block A0 }
           TId _ name = $1;
           mLabel     = Nothing;
           mName      = Just name;
-          abbrevs    = $5;
-          body       = $9;
+          abbrevs    = fromReverseList $5;
+          body       = reverse $9;
           (endSpan, mEndLabel) = $10;
           span       = getTransSpan startSpan endSpan }
      in BlAssociate () span mLabel mName abbrevs body mEndLabel }
@@ -439,8 +439,8 @@ ASSOCIATE_BLOCK :: { Block A0 }
   { let { startSpan  = getSpan $1;
           mLabel     = Nothing;
           mName      = Nothing;
-          abbrevs    = $3;
-          body       = $7;
+          abbrevs    = fromReverseList $3;
+          body       = reverse $7;
           (endSpan, mEndLabel) = $8;
           span       = getTransSpan startSpan endSpan }
      in BlAssociate () span mLabel mName abbrevs body mEndLabel }
@@ -453,11 +453,11 @@ END_ASSOCIATE :: { (SrcSpan, Maybe (Expression A0)) }
 | INTEGER_LITERAL endassociate id { (getSpan $3, Just $1) }
 
 -- (var (ExpValue (ValVariable)), assoc. expr)
-ABBREVIATIONS :: { [(Expression A0, Expression A0)] }
+ABBREVIATIONS :: { [(ATuple Expression Expression A0)] }
 : ABBREVIATIONS ',' ABBREVIATION { $3 : $1 }
 |                   ABBREVIATION { [ $1 ]  }
-ABBREVIATION :: { (Expression A0, Expression A0) }
-: VARIABLE '=>' EXPRESSION { ($1, $3) }
+ABBREVIATION :: { ATuple Expression Expression A0 }
+: VARIABLE '=>' EXPRESSION { ATuple () (getTransSpan $1 $3) $1 $3 }
 
 MAYBE_EXPRESSION :: { Maybe (Expression A0) }
 : EXPRESSION { Just $1 }
