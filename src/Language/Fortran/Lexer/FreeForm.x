@@ -245,6 +245,7 @@ tokens :-
 <0> "forall"                                      { addSpan TForall }
 <0> "end"\ *"forall"                              { addSpan TEndForall }
 <0> "associate"                                   { addSpan TAssociate }
+<scN> "associate" / { followsColonP }             { addSpan TAssociate }
 <0> "end"\ *"associate"                           { addSpan TEndAssociate }
 
 
