@@ -416,8 +416,25 @@ ASSOCIATE_BLOCK :: { Block A0 }
           (endSpan, mEndLabel) = $11;
           span       = getTransSpan startSpan endSpan }
      in BlAssociate () span mLabel mName abbrevs body mEndLabel }
--- | INTEGER_LITERAL        associate '(' ABBREVIATIONS ')' MAYBE_COMMENT NEWLINE BLOCKS END_ASSOCIATE
--- |                 id ':' associate '(' ABBREVIATIONS ')' MAYBE_COMMENT NEWLINE BLOCKS END_ASSOCIATE
+| INTEGER_LITERAL        associate '(' ABBREVIATIONS ')' MAYBE_COMMENT NEWLINE BLOCKS END_ASSOCIATE
+  { let { startSpan  = getSpan $1;
+          mLabel     = Just $1;
+          mName      = Nothing;
+          abbrevs    = $4;
+          body       = $8;
+          (endSpan, mEndLabel) = $9;
+          span       = getTransSpan startSpan endSpan }
+     in BlAssociate () span mLabel mName abbrevs body mEndLabel }
+|                 id ':' associate '(' ABBREVIATIONS ')' MAYBE_COMMENT NEWLINE BLOCKS END_ASSOCIATE
+  { let { startSpan  = getSpan $1;
+          TId _ name = $1;
+          mLabel     = Nothing;
+          mName      = Just name;
+          abbrevs    = $5;
+          body       = $9;
+          (endSpan, mEndLabel) = $10;
+          span       = getTransSpan startSpan endSpan }
+     in BlAssociate () span mLabel mName abbrevs body mEndLabel }
 |                        associate '(' ABBREVIATIONS ')' MAYBE_COMMENT NEWLINE BLOCKS END_ASSOCIATE
   { let { startSpan  = getSpan $1;
           mLabel     = Nothing;
