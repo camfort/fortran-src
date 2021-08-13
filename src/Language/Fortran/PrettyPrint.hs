@@ -327,14 +327,46 @@ instance IndentablePretty (Block a) where
             then indent i (pprint' v label <+> stDoc)
             else pprint' v mLabel `overlay` indent i stDoc
 
+    -- TODO associate
     pprint v (BlAssociate _ _ mLabel mName abbrevs bodies mEndLabel) i
       | v >= Fortran90 =
-        indent i ("associate" <+> "ABBREVS" <> newline) <>
-        pprint v bodies nextI <>
-        indent i ("end associate" <> newline)
+        labeledIndent mLabel
+          $  pprint' v mName <?> colon
+                <+> ("associate" <+> "(" <> pprint' v abbrevs <> ")" <> newline)
+          <> pprint v bodies nextI
+          <> labeledIndent mEndLabel ("end associate" <+> pprint' v mName <> newline)
       | otherwise = tooOld v "Associate block" Fortran90
       where
         nextI = incIndentation i
+        labeledIndent label stDoc =
+          if v >= Fortran90
+            then indent i (pprint' v label <+> stDoc)
+            else pprint' v mLabel `overlay` indent i stDoc
+{-
+    pprint v (BlIf _ _ mLabel mName conds bodies el) i
+      | v >= Fortran77 =
+        labeledIndent mLabel
+          $  (pprint' v mName <?> colon
+                <+> "if" <+> parens (pprint' v firstCond) <+> "then" <> newline)
+          <> pprint v firstBody nextI
+          <> foldl' (<>) empty (map displayCondBlock restCondsBodies)
+          <> labeledIndent el ("end if" <+> pprint' v mName <> newline)
+      | otherwise = tooOld v "Structured if" Fortran77
+      where
+        ((firstCond, firstBody): restCondsBodies) = zip conds bodies
+        displayCondBlock (mCond, block) =
+          indent i
+            (case mCond of {
+              Just cond -> "else if" <+> parens (pprint' v cond) <+> "then";
+              Nothing -> "else"
+            } <> newline) <>
+          pprint v block nextI
+        nextI = incIndentation i
+        labeledIndent label stDoc =
+          if v >= Fortran90
+            then indent i (pprint' v label <+> stDoc)
+            else pprint' v mLabel `overlay` indent i stDoc
+-}
 
     pprint v (BlComment _ _ (Comment comment)) i
       | v >= Fortran90 = indent i (char '!' <> text comment <> newline)
@@ -352,6 +384,10 @@ instance Pretty String where
 
 instance Pretty (e a) => Pretty (AList e a) where
     pprint' v es = commaSep (map (pprint' v) (aStrip es))
+
+-- TODO associate
+instance (Pretty (t1 a), Pretty (t2 a)) => Pretty (ATuple t1 t2 a) where
+    pprint' v (ATuple _ _ t1 t2) = pprint' v t1 <+> "=>" <+> pprint' v t2
 
 instance Pretty BaseType where
     pprint' _ TypeInteger = "integer"

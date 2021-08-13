@@ -347,7 +347,7 @@ data Block a =
   | BlAssociate a SrcSpan
                 (Maybe (Expression a))       -- Label
                 (Maybe String)               -- Construct name
-                [(Expression a, Expression a)] -- Expression abbreviations
+                (AList (ATuple Expression Expression) a) -- Expression abbreviations
                 [ Block a ]                  -- Body
                 (Maybe (Expression a))       -- Label to END IF
   -- ^ The first 'Expression' in the abbreviation tuple is always an
