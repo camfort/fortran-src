@@ -1,4 +1,4 @@
-{-# LANGUAGE DeriveDataTypeable, ScopedTypeVariables, PatternGuards, TupleSections #-}
+{-# LANGUAGE DeriveDataTypeable, ScopedTypeVariables, PatternGuards, TupleSections, FlexibleContexts #-}
 
 -- | Generate a module use-graph.
 module Language.Fortran.Analysis.ModGraph
