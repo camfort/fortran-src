@@ -145,8 +145,6 @@ import Debug.Trace
   case                        { TCase _ }
   selectcase                  { TSelectCase _ }
   endselect                   { TEndSelect _ }
-  associate                   { TAssociate _ }
-  endassociate                { TEndAssociate _ }
   default                     { TDefault _ }
   cycle                       { TCycle _ }
   exit                        { TExit _ }
@@ -309,7 +307,6 @@ BLOCKS :: { [ Block A0 ] } : BLOCKS BLOCK { $2 : $1 } | {- EMPTY -} { [ ] }
 BLOCK :: { Block A0 }
 : IF_BLOCK MAYBE_COMMENT NEWLINE { $1 }
 | CASE_BLOCK MAYBE_COMMENT NEWLINE { $1 }
-| ASSOCIATE_BLOCK MAYBE_COMMENT NEWLINE { $1 }
 | INTEGER_LITERAL STATEMENT MAYBE_COMMENT NEWLINE
   { BlStatement () (getTransSpan $1 $2) (Just $1) $2 }
 | STATEMENT MAYBE_COMMENT NEWLINE { BlStatement () (getSpan $1) Nothing $1 }
@@ -404,60 +401,6 @@ CASES_ :: { ([Maybe (AList Index A0)], [[Block A0]], Maybe (Expression A0), SrcS
 END_SELECT :: { (Maybe (Expression A0), SrcSpan) }
 : maybe(INTEGER_LITERAL) endselect maybe(id)
   { ($1, maybe (getSpan $2) getSpan $3) }
-
-ASSOCIATE_BLOCK :: { Block A0 }
-: INTEGER_LITERAL id ':' associate '(' ABBREVIATIONS ')' MAYBE_COMMENT NEWLINE BLOCKS END_ASSOCIATE
-  { let { startSpan  = getSpan $1;
-          mLabel     = Just $1;
-          TId _ name = $2;
-          mName      = Just name;
-          abbrevs    = fromReverseList $6;
-          body       = reverse $10;
-          (endSpan, mEndLabel) = $11;
-          span       = getTransSpan startSpan endSpan }
-     in BlAssociate () span mLabel mName abbrevs body mEndLabel }
-| INTEGER_LITERAL        associate '(' ABBREVIATIONS ')' MAYBE_COMMENT NEWLINE BLOCKS END_ASSOCIATE
-  { let { startSpan  = getSpan $1;
-          mLabel     = Just $1;
-          mName      = Nothing;
-          abbrevs    = fromReverseList $4;
-          body       = reverse $8;
-          (endSpan, mEndLabel) = $9;
-          span       = getTransSpan startSpan endSpan }
-     in BlAssociate () span mLabel mName abbrevs body mEndLabel }
-|                 id ':' associate '(' ABBREVIATIONS ')' MAYBE_COMMENT NEWLINE BLOCKS END_ASSOCIATE
-  { let { startSpan  = getSpan $1;
-          TId _ name = $1;
-          mLabel     = Nothing;
-          mName      = Just name;
-          abbrevs    = fromReverseList $5;
-          body       = reverse $9;
-          (endSpan, mEndLabel) = $10;
-          span       = getTransSpan startSpan endSpan }
-     in BlAssociate () span mLabel mName abbrevs body mEndLabel }
-|                        associate '(' ABBREVIATIONS ')' MAYBE_COMMENT NEWLINE BLOCKS END_ASSOCIATE
-  { let { startSpan  = getSpan $1;
-          mLabel     = Nothing;
-          mName      = Nothing;
-          abbrevs    = fromReverseList $3;
-          body       = reverse $7;
-          (endSpan, mEndLabel) = $8;
-          span       = getTransSpan startSpan endSpan }
-     in BlAssociate () span mLabel mName abbrevs body mEndLabel }
-
--- TODO: Copied verbatim from END_IF. Should attempt to functionalise.
-END_ASSOCIATE :: { (SrcSpan, Maybe (Expression A0)) }
-: endassociate { (getSpan $1, Nothing) }
-| endassociate id { (getSpan $2, Nothing) }
-| INTEGER_LITERAL endassociate { (getSpan $2, Just $1) }
-| INTEGER_LITERAL endassociate id { (getSpan $3, Just $1) }
-
--- (var (ExpValue (ValVariable)), assoc. expr)
-ABBREVIATIONS :: { [(ATuple Expression Expression A0)] }
-: ABBREVIATIONS ',' ABBREVIATION { $3 : $1 }
-|                   ABBREVIATION { [ $1 ]  }
-ABBREVIATION :: { ATuple Expression Expression A0 }
-: VARIABLE '=>' EXPRESSION { ATuple () (getTransSpan $1 $3) $1 $3 }
 
 MAYBE_EXPRESSION :: { Maybe (Expression A0) }
 : EXPRESSION { Just $1 }

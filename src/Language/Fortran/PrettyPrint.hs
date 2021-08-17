@@ -327,7 +327,6 @@ instance IndentablePretty (Block a) where
             then indent i (pprint' v label <+> stDoc)
             else pprint' v mLabel `overlay` indent i stDoc
 
-    -- TODO associate
     pprint v (BlAssociate _ _ mLabel mName abbrevs bodies mEndLabel) i
       | v >= Fortran90 =
         labeledIndent mLabel
@@ -342,31 +341,6 @@ instance IndentablePretty (Block a) where
           if v >= Fortran90
             then indent i (pprint' v label <+> stDoc)
             else pprint' v mLabel `overlay` indent i stDoc
-{-
-    pprint v (BlIf _ _ mLabel mName conds bodies el) i
-      | v >= Fortran77 =
-        labeledIndent mLabel
-          $  (pprint' v mName <?> colon
-                <+> "if" <+> parens (pprint' v firstCond) <+> "then" <> newline)
-          <> pprint v firstBody nextI
-          <> foldl' (<>) empty (map displayCondBlock restCondsBodies)
-          <> labeledIndent el ("end if" <+> pprint' v mName <> newline)
-      | otherwise = tooOld v "Structured if" Fortran77
-      where
-        ((firstCond, firstBody): restCondsBodies) = zip conds bodies
-        displayCondBlock (mCond, block) =
-          indent i
-            (case mCond of {
-              Just cond -> "else if" <+> parens (pprint' v cond) <+> "then";
-              Nothing -> "else"
-            } <> newline) <>
-          pprint v block nextI
-        nextI = incIndentation i
-        labeledIndent label stDoc =
-          if v >= Fortran90
-            then indent i (pprint' v label <+> stDoc)
-            else pprint' v mLabel `overlay` indent i stDoc
--}
 
     pprint v (BlComment _ _ (Comment comment)) i
       | v >= Fortran90 = indent i (char '!' <> text comment <> newline)
