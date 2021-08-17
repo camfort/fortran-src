@@ -404,6 +404,43 @@ spec =
                                , "42 end select" ]
           pprint Fortran90 bl (Just 0) `shouldBe` text expect
 
+      describe "Case" $
+        it "prints multi-case select case construct" $ do
+          let range = IxRange () u (Just $ intGen 2) (Just $ intGen 4) Nothing
+          let cases = [ Just (AList () u [range])
+                      , Just (AList () u [ IxSingle () u Nothing (intGen 7) ])
+                      , Nothing ]
+          let bodies = replicate 3 body
+          let bl = BlCase () u Nothing Nothing (varGen "x") cases bodies (Just (intGen 42))
+          let expect = unlines [ "select case (x)"
+                               , "  case (2:4)"
+                               , "    print *, i"
+                               , "    i = (i - 1)"
+                               , "  case (7)"
+                               , "    print *, i"
+                               , "    i = (i - 1)"
+                               , "  case default"
+                               , "    print *, i"
+                               , "    i = (i - 1)"
+                               , "42 end select" ]
+          pprint Fortran90 bl (Just 0) `shouldBe` text expect
+
+      describe "Associate" $
+        it "prints multi-abbreviation associate block (Fortran2003)" $ do
+          let bl      = BlAssociate () u Nothing Nothing abbrevs body' Nothing
+              body'   = [blStmtPrint "x", blStmtPrint "y"]
+              blStmtPrint x = BlStatement () u Nothing (stmtPrint x)
+              stmtPrint x = StPrint () u starVal (Just $ AList () u [ varGen x ])
+              abbrevs = AList () u [abbrev "x" (expValVar "a"), abbrev "y" (expBinVars Multiplication "a" "b")]
+              abbrev var expr = ATuple () u (expValVar var) expr
+              expValVar x = ExpValue () u (ValVariable x)
+              expBinVars op x1 x2 = ExpBinary () u op (expValVar x1) (expValVar x2)
+          let expect = unlines [ "associate (x => a, y => (a * b))"
+                               , "  print *, x"
+                               , "  print *, y"
+                               , "end associate" ]
+          pprint Fortran2003 bl (Just 0) `shouldBe` text expect
+
     describe "Program units" $ do
       describe "Main" $ do
         it "prints 90 style main without sub programs" $ do

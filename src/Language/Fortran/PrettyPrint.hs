@@ -327,14 +327,16 @@ instance IndentablePretty (Block a) where
             then indent i (pprint' v label <+> stDoc)
             else pprint' v mLabel `overlay` indent i stDoc
 
+    -- Note that binary expressions such as @a*b@ will always be wrapped in
+    -- brackets. It appears to be built into 'Expression''s 'Pretty' instance.
     pprint v (BlAssociate _ _ mLabel mName abbrevs bodies mEndLabel) i
-      | v >= Fortran90 =
+      | v >= Fortran2003 =
         labeledIndent mLabel
           $  pprint' v mName <?> colon
                 <+> ("associate" <+> "(" <> pprint' v abbrevs <> ")" <> newline)
           <> pprint v bodies nextI
           <> labeledIndent mEndLabel ("end associate" <+> pprint' v mName <> newline)
-      | otherwise = tooOld v "Associate block" Fortran90
+      | otherwise = tooOld v "Associate block" Fortran2003
       where
         nextI = incIndentation i
         labeledIndent label stDoc =
@@ -359,7 +361,6 @@ instance Pretty String where
 instance Pretty (e a) => Pretty (AList e a) where
     pprint' v es = commaSep (map (pprint' v) (aStrip es))
 
--- TODO associate
 instance (Pretty (t1 a), Pretty (t2 a)) => Pretty (ATuple t1 t2 a) where
     pprint' v (ATuple _ _ t1 t2) = pprint' v t1 <+> "=>" <+> pprint' v t2
 
