@@ -21,13 +21,18 @@ eParser sourceCode =
     paddedSourceCode = B.pack $ "      a = " ++ sourceCode
     parseState =  initParseState paddedSourceCode Fortran2003 "<unknown>"
 
+simpleParser :: Parse AlexInput Token a -> String -> a
+simpleParser p sourceCode =
+  evalParse p $ initParseState (B.pack sourceCode) Fortran2003 "<unknown>"
+
 sParser :: String -> Statement ()
-sParser sourceCode =
-  evalParse statementParser $ initParseState (B.pack sourceCode) Fortran2003 "<unknown>"
+sParser = simpleParser statementParser
 
 fParser :: String -> ProgramUnit ()
-fParser sourceCode =
-  evalParse functionParser $ initParseState (B.pack sourceCode) Fortran2003 "<unknown>"
+fParser = simpleParser functionParser
+
+bParser :: String -> Block ()
+bParser = simpleParser blockParser
 
 spec :: Spec
 spec =
@@ -141,16 +146,32 @@ spec =
         sParser "real, protected, public :: x" `shouldBe'` st1
         sParser "protected x" `shouldBe'` st2
 
-      describe "labelled where" $ do
-        it "parses where construct statement" $
-          sParser "foo: where (.true.)" `shouldBe'` StWhereConstruct () u (Just "foo") valTrue
+    describe "labelled where" $ do
+      it "parses where construct statement" $
+        sParser "foo: where (.true.)" `shouldBe'` StWhereConstruct () u (Just "foo") valTrue
 
-        it "parses elsewhere statement" $
-          sParser "elsewhere ab101" `shouldBe'` StElsewhere () u (Just "ab101") Nothing
+      it "parses elsewhere statement" $
+        sParser "elsewhere ab101" `shouldBe'` StElsewhere () u (Just "ab101") Nothing
 
-        it "parses elsewhere statement" $ do
-          let exp = ExpBinary () u GT (varGen "a") (varGen "b")
-          sParser "elsewhere (a > b) A123" `shouldBe'` StElsewhere () u (Just "a123") (Just exp)
+      it "parses elsewhere statement" $ do
+        let exp = ExpBinary () u GT (varGen "a") (varGen "b")
+        sParser "elsewhere (a > b) A123" `shouldBe'` StElsewhere () u (Just "a123") (Just exp)
 
-        it "parses endwhere statement" $
-          sParser "endwhere foo1" `shouldBe'` StEndWhere () u (Just "foo1")
+      it "parses endwhere statement" $
+        sParser "endwhere foo1" `shouldBe'` StEndWhere () u (Just "foo1")
+
+    describe "associate block" $ do
+      it "parses multiple assignment associate block" $ do
+        let text = unlines [ "associate (x => a, y => (a * b))"
+                           , "  print *, x"
+                           , "  print *, y"
+                           , "end associate" ]
+            expected = BlAssociate () u Nothing Nothing abbrevs body' Nothing
+            body'   = [blStmtPrint "x", blStmtPrint "y"]
+            blStmtPrint x = BlStatement () u Nothing (stmtPrint x)
+            stmtPrint x = StPrint () u starVal (Just $ AList () u [ varGen x ])
+            abbrevs = AList () u [abbrev "x" (expValVar "a"), abbrev "y" (expBinVars Multiplication "a" "b")]
+            abbrev var expr = ATuple () u (expValVar var) expr
+            expValVar x = ExpValue () u (ValVariable x)
+            expBinVars op x1 x2 = ExpBinary () u op (expValVar x1) (expValVar x2)
+        bParser text `shouldBe'` expected

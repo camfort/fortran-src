@@ -1,8 +1,10 @@
 -- -*- Mode: Haskell -*-
+-- vim: ft=haskell
 {
 -- Incomplete work-in-progress.
 module Language.Fortran.Parser.Fortran2003 ( functionParser
                                            , statementParser
+                                           , blockParser
                                            , fortran2003Parser
                                            , fortran2003ParserWithTransforms
                                            , fortran2003ParserWithModFiles
@@ -32,9 +34,10 @@ import Debug.Trace
 
 }
 
-%name programParser PROGRAM
+%name programParser   PROGRAM
+%name functionParser  SUBPROGRAM_UNIT
+%name blockParser     BLOCK
 %name statementParser STATEMENT
-%name functionParser SUBPROGRAM_UNIT
 %monad { LexAction }
 %lexer { lexer } { TEOF _ }
 %tokentype { Token }
