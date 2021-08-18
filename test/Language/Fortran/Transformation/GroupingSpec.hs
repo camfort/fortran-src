@@ -91,7 +91,7 @@ expectedExample1do :: ProgramFile ()
 expectedExample1do = ProgramFile mi77 [ PUMain () u (Just "example1") expectedExample1doBlocks Nothing ]
 expectedExample1doBlocks :: [Block ()]
 expectedExample1doBlocks =
-  [ BlDo () u Nothing Nothing label10 dospec
+  [ BlDo () u (BlockConstructStart () u Nothing Nothing) label10 dospec
      [ ] label10 ]
 
 label20 :: Maybe (Expression ())
@@ -116,11 +116,11 @@ expectedExample2do :: ProgramFile ()
 expectedExample2do = ProgramFile mi77 [ PUMain () u (Just "example2") expectedExample2doBlocks Nothing ]
 expectedExample2doBlocks :: [Block ()]
 expectedExample2doBlocks =
-  [ BlDo () u Nothing Nothing label10 dospec
-      [ BlDo () u Nothing Nothing label10 dospec
+  [ BlDo () u (BlockConstructStart () u Nothing Nothing) label10 dospec
+      [ BlDo () u (BlockConstructStart () u Nothing Nothing) label10 dospec
           [ ] label10
       ] label10
-  , BlDo () u Nothing Nothing label20 dospec
+  , BlDo () u (BlockConstructStart () u Nothing Nothing) label20 dospec
       [ ] label20
   ]
 
@@ -168,7 +168,7 @@ doSpanRaw = unlines [
   , "      end" ]
 doSpan :: SimpleSpan
 doSpan =
-  let BlDo _ s _ _ _ _ _ _ = getSingleParsedBlock95 doSpanRaw
+  let BlDo _ s _ _ _ _ _ = getSingleParsedBlock95 doSpanRaw
   in  simplifySpan s
 expectedDoSpan :: SimpleSpan
 expectedDoSpan = (2, 8, 5, 13)
@@ -182,7 +182,7 @@ doWhileSpanRaw = unlines [
   , "      end" ]
 doWhileSpan :: SimpleSpan
 doWhileSpan =
-  let BlDoWhile _ s _ _ _ _ _ _ = getSingleParsedBlock95 doWhileSpanRaw
+  let BlDoWhile _ s _ _ _ _ _ = getSingleParsedBlock95 doWhileSpanRaw
   in  simplifySpan s
 expectedDoWhileSpan :: SimpleSpan
 expectedDoWhileSpan = (2, 8, 4, 12)

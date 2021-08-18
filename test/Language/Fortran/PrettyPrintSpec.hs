@@ -303,7 +303,7 @@ spec =
       describe "Do While" $ do
         it "prints simple do while loop" $ do
           let cond = ExpBinary () u LFA.GT (varGen "i") (intGen 42)
-          let bl = BlDoWhile () u Nothing (Just "my_block") Nothing cond body Nothing
+          let bl = BlDoWhile () u (BlockConstructStart () u Nothing (Just "my_block")) Nothing cond body Nothing
           let expect = unlines [ "my_block: do while ((i > 42))"
                                , "print *, i"
                                , "i = (i - 1)"
@@ -312,7 +312,7 @@ spec =
 
         it "prints a labelled do while loop" $ do
           let cond = ExpBinary () u LFA.GT (varGen "i") (intGen 42)
-          let bl = BlDoWhile () u Nothing Nothing (Just (intGen 10)) cond body Nothing
+          let bl = BlDoWhile () u (BlockConstructStart () u Nothing Nothing) (Just (intGen 10)) cond body Nothing
           let expect = unlines [ "do 10 while ((i > 42))"
                                , "print *, i"
                                , "i = (i - 1)" ]
@@ -323,7 +323,7 @@ spec =
         let doSpec = DoSpecification () u iAssign (intGen 9) (Just (intGen 2))
 
         it "prints 90 style do loop" $ do
-          let bl = BlDo () u Nothing Nothing Nothing (Just doSpec) body Nothing
+          let bl = BlDo () u (BlockConstructStart () u Nothing Nothing) Nothing (Just doSpec) body Nothing
           let expect = unlines [ "do i = 1, 9, 2"
                                , "print *, i"
                                , "i = (i - 1)"
@@ -331,7 +331,7 @@ spec =
           pprint Fortran90 bl Nothing `shouldBe` text expect
 
         it "prints named infinite do loop" $ do
-          let bl = BlDo () u Nothing (Just "joker") Nothing Nothing body Nothing
+          let bl = BlDo () u (BlockConstructStart () u Nothing (Just "joker")) Nothing Nothing body Nothing
           let expect = unlines [ "joker: do"
                                , "print *, i"
                                , "i = (i - 1)"
@@ -339,7 +339,7 @@ spec =
           pprint Fortran90 bl Nothing `shouldBe` text expect
 
         it "prints named labeled do loop" $ do
-          let bl = BlDo () u Nothing (Just "joker") (Just $ intGen 42) (Just doSpec) body (Just $ intGen 42)
+          let bl = BlDo () u (BlockConstructStart () u Nothing (Just "joker")) (Just $ intGen 42) (Just doSpec) body (Just $ intGen 42)
           let expect = unlines [ "joker: do 42 i = 1, 9, 2"
                                , "print *, i"
                                , "i = (i - 1)"
@@ -348,7 +348,7 @@ spec =
 
         it "prints vanilla labeled do loop" $ do
           let body2 = body ++ [ BlStatement () u (Just $ intGen 42) (StContinue () u) ]
-          let bl = BlDo () u Nothing Nothing (Just $ intGen 42) (Just doSpec) body2 (Just $ intGen 42)
+          let bl = BlDo () u (BlockConstructStart () u Nothing Nothing) (Just $ intGen 42) (Just doSpec) body2 (Just $ intGen 42)
           let expect = unlines [ "      do 42 i = 1, 9, 2"
                                , "        print *, i"
                                , "        i = (i - 1)"

@@ -85,17 +85,19 @@ groupDo' (b:bs) = b' : bs'
     (b', bs') = case b of
       BlStatement a s label st
         -- Do While statement
-        | StDoWhile _ _ mTarget Nothing condition <- st ->
-          let ( blocks, leftOverBlocks, endLabel, stEnd ) =
-                collectNonDoBlocks groupedBlocks mTarget
-          in ( BlDoWhile a (getTransSpan s stEnd) label mTarget Nothing condition blocks endLabel
-             , leftOverBlocks)
-        -- Vanilla do statement
-        | StDo _ _ mName Nothing doSpec <- st ->
+        | StDoWhile a' s' mName Nothing condition <- st ->
           let ( blocks, leftOverBlocks, endLabel, stEnd ) =
                 collectNonDoBlocks groupedBlocks mName
-          in ( BlDo a (getTransSpan s stEnd) label mName Nothing doSpec blocks endLabel
+              blStartStmt = BlockConstructStart a' s' label mName
+           in ( BlDoWhile a (getTransSpan s stEnd) blStartStmt Nothing condition blocks endLabel
              , leftOverBlocks)
+        -- Vanilla do statement
+        | StDo a' s' mName Nothing doSpec <- st ->
+          let ( blocks, leftOverBlocks, endLabel, stEnd ) =
+                collectNonDoBlocks groupedBlocks mName
+              blStartStmt = BlockConstructStart a' s' label mName
+           in ( BlDo a (getTransSpan s stEnd) blStartStmt Nothing doSpec blocks endLabel
+              , leftOverBlocks)
       b'' | containsGroups b'' ->
         ( applyGroupingToSubblocks groupDo' b'', groupedBlocks )
       _ -> ( b, groupedBlocks )
@@ -137,16 +139,18 @@ groupLabeledDo' (b:bs) = b' : bs'
   where
     (b', bs') = case b of
       BlStatement a s label
-        (StDo _ _ mn tl@Just{} doSpec) ->
+        (StDo a' ss' mn tl@Just{} doSpec) ->
           let ( blocks, leftOverBlocks, lastLabel ) =
                 collectNonLabeledDoBlocks tl groupedBlocks
-          in ( BlDo a (getTransSpan s blocks) label mn tl doSpec blocks lastLabel
+              blStartStmt = BlockConstructStart a' ss' label mn
+          in ( BlDo a (getTransSpan s blocks) blStartStmt tl doSpec blocks lastLabel
              , leftOverBlocks )
       BlStatement a s label
-        (StDoWhile _ _ mn tl@Just{} cond) ->
+        (StDoWhile a' ss' mn tl@Just{} cond) ->
           let ( blocks, leftOverBlocks, lastLabel ) =
                 collectNonLabeledDoBlocks tl groupedBlocks
-          in ( BlDoWhile a (getTransSpan s blocks) label mn tl cond blocks lastLabel
+              blStartStmt = BlockConstructStart a' ss' label mn
+          in ( BlDoWhile a (getTransSpan s blocks) blStartStmt tl cond blocks lastLabel
              , leftOverBlocks )
       b'' | containsGroups b'' ->
         ( applyGroupingToSubblocks groupLabeledDo' b'', groupedBlocks )
@@ -210,10 +214,10 @@ applyGroupingToSubblocks f b
     BlIf a s l mn conds (map f blocks) el
   | BlCase a s l mn scrutinee conds blocks         el <- b =
     BlCase a s l mn scrutinee conds (map f blocks) el
-  | BlDo a s l n tl doSpec blocks     el <- b =
-    BlDo a s l n tl doSpec (f blocks) el
-  | BlDoWhile a s l n tl doSpec blocks     el <- b =
-    BlDoWhile a s l n tl doSpec (f blocks) el
+  | BlDo a s x tl doSpec blocks     el <- b =
+    BlDo a s x tl doSpec (f blocks) el
+  | BlDoWhile a s x tl doSpec blocks     el <- b =
+    BlDoWhile a s x tl doSpec (f blocks) el
   | BlInterface{} <- b =
       error "Interface blocks do not have groupable subblocks. Must not occur."
   | BlComment{} <- b =

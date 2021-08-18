@@ -91,11 +91,12 @@ labelWithinBlocks = perBlock'
     perBlock' :: Block (Analysis a) -> Block (Analysis a)
     perBlock' b =
       case b of
+        -- TODO
         BlStatement a s e st               -> BlStatement a s (mfill i e) (fill i st)
         BlIf        a s e1 mn e2 bss el    -> BlIf        a s (mfill i e1) mn (mmfill i e2) bss el
         BlCase      a s e1 mn e2 is bss el -> BlCase      a s (mfill i e1) mn (fill i e2) (mmfill i is) bss el
-        BlDo        a s e1 mn tl e2 bs el  -> BlDo        a s (mfill i e1) mn tl (mfill i e2) bs el
-        BlDoWhile   a s e1 n tl e2 bs el   -> BlDoWhile   a s (mfill i e1) n tl (fill i e2) bs el
+        BlDo        a s e1 tl e2 bs el     -> BlDo        a s (fill i e1) tl (mfill i e2) bs el
+        BlDoWhile   a s e1 tl e2 bs el     -> BlDoWhile   a s (fill i e1) tl (fill i e2) bs el
         _                             -> b
       where i = insLabel $ getAnnotation b
 
@@ -407,14 +408,14 @@ perBlock b@(BlStatement a ss _ (StIfLogical _ _ exp stm)) = do
 perBlock b@(BlStatement _ _ _ StIfArithmetic{}) =
   -- Treat an arithmetic if similarly to a goto
   processLabel b >> addToBBlock b >> closeBBlock_
-perBlock b@(BlDo _ _ _ _ _ (Just spec) bs _) = do
+perBlock b@(BlDo _ _ _ _ (Just spec) bs _) = do
   let DoSpecification _ _ (StExpressionAssign _ _ _ e1) e2 me3 = spec
   _  <- processFunctionCalls e1
   _  <- processFunctionCalls e2
   _  <- case me3 of Just e3 -> Just `fmap` processFunctionCalls e3; Nothing -> return Nothing
   perDoBlock Nothing b bs
-perBlock b@(BlDo _ _ _ _ _ Nothing bs _) = perDoBlock Nothing b bs
-perBlock b@(BlDoWhile _ _ _ _ _ exp bs _) = perDoBlock (Just exp) b bs
+perBlock b@(BlDo _ _ _ _ Nothing bs _) = perDoBlock Nothing b bs
+perBlock b@(BlDoWhile _ _ _ _ exp bs _) = perDoBlock (Just exp) b bs
 perBlock b@(BlStatement _ _ _ StReturn{}) =
   processLabel b >> addToBBlock b >> closeBBlock_
 perBlock b@(BlStatement _ _ _ StGotoUnconditional{}) =
@@ -555,8 +556,8 @@ genTemp str = do
 -- Strip nested code not necessary since it is duplicated in another
 -- basic block.
 stripNestedBlocks :: Block a -> Block a
-stripNestedBlocks (BlDo a s l mn tl ds _ el)     = BlDo a s l mn tl ds [] el
-stripNestedBlocks (BlDoWhile a s l tl n e _ el)  = BlDoWhile a s l tl n e [] el
+stripNestedBlocks (BlDo a s x tl ds _ el)        = BlDo a s x tl ds [] el
+stripNestedBlocks (BlDoWhile a s x n e _ el)  = BlDoWhile a s x n e [] el
 stripNestedBlocks (BlIf a s l mn exps _ el)      = BlIf a s l mn exps [] el
 stripNestedBlocks (BlCase a s l mn sc inds _ el) = BlCase a s l mn sc inds [] el
 stripNestedBlocks b                              = b
@@ -784,13 +785,13 @@ showBlock (BlStatement _ _ mlab st)
         StExit{}                     -> "exit"
         _                            -> "<unhandled statement: " ++ show (toConstr (fmap (const ()) st)) ++ ">"
 showBlock (BlIf _ _ mlab _ (Just e1:_) _ _) = showLab mlab ++ "if " ++ showExpr e1 ++ "\\l"
-showBlock (BlDo _ _ mlab _ _ (Just spec) _ _) =
-    showLab mlab ++ "do " ++ showExpr e1 ++ " <- " ++
+showBlock (BlDo _ _ x _ (Just spec) _ _) =
+    showLab (getLabel x) ++ "do " ++ showExpr e1 ++ " <- " ++
       showExpr e2 ++ ", " ++
       showExpr e3 ++ ", " ++
       maybe "1" showExpr me4 ++ "\\l"
   where DoSpecification _ _ (StExpressionAssign _ _ e1 e2) e3 me4 = spec
-showBlock (BlDo _ _ _ _ _ Nothing _ _) = "do"
+showBlock (BlDo _ _ _ _ Nothing _ _) = "do"
 showBlock (BlComment{})                = ""
 showBlock b = "<unhandled block: " ++ show (toConstr (fmap (const ()) b)) ++ ">"
 
