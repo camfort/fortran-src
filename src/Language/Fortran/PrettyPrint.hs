@@ -286,7 +286,7 @@ instance IndentablePretty (Block a) where
         abstract | v >= Fortran2003 && abstractp = "abstract "
                  | otherwise = empty
 
-    pprint v (BlDo _ _ mLabel mn tl doSpec body el) i
+    pprint v (BlDo _ _ (BlockConstructStart _ _ mLabel mn) tl doSpec body el) i
       | v >= Fortran77Extended =
         labeledIndent mLabel
           (pprint' v mn <?> colon <+>
@@ -310,7 +310,7 @@ instance IndentablePretty (Block a) where
             then indent i (pprint' v label <+> stDoc)
             else pprint' v mLabel `overlay` indent i stDoc
 
-    pprint v (BlDoWhile _ _ mLabel mName mTarget cond body el) i
+    pprint v (BlDoWhile _ _ (BlockConstructStart _ _ mLabel mName) mTarget cond body el) i
        | v >= Fortran77Extended =
         labeledIndent mLabel
           (pprint' v mName <?> colon <+>

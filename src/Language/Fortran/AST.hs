@@ -86,6 +86,7 @@ module Language.Fortran.AST
   , DoSpecification(..)
   , ProgramUnitName(..)
   , Kind
+  , BlockConstructStart(..)
 
   -- * Node annotations & related typeclasses
   , A0
@@ -301,6 +302,17 @@ programUnitSubprograms PUComment{}                 = Nothing
 newtype Comment a = Comment String
   deriving (Eq, Show, Data, Typeable, Generic, Functor)
 
+-- | Common data related to the start of block constructs.
+data BlockConstructStart a =
+    BlockConstructStart a
+                        SrcSpan
+                        -- ^ original block start statement 'SrcSpan'
+                        (Maybe (Expression a))
+                        -- ^ label
+                        (Maybe String)
+                        -- ^ name
+  deriving (Eq, Show, Data, Typeable, Generic, Functor)
+
 data Block a =
     BlStatement a SrcSpan
                 (Maybe (Expression a))       -- ^ Label
@@ -329,16 +341,14 @@ data Block a =
                 (Maybe (Expression a))       -- ^ Label to END SELECT
 
   | BlDo        a SrcSpan
-                (Maybe (Expression a))       -- ^ Label
-                (Maybe String)               -- ^ Construct name
+                (BlockConstructStart a)
                 (Maybe (Expression a))       -- ^ Target label
                 (Maybe (DoSpecification a))  -- ^ Do Specification
                 [ Block a ]                  -- ^ Body
                 (Maybe (Expression a))       -- ^ Label to END DO
 
   | BlDoWhile   a SrcSpan
-                (Maybe (Expression a))       -- ^ Label
-                (Maybe String)               -- ^ Construct name
+                (BlockConstructStart a)
                 (Maybe (Expression a))       -- ^ Target label
                 (Expression a)               -- ^ Condition
                 [ Block a ]                  -- ^ Body
@@ -754,6 +764,7 @@ instance FirstParameter (Declarator a) a
 instance FirstParameter (DimensionDeclarator a) a
 instance FirstParameter (ControlPair a) a
 instance FirstParameter (AllocOpt a) a
+instance FirstParameter (BlockConstructStart a) a
 
 instance SecondParameter (ProgramUnit a) SrcSpan
 instance SecondParameter (Prefix a) SrcSpan
@@ -783,6 +794,7 @@ instance SecondParameter (Declarator a) SrcSpan
 instance SecondParameter (DimensionDeclarator a) SrcSpan
 instance SecondParameter (ControlPair a) SrcSpan
 instance SecondParameter (AllocOpt a) SrcSpan
+instance SecondParameter (BlockConstructStart a) SrcSpan
 
 instance Annotated (AList t)
 instance Annotated ProgramUnit
@@ -811,6 +823,7 @@ instance Annotated Declarator
 instance Annotated DimensionDeclarator
 instance Annotated ControlPair
 instance Annotated AllocOpt
+instance Annotated BlockConstructStart
 
 instance Spanned (ProgramUnit a)
 instance Spanned (Prefix a)
@@ -840,6 +853,7 @@ instance Spanned (Declarator a)
 instance Spanned (DimensionDeclarator a)
 instance Spanned (ControlPair a)
 instance Spanned (AllocOpt a)
+instance Spanned (BlockConstructStart a)
 
 instance Spanned (ProgramFile a) where
   getSpan (ProgramFile _ pus) =
@@ -854,25 +868,30 @@ class Labeled f where
   getLastLabel :: f a -> Maybe (Expression a)
   setLabel :: f a -> Expression a -> f a
 
+instance Labeled BlockConstructStart where
+    getLabel (BlockConstructStart _ _ l _) = l
+    getLastLabel = const Nothing
+    setLabel (BlockConstructStart a ss _ s) l = BlockConstructStart a ss (Just l) s
+
 instance Labeled Block where
   getLabel (BlStatement _ _ l _) = l
   getLabel (BlIf _ _ l _ _ _ _) = l
   getLabel (BlCase _ _ l _ _ _ _ _) = l
-  getLabel (BlDo _ _ l _ _ _ _ _) = l
-  getLabel (BlDoWhile _ _ l _ _ _ _ _) = l
+  getLabel (BlDo _ _ x _ _ _ _) = getLabel x
+  getLabel (BlDoWhile _ _ x _ _ _ _) = getLabel x
   getLabel _ = Nothing
 
   getLastLabel b@BlStatement{} = getLabel b
   getLastLabel (BlIf _ _ _ _ _ _ l) = l
   getLastLabel (BlCase _ _ _ _ _ _ _ l) = l
-  getLastLabel (BlDo _ _ _ _ _ _ _ l) = l
-  getLastLabel (BlDoWhile _ _ _ _ _ _ _ l) = l
+  getLastLabel (BlDo _ _ _ _ _ _ l) = l
+  getLastLabel (BlDoWhile _ _ _ _ _ _ l) = l
   getLastLabel _ = Nothing
 
   setLabel (BlStatement a s _ st) l = BlStatement a s (Just l) st
   setLabel (BlIf a s _ mn conds bs el) l = BlIf a s (Just l) mn conds bs el
-  setLabel (BlDo a s _ mn tl spec bs el) l = BlDo a s (Just l) mn tl spec bs el
-  setLabel (BlDoWhile a s _ n tl spec bs el) l = BlDoWhile a s (Just l) n tl spec bs el
+  setLabel (BlDo a s st tl spec bs el) l = BlDo a s (setLabel st l) tl spec bs el
+  setLabel (BlDoWhile a s st tl spec bs el) l = BlDoWhile a s (setLabel st l) tl spec bs el
   setLabel b _ = b
 
 data ProgramUnitName =
@@ -949,6 +968,7 @@ instance Out a => Out (AllocOpt a)
 instance Out UnaryOp
 instance Out BinaryOp
 instance Out a => Out (ForallHeader a)
+instance Out a => Out (BlockConstructStart a)
 
 -- Classifiers on statement and blocks ASTs
 
@@ -1042,3 +1062,4 @@ instance NFData BinaryOp
 instance NFData Only
 instance NFData ModuleNature
 instance NFData Intent
+instance NFData a => NFData (BlockConstructStart a)
