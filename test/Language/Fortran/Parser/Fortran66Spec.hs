@@ -110,13 +110,13 @@ spec =
         sParser "      EXTERNAL f, g, h" `shouldBe'` expectedSt
 
       it "parses 'COMMON a, b'" $ do
-        let comGr = CommonGroup () u Nothing (AList () u [ varGen "a", varGen "b" ])
+        let comGr = CommonGroup () u Nothing (AList () u [ declVarGen "a", declVarGen "b" ])
         let st = StCommon () u (AList () u [ comGr ])
         sParser "      COMMON a, b" `shouldBe'` st
 
       it "parses 'COMMON // a, b /hello/ x, y, z'" $ do
-        let comGrs = [ CommonGroup () u Nothing (AList () u [ varGen "a", varGen "b" ])
-                     , CommonGroup () u (Just $ varGen "hello") (AList () u [ varGen "x", varGen "y", varGen "z" ]) ]
+        let comGrs = [ CommonGroup () u Nothing (AList () u [ declVarGen "a", declVarGen "b" ])
+                     , CommonGroup () u (Just $ varGen "hello") (AList () u [ declVarGen "x", declVarGen "y", declVarGen "z" ]) ]
         let st = StCommon () u (AList () u comGrs)
         sParser "      COMMON // a, b /hello/ x, y, z" `shouldBe'` st
 

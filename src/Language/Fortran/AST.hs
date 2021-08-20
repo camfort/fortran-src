@@ -386,6 +386,7 @@ data Statement a  =
   | StExternal            a SrcSpan (AList Expression a)
   | StIntrinsic           a SrcSpan (AList Expression a)
   | StCommon              a SrcSpan (AList CommonGroup a)
+  -- ^ A COMMON statement, defining a list of common blocks.
   | StEquivalence         a SrcSpan (AList (AList Expression) a)
   | StFormat              a SrcSpan (AList FormatItem a)
   | StImplicit            a SrcSpan (Maybe (AList ImpList a))
@@ -528,7 +529,7 @@ data ImpElement a =
   deriving (Eq, Show, Data, Typeable, Generic, Functor)
 
 data CommonGroup a =
-  CommonGroup a SrcSpan (Maybe (Expression a)) (AList Expression a)
+  CommonGroup a SrcSpan (Maybe (Expression a)) (AList Declarator a)
   deriving (Eq, Show, Data, Typeable, Generic, Functor)
 
 data Namelist a =

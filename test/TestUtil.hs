@@ -32,6 +32,9 @@ valFalse = ExpValue () u $ ValLogical ".false."
 varGen :: String -> Expression ()
 varGen str = ExpValue () u $ ValVariable str
 
+declVarGen :: String -> Declarator ()
+declVarGen str = DeclVariable () u (varGen str) Nothing Nothing
+
 intGen :: Integer -> Expression ()
 intGen i = ExpValue () u $ ValInteger $ show i
 
