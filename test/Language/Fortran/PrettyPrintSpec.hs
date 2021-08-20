@@ -81,7 +81,7 @@ spec =
         pprint Fortran90 impList Nothing `shouldBe` "integer (x, a-z, o)"
 
     describe "Common group" $ do
-      let globs = [ varGen "x", varGen "y", varGen "z" ]
+      let globs = [ declVarGen "x", declVarGen "y", declVarGen "z" ]
 
       it "prints anonymous common group" $ do
         let group = CommonGroup () u Nothing (AList () u globs)

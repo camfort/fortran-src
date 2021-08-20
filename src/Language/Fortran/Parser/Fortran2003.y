@@ -947,21 +947,21 @@ COMMON_GROUPS :: { [ CommonGroup A0 ] }
 | INIT_COMMON_GROUP { [ $1 ] }
 
 COMMON_GROUP :: { CommonGroup A0 }
-: COMMON_NAME PART_REFS
+: COMMON_NAME DECLARATOR_LIST2
   { let alist = fromReverseList $2
     in CommonGroup () (getTransSpan $1 alist) (Just $1) alist }
-| '/' '/' PART_REFS
+| '/' '/' DECLARATOR_LIST2
   { let alist = fromReverseList $3
     in CommonGroup () (getTransSpan $1 alist) Nothing alist }
 
 INIT_COMMON_GROUP :: { CommonGroup A0 }
-: COMMON_NAME PART_REFS
+: COMMON_NAME DECLARATOR_LIST2
   { let alist = fromReverseList $2
     in CommonGroup () (getTransSpan $1 alist) (Just $1) alist }
-| '/' '/' PART_REFS
+| '/' '/' DECLARATOR_LIST2
   { let alist = fromReverseList $3
     in CommonGroup () (getTransSpan $1 alist) Nothing alist }
-| PART_REFS
+| DECLARATOR_LIST2
   { let alist = fromReverseList $1
     in CommonGroup () (getSpan alist) Nothing alist }
 
@@ -1107,6 +1107,10 @@ DECLARATOR :: { Declarator A0 }
 | VARIABLE '(' DIMENSION_DECLARATORS ')' '*' '(' '*' ')'
   { let star = ExpValue () (getSpan $7) ValStar
     in DeclArray () (getTransSpan $1 $8) $1 (aReverse $3) (Just star) Nothing }
+
+DECLARATOR_LIST2 :: { [ Declarator A0 ] }
+: DECLARATOR_LIST2 ',' DECLARATOR { $3 : $1 }
+| DECLARATOR { [ $1 ] }
 
 DIMENSION_DECLARATORS :: { AList DimensionDeclarator A0 }
 : DIMENSION_DECLARATORS ',' DIMENSION_DECLARATOR

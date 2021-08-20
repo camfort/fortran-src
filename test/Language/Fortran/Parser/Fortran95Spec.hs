@@ -406,10 +406,10 @@ spec =
       describe "Common" $ do
         let commonNames = [ ExpValue () u (ValVariable "something")
                           , ExpValue () u (ValVariable "other") ]
-            itemss = [ fromList () [ varGen "a", varGen "b", varGen "c" ]
-                     , fromList () [ varGen "y" ] ]
+            itemss = [ fromList () [ declVarGen "a", declVarGen "b", declVarGen "c" ]
+                     , fromList () [ declVarGen "y" ] ]
             st = StCommon () u $ fromList ()
-              [ CommonGroup () u Nothing (fromList () [ varGen "q" ])
+              [ CommonGroup () u Nothing (fromList () [ declVarGen "q" ])
               , CommonGroup () u (Just $ head commonNames) (head itemss)
               , CommonGroup () u (Just $ last commonNames) (last itemss) ]
 

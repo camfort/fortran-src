@@ -694,14 +694,14 @@ COMMON_GROUPS
 
 COMMON_GROUP :: { CommonGroup A0 }
 COMMON_GROUP
-: COMMON_NAME NAME_LIST { CommonGroup () (getTransSpan $1 $2) (Just $1) $ aReverse $2 }
-| '/' '/' NAME_LIST { CommonGroup () (getTransSpan $1 $3) Nothing $ aReverse $3 }
+: COMMON_NAME DECLARATORS { CommonGroup () (getTransSpan $1 $2) (Just $1) $ aReverse $2 }
+| '/' '/' DECLARATORS { CommonGroup () (getTransSpan $1 $3) Nothing $ aReverse $3 }
 
 INIT_COMMON_GROUP :: { CommonGroup A0 }
 INIT_COMMON_GROUP
-: COMMON_NAME NAME_LIST { CommonGroup () (getTransSpan $1 $2) (Just $1) $ aReverse $2 }
-| '/' '/' NAME_LIST { CommonGroup () (getTransSpan $1 $3) Nothing $ aReverse $3 }
-| NAME_LIST { CommonGroup () (getSpan $1) Nothing $ aReverse $1 }
+: COMMON_NAME DECLARATORS { CommonGroup () (getTransSpan $1 $2) (Just $1) $ aReverse $2 }
+| '/' '/' DECLARATORS { CommonGroup () (getTransSpan $1 $3) Nothing $ aReverse $3 }
+| DECLARATORS { CommonGroup () (getSpan $1) Nothing $ aReverse $1 }
 
 COMMON_NAME :: { Expression A0 }
 COMMON_NAME : '/' VARIABLE '/' { setSpan (getTransSpan $1 $3) $2 }
