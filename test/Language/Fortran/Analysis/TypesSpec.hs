@@ -12,6 +12,7 @@ import Language.Fortran.Analysis
 import Language.Fortran.Analysis.Types
 import Language.Fortran.Analysis.SemanticTypes
 import Language.Fortran.Analysis.Renaming
+import qualified Language.Fortran.Parser.Fortran77 as F77
 import qualified Language.Fortran.Parser.Fortran90 as F90
 import Language.Fortran.ParserMonad
 import qualified Data.ByteString.Char8 as B
@@ -21,6 +22,9 @@ inferTable = underRenaming (snd . analyseTypes)
 
 typedProgramFile :: Data a => ProgramFile a -> ProgramFile (Analysis a)
 typedProgramFile = fst . analyseTypes . analyseRenames . initAnalysis
+
+legacy77Parser :: String -> String -> ProgramFile A0
+legacy77Parser src file = fromParseResultUnsafe $ F77.legacy77Parser (B.pack src) file
 
 fortran90Parser :: String -> String -> ProgramFile A0
 fortran90Parser src file = fromParseResultUnsafe $ F90.fortran90Parser (B.pack src) file
@@ -147,6 +151,11 @@ spec = do
              , idType a == Just (IDType (Just (TCharacter (CharLenInt 10) 1))
                                         (Just (CTArray [(Nothing, Just 20)])))]
           `shouldNotSatisfy` null
+
+    describe "Structure arrays" $ do
+      it "can handle typing assignments to arrays within structs" $ do
+        let mapping = inferTable structArray
+        mapping ! "s" `shouldBe` IDType (Just $ TCustom "strut") (Just CTVariable)
 
 ex1 :: ProgramFile ()
 ex1 = ProgramFile mi77 [ ex1pu1 ]
@@ -305,6 +314,18 @@ teststrings1 = resetSrcSpan . flip fortran90Parser "" $ unlines [
   , "  character(kind=2) :: f"
   , "end program teststrings"
   ]
+
+structArray :: ProgramFile A0
+structArray = resetSrcSpan . flip legacy77Parser "" $ unlines [
+    "      subroutine totes"
+  , "       structure /strut/"
+  , "         integer*4 arr(10)"
+  , "       end structure"
+  , "       record /strut/ s"
+  , "       s.arr(7) = 345"
+  , "       print *, 'eyo'"
+  , "      end subroutine totes"
+  ] 
 
 -- Local variables:
 -- mode: haskell

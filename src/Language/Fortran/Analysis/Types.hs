@@ -21,7 +21,7 @@ import Prelude hiding (lookup, EQ, LT, GT)
 import Data.Map (insert)
 import qualified Data.Map as M
 import Data.Maybe (maybeToList)
-import Data.List (find)
+import Data.List (find, foldl')
 import Control.Monad.State.Strict
 import Data.Generics.Uniplate.Data
 import Data.Data
@@ -41,6 +41,10 @@ type TypeEnv = M.Map Name IDType
 -- | Information about a detected type error.
 type TypeError = (String, SrcSpan)
 
+-- | Mapping of structures to field types
+type StructTypeEnv = M.Map Name StructMemberTypeEnv
+type StructMemberTypeEnv = M.Map Name IDType
+
 --------------------------------------------------
 
 -- Monad for type inference work
@@ -48,6 +52,7 @@ type Infer a = State InferState a
 data InferState = InferState { langVersion :: FortranVersion
                              , intrinsics  :: IntrinsicsTable
                              , environ     :: TypeEnv
+                             , structs     :: StructTypeEnv
                              , entryPoints :: M.Map Name (Name, Maybe Name)
                              , typeErrors  :: [TypeError] }
   deriving Show
@@ -167,41 +172,68 @@ dimDeclarator ddAList = [ (lb, ub) | DimensionDeclarator _ _ lbExp ubExp <- aStr
                                    , let ub = do ExpValue _ _ (ValInteger i) <- ubExp
                                                  return $ read i ]
 
-statement :: Data a => InferFunc (Statement (Analysis a))
-
-statement (StDeclaration _ stmtSs ts@(TypeSpec _ _ _ _) mAttrAList declAList)
+-- | Auxiliary function for getting semantic and construct type of a declaration.
+-- Used in standard declarations and structures
+handleDeclaration :: Data a => TypeEnv -> SrcSpan -> TypeSpec (Analysis a)
+  -> Maybe (AList Attribute (Analysis a))
+  -> AList Declarator (Analysis a)
+  -> Infer [(Name, SemType, ConstructType)]
+handleDeclaration env stmtSs ts mAttrAList declAList
   | mAttrs  <- maybe [] aStrip mAttrAList
   , attrDim <- find isAttrDimension mAttrs
   , isParam <- any isAttrParameter mAttrs
   , isExtrn <- any isAttrExternal mAttrs
-  , decls   <- aStrip declAList = do
-    env <- gets environ
+  , decls   <- aStrip declAList =
     let cType n | isExtrn                                     = CTExternal
                 | Just (AttrDimension _ _ ddAList) <- attrDim = CTArray (dimDeclarator ddAList)
                 | isParam                                     = CTParameter
                 | Just (IDType _ (Just ct)) <- M.lookup n env
                 , ct /= CTIntrinsic                           = ct
                 | otherwise                                   = CTVariable
-    forM_ decls $ \ decl -> case decl of
-        DeclArray _ declSs v ddAList mLenExpr _ -> do
-            let ct = CTArray $ dimDeclarator ddAList
+        handler rs = \case
+          DeclArray _ declSs v ddAList mLenExpr _ -> do
             st <- deriveSemTypeFromDeclaration stmtSs declSs ts mLenExpr
-            recordType st ct (varName v)
-        DeclVariable _ declSs v mLenExpr _      -> do
+            pure $ (varName v, st, CTArray  $ dimDeclarator ddAList) : rs
+          DeclVariable _ declSs v mLenExpr _ -> do
             st <- deriveSemTypeFromDeclaration stmtSs declSs ts mLenExpr
-            recordType st (cType n) n where n = varName v
+            let n = varName v
+            pure $ (n, st, cType n) : rs
+    in foldM handler [] decls
 
+handleStructureItem :: Data a => StructMemberTypeEnv -> StructureItem (Analysis a) -> Infer StructMemberTypeEnv
+handleStructureItem mt (StructFields _ src ts mAttrAList declAList) = do
+  env <- gets environ
+  ds <- handleDeclaration env src ts mAttrAList declAList
+  pure $ foldl' (\m (n, s, c) -> M.insert n (IDType (Just s) (Just c)) m) mt ds
+-- TODO: These should eventually be implemented
+handleStructureItem mt StructUnion{} = pure mt
+handleStructureItem mt StructStructure{} = pure mt
+
+-- | Create a structure env from the list of fields and add it to the InferState
+handleStructure ::Data a => Maybe String -> AList StructureItem (Analysis a) -> Infer ()
+handleStructure mName itemAList = do
+  case mName of
+    Just n -> do
+      structEnv <- foldM handleStructureItem M.empty (aStrip itemAList)
+      recordStruct structEnv n
+    Nothing -> pure ()
+
+statement :: Data a => InferFunc (Statement (Analysis a))
+
+statement (StDeclaration _ stmtSs ts mAttrAList declAList) = do
+  env <- gets environ
+  decls <- handleDeclaration env stmtSs ts mAttrAList declAList
+  forM_ decls $ \(n, b, c) -> recordType b c n
 statement (StExternal _ _ varAList) = do
   let vars = aStrip varAList
   mapM_ (recordCType CTExternal . varName) vars
 statement (StExpressionAssign _ _ (ExpSubscript _ _ v ixAList) _)
   --  | any (not . isIxSingle) (aStrip ixAList) = recordCType CTArray (varName v)  -- it's an array (or a string?) FIXME
   | all isIxSingle (aStrip ixAList) = do
-    let n = varName v
-    mIDType <- getRecordedType n
+    mIDType <- getExprRecordedType v
     case mIDType of
       Just (IDType _ (Just CTArray{})) -> return ()                -- do nothing, it's already known to be an array
-      _                                -> recordCType CTFunction n -- assume it's a function statement
+      _                                -> recordCType CTFunction (varName v) -- assume it's a function statement
 
 -- FIXME: if StFunctions can only be identified after types analysis
 -- is complete and disambiguation is performed, then how do we get
@@ -215,6 +247,8 @@ statement (StDimension _ _ declAList) = do
   forM_ decls $ \ decl -> case decl of
     DeclArray _ _ v ddAList _ _ -> recordCType (CTArray $ dimDeclarator ddAList) (varName v)
     _                           -> return ()
+
+statement (StStructure _ _ mName itemAList) = handleStructure mName itemAList
 
 statement _ = return ()
 
@@ -417,7 +451,7 @@ isNumericType = \case
 -- Monadic helper combinators.
 
 inferState0 :: FortranVersion -> InferState
-inferState0 v = InferState { environ = M.empty, entryPoints = M.empty, langVersion = v
+inferState0 v = InferState { environ = M.empty, structs = M.empty, entryPoints = M.empty, langVersion = v
                            , intrinsics = getVersionIntrinsics v, typeErrors = [] }
 runInfer :: FortranVersion -> TypeEnv -> State InferState a -> (a, InferState)
 runInfer v env = flip runState ((inferState0 v) { environ = env })
@@ -431,6 +465,9 @@ emptyType = IDType Nothing Nothing
 -- Record the type of the given name.
 recordType :: SemType -> ConstructType -> Name -> Infer ()
 recordType st ct n = modify $ \ s -> s { environ = insert n (IDType (Just st) (Just ct)) (environ s) }
+
+recordStruct :: StructMemberTypeEnv -> Name -> Infer ()
+recordStruct mt n = modify $ \s -> s { structs = insert n mt (structs s) }
 
 -- Record the type (maybe) of the given name.
 recordMType :: Maybe SemType -> Maybe ConstructType -> Name -> Infer ()
@@ -451,6 +488,24 @@ recordEntryPoint fn en mRetName = modify $ \ s -> s { entryPoints = M.insert en 
 
 getRecordedType :: Name -> Infer (Maybe IDType)
 getRecordedType n = gets (M.lookup n . environ)
+
+getExprRecordedType :: Data a => Expression (Analysis a) -> Infer (Maybe IDType)
+getExprRecordedType e@(ExpValue _ _ (ValVariable _)) = getRecordedType $ varName e
+getExprRecordedType (ExpSubscript _ _ base _) = do
+  mTy <- getExprRecordedType base
+  case mTy of
+    Just (IDType semTy (Just CTArray{})) -> pure . Just $ IDType semTy (Just CTVariable)
+    _ -> pure Nothing
+getExprRecordedType (ExpDataRef _ _ base ref) = do
+  mTy <- getExprRecordedType base
+  case mTy of
+    Just (IDType (Just (TCustom n)) _) -> do
+      mStructEnv <- gets (M.lookup n . structs)
+      case mStructEnv of
+        Nothing -> pure Nothing
+        Just env -> pure $ M.lookup (varName ref) env
+    x -> pure x
+getExprRecordedType _ = pure Nothing
 
 -- Set the idType annotation
 setIDType :: Annotated f => IDType -> f (Analysis a) -> f (Analysis a)
