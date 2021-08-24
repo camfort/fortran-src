@@ -49,13 +49,13 @@ instance Out    SemType
 -- TypeSpec?
 instance Pretty SemType where
   pprint' v = \case
-    TInteger k -> "integer"
-    TReal k    -> "real"
-    TComplex k -> "complex"
-    TLogical k -> "logical"
-    TByte k    -> "byte"
-    TCharacter len k -> "character"
-    TArray st dims -> pprint' v st <+> parens "(A)"
+    TInteger _ -> "integer"
+    TReal _    -> "real"
+    TComplex _ -> "complex"
+    TLogical _ -> "logical"
+    TByte _    -> "byte"
+    TCharacter _ _ -> "character"
+    TArray st _ -> pprint' v st <+> parens "(A)"
     TCustom str -> pprint' v (TypeCustom str)
 
 -- | The declared dimensions of a staticically typed array variable
