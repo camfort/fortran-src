@@ -77,4 +77,4 @@ spec =
         jExp a b c = Just (Exponent a b c)
         expE = ExpLetterE
         expD = ExpLetterD
-        fails test = return test `shouldThrow` anyException
+        -- fails test = return test `shouldThrow` anyException
