@@ -577,7 +577,7 @@ data Expression a =
   | ExpBinary        a SrcSpan BinaryOp (Expression a) (Expression a)
   -- ^ A binary operator applied to two expressions.
   | ExpUnary         a SrcSpan UnaryOp (Expression a)
-  -- ^ A unary operator applied to two expressions.
+  -- ^ A unary operator applied to one expression.
   | ExpSubscript     a SrcSpan (Expression a) (AList Index a)
   -- ^ Array indexing
   | ExpDataRef       a SrcSpan (Expression a) (Expression a)
