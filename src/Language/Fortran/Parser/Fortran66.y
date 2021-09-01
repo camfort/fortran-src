@@ -309,6 +309,7 @@ NAME_LIST
 
 NAME_LIST_ELEMENT :: { Expression A0 } : VARIABLE { $1 } | SUBSCRIPT { $1 }
 
+-- Note that declarator lists in the F66 parser don't have initializers.
 DECLARATORS :: { AList Declarator A0 }
 DECLARATORS
 : DECLARATORS ',' DECLARATOR { setSpan (getTransSpan $1 $3) $ $3 `aCons` $1 }

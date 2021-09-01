@@ -317,7 +317,6 @@ BLOCK :: { Block A0 }
 | COMMENT_BLOCK { $1 }
 
 IF_BLOCK :: { Block A0 }
-IF_BLOCK
 :                        if '(' EXPRESSION ')' then MAYBE_COMMENT NEWLINE BLOCKS ELSE_BLOCKS
   { let { startSpan = getSpan $1;
           (endSpan, conds, blocks, endLabel) = $9;
@@ -343,7 +342,6 @@ IF_BLOCK
      in BlIf () span startLabel (Just startName) ((Just $6):conds) ((reverse $11):blocks) endLabel }
 
 ELSE_BLOCKS :: { (SrcSpan, [Maybe (Expression A0)], [[Block A0]], Maybe (Expression A0)) }
-ELSE_BLOCKS
 : maybe(INTEGER_LITERAL) elsif '(' EXPRESSION ')' then MAYBE_COMMENT NEWLINE BLOCKS ELSE_BLOCKS
   { let (endSpan, conds, blocks, endLabel) = $10
     in (endSpan, Just $4 : conds, reverse $9 : blocks, endLabel) }
@@ -353,7 +351,6 @@ ELSE_BLOCKS
 | END_IF { let (endSpan, endLabel) = $1 in (endSpan, [], [], endLabel) }
 
 END_IF :: { (SrcSpan, Maybe (Expression A0)) }
-END_IF
 : endif { (getSpan $1, Nothing) }
 | endif id { (getSpan $2, Nothing) }
 | INTEGER_LITERAL endif { (getSpan $2, Just $1) }
@@ -462,16 +459,16 @@ NONEXECUTABLE_STATEMENT :: { Statement A0 }
   { let saveAList = (fromReverseList $3)
     in StSave () (getTransSpan $1 saveAList) (Just saveAList) }
 | save { StSave () (getSpan $1) Nothing }
-| dimension MAYBE_DCOLON DECLARATOR_LIST
+| dimension MAYBE_DCOLON INITIALIZED_DECLARATOR_LIST
   { let declAList = fromReverseList $3
     in StDimension () (getTransSpan $1 declAList) declAList }
-| allocatable MAYBE_DCOLON DECLARATOR_LIST
+| allocatable MAYBE_DCOLON INITIALIZED_DECLARATOR_LIST
   { let declAList = fromReverseList $3
     in StAllocatable () (getTransSpan $1 declAList) declAList }
-| pointer MAYBE_DCOLON DECLARATOR_LIST
+| pointer MAYBE_DCOLON INITIALIZED_DECLARATOR_LIST
   { let declAList = fromReverseList $3
     in StPointer () (getTransSpan $1 declAList) declAList }
-| target MAYBE_DCOLON DECLARATOR_LIST
+| target MAYBE_DCOLON INITIALIZED_DECLARATOR_LIST
   { let declAList = fromReverseList $3
     in StTarget () (getTransSpan $1 declAList) declAList }
 | data cDATA DATA_GROUPS cPOP
@@ -755,21 +752,21 @@ COMMON_GROUPS :: { [ CommonGroup A0 ] }
 | INIT_COMMON_GROUP { [ $1 ] }
 
 COMMON_GROUP :: { CommonGroup A0 }
-: COMMON_NAME DECLARATOR_LIST2
+: COMMON_NAME UNINITIALIZED_DECLARATOR_LIST
   { let alist = fromReverseList $2
     in CommonGroup () (getTransSpan $1 alist) (Just $1) alist }
-| '/' '/' DECLARATOR_LIST2
+| '/' '/' UNINITIALIZED_DECLARATOR_LIST
   { let alist = fromReverseList $3
     in CommonGroup () (getTransSpan $1 alist) Nothing alist }
 
 INIT_COMMON_GROUP :: { CommonGroup A0 }
-: COMMON_NAME DECLARATOR_LIST2
+: COMMON_NAME UNINITIALIZED_DECLARATOR_LIST
   { let alist = fromReverseList $2
     in CommonGroup () (getTransSpan $1 alist) (Just $1) alist }
-| '/' '/' DECLARATOR_LIST2
+| '/' '/' UNINITIALIZED_DECLARATOR_LIST
   { let alist = fromReverseList $3
     in CommonGroup () (getTransSpan $1 alist) Nothing alist }
-| DECLARATOR_LIST2
+| UNINITIALIZED_DECLARATOR_LIST
   { let alist = fromReverseList $1
     in CommonGroup () (getSpan alist) Nothing alist }
 
@@ -831,11 +828,11 @@ PARAMETER_ASSIGNMENT :: { Declarator A0 }
   { DeclVariable () (getTransSpan $1 $3) $1 Nothing (Just $3) }
 
 DECLARATION_STATEMENT :: { Statement A0 }
-: TYPE_SPEC ATTRIBUTE_LIST '::' DECLARATOR_LIST
+: TYPE_SPEC ATTRIBUTE_LIST '::' INITIALIZED_DECLARATOR_LIST
   { let { mAttrAList = if null $2 then Nothing else Just $ fromReverseList $2;
           declAList = fromReverseList $4 }
     in StDeclaration () (getTransSpan $1 declAList) $1 mAttrAList declAList }
-| TYPE_SPEC DECLARATOR_LIST
+| TYPE_SPEC INITIALIZED_DECLARATOR_LIST
   { let { declAList = fromReverseList $2 }
     in StDeclaration () (getTransSpan $1 declAList) $1 Nothing declAList }
 
@@ -887,11 +884,15 @@ SAVE_ARG :: { Expression A0 } : COMMON_NAME { $1 } | VARIABLE { $1 }
 COMMON_NAME :: { Expression A0 }
 : '/' VARIABLE '/' { setSpan (getTransSpan $1 $3) $2 }
 
-DECLARATOR_LIST :: { [ Declarator A0 ] }
-: DECLARATOR_LIST ',' INITIALISED_DECLARATOR { $3 : $1 }
-| INITIALISED_DECLARATOR { [ $1 ] }
+INITIALIZED_DECLARATOR_LIST :: { [ Declarator A0 ] }
+: INITIALIZED_DECLARATOR_LIST ',' INITIALIZED_DECLARATOR { $3 : $1 }
+| INITIALIZED_DECLARATOR { [ $1 ] }
 
-INITIALISED_DECLARATOR :: { Declarator A0 }
+UNINITIALIZED_DECLARATOR_LIST :: { [ Declarator A0 ] }
+: UNINITIALIZED_DECLARATOR_LIST ',' DECLARATOR { $3 : $1 }
+| DECLARATOR { [ $1 ] }
+
+INITIALIZED_DECLARATOR :: { Declarator A0 }
 : DECLARATOR '=' EXPRESSION { setInitialisation $1 $3 }
 | DECLARATOR '=>' EXPRESSION { setInitialisation $1 $3 }
 | DECLARATOR { $1 }
@@ -910,10 +911,6 @@ DECLARATOR :: { Declarator A0 }
 | VARIABLE '(' DIMENSION_DECLARATORS ')' '*' '(' '*' ')'
   { let star = ExpValue () (getSpan $7) ValStar
     in DeclArray () (getTransSpan $1 $8) $1 (aReverse $3) (Just star) Nothing }
-
-DECLARATOR_LIST2 :: { [ Declarator A0 ] }
-: DECLARATOR_LIST2 ',' DECLARATOR { $3 : $1 }
-| DECLARATOR { [ $1 ] }
 
 DIMENSION_DECLARATORS :: { AList DimensionDeclarator A0 }
 : DIMENSION_DECLARATORS ',' DIMENSION_DECLARATOR
