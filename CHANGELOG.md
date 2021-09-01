@@ -1,3 +1,15 @@
+### 0.6.0 (Unreleased)
+  * IF and CASE block constructs are now parsed as blocks at parsing instead of
+    as a post-parse transformation (no intermediate statement representation)
+    #154
+  * add ASSOCIATE block construct (Fortran 2003 parser only) #165
+  * `CommonGroup` AST nodes now store `Declarator`s instead of `Expression`s
+    #173
+    * various bug fixes related to their typing as a result
+  * CI now building on Windows, and save Linux & Windows executables for each
+    build
+  * various bugfixes (#34, #155)
+
 ### 0.5.0 (Jun 30, 2021)
   * Introduce a second-stage type representation including kind info alongside
     types, and resolving some types to semantic type with preset kinds (e.g.
