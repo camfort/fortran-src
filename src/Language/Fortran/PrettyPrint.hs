@@ -22,6 +22,18 @@ tooOld currentVersion featureName featureVersion = error $
     featureName ++ " was introduced in " ++ show featureVersion ++
     ". You called pretty print with " ++ show currentVersion ++ "."
 
+-- | Continue only if the given version is equal to or older than a "maximum"
+--   version, or emit a runtime error.
+olderThan :: FortranVersion -> String -> FortranVersion -> a -> a
+olderThan verMax featureName ver cont =
+    if   ver > verMax
+    then error $
+            featureName
+            ++ " is only available in " ++ show verMax
+            ++ " or before. You called pretty print with "
+            ++ show ver ++ "."
+    else cont
+
 (<?>) :: Doc -> Doc -> Doc
 doc1 <?> doc2 = if doc1 == empty || doc2 == empty then empty else doc1 <> doc2
 infixl 7 <?>
@@ -432,12 +444,13 @@ instance Pretty (Statement a) where
           pprint' v declList
       | otherwise = error "unhandled version"
 
-    pprint' v (StStructure _ _ mName itemList)
-      | v /= Fortran77Extended = tooOld v "Structure" Fortran77Extended
-      | otherwise =
-          "structure" <> (if isJust mName then " /" <> pprint' v mName <> "/" else empty) <> newline <>
-          foldl' (\doc item -> doc <> pprint v item (incIndentation (Just 0)) <> newline) empty (aStrip itemList) <>
-          "end structure"
+    pprint' v (StStructure _ _ mName itemList) =
+        olderThan Fortran77Legacy "Structure" v $
+          "structure"
+          <+> (if isJust mName then "/" <> pprint' v mName <> "/" else empty)
+          <> newline
+          <> foldl' (\doc item -> doc <> pprint v item (incIndentation (Just 0)) <> newline) empty (aStrip itemList)
+          <> "end structure"
 
     pprint' v (StIntent _ _ intent exps)
       | v >= Fortran90 =
@@ -885,7 +898,7 @@ instance Pretty (ImpList a) where
 
 instance Pretty (CommonGroup a) where
     pprint' v (CommonGroup _ _ mName elems) =
-      char '/' <> pprint' v mName <> char '/' <> pprint' v elems
+      char '/' <> pprint' v mName <> char '/' <+> pprint' v elems
 
 instance Pretty (Namelist a) where
     pprint' Fortran90 (Namelist _ _ name elems) =

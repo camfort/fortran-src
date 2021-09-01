@@ -85,11 +85,11 @@ spec =
 
       it "prints anonymous common group" $ do
         let group = CommonGroup () u Nothing (AList () u globs)
-        pprint Fortran66 group Nothing `shouldBe` "//x, y, z"
+        pprint Fortran66 group Nothing `shouldBe` "// x, y, z"
 
       it "prints named common group" $ do
         let group = CommonGroup () u (Just $ varGen "my_g") (AList () u globs)
-        pprint Fortran66 group Nothing `shouldBe` "/my_g/x, y, z"
+        pprint Fortran66 group Nothing `shouldBe` "/my_g/ x, y, z"
 
     describe "Format item" $
       it "prints hollerith constant" $ do

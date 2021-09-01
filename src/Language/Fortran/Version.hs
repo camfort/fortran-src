@@ -19,6 +19,10 @@ import GHC.Generics (Generic)
 import Control.DeepSeq (NFData)
 import Text.PrettyPrint.GenericPretty (Out)
 
+-- | The Fortran specification version used (or relevant to its context).
+--
+-- The constructor ordering is important, since it's used for the Ord instance
+-- (which is used extensively for pretty printing).
 data FortranVersion = Fortran66
                     | Fortran77
                     | Fortran77Extended
