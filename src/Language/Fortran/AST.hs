@@ -528,6 +528,8 @@ data ImpElement a =
   | ImpRange        a SrcSpan String String
   deriving (Eq, Show, Data, Typeable, Generic, Functor)
 
+-- | Note that the 'Declarator's in common group definitions do not contain
+--   initializing expressions.
 data CommonGroup a =
   CommonGroup a SrcSpan (Maybe (Expression a)) (AList Declarator a)
   deriving (Eq, Show, Data, Typeable, Generic, Functor)
