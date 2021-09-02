@@ -23,7 +23,7 @@ import qualified Data.Map as M
 import Data.Maybe (maybeToList)
 import Data.List (find, foldl')
 import Control.Monad.State.Strict
-import Data.Generics.Uniplate.Data
+import Data.Generics.Uniplate.DataOnly
 import Data.Data
 import Data.Functor.Identity (Identity ())
 import Language.Fortran.Analysis

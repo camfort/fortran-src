@@ -59,7 +59,7 @@ import Control.Monad.State
 import Data.Binary (Binary, encode, decodeOrFail)
 import qualified Data.ByteString.Lazy.Char8 as LB
 import Data.Data
-import Data.Generics.Uniplate.Operations
+import Data.Generics.Uniplate.DataOnly
 import qualified Data.Map.Strict as M
 import Data.Maybe
 import GHC.Generics (Generic)

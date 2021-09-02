@@ -16,7 +16,7 @@ where
 
 import Prelude hiding (exp)
 import Language.Fortran.Util.Position (SrcSpan)
-import Data.Generics.Uniplate.Data
+import Data.Generics.Uniplate.DataOnly
 import Data.Data
 import Language.Fortran.AST
 import Language.Fortran.LValue

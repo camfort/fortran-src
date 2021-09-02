@@ -5,7 +5,7 @@ module TestUtil where
 
 import Test.Hspec
 import Data.Data
-import Data.Generics.Uniplate.Data
+import Data.Generics.Uniplate.DataOnly
 
 import Language.Fortran.AST
 import Language.Fortran.ParserMonad

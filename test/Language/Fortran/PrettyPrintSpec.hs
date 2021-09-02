@@ -7,7 +7,7 @@ module Language.Fortran.PrettyPrintSpec where
 import Prelude hiding (mod)
 
 import Data.Data
-import Data.Generics.Uniplate.Operations
+import Data.Generics.Uniplate.DataOnly
 import Data.Maybe (catMaybes)
 
 import Language.Fortran.AST as LFA

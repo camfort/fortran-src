@@ -22,7 +22,7 @@ import qualified Data.List as L
 import Data.Map (insert, empty, lookup, Map)
 import qualified Data.Map.Strict as M
 import Control.Monad.State.Strict
-import Data.Generics.Uniplate.Data
+import Data.Generics.Uniplate.DataOnly
 import Data.Data
 import Data.Functor.Identity (Identity)
 
