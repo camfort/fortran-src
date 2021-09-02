@@ -128,7 +128,6 @@ import Language.Fortran.Util.SecondParameter
 import Language.Fortran.AST.AList
 
 import Data.Generics.Uniplate.Direct
-import Debug.Trace
 
 -- | The empty annotation.
 type A0 = ()
@@ -1062,20 +1061,17 @@ type Type from to = (Str to, Str to -> from)
 (|+*) (xs, x_) (Just y) = (||*) (xs, x_) y
 -}
 
--- TODO: Lies I have made:
---   * General: Expressions can contain Statements: Expression has ExpImpliedDo
+-- TODO: General lies I have made:
+--   * Expressions can contain Statements: Expression has ExpImpliedDo
 --     has DoSpecification has Statement. Is this OK?
---   * General: Statements can contain Blocks: Statement has StInclude has
+--   * Statements can contain Blocks: Statement has StInclude has
 --     [Block]. Awkward-feeling mutual recursion.
---   * Uniplate PU: PU has Block has BlInterface has [PU].
---   * Uniplate Block: Block has BlStatement has Statement has StInclude has
---     [Block]. *However*, this is only for includes, which we could possibly
---     handle in a less mutually recursive manner.
---   * Uniplate Statement: Statement has StDeclaration has TypeSpec has Selector
---     has Expression has ExpImpliedDo has DoSpecification has Statement. It's
---     bullshit but it's there.
---   * Uniplate Expression: Expression has ExpValue has Value has ValComplex has
---     Expression. But these Expressions are certainly limited in some way.
+--   * Blocks can contain PUs: BlInterface has [PU]
+--   * Blocks can contains Blocks: Block has BlStatement has Statement has
+--     StInclude has [Block]. *However*, this is only for includes, which we
+--     could possibly handle in a less mutually recursive manner.
+--
+-- The largest implication: via the types, 'Value's can contain 'ProgramUnit's.
 --
 -- Other:
 --   * More combinators: for nested lists, ALists
@@ -1088,15 +1084,16 @@ instance {-# OVERLAPS #-} Biplate (ProgramFile a) (ProgramFile a) where
   biplate = plateSelf
 
 instance {-# OVERLAPS #-} Data a => Uniplate (ProgramUnit a) where
-  uniplate (PUMain a ss mName blk     mPUs) =
-     plate (PUMain a ss mName blk) |+ mPUs
-  uniplate (PUModule a ss name blk     mPUs) =
-     plate (PUModule a ss name blk) |+ mPUs
-  uniplate (PUSubroutine a pfxSfx ss name mArgs blk     mPUs) =
-     plate (PUSubroutine a pfxSfx ss name mArgs blk) |+ mPUs
-  uniplate (PUFunction a ss mTSpec pfxSfx name mArgs mRes blk     mPUs) =
-     plate (PUFunction a ss mTSpec pfxSfx name mArgs mRes blk) |+ mPUs
-  uniplate x@PUBlockData{} = plate x
+  uniplate (PUMain a ss mName     blk    mPUs) =
+     plate (PUMain a ss mName) |+ blk |+ mPUs
+  uniplate (PUModule a ss name     blk    mPUs) =
+     plate (PUModule a ss name) |+ blk |+ mPUs
+  uniplate (PUSubroutine a pfxSfx ss name mArgs     blk    mPUs) =
+     plate (PUSubroutine a pfxSfx ss name mArgs) |+ blk |+ mPUs
+  uniplate (PUFunction a ss mTSpec pfxSfx name mArgs mRes)    blk    mPUs) =
+     plate (PUFunction a ss mTSpec pfxSfx name mArgs mRes) |+ blk |+ mPUs
+  uniplate (PUBlockData a ss mName     blk) =
+     plate (PUBlockData a ss mName) |+ blk
   uniplate x@PUComment{}   = plate x
 
 instance {-# OVERLAPS #-} Data a => Biplate (ProgramUnit a) (ProgramUnit a) where
@@ -1117,16 +1114,25 @@ instance {-# OVERLAPS #-} Data a => Uniplate (Block a) where
      plate (BlDo a ss mLabel mName mTLabel dospec) ||* body |- mEndLabel
   uniplate (BlDoWhile a ss mLabel mName mTLabel cond      body    mEndLabel) =
      plate (BlDoWhile a ss mLabel mName mTLabel cond) ||* body |- mEndLabel
+  uniplate (BlAssociate a ss mLabel mName abbrevs      body    mEndLabel) =
+     plate (BlAssociate a ss mLabel mName abbrevs) ||* body |- mEndLabel
   -- TODO lying, we have a [PU] here urgh
   uniplate (BlInterface a ss mLabel x pus     body) =
      plate (BlInterface a ss mLabel x pus) ||* body
   uniplate x@BlComment{} = plate x
 
 instance {-# OVERLAPS #-} Data a => Biplate (Block a) (Block a) where
-  biplate = trace "biplate block block" plateSelf
+  biplate = plateSelf
 
 instance {-# OVERLAPS #-} Data a => Uniplate (Statement a) where
-  -- TODO ignoring StInclude which has [Block]
+  -- (!) StDeclaration has TypeSpec has Selector has Expression has ExpImpliedDo
+  --     has DoSpecification has Statement
+  -- (!) StDeclaration has Attribute has DimensionDeclarator has Expression has
+  --     ... has Statement
+  uniplate (StDeclaration a ss ts mAttrs decls) =
+     plate (StDeclaration a ss) |+ ts |+ mAttrs |+ mBls
+  uniplate (StInclude a ss expr     mBls) =
+     plate (StInclude a ss expr) |+ mBls
   uniplate (StIfLogical a ss expr     stmt) =
      plate (StIfLogical a ss expr) |* stmt
   uniplate (StForallStatement a ss forallhead    stmt) =
@@ -1136,24 +1142,22 @@ instance {-# OVERLAPS #-} Data a => Uniplate (Statement a) where
   uniplate x = plate x
 
 instance {-# OVERLAPS #-} Data a => Biplate (Statement a) (Statement a) where
-  biplate = trace "biplate statement statement" plateSelf
+  biplate = plateSelf
 
 instance {-# OVERLAPS #-} Data a => Uniplate (Expression a) where
-  uniplate x@ExpValue{} = plate x
+  -- (!) ExpValue has Value has ValComplex has Expression
+  uniplate (ExpValue a ss v) =
+     plate (ExpValue a ss) |+ v
   uniplate (ExpBinary a ss binop     e1    e2) =
      plate (ExpBinary a ss binop) |* e1 |* e2
   uniplate (ExpUnary a ss binop     e1) =
      plate (ExpUnary a ss binop) |* e1
-  -- TODO Index does use Expressions and it's important (pretending it doesn't
-  --      makes function call disambig fail)
   uniplate (ExpSubscript a ss     e    idxs) =
      plate (ExpSubscript a ss) |* e |+ idxs
   uniplate (ExpDataRef a ss     e1    e2) =
      plate (ExpDataRef a ss) |* e1 |* e2
-  -- TODO
   uniplate (ExpFunctionCall a ss     e    args) =
      plate (ExpFunctionCall a ss) |* e |+ args
-  -- TODO how to treat AList like [Expression a]?
   uniplate (ExpImpliedDo a ss     es    dospec) =
      plate (ExpImpliedDo a ss) |+ es |+ dospec
   uniplate (ExpInitialisation a ss     es) =
@@ -1162,22 +1166,22 @@ instance {-# OVERLAPS #-} Data a => Uniplate (Expression a) where
      plate (ExpReturnSpec a ss) |* e
 
 instance {-# OVERLAPS #-} Data a => Biplate (Expression a) (Expression a) where
-  biplate = trace "biplate expr expr" plateSelf
+  biplate = plateSelf
 
 instance {-# OVERLAPS #-} Data a => Biplate (ProgramFile a) (ProgramUnit a) where
-  biplate (ProgramFile mi pus) = trace "biplate pf pu" $
+  biplate (ProgramFile mi pus) =
     plate (ProgramFile mi) ||* pus
 
 instance {-# OVERLAPS #-} Data a => Biplate (ProgramFile a) (Block a) where
-  biplate (ProgramFile mi pus) = trace "biplate pf pu" $
+  biplate (ProgramFile mi pus) =
     plate (ProgramFile mi) ||+ pus
 
 instance {-# OVERLAPS #-} Data a => Biplate (ProgramFile a) (Expression a) where
-  biplate (ProgramFile mi pus) = trace "biplate pf expr" $
+  biplate (ProgramFile mi pus) =
     plate (ProgramFile mi) ||+ pus
 
 instance {-# OVERLAPS #-} Data a => Biplate (ProgramFile a) (Statement a) where
-  biplate (ProgramFile mi pus) = trace "biplate pf stmt" $
+  biplate (ProgramFile mi pus) =
     plate (ProgramFile mi) ||+ pus
 
 instance {-# OVERLAPS #-} Data a => Biplate (ProgramUnit a) (Block a) where
@@ -1237,6 +1241,8 @@ instance {-# OVERLAPS #-} Data a => Biplate (Block a) (Statement a) where
     plate (BlDo a ss mLabel mName mTLabel dospec) ||+ body |- mEndLabel
   biplate (BlDoWhile a ss mLabel mName mTLabel cond      body    mEndLabel) =
     plate (BlDoWhile a ss mLabel mName mTLabel cond) ||+ body |- mEndLabel
+  biplate (BlAssociate a ss mLabel mName abbrevs      body    mEndLabel) =
+    plate (BlAssociate a ss mLabel mName abbrevs) ||+ body |- mEndLabel
   biplate (BlInterface a ss mLabel x pus     body) =
     plate (BlInterface a ss mLabel x pus) ||+ body
   biplate x@BlComment{} = plate x
@@ -1254,6 +1260,8 @@ instance {-# OVERLAPS #-} Data a => Biplate (Block a) (Expression a) where
     plate (BlDo a ss) |+ mLabel |- mName |+ mTLabel |+ dospec ||+ body |+ mEndLabel
   biplate (BlDoWhile a ss     mLabel    mName    mTLabel    cond     body    mEndLabel) =
     plate (BlDoWhile a ss) |+ mLabel |- mName |+ mTLabel |* cond ||+ body |+ mEndLabel
+  biplate (BlAssociate a ss     mLabel    mName    abbrevs     body    mEndLabel) =
+    plate (BlAssociate a ss) |+ mLabel |- mName |+ abbrevs ||+ body |+ mEndLabel
   biplate (BlInterface a ss     mLabel    x     pus     body) =
     plate (BlInterface a ss) |+ mLabel |- x ||+ pus ||+ body
   biplate x@BlComment{} = plate x
