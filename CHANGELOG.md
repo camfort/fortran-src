@@ -1,4 +1,4 @@
-### 0.6.0 (Unreleased)
+### 0.6.0 (Sep 03, 2021)
   * IF and CASE block constructs are now parsed as blocks at parsing instead of
     as a post-parse transformation (no intermediate statement representation)
     #154
