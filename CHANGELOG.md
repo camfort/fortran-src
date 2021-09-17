@@ -1,3 +1,7 @@
+### 0.6.1 (Sep 17, 2021)
+  * Properly include test data in package dist (in preparation for placing on
+    Stackage)
+
 ### 0.6.0 (Sep 03, 2021)
   * IF and CASE block constructs are now parsed as blocks at parsing instead of
     as a post-parse transformation (no intermediate statement representation)
