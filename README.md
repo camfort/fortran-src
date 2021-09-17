@@ -21,15 +21,64 @@ For features that output graphs, the intended usage is to pipe it into the comma
                               --show-flows-to=AST-BLOCK-ID     dump a graph showing flows-to information from the given AST-block ID; prefix with 's' for supergraph
                               --show-flows-from=AST-BLOCK-ID   dump a graph showing flows-from information from the given AST-block ID; prefix with 's' for supergraph
 
-## Usage/Installation
-fortran-src is available on Hackage. Stackage has a very old version and is
-definitely not what you want, but you can specify a newer Hackage version in
-`stack.yaml`.
+## Building
+fortran-src supports building with Stack or Cabal. You should be able to build
+and use without any dependencies other than GHC itself.
 
+As of 2021-04-28, fortran-src supports and is regularly tested on **GHC 8.6,
+8.8, 8.10 and 9.0**. Releases prior to/newer than those may have issues. We
+welcome fixes that would let us support a wider range of compilers.
+
+You will likely need **at least 3 GiBs of memory** to build fortran-src.
+
+For installing GHC and build tools, we strongly recommend
+[ghcup](https://www.haskell.org/ghcup/).
+
+When **latest recommended** is used, it means the latest version of the tool
+that ghcup tags with `recommended`. This sometimes lags behind the
+`latest`-tagged version. With ghcup installed, run `ghcup list` for a better
+understanding.
+
+Following are general guides for any OS that provides the relevant tools. If you
+have trouble, consider checking the CI workflow files in `.github/workflows`.
+
+### Stack
+We support the latest recommended version of Stack (as of 2021-09-17, Stack
+2.7). Generally, any Stack 2.x should work.  *(Stack 1.x may work with minor
+alternations -- you may have to download the resolver manually.)*
+
+```
+stack build
+```
+
+For an interactive shell:
+
+```
+stack build
+stack ghci
+```
+
+Note that running `stack ghci` before running `stack build` won't work properly,
+due to `stack ghci` not running build tools like Alex and Happy. So parser
+modules will not be built, and you'll receive an error after building the other
+modules. You can cheat a bit and run `stack build` until you see `Building
+library for [...]` (= preprocessing has finished), then hit `<Ctrl-C>` to stop
+the build and run `stack ghci` as usual.
+
+### Cabal
+We support the latest recommended version of Cabal (as of 2021-09-17, Cabal 3.4)
+
+```
+cabal build
+```
+
+## Usage
 ### As a dependency
-Reference `fortran-src` in your (Stack/Cabal) project dependencies. If you're
-using Stack, you can stuff a Hackage reference into `stack.yaml` using
-`extra-deps`, like:
+fortran-src is available on Hackage and Stackage, so for Cabal or Stack projects
+you should only need to add `fortran-src` to your project dependencies.
+
+If you need a specific version of fortran-src in a Stack setup, you can stuff a
+Hackage reference into `stack.yaml` using `extra-deps`, like:
 
 ```yaml
 resolver: ...
@@ -48,20 +97,8 @@ from Hackage:
 cabal install fortran-src
 ```
 
-Otherwise, we suggest building from source if you want to use the fortran-src
-CLI tool. See [#Build from source](#build-from-source) for details.
+We provide prebuilt binaries for some platforms: see the
+[Releases](https://github.com/camfort/fortran-src/releases) tab.
 
-## Development
-As of 2021-04-28, fortran-src supports and is regularly tested on **GHC 8.6,
-8.8, 8.10 and 9.0**. Releases prior to/newer than those may have issues. We
-welcome fixes that would let us support a wider range of compilers.
-
-### Build from source
-#### Stack
-Stack 2.x is required. *(Stack 1.x may work with minor alternations
--- you may have to download the resolver manually.)*
-
-```
-stack setup
-stack build
-```
+Otherwise, you can build from source and use convenience commands like `cabal
+run`, `stack run`. See [#Building](#building) for details.
