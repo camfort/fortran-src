@@ -24,7 +24,7 @@ spec =
                           "      include 'foo.f'",
                           "      end"
                          ]
-        inc = "./test/Language/Fortran/Parser"
+        inc = "./test-data/f77-include"
         name = "bar"
         pf = ProgramFile mi77 [pu]
         puSpan = makeSrcR (6,7,1,"<unknown>") (48,9,3,"<unknown>")

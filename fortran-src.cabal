@@ -19,6 +19,36 @@ build-type:     Simple
 extra-source-files:
     README.md
     CHANGELOG.md
+    test-data/f77-include/foo.f
+    test-data/rewriter/replacementsmap-columnlimit/001_foo.f
+    test-data/rewriter/replacementsmap-columnlimit/001_foo.f.expected
+    test-data/rewriter/replacementsmap-columnlimit/002_other.f
+    test-data/rewriter/replacementsmap-columnlimit/002_other.f.expected
+    test-data/rewriter/replacementsmap-columnlimit/003_multiline.f
+    test-data/rewriter/replacementsmap-columnlimit/003_multiline.f.expected
+    test-data/rewriter/replacementsmap-columnlimit/004_comment.f
+    test-data/rewriter/replacementsmap-columnlimit/004_comment.f.expected
+    test-data/rewriter/replacementsmap-columnlimit/005_removals.f
+    test-data/rewriter/replacementsmap-columnlimit/005_removals.f.expected
+    test-data/rewriter/replacementsmap-columnlimit/006_linewrap_heuristic.f
+    test-data/rewriter/replacementsmap-columnlimit/006_linewrap_heuristic.f.expected
+    test-data/rewriter/replacementsmap-insertion/001_foo.f
+    test-data/rewriter/replacementsmap-insertion/001_foo.f.expected
+    test-data/rewriter/replacementsmap-overlapping-filtered/001_foo.f
+    test-data/rewriter/replacementsmap-overlapping-filtered/001_foo.f.expected
+    test-data/rewriter/replacementsmap-overlapping/001_foo.f
+    test-data/rewriter/replacementsmap-overlapping/001_foo.f.expected
+    test-data/rewriter/replacementsmap-simple/001_foo.f
+    test-data/rewriter/replacementsmap-simple/001_foo.f.expected
+    test-data/rewriter/replacementsmap-simple/002_foo.f
+    test-data/rewriter/replacementsmap-simple/002_foo.f.expected
+    test-data/rewriter/replacementsmap-simple/003_foo.f
+    test-data/rewriter/replacementsmap-simple/003_foo.f.expected
+    test-data/rewriter/replacementsmap-simple/004_unicode.f
+    test-data/rewriter/replacementsmap-simple/004_unicode.f.expected
+    test-data/rewriter/replacementsmap-simple/005_unicode.f
+    test-data/rewriter/replacementsmap-simple/005_unicode.f.expected
+    test-data/rewriter/temp-failure/fail.f
 
 source-repository head
   type: git

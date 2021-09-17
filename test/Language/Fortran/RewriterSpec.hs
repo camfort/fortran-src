@@ -429,7 +429,7 @@ wrapReplacementsMapInvocationTestHelper_
   -> [String]
   -> IO (String, String, Either ReplacementError ())
 wrapReplacementsMapInvocationTestHelper_ invocation baseDir ctx files = do
-  let inputContextDir  = baseDir ++ "/test/Language/Fortran/samples/rewriter/" ++ ctx
+  let inputContextDir  = baseDir ++ "/test-data/rewriter/" ++ ctx
       outputDir        = baseDir ++ "/test/rewriter-test-output"
       outputContextDir = outputDir ++ "/" ++ ctx
   doesDirectoryExist outputDir
