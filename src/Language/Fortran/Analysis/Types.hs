@@ -509,9 +509,9 @@ getExprRecordedType _ = pure Nothing
 
 -- Set the idType annotation
 setIDType :: Annotated f => IDType -> f (Analysis a) -> f (Analysis a)
-setIDType ty x
-  | a@Analysis {} <- getAnnotation x = setAnnotation (a { idType = Just ty }) x
-  | otherwise                        = x
+setIDType ty x =
+    let a = getAnnotation x
+     in setAnnotation (a { idType = Just ty }) x
 
 -- Get the idType annotation
 getIDType :: (Annotated f, Data a) => f (Analysis a) -> Maybe IDType
