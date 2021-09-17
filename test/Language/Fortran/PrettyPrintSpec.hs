@@ -14,7 +14,6 @@ import Language.Fortran.AST as LFA
 import Language.Fortran.ParserMonad
 import Language.Fortran.PrettyPrint
 
-import System.FilePath
 import Text.PrettyPrint hiding ((<>))
 import Text.PrettyPrint.GenericPretty
 
@@ -28,9 +27,6 @@ checkAll restrict check t =
       $ mapM_ check inputs
   where
     inputs = catMaybes [ restrict b | b <- universeBi t :: [b] ]
-
-samplesBase :: FilePath
-samplesBase = "test" </> "Language" </> "Fortran" </> "samples"
 
 spec :: Spec
 spec =

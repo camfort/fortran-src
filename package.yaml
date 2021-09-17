@@ -13,6 +13,7 @@ github: camfort/fortran-src
 extra-source-files:
 - README.md
 - CHANGELOG.md
+- test-data/**/*
 
 dependencies:
 - base >=4.6 && <5
