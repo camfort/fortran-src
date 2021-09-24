@@ -25,9 +25,9 @@ For features that output graphs, the intended usage is to pipe it into the comma
 fortran-src supports building with Stack or Cabal. You should be able to build
 and use without any dependencies other than GHC itself.
 
-As of 2021-04-28, fortran-src supports and is regularly tested on **GHC 8.6,
-8.8, 8.10 and 9.0**. Releases prior to/newer than those may have issues. We
-welcome fixes that would let us support a wider range of compilers.
+fortran-src supports **GHC 8.4 through GHC 9.0**. We regularly test at least the
+minimum and maximum supported GHCs. Releases prior to/newer than those may have
+issues. We welcome fixes that would let us support a wider range of compilers.
 
 You will likely need **at least 3 GiBs of memory** to build fortran-src.
 
