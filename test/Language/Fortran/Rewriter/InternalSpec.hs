@@ -546,6 +546,18 @@ spec = do
         <>         BC.pack replS1
         <>         BC.pack replS2
         <>         BC.replicate 24 'a'
+    it "Apply replacement ('!' in a string literal)" $ do
+      let
+        source =
+          "      write(8, *) 'hi! this string is really long, overflowing even'"
+                                                                           -- ^ Column 68
+        range = SourceRange (SourceLocation 0 68) (SourceLocation 0 68)
+        replS = ", variableHello"
+        r     = Replacement range replS
+        res   = applyReplacements source [r]
+      res
+        `shouldBe`
+          "      write(8, *) 'hi! this string is really long, overflowing even'\n     +, variableHello"
     it "Apply replacements (overlapping)" $ do
       let source = BC.replicate 30 'a'
           range1 = SourceRange (SourceLocation 0 2) (SourceLocation 0 4)
