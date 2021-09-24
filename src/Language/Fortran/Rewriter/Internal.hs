@@ -189,26 +189,29 @@ allChunks rchars = chunk : allChunks rest
 -- | Transform a list of 'Chunk's into a single string, applying
 -- continuation lines when neccessary.
 evaluateChunks :: [Chunk] -> ByteString
-evaluateChunks ls = evaluateChunks_ ls 0
+evaluateChunks ls = evaluateChunks_ ls 0 Nothing
 
-evaluateChunks_ :: [Chunk] -> Int64 -> ByteString
-evaluateChunks_ []       _       = ""
-evaluateChunks_ (x : xs) currLen =
-    if overLength
-    then "\n     +"
-         <> evaluateRChars xPadded
-         <> maybe (evaluateChunks_ xs (6 + nextLen)) (evaluateChunks_ xs)
-                lastLen
-    else chStr
-         <> maybe (evaluateChunks_ xs (currLen + nextLen)) (evaluateChunks_ xs)
-                lastLen
+evaluateChunks_ :: [Chunk] -> Int64 -> Maybe Char -> ByteString
+evaluateChunks_ []       _       _         = ""
+evaluateChunks_ (x : xs) currLen quotation = if overLength
+  then
+    "\n     +"
+    <> evaluateRChars xPadded
+    <> maybe (evaluateChunks_ xs (6 + nextLen) nextState)
+             (\len -> evaluateChunks_ xs len nextState)
+             lastLen
+  else
+    chStr
+      <> maybe (evaluateChunks_ xs (currLen + nextLen) nextState)
+               (\len -> evaluateChunks_ xs len nextState)
+               lastLen
  where
   overLength = currLen + nextLen > 72 && currLen > 0
   xPadded    = padImplicitComments x (72 - 6)
   chStr      = evaluateRChars x
-  nextLen    = fromMaybe
-    (BC.length chStr)
-    (myMin (BC.elemIndex '\n' chStr) (BC.elemIndex '!' chStr)) -- don't line break for comments
+  isQuote    = (`elem` ['\'', '"'])
+  nextLen    = fromMaybe (BC.length chStr)
+                         (myMin (BC.elemIndex '\n' chStr) explicitCommentIdx) -- don't line break for comments
   lastLen = BC.elemIndex '\n' $ BC.reverse chStr
   -- min for maybes that doesn't short circuit if there's a Nothing
   myMin y z = case (y, z) of
@@ -216,6 +219,27 @@ evaluateChunks_ (x : xs) currLen =
     (Nothing, Just a ) -> Just a
     (Just a , Nothing) -> Just a
     (Nothing, Nothing) -> Nothing
+  (nextState, explicitCommentIdx) =
+    elemIndexOutsideStringLiteral quotation '!' (BC.unpack chStr)
+  elemIndexOutsideStringLiteral currentState needle haystack = elemIndexImpl_
+    currentState
+    needle
+    haystack
+    0
+   where
+      -- Search space is empty, therefore no result is possible
+    elemIndexImpl_ state _ "" _ = (state, Nothing)
+    -- We have already entered a string literal
+    elemIndexImpl_ state@(Just quoteChar) query (top : rest) idx
+      | top == quoteChar = elemIndexImpl_ Nothing query rest (idx + 1)
+      | otherwise        = elemIndexImpl_ state query rest (idx + 1)
+    -- Searching outside a string literal, might find the query or
+    -- enter a string literal
+    elemIndexImpl_ Nothing query (top : rest) idx
+      | top == query = (Nothing, Just idx)
+      | isQuote top  = elemIndexImpl_ (Just top) query rest (idx + 1)
+      | otherwise    = elemIndexImpl_ Nothing query rest (idx + 1)
+
   -- Text after line 72 is an implicit comment, so should stay there
   padImplicitComments :: Chunk -> Int -> Chunk
   padImplicitComments chunk targetCol = case findCommentRChar chunk of
