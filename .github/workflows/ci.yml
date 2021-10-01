@@ -85,8 +85,7 @@ jobs:
         ghc-version: ${{ matrix.ghc }}
         cabal-version: ${{ matrix.cabal }}
 
-    - name: Freeze Cabal plan
-      run: cabal freeze
+    - run: cabal freeze
 
     - name: Cache Cabal build artifacts
       uses: actions/cache@v2
@@ -98,8 +97,7 @@ jobs:
         restore-keys: |
           ${{ runner.os }}-cabal-${{ matrix.ghc }}
 
-    - name: Build
-      run: cabal build
+    - run: cabal build
 
     - name: Test
       run: cabal test --test-show-details=streaming
@@ -126,8 +124,7 @@ jobs:
         ghc-version: ${{ matrix.ghc }}
         cabal-version: ${{ matrix.cabal }}
 
-    - name: Freeze Cabal plan
-      run: cabal freeze
+    - run: cabal freeze
 
     - name: Cache Cabal build artifacts
       uses: actions/cache@v2
@@ -140,18 +137,12 @@ jobs:
           ${{ runner.os }}-cabal-${{ matrix.ghc }}
 
     - name: Build
-      run: cabal build
+      run: cabal install
 
     - name: Test
       run: cabal test --test-show-details=streaming
       env:
         HSPEC_OPTIONS: --color
-
-    - name: Install (to place executable at a known location)
-      run: cabal install
-
-    - name: TODO TMP
-      run: ls ~/.cabal/bin
 
     # note that Cabal uses symlinks -- actions/upload-artifact@v2 apparently
     # dereferences for us
@@ -181,8 +172,7 @@ jobs:
         ghc-version: ${{ matrix.ghc }}
         cabal-version: ${{ matrix.cabal }}
 
-    - name: Freeze Cabal plan
-      run: cabal freeze
+    - run: cabal freeze
 
     - name: Cache Cabal build artifacts
       uses: actions/cache@v2
@@ -195,15 +185,12 @@ jobs:
           ${{ runner.os }}-cabal-${{ matrix.ghc }}
 
     - name: Build
-      run: cabal build
+      run: cabal install
 
     - name: Test
       run: cabal test --test-show-details=streaming
       env:
         HSPEC_OPTIONS: --color
-
-    - name: Install (to place executable at a known location)
-      run: cabal install
 
     - name: Upload executable
       uses: actions/upload-artifact@v2
