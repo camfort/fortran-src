@@ -9,7 +9,7 @@ module Language.Fortran.Analysis.DataFlow
   , genUDMap, genDUMap, duMapToUdMap, UDMap, DUMap
   , genFlowsToGraph, FlowsGraph
   , genVarFlowsToMap, VarFlowsMap
-  , Constant(..), ParameterVarMap, ConstExpMap, genConstExpMap, analyseConstExps, analyseParameterVars
+  , Constant(..), ParameterVarMap, ConstExpMap, genConstExpMap, analyseConstExps, analyseParameterVars, constantFolding
   , genBlockMap, genDefMap, BlockMap, DefMap
   , genCallMap, CallMap
   , loopNodes, genBackEdgeMap, sccWith, BackEdgeMap
@@ -364,6 +364,10 @@ constantFolding c = case c of
     Subtraction    | inBounds (x - y) -> ConstInt (x - y)
     Multiplication | inBounds (x * y) -> ConstInt (x * y)
     Division       | y /= 0           -> ConstInt (x `div` y)
+    -- gfortran appears to do real exponentiation (allowing negative exponent)
+    -- and cast back to integer via floor() (?) as required
+    -- but we keep it simple & stick with Haskell-style integer exponentiation
+    Exponentiation | y >= 0           -> ConstInt (x ^ y)
     _                                 -> ConstBinary binOp (ConstInt x) (ConstInt y)
   ConstUnary Minus a | ConstInt x <- constantFolding a -> ConstInt (-x)
   ConstUnary Plus  a                                   -> constantFolding a
