@@ -182,6 +182,7 @@ test-suite spec
       hspec-discover:hspec-discover
   build-depends:
       GenericPretty >=1.2.2 && <2
+    , QuickCheck >=2.10 && <2.15
     , array ==0.5.*
     , base >=4.6 && <5
     , binary >=0.8.3.0 && <0.11
