@@ -964,6 +964,13 @@ instance Pretty (Value a) where
       | otherwise = tooOld v "Operator" Fortran90
     pprint' v (ValComplex e1 e2) = parens $ commaSep [pprint' v e1, pprint' v e2]
     pprint' _ (ValString str) = quotes $ text str
+    pprint' v (ValLogical b kp) = text litStr <> kpPretty
+      where
+        litStr   = if b then ".true." else ".false."
+        kpPretty =
+            case kp of
+              Nothing  -> empty
+              Just kp' -> text "_" <> pprint' v kp'
     pprint' _ valLit = text . getFirstParameter $ valLit
 
 instance IndentablePretty (StructureItem a) where

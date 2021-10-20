@@ -235,8 +235,7 @@ spec =
 
       it "lexes labeled DO WHILE blocks" $
         resetSrcSpan (collectFixedTokens' Fortran77Legacy "      do 10 while (.true.)")
-          `shouldBe` resetSrcSpan [TDo u, TInt u "10", TWhile u, TLeftPar u, TBool u ".true.", TRightPar u, TEOF u]
-
+          `shouldBe` resetSrcSpan [TDo u, TInt u "10", TWhile u, TLeftPar u, TBool u True, TRightPar u, TEOF u]
 
       it "lexes structure/union/map blocks" $ do
         let src = unlines [ "      structure /foo/"

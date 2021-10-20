@@ -228,9 +228,8 @@ spec =
       let printArgs  = Just $ AList () u [ExpValue () u $ ValString "foo"]
           printStmt  = StPrint () u (ExpValue () u ValStar) printArgs
           printBlock = BlStatement () u Nothing printStmt
-          trueLit = ExpValue () u $ ValLogical ".true."
       it "unlabelled" $ do
-        let bl = BlIf () u Nothing Nothing [ Just trueLit, Nothing ] [[printBlock], [printBlock]]  Nothing
+        let bl = BlIf () u Nothing Nothing [ Just valTrue, Nothing ] [[printBlock], [printBlock]]  Nothing
             src = unlines [ "      if (.true.) then ! comment if"
                           , "        print *, 'foo'"
                           , "      else ! comment else"
@@ -240,7 +239,7 @@ spec =
         blParser src `shouldBe'` bl
       it "labelled" $ do
         let label str = Just $ ExpValue () u $ ValInteger str
-            bl = BlIf () u (label "10")  Nothing [Just trueLit, Nothing] [[printBlock], [printBlock]] (label "30")
+            bl = BlIf () u (label "10")  Nothing [Just valTrue, Nothing] [[printBlock], [printBlock]] (label "30")
             src = unlines [ "10    if (.true.) then ! comment if"
                           , "        print *, 'foo'"
                           , "20    else ! comment else"

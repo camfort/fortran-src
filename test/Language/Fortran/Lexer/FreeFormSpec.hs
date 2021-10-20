@@ -193,7 +193,7 @@ spec =
       describe "Conditional" $ do
         it "lexes logical if with array assignment" $
           shouldBe' (collectF90 "if (.true.) a(1) = 42") $
-                    fmap ($u) [ TIf, TLeftPar, flip TLogicalLiteral ".true."
+                    fmap ($u) [ TIf, TLeftPar, flip TLogicalLiteral True
                               , TRightPar, flip TId "a", TLeftPar
                               , flip TIntegerLiteral "1", TRightPar, TOpAssign
                               , flip TIntegerLiteral "42", TEOF ]
