@@ -98,6 +98,16 @@ spec =
                                          , FSIOMsg () u (varGen "y"), FSErr () u (varGen "z") ])
         pprint Fortran2003 f Nothing `shouldBe` "flush (unit=1, iostat=x, iomsg=y, err=z)"
 
+    describe "Value" $ do
+      it "prints logical literal with no kind parameter" $ do
+        let lit = ValLogical True Nothing
+        pprint Fortran77 lit Nothing `shouldBe` ".true."
+
+      it "prints logical literal with kind parameter (>=F90)" $ do
+        let lit    = ValLogical False (Just kpExpr)
+            kpExpr = ExpValue () u (ValInteger "8")
+        pprint Fortran90 lit Nothing `shouldBe` ".false._8"
+
     describe "Statement" $ do
       describe "Declaration" $ do
         it "prints 90 style with attributes" $ do

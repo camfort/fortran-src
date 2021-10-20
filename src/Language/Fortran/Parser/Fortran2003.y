@@ -50,6 +50,7 @@ import Debug.Trace
   int                         { TIntegerLiteral _ _ }
   float                       { TRealLiteral _ _ }
   boz                         { TBozLiteral _ _ }
+  '_'                         { TUnderscore _ }
   ','                         { TComma _ }
   ',2'                        { TComma2 _ }
   ';'                         { TSemiColon _ }
@@ -1394,7 +1395,16 @@ REAL_LITERAL :: { Expression A0 }
 : float { let TRealLiteral s r = $1 in ExpValue () s $ ValReal r }
 
 LOGICAL_LITERAL :: { Expression A0 }
-: bool { let TLogicalLiteral s b = $1 in ExpValue () s $ ValLogical b }
+: bool
+  { let TLogicalLiteral s b = $1
+     in ExpValue () s (ValLogical b Nothing) }
+| bool '_' KIND_PARAM
+  { let TLogicalLiteral s b = $1
+     in ExpValue () s (ValLogical b (Just $3)) }
+
+KIND_PARAM :: { Expression A0 }
+: INTEGER_LITERAL { $1 }
+| VARIABLE        { $1 }
 
 STRING :: { Expression A0 }
 : string { let TString s c = $1 in ExpValue () s $ ValString c }

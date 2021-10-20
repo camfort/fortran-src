@@ -139,9 +139,12 @@ spec =
         in fParser fStr `shouldBe'` expected
 
     describe "Expression" $ do
-      it "parses logial literals with kind" $ do
-        let expected = ExpValue () u (ValLogical ".true._kind")
-        eParser ".true._kind" `shouldBe'` expected
+      it "parses logical literal without kind parameter" $ do
+        eParser ".true." `shouldBe'` valTrue
+
+      it "parses logical literal with kind parameter" $ do
+        let kp = ExpValue () u (ValVariable "kind")
+        eParser ".false._kind" `shouldBe'` valFalse' kp
 
       it "parses array initialisation exp" $ do
         let list = AList () u [ intGen 1, intGen 2, intGen 3, intGen 4 ]
@@ -443,19 +446,16 @@ spec =
       let stPrint = StPrint () u starVal (Just $ fromList () [ ExpValue () u (ValString "foo")])
       it "parser if block" $
         let ifBlockSrc = unlines [ "if (.false.) then", "print *, 'foo'", "end if"]
-            falseLit = ExpValue () u (ValLogical ".false.")
-        in blParser ifBlockSrc `shouldBe'` BlIf () u Nothing Nothing [Just falseLit] [[BlStatement () u Nothing stPrint]] Nothing
+        in blParser ifBlockSrc `shouldBe'` BlIf () u Nothing Nothing [Just valFalse] [[BlStatement () u Nothing stPrint]] Nothing
 
       it "parses named if block" $ do
         let ifBlockSrc = unlines [ "mylabel : if (.true.) then", "print *, 'foo'", "end if mylabel"]
-            trueLit = ExpValue () u (ValLogical ".true.")
-            ifBlock = BlIf () u Nothing (Just "mylabel") [Just trueLit] [[BlStatement () u Nothing stPrint]] Nothing
+            ifBlock = BlIf () u Nothing (Just "mylabel") [Just valTrue] [[BlStatement () u Nothing stPrint]] Nothing
         blParser ifBlockSrc `shouldBe'` ifBlock
 
       it "parses if-else block with inline comments (stripped)" $
         let ifBlockSrc = unlines [ "if (.false.) then ! comment if", "print *, 'foo'", "else ! comment else", "print *, 'foo'", "end if ! comment end"]
-            falseLit = ExpValue () u (ValLogical ".false.")
-        in blParser ifBlockSrc `shouldBe'` BlIf () u Nothing Nothing [Just falseLit, Nothing] [[BlStatement () u Nothing stPrint], [BlStatement () u Nothing stPrint]] Nothing
+        in blParser ifBlockSrc `shouldBe'` BlIf () u Nothing Nothing [Just valFalse, Nothing] [[BlStatement () u Nothing stPrint], [BlStatement () u Nothing stPrint]] Nothing
 
       it "parses logical if statement" $ do
         let assignment = StExpressionAssign () u (varGen "a") (varGen "b")

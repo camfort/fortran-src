@@ -270,11 +270,11 @@ annotateExpression e@(ExpValue _ ss (ValReal r))        = do
 annotateExpression e@(ExpValue _ ss (ValComplex e1 e2)) = do
     st <- complexLiteralType ss e1 e2
     return $ setSemType st e
-annotateExpression e@(ExpValue _ _ (ValInteger _))     =
+annotateExpression e@(ExpValue _ _ (ValInteger{}))     =
     -- FIXME: in >F90, int lits can have kind info on end @_8@, same as real
     -- lits. We do parse this into the lit string, it is available to us.
     return $ setSemType (deriveSemTypeFromBaseType TypeInteger) e
-annotateExpression e@(ExpValue _ _ (ValLogical _))     =
+annotateExpression e@(ExpValue _ _ (ValLogical{}))     =
     return $ setSemType (deriveSemTypeFromBaseType TypeLogical) e
 
 annotateExpression e@(ExpBinary _ _ op e1 e2)          = flip setIDType e `fmap` binaryOpType (getSpan e) op e1 e2

@@ -942,7 +942,7 @@ NUMERIC_LITERAL :: { Expression A0 }
 | REAL_LITERAL { $1 }
 
 LOGICAL_LITERAL :: { Expression A0 }
-: bool { let TBool s b = $1 in ExpValue () s $ ValLogical b }
+: bool { let TBool s b = $1 in ExpValue () s $ ValLogical b Nothing }
 
 HOLLERITH :: { Expression A0 } : hollerith { ExpValue () (getSpan $1) $ let (THollerith _ h) = $1 in ValHollerith h }
 

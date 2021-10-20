@@ -467,7 +467,7 @@ COMPLEX_LITERAL
 :  '(' SIGNED_NUMERIC_LITERAL ',' SIGNED_NUMERIC_LITERAL ')' { ExpValue () (getTransSpan $1 $5) (ValComplex $2 $4)}
 
 LOGICAL_LITERAL :: { Expression A0 }
-LOGICAL_LITERAL : bool { let TBool s b = $1 in ExpValue () s $ ValLogical b }
+LOGICAL_LITERAL : bool { let TBool s b = $1 in ExpValue () s $ ValLogical b Nothing }
 
 HOLLERITH :: { Expression A0 } : hollerith { ExpValue () (getSpan $1) $ let (THollerith _ h) = $1 in ValHollerith h }
 

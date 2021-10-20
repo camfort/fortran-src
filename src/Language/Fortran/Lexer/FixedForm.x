@@ -217,7 +217,8 @@ tokens :-
   <st,iif> \" / { legacy77P }                 { strAutomaton '"'  0 }
 
   -- Logicals
-  <st,iif> (".true."|".false.")               { addSpanAndMatch TBool  }
+  <st,iif> ".true."                           { addSpan (\s -> TBool s True)  }
+  <st,iif> ".false."                          { addSpan (\s -> TBool s False) }
 
   -- Arithmetic operators
   <st,iif> "+"                                { addSpan TOpPlus  }
@@ -804,7 +805,7 @@ data Token = TLeftPar             SrcSpan
            | TInt                 SrcSpan String
            | TBozInt              SrcSpan String
            | TExponent            SrcSpan String
-           | TBool                SrcSpan String
+           | TBool                SrcSpan Bool
            | TOpPlus              SrcSpan
            | TOpMinus             SrcSpan
            | TOpExp               SrcSpan

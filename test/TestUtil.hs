@@ -24,10 +24,13 @@ mi77 = MetaInfo { miVersion = Fortran77, miFilename = "<unknown>" }
 mi90 :: MetaInfo
 mi90 = MetaInfo { miVersion = Fortran90, miFilename = "<unknown>" }
 
-valTrue :: Expression ()
-valTrue = ExpValue () u $ ValLogical ".true."
-valFalse :: Expression ()
-valFalse = ExpValue () u $ ValLogical ".false."
+valTrue, valFalse :: Expression ()
+valTrue  = ExpValue () u $ ValLogical True  Nothing
+valFalse = ExpValue () u $ ValLogical False Nothing
+
+valTrue', valFalse' :: Expression () -> Expression ()
+valTrue'  kp = ExpValue () u $ ValLogical True  (Just kp)
+valFalse' kp = ExpValue () u $ ValLogical False (Just kp)
 
 varGen :: String -> Expression ()
 varGen str = ExpValue () u $ ValVariable str

@@ -619,7 +619,7 @@ data Value a =
   -- ^ The name of a variable
   | ValIntrinsic         Name
   -- ^ The name of a built-in function
-  | ValLogical           String
+  | ValLogical           Bool (Maybe (Expression a))
   -- ^ A boolean value
   | ValOperator          String
   -- ^ User-defined operators in interfaces

@@ -302,7 +302,9 @@ tokens :-
 
 <scN,scC> @characterLiteralBeg                    { lexCharacter }
 
-<scN> @logicalLiteral                             { addSpanAndMatch TLogicalLiteral }
+<scN> ".true."  { addSpan (\s -> TLogicalLiteral s True)  }
+<scN> ".false." { addSpan (\s -> TLogicalLiteral s False) }
+<scN> "_"       { addSpan TUnderscore            }
 
 -- Operators
 <scN> ("."$letter+"."|"**"|\*|\/|\+|\-) / { opP } { addSpanAndMatch TOpCustom }
@@ -1189,7 +1191,8 @@ data Token =
   | TOpNE               SrcSpan
   | TOpGT               SrcSpan
   | TOpGE               SrcSpan
-  | TLogicalLiteral     SrcSpan String
+  | TLogicalLiteral     SrcSpan Bool
+  | TUnderscore         SrcSpan
   -- Keywords
   -- Program unit related
   | TProgram            SrcSpan
