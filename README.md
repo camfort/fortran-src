@@ -1,29 +1,64 @@
 # fortran-src
-![CI status badge](https://github.com/camfort/fortran-src/workflows/CI/badge.svg)
+![CI status badge](https://github.com/camfort/fortran-src/actions/workflows/ci.yml/badge.svg)
 
-Provides lexing, parsing, and basic analyses of Fortran code covering standards: FORTRAN 66, FORTRAN 77, Fortran 90, Fortran 95 and part of Fortran 2003. Includes data flow and basic block analysis, a renamer, and type analysis. For example usage, see the 'camfort' project (https://github.com/camfort/camfort), which uses fortran-src as its front end.
+Provides lexing/parsing and early static analyses of Fortran code. The following
+Fortran standards are covered:
 
-For features that output graphs, the intended usage is to pipe it into the command 'dot -Tpdf' and redirect that into a PDF file. The 'dot' command is part of the GraphViz project (https://www.graphviz.org/), please see their manual for the many other options that can be explored for visualisation purposes.
+  * FORTRAN 66 (ANSI X3.9-1966)
+  * FORTRAN 77 (ANSI X3.9-1978 / ISO 1539:1980)
+  * Fortran 90 (ISO/IEC 1539:1991)
+  * Fortran 95 (ISO/IEC 1539-1:1997
+  * Fortran 2003 (partial)
 
-    Usage: fortran-src [OPTION...] <file>
-      -v VERSION, -F VERSION  --fortranVersion=VERSION         Fortran version to use, format: Fortran[66/77/77Legacy/77Extended/90]
-      -a ACTION               --action=ACTION                  lex or parse action
-      -t                      --typecheck                      parse and run typechecker
-      -R                      --rename                         parse and rename variables
-      -B                      --bblocks                        analyse basic blocks
-      -S                      --supergraph                     analyse super graph of basic blocks
-      -r                      --reprint                        Parse and output using pretty printer
-                              --dot                            output graphs in GraphViz DOT format
-                              --dump-mod-file                  dump the information contained within mod files
-      -I DIR                  --include-dir=DIR                directory to search for precompiled 'mod files'
-      -c                      --compile                        compile an .fsmod file from the input
-                              --show-block-numbers[=LINE-NUM]  Show the corresponding AST-block identifier number next to every line of code.
-                              --show-flows-to=AST-BLOCK-ID     dump a graph showing flows-to information from the given AST-block ID; prefix with 's' for supergraph
-                              --show-flows-from=AST-BLOCK-ID   dump a graph showing flows-from information from the given AST-block ID; prefix with 's' for supergraph
+Parsing is configurable, and you can select the Fortran standard to target,
+including special extended modes for nonstandard FORTRAN 77.
+
+Includes data flow and basic block analysis, a renamer, and type analysis.
+
+This package primarily exports a Haskell library, but also builds an executable
+that can be used for testing and debugging. For example usage, see the
+[CamFort](https://github.com/camfort/camfort) project, which uses fortran-src as
+its front end.
+
+## Obtaining
+We provide [prebuilt binaries](https://github.com/camfort/fortran-src/releases)
+for Windows, Mac and Linux.
+
+## Usage
+Add `fortran-src` as a dependency in your Haskell project. We're on
+[Hackage](https://hackage.haskell.org/package/fortran-src) and also on
+[Stackage](https://www.stackage.org/package/fortran-src).
+
+### Command-line tool
+You can also invoke `fortran-src` on the command line.
+
+For features that output graphs, the intended usage is to pipe it into the
+command `dot -Tpdf` and redirect that into a PDF file. The `dot` command is part
+of the [GraphViz project](https://www.graphviz.org/), please see their manual
+for the many other options that can be explored for visualisation purposes.
+
+```
+Usage: fortran-src [OPTION...] <file>
+  -v VERSION, -F VERSION  --fortranVersion=VERSION         Fortran version to use, format: Fortran[66/77/77Legacy/77Extended/90]
+  -a ACTION               --action=ACTION                  lex or parse action
+  -t                      --typecheck                      parse and run typechecker
+  -R                      --rename                         parse and rename variables
+  -B                      --bblocks                        analyse basic blocks
+  -S                      --supergraph                     analyse super graph of basic blocks
+  -r                      --reprint                        Parse and output using pretty printer
+                          --dot                            output graphs in GraphViz DOT format
+                          --dump-mod-file                  dump the information contained within mod files
+  -I DIR                  --include-dir=DIR                directory to search for precompiled 'mod files'
+  -c                      --compile                        compile an .fsmod file from the input
+                          --show-block-numbers[=LINE-NUM]  Show the corresponding AST-block identifier number next to every line of code.
+                          --show-flows-to=AST-BLOCK-ID     dump a graph showing flows-to information from the given AST-block ID; prefix with 's' for supergraph
+                          --show-flows-from=AST-BLOCK-ID   dump a graph showing flows-from information from the given AST-block ID; prefix with 's' for supergraph
+```
 
 ## Building
 fortran-src supports building with Stack or Cabal. You should be able to build
-and use without any dependencies other than GHC itself.
+and use without any system dependencies other than GHC itself. Haskell library
+dependencies are listed in `package.yaml`.
 
 fortran-src supports **GHC 8.4 through GHC 9.0**. We regularly test at least the
 minimum and maximum supported GHCs. Releases prior to/newer than those may have
@@ -72,6 +107,9 @@ We support the latest recommended version of Cabal (as of 2021-09-17, Cabal 3.4)
 cabal build
 ```
 
+### Testing
+Unit tests are stored in `test`. Run with `stack test` or `cabal test`.
+
 ## Usage
 ### As a dependency
 fortran-src is available on Hackage and Stackage, so for Cabal or Stack projects
@@ -102,3 +140,14 @@ We provide prebuilt binaries for some platforms: see the
 
 Otherwise, you can build from source and use convenience commands like `cabal
 run`, `stack run`. See [#Building](#building) for details.
+
+## Contributing
+We welcome bug reports, fixes and feature proposals. Add an issue or create a
+pull request on the GitHub repository.
+
+## Support
+You may be able to find maintainers on the [Libera.Chat](https://libera.chat/)
+IRC network. Check in #fortran-src and #camfort . Otherwise, you could get into
+contact with one of the team on the [CamFort team
+page](https://camfort.github.io/team.html) -- or create an issue describing your
+problem and we'll have a look.
