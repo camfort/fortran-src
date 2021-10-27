@@ -14,12 +14,16 @@ module Language.Fortran.Analysis
   , TransFunc, TransFuncM )
 where
 
+import           Language.Fortran.AST
+import           Language.Fortran.LValue
+import           Language.Fortran.Intrinsics    ( getIntrinsicDefsUses
+                                                , allIntrinsics )
+import           Language.Fortran.Repr.Type
+import           Language.Fortran.Util.Position ( SrcSpan )
+
 import Prelude hiding (exp)
-import Language.Fortran.Util.Position (SrcSpan)
 import Data.Generics.Uniplate.Data
 import Data.Data
-import Language.Fortran.AST
-import Language.Fortran.LValue
 import Data.Graph.Inductive (Node, empty)
 import Data.Graph.Inductive.PatriciaTree (Gr)
 import Text.PrettyPrint.GenericPretty
@@ -27,10 +31,7 @@ import Text.PrettyPrint hiding (empty, isEmpty)
 import qualified Data.Map.Strict as M
 import Data.Maybe
 import Data.Binary
-import Language.Fortran.Intrinsics (getIntrinsicDefsUses, allIntrinsics)
 import Data.Bifunctor (first)
-
-import           Language.Fortran.Analysis.SemanticTypes (SemType(..))
 
 --------------------------------------------------
 
@@ -95,15 +96,15 @@ data ConstructType =
   | CTIntrinsic
   deriving (Ord, Eq, Show, Data, Typeable, Generic)
 
-instance Out ConstructType
+instance Out    ConstructType
 instance Binary ConstructType
 
 data IDType = IDType
-  { idVType :: Maybe SemType
+  { idVType :: Maybe FTypeScalar
   , idCType :: Maybe ConstructType }
   deriving (Ord, Eq, Show, Data, Typeable, Generic)
 
-instance Out IDType
+instance Out    IDType
 instance Binary IDType
 
 -- | Information about potential / actual constant expressions.

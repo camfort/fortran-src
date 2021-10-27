@@ -8,9 +8,9 @@ import Data.Map ((!))
 import Data.Data
 import Data.Generics.Uniplate.Data
 import Language.Fortran.AST
+import Language.Fortran.Repr
 import Language.Fortran.Analysis
 import Language.Fortran.Analysis.Types
-import Language.Fortran.Analysis.SemanticTypes
 import Language.Fortran.Analysis.Renaming
 import qualified Language.Fortran.Parser as Parser
 import qualified Data.ByteString.Char8 as B
@@ -32,8 +32,10 @@ uniExpr = universeBi
 
 -- | Get the default 'SemType' for the given 'BaseType' (i.e. get its 'SemType'
 --   and use the default kind).
-defSTy :: BaseType -> SemType
-defSTy = deriveSemTypeFromBaseType
+defSTy' :: BaseType -> ScalarTy
+defSTy' = ScalarTyIntrinsic . deriveIntrinsicTyFromBaseType
+defSTy :: BaseType -> Ty
+defSTy = TyScalarTy . defSTy'
 
 --------------------------------------------------------------------------------
 
@@ -132,78 +134,93 @@ spec = do
             , idType a == Just (IDType (Just (defSTy TypeComplex)) Nothing) ]
           `shouldNotSatisfy` null
         [ a | ExpBinary a _ Addition (ExpValue _ _ (ValInteger "2" _)) _ <- uniExpr pf
-            , idType a == Just (IDType (Just (TReal 8)) Nothing) ]
+            , idType a == Just (IDType (Just (realTy 8)) Nothing) ]
           `shouldNotSatisfy` null
 
     describe "Character string types" $
       it "examples of various character variables" $ do
         let mapping = inferTable teststrings1
-        idVType (mapping ! "a") `shouldBe` Just (TCharacter (CharLenInt 5) 1)
-        idVType (mapping ! "b") `shouldBe` Just (TCharacter (CharLenInt 10) 1)
-        idVType (mapping ! "c") `shouldBe` Just (TCharacter (CharLenInt 3) 1)
-        idVType (mapping ! "d") `shouldBe` Just (TCharacter CharLenExp 1)
+        idVType (mapping ! "a") `shouldBe` Just (charTy 5 1)
+        idVType (mapping ! "b") `shouldBe` Just (charTy 10 1)
+        idVType (mapping ! "c") `shouldBe` Just (charTy 3 1)
+        idVType (mapping ! "d") `shouldBe` Just (charTy 8 1) -- var kind param
         idCType (mapping ! "d") `shouldBe` Just (CTArray [(Nothing, Just 10)])
-        idVType (mapping ! "e") `shouldBe` Just (TCharacter (CharLenInt 10) 1)
+        idVType (mapping ! "e") `shouldBe` Just (charTy 10 1)
         idCType (mapping ! "e") `shouldBe` Just (CTArray [(Nothing, Just 20)])
-        idVType (mapping ! "f") `shouldBe` Just (TCharacter (CharLenInt 1) 2)
+        idVType (mapping ! "f") `shouldBe` Just (charTy 1 2)
+        idVType (mapping ! "g") `shouldBe` Just (charTy' CharLenAssumed 1)
         let pf = typedProgramFile teststrings1
         [ () | ExpValue a _ (ValVariable "e") <- uniExpr pf
-             , idType a == Just (IDType (Just (TCharacter (CharLenInt 10) 1))
+             , idType a == Just (IDType (Just (charTy 10 1))
                                         (Just (CTArray [(Nothing, Just 20)])))]
           `shouldNotSatisfy` null
 
     describe "Kind parameters and lengths" $ do
       let mapping = inferTable testkinds
       it "handles CHARACTER x*2 (RHS CHARACTER length)" $ do
-        idVType (mapping ! "a") `shouldBe` Just (TCharacter (CharLenInt 2) 1)
+        idVType (mapping ! "a") `shouldBe` Just (charTy 2 1)
       it "handles CHARACTER*2 x (LHS CHARACTER length)" $ do
-        idVType (mapping ! "b") `shouldBe` Just (TCharacter (CharLenInt 2) 1)
+        idVType (mapping ! "b") `shouldBe` Just (charTy 2 1)
       it "handles INTEGER*2 x (standard kind parameter)" $ do
-        idVType (mapping ! "c") `shouldBe` Just (TInteger 2)
+        idVType (mapping ! "c") `shouldBe` Just (intTy 2)
       it "handles INTEGER x*2 (nonstandard kind parameter)" $ do
-        idVType (mapping ! "d") `shouldBe` Just (TInteger 2)
+        idVType (mapping ! "d") `shouldBe` Just (intTy 2)
       it "handles multiple declarators with various kind parameter configurations" $ do
-        idVType (mapping ! "e") `shouldBe` Just (TInteger 1)
-        idVType (mapping ! "f") `shouldBe` Just (TInteger 2)
-        idVType (mapping ! "g") `shouldBe` Just (TInteger 8)
-        idVType (mapping ! "h") `shouldBe` Just (TInteger 8)
+        idVType (mapping ! "e") `shouldBe` Just (intTy 1)
+        idVType (mapping ! "f") `shouldBe` Just (intTy 2)
+        idVType (mapping ! "g") `shouldBe` Just (intTy 8)
+        idVType (mapping ! "h") `shouldBe` Just (intTy 8)
 
       it "handles array types with nonstandard kind parameters" $ do
         -- default kind after a nonstandard (declarator) kind param
-        idVType (mapping ! "i") `shouldBe` Just (TInteger 4)
+        idVType (mapping ! "i") `shouldBe` Just (intTy 4)
 
       it "handles nonstandard character array + length syntax" $ do
-        idVType (mapping ! "i2_arr") `shouldBe` Just (TInteger 2)
+        idVType (mapping ! "i2_arr") `shouldBe` Just (intTy 2)
         idCType (mapping ! "i2_arr") `shouldBe` Just (CTArray [(Nothing, Just 2)])
 
       it "handles multiple declarators with various kind parameter configurations correctly" $ do
-        idVType (mapping ! "ilhs_arr") `shouldBe` Just (TInteger 1)
+        idVType (mapping ! "ilhs_arr") `shouldBe` Just (intTy 1)
         idCType (mapping ! "ilhs_arr") `shouldBe` Just (CTArray [(Nothing, Just 2)])
-        idVType (mapping ! "i8_arr") `shouldBe` Just (TInteger 8)
+        idVType (mapping ! "i8_arr") `shouldBe` Just (intTy 8)
         idCType (mapping ! "i8_arr") `shouldBe` Just (CTArray [(Nothing, Just 2)])
 
     describe "structs and arrays" $ do
       it "can handle typing assignments to arrays within structs" $ do
         let mapping = inferTable $ structArray False
-        mapping ! "s" `shouldBe` IDType (Just $ TCustom "strut") (Just CTVariable)
+        mapping ! "s" `shouldBe` IDType (Just $ customTy "strut") (Just CTVariable)
       it "can handle typing assignments to elements in arrays of structs" $ do
         let mapping = inferTable $ arrayOfStructs False
-        mapping ! "a" `shouldBe` IDType (Just $ TCustom "elem") (Just $ CTArray [(Nothing, Just 10)])
+        mapping ! "a" `shouldBe` IDType (Just $ customTy "elem") (Just $ CTArray [(Nothing, Just 10)])
       it "can handle typing assignments to array elements in arrays of structs" $ do
         let mapping = inferTable $ arrayOfStructsWithArrays False
-        mapping ! "arr" `shouldBe` IDType (Just $ TCustom "elem2") (Just $ CTArray [(Nothing, Just 10)])
+        mapping ! "arr" `shouldBe` IDType (Just $ customTy "elem2") (Just $ CTArray [(Nothing, Just 10)])
 
     describe "structs and arrays in common area" $ do
       it "can handle typing assignments to arrays within structs in common area" $ do
         let mapping = inferTable $ structArray True
-        mapping ! "s" `shouldBe` IDType (Just $ TCustom "strut") (Just CTVariable)
+        mapping ! "s" `shouldBe` IDType (Just $ customTy "strut") (Just CTVariable)
       it "can handle typing assignments to elements in arrays of structs in common area" $ do
         let mapping = inferTable $ arrayOfStructs True
-        mapping ! "a" `shouldBe` IDType (Just $ TCustom "elem") (Just $ CTArray [(Nothing, Just 10)])
+        mapping ! "a" `shouldBe` IDType (Just $ customTy "elem") (Just $ CTArray [(Nothing, Just 10)])
       it "can handle typing assignments to array elements in arrays of structs in common area" $ do
         let mapping = inferTable $ arrayOfStructsWithArrays True
-        mapping ! "arr" `shouldBe` IDType (Just $ TCustom "elem2") (Just $ CTArray [(Nothing, Just 10)])
+        mapping ! "arr" `shouldBe` IDType (Just $ customTy "elem2") (Just $ CTArray [(Nothing, Just 10)])
 
+customTy :: String -> Ty
+customTy = TyScalarTy . ScalarTyCustom
+
+intTy :: Kind -> Ty
+intTy k = TyScalarTy $ ScalarTyIntrinsic $ IntrinsicTy BTyInteger k
+
+realTy :: Kind -> Ty
+realTy k = TyScalarTy $ ScalarTyIntrinsic $ IntrinsicTy BTyReal k
+
+charTy :: Int -> Kind -> Ty
+charTy len k = charTy' (CharLen len) k
+
+charTy' :: CharLen -> Kind -> Ty
+charTy' len k = TyScalarTy $ ScalarTyIntrinsic $ IntrinsicTy (BTyCharacter len) k
 
 ex1 :: ProgramFile ()
 ex1 = ProgramFile mi77 [ ex1pu1 ]
@@ -360,6 +377,7 @@ teststrings1 = parseStrF90 . fProgStr $
   , "character(k), dimension(10) :: d"
   , "character :: e(20)*10"
   , "character(kind=2) :: f"
+  , "character(*) :: g"
   ]
 
 testkinds :: ProgramFile A0

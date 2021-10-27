@@ -144,7 +144,7 @@ emptyModFile = ModFile "" M.empty M.empty M.empty M.empty M.empty M.empty
 regenModFile :: forall a. Data a => F.ProgramFile (FA.Analysis a) -> ModFile -> ModFile
 regenModFile pf mf = mf { mfModuleMap   = extractModuleMap pf
                         , mfDeclMap     = extractDeclMap pf
-                        , mfTypeEnv     = FAT.extractTypeEnv pf
+                        , mfTypeEnv     = FAT.regenerateTypeEnv pf
                         , mfParamVarMap = extractParamVarMap pf
                         , mfFilename    = F.pfGetFilename pf }
 

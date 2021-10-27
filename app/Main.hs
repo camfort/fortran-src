@@ -133,8 +133,12 @@ main = do
           print $ Parser.collectTokens Free.lexer'  $ initParseStateFree "<unknown>" version contents
         Lex        -> ioError $ userError $ usageInfo programName options
         Parse      -> pp parsedPF
+{-
         Typecheck  -> let (pf, _, errs) = runTypes parsedPF in
                         printTypeErrors errs >> printTypes (extractTypeEnv pf)
+        Typecheck  -> let (pf, _, errs) = runTypes (parserF mods contents path) in
+                        printTypeErrors errs >> printTypes (regenerateTypeEnv pf)
+-}
         Rename     -> pp $ runRenamer parsedPF
         BBlocks    -> putStrLn $ runBBlocks parsedPF
         SuperGraph -> putStrLn $ runSuperGraph parsedPF
