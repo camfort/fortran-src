@@ -606,7 +606,8 @@ data Index a =
 -- All recursive Values
 data Value a =
     ValInteger           String
-  -- ^ The string representation of an integer literal
+  -- ^ The string representation of an integer literal. Note that BOZ constant
+  --   literals are also placed here.
   | ValReal              String
   -- ^ The string representation of a real literal
   | ValComplex           (Expression a) (Expression a)
@@ -663,6 +664,11 @@ data Value a =
 -- nonstandard syntax feature is to use this as a kind parameter for non
 -- CHARACTERs. So we parse length for all 'Declarator's, handle the nonstandard
 -- feature and print a warning during our type analysis.
+--
+-- Another note about CHARACTERs: a length defined here will override a length
+-- placed in the 'TypeSpec'. Essentially, the "specific" length will override
+-- the "generic". This matches gfortran behaviour, and is explicitly stated in
+-- the F90 ISO, pg.41.
 data Declarator a
   = Declarator a SrcSpan
                (Expression a)         -- ^ Variable

@@ -9,60 +9,68 @@ module Language.Fortran.Analysis.Types
   , extractTypeEnv
   , TypeEnv
   , TypeError
-  , deriveSemTypeFromDeclaration
-  , deriveSemTypeFromTypeSpec
-  , deriveSemTypeFromBaseType
+  , deriveScalarTyFromDeclaration
+  , deriveScalarTyFromTypeSpec
+  , deriveIntrinsicTyFromBaseType
   , runInfer
   , inferState0
   ) where
 
 import Language.Fortran.AST
 
-import Prelude hiding (lookup, EQ, LT, GT)
-import Data.Map (insert)
-import qualified Data.Map as M
-import Data.Maybe (maybeToList)
-import Data.List (find, foldl')
-import Control.Monad.State.Strict
-import Control.Monad.Reader
-import Data.Generics.Uniplate.Data
-import Data.Data
-import Language.Fortran.Analysis
-import Language.Fortran.Analysis.SemanticTypes
-import Language.Fortran.Intrinsics
-import Language.Fortran.Util.Position
-import Language.Fortran.Version (FortranVersion(..))
-import Language.Fortran.Parser.Utils
+import Prelude hiding ( EQ, LT, GT )
+
+import           Language.Fortran.Analysis
+import           Language.Fortran.Repr
+import           Language.Fortran.Analysis.Parameters
+import           Language.Fortran.Intrinsics
+import           Language.Fortran.Util.Position
+import           Language.Fortran.Version
+import           Language.Fortran.Parser.Utils
+
+import           Data.Data
+import           Data.Generics.Uniplate.Data
+import           Control.Monad.State.Strict
+import           Control.Monad.Reader
+import qualified Data.Map as Map
+import           Data.Map ( Map )
+import           Data.Maybe (maybeToList)
+import           Data.List (find, foldl')
 
 --------------------------------------------------
 
 -- | Mapping of names to type information.
-type TypeEnv = M.Map Name IDType
+type TypeEnv = Map Name IDType
 
 -- | Information about a detected type error.
 type TypeError = (String, SrcSpan)
 
 -- | Mapping of structures to field types
-type StructTypeEnv = M.Map Name StructMemberTypeEnv
-type StructMemberTypeEnv = M.Map Name IDType
+type StructTypeEnv = Map Name StructMemberTypeEnv
+type StructMemberTypeEnv = Map Name IDType
 
 --------------------------------------------------
 
 -- Monad for type inference work
 type Infer a = StateT InferState (Reader InferConfig) a
-data InferState = InferState { langVersion :: FortranVersion
-                             , intrinsics  :: IntrinsicsTable
-                             , environ     :: TypeEnv
-                             , structs     :: StructTypeEnv
-                             , entryPoints :: M.Map Name (Name, Maybe Name)
-                             , typeErrors  :: [TypeError] }
-  deriving Show
+
+data InferState = InferState
+  { langVersion :: FortranVersion
+  , intrinsics  :: IntrinsicsTable
+  , environ     :: TypeEnv
+  , structs     :: StructTypeEnv
+  , entryPoints :: Map Name (Name, Maybe Name)
+  , typeErrors  :: [TypeError]
+  , constMap    :: ConstMap
+  } deriving (Show)
+
 data InferConfig = InferConfig
   { inferConfigAcceptNonCharLengthAsKind :: Bool
   -- ^ How to handle declarations like @INTEGER x*8@. If true, providing a
   --   character length for a non-character data type will treat it as a kind
   --   parameter. In both cases, a warning is logged (nonstandard syntax).
   } deriving (Eq, Show)
+
 type InferFunc t = t -> Infer ()
 
 --------------------------------------------------
@@ -70,7 +78,7 @@ type InferFunc t = t -> Infer ()
 -- | Annotate AST nodes with type information and also return a type
 -- environment mapping names to type information.
 analyseTypes :: Data a => ProgramFile (Analysis a) -> (ProgramFile (Analysis a), TypeEnv)
-analyseTypes = analyseTypesWithEnv M.empty
+analyseTypes = analyseTypesWithEnv Map.empty
 
 -- | Annotate AST nodes with type information and also return a type
 -- environment mapping names to type information; provided with a
@@ -94,6 +102,9 @@ analyseAndCheckTypesWithEnv env pf = (pf', tenv, terrs)
 
 analyseTypesWithEnv' :: Data a => TypeEnv -> ProgramFile (Analysis a) -> (ProgramFile (Analysis a), InferState)
 analyseTypesWithEnv' env pf@(ProgramFile mi _) = runInfer (miVersion mi) env $ do
+  -- Do const work
+  modify $ \s -> s { constMap = gatherConsts pf }
+
   -- Gather information.
   mapM_ intrinsicsExp (allExpressions pf)
   mapM_ programUnit (allProgramUnits pf)
@@ -101,7 +112,7 @@ analyseTypesWithEnv' env pf@(ProgramFile mi _) = runInfer (miVersion mi) env $ d
   mapM_ statement (allStatements pf)
 
   -- Gather types for known entry points.
-  eps <- gets (M.toList . entryPoints)
+  eps <- gets (Map.toList . entryPoints)
   forM_ eps $ \ (eName, (fName, mRetName)) -> do
     mFType <- getRecordedType fName
     case mFType of
@@ -114,12 +125,12 @@ analyseTypesWithEnv' env pf@(ProgramFile mi _) = runInfer (miVersion mi) env $ d
   annotateTypes pf              -- Annotate AST nodes with their types.
 
 extractTypeEnv :: forall a. Data a => ProgramFile (Analysis a) -> TypeEnv
-extractTypeEnv pf = M.union puEnv expEnv
+extractTypeEnv pf = Map.union puEnv expEnv
   where
-    puEnv = M.fromList [ (n, ty) | pu <- universeBi pf :: [ProgramUnit (Analysis a)]
+    puEnv = Map.fromList [ (n, ty) | pu <- universeBi pf :: [ProgramUnit (Analysis a)]
                                  , Named n <- [puName pu]
                                  , ty <- maybeToList (idType (getAnnotation pu)) ]
-    expEnv = M.fromList [ (n, ty) | e@(ExpValue _ _ ValVariable{}) <- universeBi pf :: [Expression (Analysis a)]
+    expEnv = Map.fromList [ (n, ty) | e@(ExpValue _ _ ValVariable{}) <- universeBi pf :: [Expression (Analysis a)]
                                   , let n = varName e
                                   , ty <- maybeToList (idType (getAnnotation e)) ]
 
@@ -151,10 +162,12 @@ programUnit pu@(PUFunction _ _ mRetType _ _ _ mRetVar blocks _)
     recordCType CTFunction n
     case (mRetType, mRetVar) of
       (Just ts@(TypeSpec _ _ _ _), Just v) -> do
-        semType <- deriveSemTypeFromTypeSpec ts
+        semType' <- deriveScalarTyFromTypeSpec ts
+        let semType = TyScalarTy semType'
         recordSemType semType n >> recordSemType semType (varName v)
       (Just ts@(TypeSpec _ _ _ _), _)      -> do
-        semType <- deriveSemTypeFromTypeSpec ts
+        semType' <- deriveScalarTyFromTypeSpec ts
+        let semType = TyScalarTy semType'
         recordSemType semType n
       _                                        -> return ()
     -- record entry points for later annotation
@@ -191,7 +204,7 @@ dimDeclarator ddAList = [ (lb, ub) | DimensionDeclarator _ _ lbExp ubExp <- aStr
 handleDeclaration :: Data a => TypeEnv -> SrcSpan -> TypeSpec (Analysis a)
   -> Maybe (AList Attribute (Analysis a))
   -> AList Declarator (Analysis a)
-  -> Infer [(Name, SemType, ConstructType)]
+  -> Infer [(Name, Ty, ConstructType)]
 handleDeclaration env stmtSs ts mAttrAList declAList
   | mAttrs  <- maybe [] aStrip mAttrAList
   , attrDim <- find isAttrDimension mAttrs
@@ -201,36 +214,86 @@ handleDeclaration env stmtSs ts mAttrAList declAList
     let cType n | isExtrn                                     = CTExternal
                 | Just (AttrDimension _ _ ddAList) <- attrDim = CTArray (dimDeclarator ddAList)
                 | isParam                                     = CTParameter
-                | Just (IDType _ (Just ct)) <- M.lookup n env
+                | Just (IDType _ (Just ct)) <- Map.lookup n env
                 , ct /= CTIntrinsic                           = ct
                 | otherwise                                   = CTVariable
         handler rs = \case
           Declarator _ declSs v mDdAList mLenExpr _ -> do
-            st <- deriveSemTypeFromDeclaration stmtSs declSs ts mLenExpr
+            st <- deriveScalarTyFromDeclaration stmtSs declSs ts mLenExpr
             let n = varName v
                 ct = maybe (cType n) (CTArray . dimDeclarator) mDdAList
-            pure $ (n, st, ct) : rs
+            pure $ (n, TyScalarTy st, ct) : rs
     in foldM handler [] decls
+
+{-
+handleParameterStmt :: Data a => AList Declarator (Analysis a) -> Infer ()
+handleParameterStmt declAList =
+    let decls = aStrip declAList
+     in mapM_ f decls
+  where
+    f :: Declarator a -> Infer ()
+    f = undefined
+-}
+{-
+    f = \case
+      DeclVariable _ _ varE _ (Just valE) ->
+        let sym = srcName varExp
+            val = case tryAstValueToScalarVal valE of
+              Just val -> val
+              Nothing  -> error "fucko"
+            kind' = getKindOfExpVal val'   -- infer kind from value
+            pd'   = SParameter (setTypeKind (typeOfExpVal val') (Just kind')) val'
+            entry = case Map.lookup symbol symt of
+                    -- Entry found implies there is a preceding declaration
+                    -- of the name. 
+                    -- If that is variable declaration, keep the accurate type
+                    -- and kind informatio from the declaration.
+                    -- Else if it is dummy variable, keep the accurate type 
+                    -- and update kind
+                    -- Else raise error for conflicting parameter attribute
+                    -- Parameter name does not necessarily have a type
+                    -- declaration or a kind is assumed. In that case type
+                    -- and kind are inferred from the value of parameter.
+            Nothing               -> pd'
+            Just (SVariable ty _) -> case ty of
+              -- TODO previously TCharacter Nothing
+              TCharacter CharLenStar _ -> pd'
+              _                        -> SParameter ty val'
+            Just SDummy{} | isStr val' -> pd'
+            Just _ ->
+              let errStr t =
+                      "Invalid PARAMETER statement for symbol \'" ++ t ++ "\'"
+               in error $ errStr symbol
+        in  Map.insert symbol entry symt
+      _ -> error "parser probably can't make this"
+-}
 
 handleStructureItem :: Data a => StructMemberTypeEnv -> StructureItem (Analysis a) -> Infer StructMemberTypeEnv
 handleStructureItem mt (StructFields _ src ts mAttrAList declAList) = do
   env <- gets environ
   ds <- handleDeclaration env src ts mAttrAList declAList
-  pure $ foldl' (\m (n, s, c) -> M.insert n (IDType (Just s) (Just c)) m) mt ds
+  pure $ foldl' (\m (n, s, c) -> Map.insert n (IDType (Just s) (Just c)) m) mt ds
 -- TODO: These should eventually be implemented
 handleStructureItem mt StructUnion{} = pure mt
 handleStructureItem mt StructStructure{} = pure mt
 
 -- | Create a structure env from the list of fields and add it to the InferState
-handleStructure ::Data a => Maybe String -> AList StructureItem (Analysis a) -> Infer ()
+handleStructure :: Data a => Maybe String -> AList StructureItem (Analysis a) -> Infer ()
 handleStructure mName itemAList = do
   case mName of
     Just n -> do
-      structEnv <- foldM handleStructureItem M.empty (aStrip itemAList)
+      structEnv <- foldM handleStructureItem Map.empty (aStrip itemAList)
       recordStruct structEnv n
     Nothing -> pure ()
 
 statement :: Data a => InferFunc (Statement (Analysis a))
+
+{-
+statement (StParameter _ _ declAList) = do
+  env <- gets environ
+  decls <- handleParameterStmt declAList
+  -- TODO: place into parammap
+-}
 
 statement (StDeclaration _ stmtSs ts mAttrAList declAList) = do
   env <- gets environ
@@ -268,20 +331,23 @@ statement _ = return ()
 annotateExpression :: Data a => Expression (Analysis a) -> Infer (Expression (Analysis a))
 
 -- handle the various literals
-annotateExpression e@(ExpValue _ _ (ValVariable _))    = maybe e (`setIDType` e) `fmap` getRecordedType (varName e)
-annotateExpression e@(ExpValue _ _ (ValIntrinsic _))   = maybe e (`setIDType` e) `fmap` getRecordedType (varName e)
+annotateExpression e@(ExpValue _ _ ValVariable{})    = maybe e (`setIDType` e) `fmap` getRecordedType (varName e)
+annotateExpression e@(ExpValue _ _ ValIntrinsic{})   = maybe e (`setIDType` e) `fmap` getRecordedType (varName e)
 annotateExpression e@(ExpValue _ ss (ValReal r))        = do
     k <- deriveRealLiteralKind ss r
-    return $ setSemType (TReal k) e
+    return $ setSemType (TyScalarTy $ ScalarTyIntrinsic $ IntrinsicTy BTyReal k) e
 annotateExpression e@(ExpValue _ ss (ValComplex e1 e2)) = do
     st <- complexLiteralType ss e1 e2
     return $ setSemType st e
-annotateExpression e@(ExpValue _ _ (ValInteger{}))     =
+annotateExpression e@(ExpValue _ _ ValInteger{})     =
     -- FIXME: in >F90, int lits can have kind info on end @_8@, same as real
     -- lits. We do parse this into the lit string, it is available to us.
-    return $ setSemType (deriveSemTypeFromBaseType TypeInteger) e
-annotateExpression e@(ExpValue _ _ (ValLogical{}))     =
-    return $ setSemType (deriveSemTypeFromBaseType TypeLogical) e
+    return $ setSemType (TyScalarTy $ ScalarTyIntrinsic $ deriveIntrinsicTyFromBaseType TypeInteger) e
+
+annotateExpression e@(ExpValue _ _ (ValLogical _ mKp))     = do
+    sTy <- deriveScalarTyFromBaseTypeAndKindParam TypeLogical mKp
+    let e' = setSemType (TyScalarTy sTy) e
+    return e'
 
 annotateExpression e@(ExpBinary _ _ op e1 e2)          = flip setIDType e `fmap` binaryOpType (getSpan e) op e1 e2
 annotateExpression e@(ExpUnary _ _ op e1)              = flip setIDType e `fmap` unaryOpType (getSpan e1) op e1
@@ -327,11 +393,11 @@ deriveRealLiteralKind ss r =
 -- | Get the type of a COMPLEX literal constant.
 --
 -- The kind is derived only from the first expression, the second is ignored.
-complexLiteralType :: SrcSpan -> Expression a -> Expression a -> Infer SemType
+complexLiteralType :: SrcSpan -> Expression a -> Expression a -> Infer Ty
 complexLiteralType ss (ExpValue _ _ (ValReal r)) _ = do
-    k1 <- deriveRealLiteralKind ss r
-    return $ TComplex k1
-complexLiteralType _ _ _ = return $ deriveSemTypeFromBaseType TypeComplex
+    k <- deriveRealLiteralKind ss r
+    return $ TyScalarTy $ ScalarTyIntrinsic $ IntrinsicTy BTyComplex k
+complexLiteralType _ _ _ = return $ TyScalarTy $ ScalarTyIntrinsic $ deriveIntrinsicTyFromBaseType TypeComplex
 
 binaryOpType :: Data a => SrcSpan -> BinaryOp -> Expression (Analysis a) -> Expression (Analysis a) -> Infer IDType
 binaryOpType ss op e1 e2 = do
@@ -350,7 +416,7 @@ binaryOpType ss op e1 e2 = do
         Just st
           | op `elem` [ Addition, Subtraction, Multiplication, Division
                       , Exponentiation, Concatenation, Or, XOr, And ]       -> return $ Just st
-          | op `elem` [GT, GTE, LT, LTE, EQ, NE, Equivalent, NotEquivalent] -> return $ Just (deriveSemTypeFromBaseType TypeLogical)
+          | op `elem` [GT, GTE, LT, LTE, EQ, NE, Equivalent, NotEquivalent] -> return $ Just . TyScalarTy $ ScalarTyIntrinsic $ deriveIntrinsicTyFromBaseType TypeLogical
           | BinCustom{} <- op -> typeError "custom binary ops not supported" ss >> return Nothing
         _ -> return Nothing
 
@@ -359,31 +425,42 @@ binaryOpType ss op e1 e2 = do
 -- | Combine two 'SemType's with a 'BinaryOp'.
 --
 -- No real work done here, no kind combining, just selection.
-binopSimpleCombineSemTypes :: SrcSpan -> BinaryOp -> SemType -> SemType -> Infer (Maybe SemType)
-binopSimpleCombineSemTypes ss op st1 st2 = do
-    case (st1, st2) of
-      (_           , TComplex k2) -> ret $ TComplex k2
-      (TComplex k1, _           ) -> ret $ TComplex k1
-      (_           , TReal    k2) -> ret $ TReal k2
-      (TReal    k1, _           ) -> ret $ TReal k1
-      (_           , TInteger k2) -> ret $ TInteger k2
-      (TInteger k1, _           ) -> ret $ TInteger k1
-      (TByte    k1, TByte     _ ) -> ret $ TByte k1
-      (TLogical k1, TLogical  _ ) -> ret $ TLogical k1
-      (TCustom  _, TCustom   _) -> do
-        typeError "custom types / binary op not supported" ss
+binopSimpleCombineSemTypes :: SrcSpan -> BinaryOp -> Ty -> Ty -> Infer (Maybe Ty)
+binopSimpleCombineSemTypes ss op tyL tyR =
+    case (tyL, tyR) of
+      (TyScalarTy sTyL, TyScalarTy sTyR) ->
+        case (sTyL, sTyR) of
+          (ScalarTyIntrinsic iTyL, ScalarTyIntrinsic iTyR) ->
+            case (iTyBase iTyL, iTyBase iTyR) of
+              (_, BTyComplex) -> ret $ iTy BTyComplex (iTyKind iTyR)
+              (BTyComplex, _) -> ret $ iTy BTyComplex (iTyKind iTyL)
+              (_, BTyReal) -> ret $ iTy BTyReal (iTyKind iTyR)
+              (BTyReal, _) -> ret $ iTy BTyReal (iTyKind iTyL)
+              (_, BTyInteger) -> ret $ iTy BTyInteger (iTyKind iTyR)
+              (BTyInteger, _) -> ret $ iTy BTyInteger (iTyKind iTyL)
+              (BTyLogical, BTyLogical) -> ret $ iTy BTyLogical (iTyKind iTyL)
+              (BTyCharacter lenL, BTyCharacter lenR)
+                | iTyKind iTyL /= iTyKind iTyR -> do
+                    typeError "operation on character strings of different kinds" ss
+                    return Nothing
+                | op == Concatenation -> ret $ iTy (BTyCharacter (lenL + lenR)) (iTyKind iTyL)
+                | op `elem` [EQ, NE]  -> ret $ TyScalarTy $ ScalarTyIntrinsic $ deriveIntrinsicTyFromBaseType TypeLogical
+                | otherwise -> do typeError "Invalid op on character strings" ss
+                                  return Nothing
+              _ -> do typeError "type error in scalar binary expression" ss
+                      return Nothing
+          (ScalarTyCustom{}, ScalarTyCustom{}) -> do
+            typeError "custom types / binary op not supported" ss
+            return Nothing
+          _ -> do
+            typeError "Type error between operands of binary operator" ss
+            return Nothing
+      _ -> do
+        typeError "Type error between operands of binary operator" ss
         return Nothing
-      (TCharacter l1 k1, TCharacter l2 k2)
-        | k1 /= k2 -> do typeError "operation on character strings of different kinds" ss
-                         return Nothing
-        | op == Concatenation -> ret $ TCharacter (charLenConcat l1 l2) k1
-        | op `elem` [EQ, NE]  -> ret $ deriveSemTypeFromBaseType TypeLogical
-        | otherwise -> do typeError "Invalid op on character strings" ss
-                          return Nothing
-      _ -> do typeError "Type error between operands of binary operator" ss
-              return Nothing
   where
     ret = return . Just
+    iTy bt k = TyScalarTy $ ScalarTyIntrinsic $ IntrinsicTy bt k
 
 unaryOpType :: Data a => SrcSpan -> UnaryOp -> Expression (Analysis a) -> Infer IDType
 unaryOpType ss op e = do
@@ -392,9 +469,9 @@ unaryOpType ss op e = do
            _ -> typeError "Unable to obtain type for" (getSpan e) >> return Nothing
   mst' <- case (mst, op) of
     (Nothing, _)               -> return Nothing
-    (Just TCustom{}, _)        -> typeError "custom types / unary ops not supported" ss >> return Nothing
+    -- (Just TCustom{}, _)        -> typeError "custom types / unary ops not supported" ss >> return Nothing
     (_, UnCustom{})            -> typeError "custom unary ops not supported" ss >> return Nothing
-    (Just st@(TLogical _), Not)    -> return $ Just st
+    -- (Just st@(TLogical _), Not)    -> return $ Just st
     (Just st, _)
       | op `elem` [Plus, Minus] &&
         isNumericType st -> return $ Just st
@@ -403,8 +480,11 @@ unaryOpType ss op e = do
 
 subscriptType :: Data a => SrcSpan -> Expression (Analysis a) -> AList Index (Analysis a) -> Infer IDType
 subscriptType ss e1 (AList _ _ idxs) = do
+    {-
   let isInteger ie | Just (IDType (Just (TInteger _)) _) <- getIDType ie = True
                    | otherwise = False
+    -}
+  let isInteger = const False
   forM_ idxs $ \ idx -> case idx of
     IxSingle _ _ _ ie
       | not (isInteger ie) -> typeError "Invalid or unknown type for index" (getSpan ie)
@@ -444,33 +524,39 @@ functionCallType ss (ExpValue _ _ (ValIntrinsic n)) (Just (AList _ _ params)) = 
         Nothing -> return emptyType
         Just _ -> return $ IDType mst Nothing
   where
-    wrapBaseType :: Monad m => BaseType -> m (Maybe SemType)
-    wrapBaseType = return . Just . deriveSemTypeFromBaseType
+    wrapBaseType bt = do
+        sTy <- deriveScalarTyFromBaseTypeAndKindParam bt Nothing
+        return $ Just $ TyScalarTy sTy
 
 functionCallType ss e1 _ = case getIDType e1 of
   Just (IDType (Just st) (Just CTFunction)) -> return $ IDType (Just st) Nothing
   Just (IDType (Just st) (Just CTExternal)) -> return $ IDType (Just st) Nothing
   _ -> typeError "non-function invoked by call" ss >> return emptyType
 
-isNumericType :: SemType -> Bool
+isNumericType :: Ty -> Bool
 isNumericType = \case
-  TComplex{} -> True
-  TReal{}    -> True
-  TInteger{} -> True
-  TByte{}    -> True
-  _            -> False
+  TyScalarTy sTy -> case sTy of
+    ScalarTyIntrinsic iTy -> case iTyBase iTy of
+      BTyInteger -> True
+      BTyReal    -> True
+      BTyComplex -> True
+      -- TODO byte? logical?
+      _ -> False
+    _ -> False
+  _  -> False
 
 --------------------------------------------------
 -- Monadic helper combinators.
 
 inferState0 :: FortranVersion -> InferState
 inferState0 v = InferState
-  { environ     = M.empty
-  , structs     = M.empty
-  , entryPoints = M.empty
+  { environ     = Map.empty
+  , structs     = Map.empty
+  , entryPoints = Map.empty
   , langVersion = v
   , intrinsics  = getVersionIntrinsics v
   , typeErrors  = []
+  , constMap    = Map.empty
   }
 
 inferConfig0 :: InferConfig
@@ -488,31 +574,31 @@ emptyType :: IDType
 emptyType = IDType Nothing Nothing
 
 -- Record the type of the given name.
-recordType :: SemType -> ConstructType -> Name -> Infer ()
-recordType st ct n = modify $ \ s -> s { environ = insert n (IDType (Just st) (Just ct)) (environ s) }
+recordType :: Ty -> ConstructType -> Name -> Infer ()
+recordType st ct n = modify $ \ s -> s { environ = Map.insert n (IDType (Just st) (Just ct)) (environ s) }
 
 recordStruct :: StructMemberTypeEnv -> Name -> Infer ()
-recordStruct mt n = modify $ \s -> s { structs = insert n mt (structs s) }
+recordStruct mt n = modify $ \s -> s { structs = Map.insert n mt (structs s) }
 
 -- Record the type (maybe) of the given name.
-recordMType :: Maybe SemType -> Maybe ConstructType -> Name -> Infer ()
-recordMType st ct n = modify $ \ s -> s { environ = insert n (IDType st ct) (environ s) }
+recordMType :: Maybe Ty -> Maybe ConstructType -> Name -> Infer ()
+recordMType st ct n = modify $ \ s -> s { environ = Map.insert n (IDType st ct) (environ s) }
 
 -- Record the CType of the given name.
 recordCType :: MonadState InferState m => ConstructType -> Name -> m ()
-recordCType ct n = modify $ \ s -> s { environ = M.alter changeFunc n (environ s) }
+recordCType ct n = modify $ \ s -> s { environ = Map.alter changeFunc n (environ s) }
   where changeFunc mIDType = Just (IDType (mIDType >>= idVType) (Just ct))
 
 -- Record the SemType of the given name.
-recordSemType :: SemType -> Name -> Infer ()
-recordSemType st n = modify $ \ s -> s { environ = M.alter changeFunc n (environ s) }
+recordSemType :: Ty -> Name -> Infer ()
+recordSemType st n = modify $ \ s -> s { environ = Map.alter changeFunc n (environ s) }
   where changeFunc mIDType = Just (IDType (Just st) (mIDType >>= idCType))
 
 recordEntryPoint :: Name -> Name -> Maybe Name -> Infer ()
-recordEntryPoint fn en mRetName = modify $ \ s -> s { entryPoints = M.insert en (fn, mRetName) (entryPoints s) }
+recordEntryPoint fn en mRetName = modify $ \ s -> s { entryPoints = Map.insert en (fn, mRetName) (entryPoints s) }
 
 getRecordedType :: Name -> Infer (Maybe IDType)
-getRecordedType n = gets (M.lookup n . environ)
+getRecordedType n = gets (Map.lookup n . environ)
 
 getExprRecordedType :: Data a => Expression (Analysis a) -> Infer (Maybe IDType)
 getExprRecordedType e@(ExpValue _ _ (ValVariable _)) = getRecordedType $ varName e
@@ -524,11 +610,11 @@ getExprRecordedType (ExpSubscript _ _ base _) = do
 getExprRecordedType (ExpDataRef _ _ base ref) = do
   mTy <- getExprRecordedType base
   case mTy of
-    Just (IDType (Just (TCustom n)) _) -> do
-      mStructEnv <- gets (M.lookup n . structs)
+    Just (IDType (Just (TyScalarTy (ScalarTyCustom n))) _) -> do
+      mStructEnv <- gets (Map.lookup n . structs)
       case mStructEnv of
         Nothing -> pure Nothing
-        Just env -> pure $ M.lookup (varName ref) env
+        Just env -> pure $ Map.lookup (varName ref) env
     x -> pure x
 getExprRecordedType _ = pure Nothing
 
@@ -544,7 +630,7 @@ getIDType x = idType (getAnnotation x)
 
 -- | For all types holding an 'IDType' (in an 'Analysis'), set the 'SemType'
 --   field of the 'IDType'.
-setSemType :: (Annotated f, Data a) => SemType -> f (Analysis a) -> f (Analysis a)
+setSemType :: (Annotated f, Data a) => Ty -> f (Analysis a) -> f (Analysis a)
 setSemType st x =
     let anno  = getAnnotation x
         idt   = idType anno
@@ -596,36 +682,42 @@ isIxSingle _           = False
 -- Most, but not all deriving functions can report type errors. So most of these
 -- functions are in the Infer monad.
 
--- | Attempt to derive the 'SemType' of a variable from the relevant parts of
---   its surrounding 'StDeclaration'.
+-- | Attempt to derive a variable's 'ScalarTy' from the relevant parts of its
+--   surrounding 'StDeclaration'.
 --
--- This is an example of a simple declaration:
+-- A declaration looks as follows:
 --
 --     INTEGER(8) :: var_name
 --
--- A declaration holds a 'TypeSpec' (left of the double colon; LHS) and a list
--- of 'Declarator's (right of the double colon; RHS). However, CHARACTER
--- variable are allowed to specify their length via special syntax on the RHS:
+-- In the AST, this is split into a LHS 'TypeSpec', and a RHS list of
+-- 'Declarator's. Note that @CHARACTER@ variables are allowed to specify their
+-- length via special syntax on the RHS:
 --
 --     CHARACTER :: string*10
 --
 -- so to handle that, this function takes that length as a Maybe Expression (as
--- provided in 'StDeclaration').
+-- provided in 'StDeclaration'). (Note that @CHARACTER :: string(10)@ is array
+-- dimension declarator syntax, not the same. This function does not handle
+-- array type information.)
 --
 -- If a length was defined on both sides, the declaration length (RHS) is used.
 -- This matches gfortran's behaviour, though even with -Wall they don't warn on
 -- this rather confusing syntax usage. We report a (soft) type error.
-deriveSemTypeFromDeclaration
-    :: (MonadState InferState m, MonadReader InferConfig m)
-    => SrcSpan -> SrcSpan -> TypeSpec a -> Maybe (Expression a) -> m SemType
-deriveSemTypeFromDeclaration stmtSs declSs ts@(TypeSpec tsA tsSS bt mSel) mLenExpr =
+--
+-- The internal functions this uses aren't user-facing. Some are non-total, and
+-- will runtime error on unexpected parameters (which in normal operation are
+-- handled before their call).
+deriveScalarTyFromDeclaration
+    :: forall a m
+    . (MonadState InferState m, MonadReader InferConfig m)
+    => SrcSpan -> SrcSpan -> TypeSpec a -> Maybe (Expression a) -> m ScalarTy
+deriveScalarTyFromDeclaration stmtSs declSs ts@(TypeSpec tsA tsSS bt mSel) mLenExpr =
     case mLenExpr of
-      Nothing ->
-        -- no RHS length, can continue with regular deriving
-        deriveSemTypeFromTypeSpec ts
+      -- no RHS length, can continue with regular deriving
+      Nothing -> deriveScalarTyFromTypeSpec ts
 
+      -- we got a RHS length; only CHARACTERs permit this
       Just lenExpr ->
-        -- we got a RHS length; only CHARACTERs permit this
         case bt of
           TypeCharacter -> deriveCharWithLen lenExpr
 
@@ -637,7 +729,7 @@ deriveSemTypeFromDeclaration stmtSs declSs ts@(TypeSpec tsA tsSS bt mSel) mLenEx
                     "non-CHARACTER variable given a length @ "
                  <> show (getSpan lenExpr)
                  <> ": ignoring"
-                deriveSemTypeFromTypeSpec ts
+                deriveScalarTyFromTypeSpec ts
               True -> do
                 flip typeError stmtSs $
                     "non-CHARACTER variable given a length @ "
@@ -661,16 +753,14 @@ deriveSemTypeFromDeclaration stmtSs declSs ts@(TypeSpec tsA tsSS bt mSel) mLenEx
                              return ()
                     let sel = Selector sA sSS sLen (Just lenExpr)
                         ts' = TypeSpec tsA tsSS bt (Just sel)
-                     in deriveSemTypeFromTypeSpec ts'
+                     in deriveScalarTyFromTypeSpec ts'
                   Nothing ->
                     let sel = Selector undefined undefined Nothing (Just lenExpr)
                         ts' = TypeSpec tsA tsSS bt (Just sel)
-                     in deriveSemTypeFromTypeSpec ts'
+                     in deriveScalarTyFromTypeSpec ts'
 
   where
     -- Function called when we have a TypeCharacter and a RHS declarator length.
-    -- (no function signature due to type variable scoping)
-    --deriveCharWithLen :: Expression a -> Infer SemType
     deriveCharWithLen lenExpr =
         case mSel of
           Just (Selector selA selSs mSelLenExpr mKindExpr) -> do
@@ -687,88 +777,114 @@ deriveSemTypeFromDeclaration stmtSs declSs ts@(TypeSpec tsA tsSS bt mSel) mLenEx
                    _ -> return ()
             -- overwrite the Selector with RHS length expr & continue
             let sel' = Selector selA selSs (Just lenExpr) mKindExpr
-            deriveSemTypeFromBaseTypeAndSelector TypeCharacter sel'
-          Nothing ->
+            deriveScalarTyFromBaseTypeAndSelector TypeCharacter sel'
+          Nothing -> do
             -- got RHS len, no Selector (e.g. @CHARACTER :: x*3 = "sup"@)
-            -- naughty let binding to avoid re-hardcoding default char kind
-            let (TCharacter _ k) = deriveSemTypeFromBaseType TypeCharacter
-             in return $ TCharacter (charLenSelector' lenExpr) k
+            -- create fake Selector with RHS length expr & continue
+            let sel' = Selector undefined undefined (Just lenExpr) Nothing
+            deriveScalarTyFromBaseTypeAndSelector TypeCharacter sel'
+                {-
+            -- naughty let binding so we don't have to redefine logic
+            let ScalarTyIntrinsic iTy = deriveScalarTyFromBaseType TypeCharacter
+                charLen = evalCharLengthInt undefined lenExpr
+             in return $ ScalarTyIntrinsic $ iTy { iTyBase = BTyCharacter charLen }
+             -}
 
--- | Attempt to derive a 'SemType' from a 'TypeSpec'.
-deriveSemTypeFromTypeSpec
-    :: MonadState InferState m => TypeSpec a -> m SemType
-deriveSemTypeFromTypeSpec (TypeSpec _ _ bt mSel) =
+-- | Attempt to derive a 'ScalarTy' from a 'TypeSpec'.
+--
+-- 'TypeSpec' stores only scalar type information: 'BaseType', with optional
+-- kind information (and a special case for @CHARACTER@s). Array type
+-- information is stored in 'DimensionDeclarator's, and handled elsewhere.
+deriveScalarTyFromTypeSpec
+    :: MonadState InferState m => TypeSpec a -> m ScalarTy
+deriveScalarTyFromTypeSpec (TypeSpec _ _ bt mSel) =
     case mSel of
       -- Selector present: we might have kind/other info provided
-      Just sel -> deriveSemTypeFromBaseTypeAndSelector bt sel
+      Just sel -> deriveScalarTyFromBaseTypeAndSelector bt sel
       -- no Selector: derive using default kinds etc.
-      Nothing  -> return $ deriveSemTypeFromBaseType bt
+      Nothing  -> deriveScalarTyFromBaseTypeAndKindParam bt Nothing
 
--- | Attempt to derive a SemType from a 'BaseType' and a 'Selector'.
-deriveSemTypeFromBaseTypeAndSelector
-    :: MonadState InferState m => BaseType -> Selector a -> m SemType
-deriveSemTypeFromBaseTypeAndSelector bt (Selector _ ss mLen mKindExpr) = do
-    st <- deriveFromBaseTypeAndKindExpr mKindExpr
-    case mLen of
-      Nothing      -> return st
-      Just lenExpr ->
-        case st of
-          TCharacter _ kind ->
-            let charLen = charLenSelector' lenExpr
-             in return $ TCharacter charLen kind
+-- | Attempt to derive a 'ScalarTy' from a 'BaseType' and a 'Selector'.
+--
+-- TODO cleanup (I think one uses guards here)
+deriveScalarTyFromBaseTypeAndSelector
+    :: MonadState InferState m => BaseType -> Selector a -> m ScalarTy
+deriveScalarTyFromBaseTypeAndSelector bt (Selector _ ss mLenExpr mKp) = do
+    sTy <- deriveScalarTyFromBaseTypeAndKindParam bt mKp
+    case mLenExpr of
+      Nothing      -> return sTy
+      Just lenExpr -> do
+        case sTy of
+          ScalarTyIntrinsic iTy ->
+            case iTyBase iTy of
+              BTyCharacter{} -> do
+                len <- case lenExpr of
+                         ExpValue _ _ ValStar -> error "TODO can't yet encode star in BTyCharacter"
+                         _ -> runWithConstMap $ evalCharLengthInt lenExpr
+                return $ ScalarTyIntrinsic $ iTy { iTyBase = BTyCharacter len }
+              _ -> do
+                -- (unreachable code path in correct parser operation)
+                typeError "only CHARACTER types can specify length (separate to kind)" ss
+                return sTy
           _ -> do
             -- (unreachable code path in correct parser operation)
             typeError "only CHARACTER types can specify length (separate to kind)" ss
-            return st
-  where
-    deriveFromBaseTypeAndKindExpr = \case
-      Nothing -> defaultSemType
-      Just kindExpr ->
-        case kindExpr of
-          -- FIXME: only support integer kind selectors for now, no params/exprs
-          -- (would require a wide change across codebase)
-          ExpValue _ _ (ValInteger k) ->
-            deriveSemTypeFromBaseTypeAndKind bt (read k)
-          _ -> do
-            typeError "unsupported or invalid kind selector, only literal integers allowed" (getSpan kindExpr)
-            defaultSemType
-    defaultSemType = return $ deriveSemTypeFromBaseType bt
+            return sTy
 
--- | Derive 'SemType' directly from 'BaseType', using relevant default kinds.
-deriveSemTypeFromBaseType :: BaseType -> SemType
-deriveSemTypeFromBaseType = \case
-  TypeInteger         -> TInteger 4
-  TypeReal            -> TReal    4
-  TypeComplex         -> TComplex 4
-  TypeLogical         -> TLogical 4
+deriveScalarTyFromBaseTypeAndKindParam
+    :: MonadState InferState m => BaseType -> Maybe (Expression a) -> m ScalarTy
+deriveScalarTyFromBaseTypeAndKindParam bt mKp =
+    case bt of
+      TypeCustom ty' ->
+        case mKp of
+          Nothing -> return $ ScalarTyCustom ty'
+          Just{}  -> error "impossible parse: kind in TYPE(x)"
+      _ ->
+          let iTy = deriveIntrinsicTyFromBaseType bt
+           in case mKp of
+                Nothing -> return $ ScalarTyIntrinsic iTy
+                Just kp -> do
+                  k <- runWithConstMap $ evalKindParam kp
+                  return $ ScalarTyIntrinsic $ iTy { iTyKind = k }
+
+runWithConstMap :: MonadState InferState m => (ConstMap -> a) -> m a
+runWithConstMap = flip fmap (gets constMap)
+
+-- | Derive a default 'IntrinsicTy' from a plain 'BaseType'.
+--
+-- Default kinds attempt to match gfortran's behaviour.
+--
+-- Some 'BaseType' constructors are only used for special cases and can't be
+-- matched to a 'ScalarTy'. These will cause a runtime error, and must be
+-- handled higher up the stack!
+--
+-- If used with a 'TypeCharacter', it is the caller's responbility to handle
+-- length. This function is intended to be used after the parent 'Selector' is
+-- confirmed to have no length provided, so the default length can be used.
+--
+-- Similarly, non-intrinsics like F90 DDTs, F77 commons stored in 'TypeCustom'
+-- should must be handled prior.
+deriveIntrinsicTyFromBaseType :: BaseType -> IntrinsicTy
+deriveIntrinsicTyFromBaseType = uncurry IntrinsicTy . \case
+  TypeInteger         -> (BTyInteger, 4)
+  TypeReal            -> (BTyReal,    4)
+  TypeComplex         -> (BTyComplex, 4)
+  TypeLogical         -> (BTyLogical, 4)
 
   -- Fortran specs & compilers seem to agree on equating these intrinsic types
   -- to others with a larger kind, so we drop the extra syntactic info here.
-  TypeDoublePrecision -> TReal    8
-  TypeDoubleComplex   -> TComplex 8
+  TypeDoublePrecision -> (BTyReal,    8)
+  TypeDoubleComplex   -> (BTyComplex, 8)
 
-  -- BYTE: HP's Fortran 90 reference says that BYTE is an HP extension, equates
-  -- it to INTEGER(1), and indicates that it doesn't take a kind selector.
-  -- Don't know how BYTEs are used in the wild. I wonder if we could safely
-  -- equate BYTE to (TInteger 1)?
-  TypeByte            -> TByte    noKind
+  -- HP's Fortran 90 reference says that BYTE is an HP extension, equates BYTEs
+  -- are apparently a less agreed-on extension. gfortran sets it to @INTEGER(1)@
+  -- (yes, signed) and some other resources agree.
+  TypeByte            -> (BTyInteger, 1)
 
   -- CHARACTERs default to len=1, kind=1 (non-1 is rare)
-  TypeCharacter       -> TCharacter (CharLenInt 1) 1
+  TypeCharacter       -> (BTyCharacter 1, 1)
 
-  -- FIXME: this is where Fortran specs diverge, and fortran-vars doesn't
-  -- support beyond F77e. Sticking with what passes the fortran-vars tests.
-  ClassStar           -> TCustom "ClassStar"
-  TypeCustom    str   -> TCustom str
-  ClassCustom   str   -> TCustom str
-
-noKind :: Kind
-noKind = -1
-
-deriveSemTypeFromBaseTypeAndKind
-    :: MonadState InferState m => BaseType -> Kind -> m SemType
-deriveSemTypeFromBaseTypeAndKind bt k =
-    return $ setTypeKind (deriveSemTypeFromBaseType bt) k
+  bt -> error $ "not an intrinsic type: " <> show bt
 
 --------------------------------------------------
 

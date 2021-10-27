@@ -13,10 +13,8 @@ import           Language.Fortran.AST           ( BaseType(..)
                                                 , Kind
                                                 , Expression(..)
                                                 , Value(..)
-                                                , TypeSpec(..)
                                                 , Selector(..) )
-import           Language.Fortran.Util.Position ( SrcSpan(..) )
-import           Language.Fortran.Version       ( FortranVersion(..) )
+import           Language.Fortran.Repr
 import           Data.Binary                    ( Binary )
 import           Text.PrettyPrint.GenericPretty ( Out(..) )
 import           Text.PrettyPrint               ( (<+>), parens )
@@ -58,12 +56,6 @@ instance Pretty SemType where
     TArray st _ -> pprint' v st <+> parens "(A)"
     TCustom str -> pprint' v (TypeCustom str)
 
--- | The declared dimensions of a staticically typed array variable
--- type is of the form [(dim1_lower, dim1_upper), (dim2_lower, dim2_upper)]
-type Dimensions = [(Int, Int)]
-
---------------------------------------------------------------------------------
-
 data CharacterLen = CharLenStar    -- ^ specified with a *
                   | CharLenColon   -- ^ specified with a : (Fortran2003)
                     -- FIXME, possibly, with a more robust const-exp:
@@ -74,6 +66,16 @@ data CharacterLen = CharLenStar    -- ^ specified with a *
 instance Binary CharacterLen
 instance Out    CharacterLen
 instance NFData CharacterLen
+
+charLenConcat :: CharacterLen -> CharacterLen -> CharacterLen
+charLenConcat l1 l2 = case (l1, l2) of
+  (CharLenExp    , _             ) -> CharLenExp
+  (_             , CharLenExp    ) -> CharLenExp
+  (CharLenStar   , _             ) -> CharLenStar
+  (_             , CharLenStar   ) -> CharLenStar
+  (CharLenColon  , _             ) -> CharLenColon
+  (_             , CharLenColon  ) -> CharLenColon
+  (CharLenInt i1 , CharLenInt i2 ) -> CharLenInt (i1 + i2)
 
 charLenSelector :: Maybe (Selector a) -> (Maybe CharacterLen, Maybe String)
 charLenSelector Nothing                          = (Nothing, Nothing)
@@ -99,90 +101,6 @@ charLenToValue = \case
   CharLenColon -> Just ValColon
   CharLenInt i -> Just (ValInteger (show i))
   CharLenExp   -> Nothing
-
-getTypeKind :: SemType -> Kind
-getTypeKind = \case
-  TInteger   k -> k
-  TReal      k -> k
-  TComplex   k -> k
-  TLogical   k -> k
-  TByte      k -> k
-  TCharacter _ k -> k
-  TCustom    _ -> error "TCustom does not have a kind"
-  TArray t _   -> getTypeKind t
-
-setTypeKind :: SemType -> Kind -> SemType
-setTypeKind st k = case st of
-  TInteger   _ -> TInteger   k
-  TReal      _ -> TReal      k
-  TComplex   _ -> TComplex   k
-  TLogical   _ -> TLogical   k
-  TByte      _ -> TByte      k
-  TCharacter charLen _ -> TCharacter charLen k
-  TCustom    _ -> error "can't set kind of TCustom"
-  TArray _ _   -> error "can't set kind of TArray"
-
-charLenConcat :: CharacterLen -> CharacterLen -> CharacterLen
-charLenConcat l1 l2 = case (l1, l2) of
-  (CharLenExp    , _             ) -> CharLenExp
-  (_             , CharLenExp    ) -> CharLenExp
-  (CharLenStar   , _             ) -> CharLenStar
-  (_             , CharLenStar   ) -> CharLenStar
-  (CharLenColon  , _             ) -> CharLenColon
-  (_             , CharLenColon  ) -> CharLenColon
-  (CharLenInt i1 , CharLenInt i2 ) -> CharLenInt (i1 + i2)
-
--- | Recover the most appropriate 'TypeSpec' for the given 'SemType', depending
---   on the given 'FortranVersion'.
---
--- Kinds weren't formalized as a syntactic feature until Fortran 90, so we ask
--- for a context. If possible (>=F90), we prefer the more explicit
--- representation e.g. @REAL(8)@. For older versions, for specific type-kind
--- combinations, @DOUBLE PRECISION@ and @DOUBLE COMPLEX@ are used instead.
--- However, we otherwise don't shy away from adding kind info regardless of
--- theoretical version support.
---
--- Array types don't work properly, due to array type info being in a parent
--- node that holds individual elements.
-recoverSemTypeTypeSpec :: forall a. a -> SrcSpan
-                       -> FortranVersion -> SemType -> TypeSpec a
-recoverSemTypeTypeSpec a ss v = \case
-  TInteger k -> wrapBaseAndKind TypeInteger k
-  TLogical k -> wrapBaseAndKind TypeLogical k
-  TByte    k -> wrapBaseAndKind TypeByte k
-
-  TCustom str -> ts (TypeCustom str) Nothing
-
-  TArray     st  _   -> recoverSemTypeTypeSpec a ss v st
-
-  TReal    k ->
-      if k == 8 && v < Fortran90
-    then ts TypeDoublePrecision Nothing
-    else wrapBaseAndKind TypeReal k
-  TComplex k ->
-      if k == 16 && v < Fortran90
-    then ts TypeDoubleComplex Nothing
-    else wrapBaseAndKind TypeComplex k
-
-  TCharacter len k   ->
-    -- TODO can improve, use no selector if len=1, kind=1
-    -- only include kind if != 1
-    let sel = Selector a ss (ExpValue a ss <$> charLenToValue len) (if k == 1 then Nothing else Just (intValExpr k))
-     in ts TypeCharacter (Just sel)
-
-  where
-    ts = TypeSpec a ss
-    intValExpr :: Int -> Expression a
-    intValExpr x = ExpValue a ss (ValInteger (show x))
-
-    -- | Wraps 'BaseType' and 'Kind' into 'TypeSpec'. If the kind is the
-    --   'BaseType''s default kind, it is omitted.
-    wrapBaseAndKind :: BaseType -> Kind -> TypeSpec a
-    wrapBaseAndKind bt k = ts bt sel
-      where
-        sel =   if k == kindOfBaseType bt
-              then Nothing
-              else Just $ Selector a ss Nothing (Just (intValExpr k))
 
 --------------------------------------------------------------------------------
 
@@ -210,30 +128,42 @@ kindOfBaseType = \case
   ClassStar           -> 1
   ClassCustom{}       -> 1
 
-getTypeSize :: SemType -> Maybe Int
-getTypeSize = \case
-  TInteger      k   -> Just k
-  TReal         k   -> Just k
-  TComplex      k   -> Just k
-  TLogical      k   -> Just k
-  TByte         k   -> Just k
-  TArray     ty _   -> getTypeSize ty
-  TCustom       _   -> Just 1
-  -- char: treat length as "kind" (but also use recorded kind)
-  TCharacter (CharLenInt l) k -> Just (l * k)
-  TCharacter _              _ -> Nothing
+getTypeKind :: SemType -> Kind
+getTypeKind = \case
+  TInteger   k -> k
+  TReal      k -> k
+  TComplex   k -> k
+  TLogical   k -> k
+  TByte      k -> k
+  TCharacter _ k -> k
+  TCustom    _ -> error "TCustom does not have a kind"
+  TArray t _   -> getTypeKind t
 
-setTypeSize :: SemType -> Maybe Int -> SemType
-setTypeSize ty mk = case (mk, ty) of
-  (Just k, TInteger _  ) -> TInteger k
-  (Just k, TReal _     ) -> TReal k
-  (Just k, TComplex _  ) -> TComplex k
-  (Just k, TLogical _  ) -> TLogical k
-  (Just k, TByte _     ) -> TByte k
-  (_     , TCustom s   ) -> TCustom s
-  -- char: treat length as "kind"
-  (Just l, TCharacter _ k) ->
-    TCharacter (CharLenInt l) k
-  (Nothing, TCharacter _ k) ->
-    TCharacter CharLenStar k
-  _ -> error $ "Tried to set invalid kind for type " <> show ty
+setTypeKind :: SemType -> Kind -> SemType
+setTypeKind st k = case st of
+  TInteger   _ -> TInteger   k
+  TReal      _ -> TReal      k
+  TComplex   _ -> TComplex   k
+  TLogical   _ -> TLogical   k
+  TByte      _ -> TByte      k
+  TCharacter charLen _ -> TCharacter charLen k
+  TCustom    _ -> error "can't set kind of TCustom"
+  TArray _ _   -> error "can't set kind of TArray"
+
+tyToSemType :: Ty -> SemType
+tyToSemType = \case
+  TyScalarTy sTy -> scalarTyToSemType sTy
+  TyArrayTy  aTy ->
+    let sTy' = scalarTyToSemType (aTyScalar aTy)
+     in TArray sTy' (Just (aTyDims aTy))
+
+scalarTyToSemType :: ScalarTy -> SemType
+scalarTyToSemType = \case
+  ScalarTyCustom    ty' -> TCustom ty'
+  ScalarTyIntrinsic iTy ->
+    case iTyBase iTy of
+      BTyInteger -> TInteger (iTyKind iTy)
+      BTyReal    -> TReal    (iTyKind iTy)
+      BTyComplex -> TComplex (iTyKind iTy)
+      BTyLogical -> TLogical (iTyKind iTy)
+      BTyCharacter len -> TCharacter (CharLenInt len) (iTyKind iTy)

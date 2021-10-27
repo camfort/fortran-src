@@ -918,8 +918,8 @@ VARIABLE :: { Expression A0 }
 : id { ExpValue () (getSpan $1) $ let (TId _ s) = $1 in ValVariable s }
 
 INTEGER_LITERAL :: { Expression A0 }
-: int { ExpValue () (getSpan $1) $ let (TInt _ i) = $1 in ValInteger i }
-| boz { let TBozInt s i = $1 in ExpValue () s $ ValInteger i }
+: int { let TInt    s i = $1 in ExpValue () s (ValInteger i) }
+| boz { let TBozInt s i = $1 in ExpValue () s (ValInteger i) }
 
 REAL_LITERAL :: { Expression A0 }
 : int EXPONENT { makeReal (Just $1) Nothing Nothing (Just $2) }
