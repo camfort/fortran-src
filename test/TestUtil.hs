@@ -36,7 +36,7 @@ varGen :: String -> Expression ()
 varGen str = ExpValue () u $ ValVariable str
 
 declVarGen :: String -> Declarator ()
-declVarGen str = DeclVariable () u (varGen str) Nothing Nothing
+declVarGen str = Declarator () u (varGen str) Nothing Nothing Nothing
 
 intGen :: Integer -> Expression ()
 intGen i = ExpValue () u $ ValInteger $ show i
@@ -61,6 +61,12 @@ opGen s = ExpValue () u (ValOperator s)
 
 assVal :: Expression ()
 assVal = ExpValue () u ValAssignment
+
+declVariable :: a -> SrcSpan -> Expression a -> Maybe (Expression a) -> Maybe (Expression a) -> Declarator a
+declVariable a ss v mLen mVal = Declarator a ss v Nothing mLen mVal
+
+declArray :: a -> SrcSpan -> Expression a -> AList DimensionDeclarator a -> Maybe (Expression a) -> Maybe (Expression a) -> Declarator a
+declArray a ss v dims mLen mVal = Declarator a ss v (Just dims) mLen mVal
 
 ixSinGen :: Integer -> Index ()
 ixSinGen i = IxSingle () u Nothing (intGen i)

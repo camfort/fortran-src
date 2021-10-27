@@ -301,8 +301,7 @@ computeAllLhsVars = concatMap lhsOfStmt . universeBi
     lhsOfStmt (StCall _ _ _ (Just aexps)) = concatMap (match'' . extractExp) (aStrip aexps)
     lhsOfStmt s = onExprs s
 
-    lhsOfDecls (DeclVariable _ _ e _ (Just e')) = match' e : onExprs e'
-    lhsOfDecls (DeclArray _ _ e _ _ (Just e')) = match' e : onExprs e'
+    lhsOfDecls (Declarator _ _ e _ _ (Just e')) = match' e : onExprs e'
     lhsOfDecls _ = []
 
     onExprs :: (Data (c (Analysis a))) => c (Analysis a) -> [Name]
@@ -366,8 +365,7 @@ blockVarUses (BlDo _ _ _ _ _ (Just (DoSpecification _ _ (StExpressionAssign _ _ 
 blockVarUses (BlStatement _ _ _ st@StDeclaration{}) = concat [ rhsOfDecls d | d <- universeBi st ]
   where
     rhsOfDecls :: Data a => Declarator (Analysis a) -> [Name]
-    rhsOfDecls (DeclVariable _ _ _ _ (Just e)) = allVars e
-    rhsOfDecls (DeclArray _ _ _ _ _ (Just e)) = allVars e
+    rhsOfDecls (Declarator _ _ _ _ _ (Just e)) = allVars e
     rhsOfDecls _ = []
 blockVarUses (BlStatement _ _ _ (StCall _ _ f@(ExpValue _ _ (ValIntrinsic _)) _))
   | Just uses <- intrinsicUses f = uses

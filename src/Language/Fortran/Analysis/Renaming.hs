@@ -162,17 +162,12 @@ returnBlocksEnv bs n = do
   return (bs1, e0)
 
 declarator :: forall a. Data a => RenamerFunc (Declarator (Analysis a))
-declarator (DeclVariable a s e1 me2 me3) = do
+declarator (Declarator a s e1 mDdAList me2 me3) = do
   e1' <- renameExpDecl e1
+  mDdAList' <- transformBiM (renameExp :: RenamerFunc (Expression (Analysis a))) mDdAList
   me2' <- transformBiM (renameExp :: RenamerFunc (Expression (Analysis a))) me2
   me3' <- transformBiM (renameExp :: RenamerFunc (Expression (Analysis a))) me3
-  return $ DeclVariable a s e1' me2' me3'
-declarator (DeclArray a s e1 ddAList me2 me3) = do
-  e1' <- renameExpDecl e1
-  ddAList' <- transformBiM (renameExp :: RenamerFunc (Expression (Analysis a))) ddAList
-  me2' <- transformBiM (renameExp :: RenamerFunc (Expression (Analysis a))) me2
-  me3' <- transformBiM (renameExp :: RenamerFunc (Expression (Analysis a))) me3
-  return $ DeclArray a s e1' ddAList' me2' me3'
+  return $ Declarator a s e1' mDdAList' me2' me3'
 
 expression :: Data a => RenamerFunc (Expression (Analysis a))
 expression = renameExp

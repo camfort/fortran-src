@@ -391,10 +391,10 @@ genConstExpMap pf = ceMap
       [ (varName v, getE e)
       | st@(StDeclaration _ _ (TypeSpec _ _ _ _) _ _) <- universeBi pf :: [Statement (Analysis a)]
       , AttrParameter _ _ <- universeBi st :: [Attribute (Analysis a)]
-      , (DeclVariable _ _ v _ (Just e)) <- universeBi st ] ++
+      , (Declarator _ _ v Nothing _ (Just e)) <- universeBi st ] ++
       [ (varName v, getE e)
       | st@StParameter{} <- universeBi pf :: [Statement (Analysis a)]
-      , (DeclVariable _ _ v _ (Just e)) <- universeBi st ]
+      , (Declarator _ _ v Nothing _ (Just e)) <- universeBi st ]
     getV :: Expression (Analysis a) -> Maybe Constant
     getV e = constExp (getAnnotation e) `mplus` (join . flip M.lookup pvMap . varName $ e)
 
