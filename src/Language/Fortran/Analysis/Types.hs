@@ -90,7 +90,7 @@ analyseTypesWithEnv' env pf@(ProgramFile mi _) = runInfer (miVersion mi) env $ d
   -- Gather information.
   mapM_ intrinsicsExp (allExpressions pf)
   mapM_ programUnit (allProgramUnits pf)
-  mapM_ declarator (allDeclarators pf)
+  mapM_ recordArrayDeclarator (allDeclarators pf)
   mapM_ statement (allStatements pf)
 
   -- Gather types for known entry points.
@@ -161,9 +161,16 @@ programUnit pu@(PUSubroutine _ _ _ _ _ blocks _) | Named n <- puName pu = do
     sequence_ [ recordEntryPoint n (varName v) Nothing | (StEntry _ _ v _ _) <- allStatements block ]
 programUnit _                                           = return ()
 
-declarator :: Data a => InferFunc (Declarator (Analysis a))
-declarator (DeclArray _ _ v ddAList _ _) = recordCType (CTArray $ dimDeclarator ddAList) (varName v)
-declarator _ = return ()
+-- | Records array type information from a 'Declarator'. (Scalar type info is
+--   processed elsewhere.)
+--
+--   Note that 'ConstructType' is rewritten for 'Declarator's in
+--   'handleDeclaration' later. TODO how does this assist exactly? disabling
+--   apparently doesn't impact tests
+recordArrayDeclarator :: Data a => InferFunc (Declarator (Analysis a))
+recordArrayDeclarator (Declarator _ _ v (Just ddAList) _ _) =
+    recordCType (CTArray $ dimDeclarator ddAList) (varName v)
+recordArrayDeclarator _ = return ()
 
 dimDeclarator :: AList DimensionDeclarator a -> [(Maybe Int, Maybe Int)]
 dimDeclarator ddAList = [ (lb, ub) | DimensionDeclarator _ _ lbExp ubExp <- aStrip ddAList
@@ -191,13 +198,11 @@ handleDeclaration env stmtSs ts mAttrAList declAList
                 , ct /= CTIntrinsic                           = ct
                 | otherwise                                   = CTVariable
         handler rs = \case
-          DeclArray _ declSs v ddAList mLenExpr _ -> do
-            st <- deriveSemTypeFromDeclaration stmtSs declSs ts mLenExpr
-            pure $ (varName v, st, CTArray  $ dimDeclarator ddAList) : rs
-          DeclVariable _ declSs v mLenExpr _ -> do
+          Declarator _ declSs v mDdAList mLenExpr _ -> do
             st <- deriveSemTypeFromDeclaration stmtSs declSs ts mLenExpr
             let n = varName v
-            pure $ (n, st, cType n) : rs
+                ct = maybe (cType n) (CTArray . dimDeclarator) mDdAList
+            pure $ (n, st, ct) : rs
     in foldM handler [] decls
 
 handleStructureItem :: Data a => StructMemberTypeEnv -> StructureItem (Analysis a) -> Infer StructMemberTypeEnv
@@ -245,8 +250,9 @@ statement (StExpressionAssign _ _ (ExpFunctionCall _ _ v Nothing) _) = recordCTy
 statement (StDimension _ _ declAList) = do
   let decls = aStrip declAList
   forM_ decls $ \ decl -> case decl of
-    DeclArray _ _ v ddAList _ _ -> recordCType (CTArray $ dimDeclarator ddAList) (varName v)
-    _                           -> return ()
+    Declarator _ _ v (Just ddAList) _ _ ->
+      recordCType (CTArray $ dimDeclarator ddAList) (varName v)
+    _ -> return ()
 
 statement (StStructure _ _ mName itemAList) = handleStructure mName itemAList
 

@@ -42,7 +42,7 @@ spec =
 
         pu = PUMain () puSpan (Just name) blocks Nothing
         blocks = [bl1]
-        decl = DeclVariable () blockSpan (varGen' "a") Nothing Nothing
+        decl = Declarator () blockSpan (varGen' "a") Nothing Nothing Nothing
         typeSpec = TypeSpec () typeSpan TypeInteger Nothing
         st2 = StDeclaration () st2Span typeSpec Nothing (AList () blockSpan [decl])
         bl1 = BlStatement () st1Span Nothing st1

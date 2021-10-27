@@ -672,8 +672,8 @@ ENUMERATOR_LIST :: { [Declarator A0] }
 
 -- R463
 ENUMERATOR :: { Declarator A0 }
-: VARIABLE '=' EXPRESSION { DeclVariable () (getTransSpan $1 $3) $1 Nothing (Just $3) }
-| VARIABLE { DeclVariable () (getSpan $1) $1 Nothing Nothing }
+: PARAMETER_ASSIGNMENT { $1 }
+| VARIABLE { Declarator () (getSpan $1) $1 Nothing Nothing Nothing }
 
 MAYBE_PROC_INTERFACE :: { Maybe (ProcInterface A0) }
 : TYPE_SPEC             { Just $ ProcInterfaceType () (getSpan $1) $1 }
@@ -1017,7 +1017,7 @@ PARAMETER_ASSIGNMENTS :: { [ Declarator A0 ] }
 
 PARAMETER_ASSIGNMENT :: { Declarator A0 }
 : VARIABLE '=' EXPRESSION
-  { DeclVariable () (getTransSpan $1 $3) $1 Nothing (Just $3) }
+  { Declarator () (getTransSpan $1 $3) $1 Nothing Nothing (Just $3) }
 
 DECLARATION_STATEMENT :: { Statement A0 }
 : TYPE_SPEC ATTRIBUTE_LIST '::' INITIALIZED_DECLARATOR_LIST
@@ -1095,19 +1095,20 @@ INITIALIZED_DECLARATOR :: { Declarator A0 }
 | DECLARATOR { $1 }
 
 DECLARATOR :: { Declarator A0 }
-: VARIABLE { DeclVariable () (getSpan $1) $1 Nothing Nothing }
+: VARIABLE
+  {     Declarator () (getSpan $1)         $1 Nothing              Nothing     Nothing }
 | VARIABLE '*' EXPRESSION
-  { DeclVariable () (getTransSpan $1 $3) $1 (Just $3) Nothing }
+  {     Declarator () (getTransSpan $1 $3) $1 Nothing              (Just $3)   Nothing }
 | VARIABLE '*' '(' '*' ')'
   { let star = ExpValue () (getSpan $4) ValStar
-    in DeclVariable () (getTransSpan $1 $5) $1 (Just star) Nothing }
+     in Declarator () (getTransSpan $1 $5) $1 Nothing              (Just star) Nothing }
 | VARIABLE '(' DIMENSION_DECLARATORS ')'
-  { DeclArray () (getTransSpan $1 $4) $1 (aReverse $3) Nothing Nothing }
+  {     Declarator () (getTransSpan $1 $4) $1 (Just (aReverse $3)) Nothing     Nothing }
 | VARIABLE '(' DIMENSION_DECLARATORS ')' '*' EXPRESSION
-  { DeclArray () (getTransSpan $1 $6) $1 (aReverse $3) (Just $6) Nothing }
+  {     Declarator () (getTransSpan $1 $6) $1 (Just (aReverse $3)) (Just $6)   Nothing }
 | VARIABLE '(' DIMENSION_DECLARATORS ')' '*' '(' '*' ')'
   { let star = ExpValue () (getSpan $7) ValStar
-    in DeclArray () (getTransSpan $1 $8) $1 (aReverse $3) (Just star) Nothing }
+     in Declarator () (getTransSpan $1 $8) $1 (Just (aReverse $3)) (Just star) Nothing }
 
 DIMENSION_DECLARATORS :: { AList DimensionDeclarator A0 }
 : DIMENSION_DECLARATORS ',' DIMENSION_DECLARATOR

@@ -635,6 +635,10 @@ data Value a =
 -- Declaration statements can have multiple variables on the right of the double
 -- colon, separated by commas. A 'Declarator' identifies a single one of these.
 --
+-- The only representational difference between a scalar declarator and an array
+-- declarator is whether the 'DimensionDeclarator' list is present. (Previously
+-- there were separate constructors.)
+--
 -- Each declared variable can have an initializing expression. These expressions
 -- are defined in HP's F90 spec to be /initialization expressions/, which are
 -- specialized constant expressions.
@@ -659,23 +663,17 @@ data Value a =
 -- CHARACTER types. So for any declarations that aren't 'TypeCharacter' in the
 -- outer 'TypeSpec', the length expression should be Nothing. However, this is
 -- not enforced by the AST or parser, so be warned.
-data Declarator a =
-    DeclVariable a SrcSpan
-                 (Expression a)             -- ^ Variable
-                 (Maybe (Expression a))     -- ^ Length (character)
-                 (Maybe (Expression a))     -- ^ Initial value
-  | DeclArray a SrcSpan
-              (Expression a)                -- ^ Array
-              (AList DimensionDeclarator a) -- ^ Dimensions
-              (Maybe (Expression a))        -- ^ Length (character)
-              (Maybe (Expression a))        -- ^ Initial value
+data Declarator a
+  = Declarator a SrcSpan
+               (Expression a)         -- ^ Variable
+               (Maybe (AList DimensionDeclarator a)) -- ^ Array dimensions (if array type)
+               (Maybe (Expression a)) -- ^ Length (character)
+               (Maybe (Expression a)) -- ^ Initial value
   deriving (Eq, Show, Data, Typeable, Generic, Functor)
 
 setInitialisation :: Declarator a -> Expression a -> Declarator a
-setInitialisation (DeclVariable a s v l Nothing) init =
-  DeclVariable a (getTransSpan s init) v l (Just init)
-setInitialisation (DeclArray a s v ds l Nothing) init =
-  DeclArray a (getTransSpan s init) v ds l (Just init)
+setInitialisation (Declarator a s v mDs l Nothing) init =
+  Declarator a (getTransSpan s init) v mDs l (Just init)
 -- do nothing when there is already a value
 setInitialisation d _ = d
 

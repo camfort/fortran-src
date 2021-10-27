@@ -981,13 +981,13 @@ instance IndentablePretty (UnionMap a) where
     "end map"
 
 instance Pretty (Declarator a) where
-    pprint' v (DeclVariable _ _ e mLen mInit)
+    pprint' v (Declarator _ _ e Nothing mLen mInit)
       | v >= Fortran90 =
         pprint' v e <>
         char '*' <?> pprint' v mLen <+>
         char '=' <?+> pprint' v mInit
 
-    pprint' v (DeclVariable _ _ e mLen mInit)
+    pprint' v (Declarator _ _ e Nothing mLen mInit)
       | v >= Fortran77 =
         case mInit of
           Nothing -> pprint' v e <>
@@ -996,19 +996,19 @@ instance Pretty (Declarator a) where
                        char '*' <?> pprint' v mLen <>
                        char '/' <> pprint' v initial <> char '/'
 
-    pprint' v (DeclVariable _ _ e mLen mInit)
+    pprint' v (Declarator _ _ e Nothing mLen mInit)
       | Nothing <- mLen
       , Nothing <- mInit = pprint' v e
       | Just _ <- mInit = tooOld v "Variable initialisation" Fortran90
       | Just _ <- mLen = tooOld v "Variable width" Fortran77
 
-    pprint' v (DeclArray _ _ e dims mLen mInit)
+    pprint' v (Declarator _ _ e (Just dims) mLen mInit)
       | v >= Fortran90 =
         pprint' v e <> parens (pprint' v dims) <+>
         "*" <?> pprint' v mLen <+>
         equals <?> pprint' v mInit
 
-    pprint' v (DeclArray _ _ e dims mLen mInit)
+    pprint' v (Declarator _ _ e (Just dims) mLen mInit)
       | v >= Fortran77 =
         case mInit of
           Nothing -> pprint' v e <> parens (pprint' v dims) <>
@@ -1021,7 +1021,7 @@ instance Pretty (Declarator a) where
             in pprint' v e <> parens (pprint' v dims) <>
                "*" <?> pprint' v mLen <> initDoc
 
-    pprint' v (DeclArray _ _ e dims mLen mInit)
+    pprint' v (Declarator _ _ e (Just dims) mLen mInit)
       | Nothing <- mLen
       , Nothing <- mInit = pprint' v e <> parens (pprint' v dims)
       | Just _ <- mInit = tooOld v "Variable initialisation" Fortran90

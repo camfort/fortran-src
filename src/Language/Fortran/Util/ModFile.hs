@@ -250,8 +250,7 @@ extractDeclMap pf = M.fromList . concatMap (blockDecls . nameAndBlocks) $ univer
 
     -- Extract variable name and source span from declaration
     declVarName :: F.Declarator (FA.Analysis a) -> (F.Name, P.SrcSpan)
-    declVarName (F.DeclVariable _ _ e _ _) = (FA.varName e, P.getSpan e)
-    declVarName (F.DeclArray _ _ e _ _ _)  = (FA.varName e, P.getSpan e)
+    declVarName (F.Declarator _ _ e _ _ _)  = (FA.varName e, P.getSpan e)
 
     -- Extract context identifier, a function return value (+ source
     -- span) if present, and a list of contained blocks
@@ -298,12 +297,12 @@ extractParamVarMap pf = M.fromList cvm
           | F.PUModule _ _ _ bs _                             <- universeBi pf' :: [F.ProgramUnit (FA.Analysis a)]
           , st@(F.StDeclaration _ _ (F.TypeSpec _ _ _ _) _ _) <- universeBi bs  :: [F.Statement (FA.Analysis a)]
           , F.AttrParameter _ _                               <- universeBi st  :: [F.Attribute (FA.Analysis a)]
-          , (F.DeclVariable _ _ v _ _)                        <- universeBi st  :: [F.Declarator (FA.Analysis a)]
+          , (F.Declarator _ _ v Nothing _ _)                  <- universeBi st  :: [F.Declarator (FA.Analysis a)]
           , Just con                                          <- [FA.constExp (F.getAnnotation v)] ] ++
           [ (FA.varName v, con)
           | F.PUModule _ _ _ bs _                             <- universeBi pf' :: [F.ProgramUnit (FA.Analysis a)]
           , st@F.StParameter {}                               <- universeBi bs  :: [F.Statement (FA.Analysis a)]
-          , (F.DeclVariable _ _ v _ _)                        <- universeBi st  :: [F.Declarator (FA.Analysis a)]
+          , (F.Declarator _ _ v Nothing _ _)                  <- universeBi st  :: [F.Declarator (FA.Analysis a)]
           , Just con                                          <- [FA.constExp (F.getAnnotation v)] ]
 
 -- | Status of mod-file compared to Fortran file.

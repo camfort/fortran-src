@@ -73,14 +73,14 @@ spec =
       eParser "(x, y(i), i = 1, 10, 2)" `shouldBe'` impliedDo
 
     it "parses main program unit" $ do
-      let decl = DeclVariable () u (varGen "x") Nothing Nothing
+      let decl = declVarGen "x"
           st = StDeclaration () u (TypeSpec () u TypeInteger Nothing) Nothing (AList () u [ decl ])
           bl = BlStatement () u Nothing st
           pu = ProgramFile mi77 [ PUMain () u (Just "hello") [ bl ] Nothing ]
       pParser exampleProgram1 `shouldBe'` pu
 
     it "parses block data unit" $ do
-      let decl = DeclVariable () u (varGen "x") Nothing Nothing
+      let decl = declVarGen "x"
           st = StDeclaration () u (TypeSpec () u TypeInteger Nothing) Nothing (AList () u [ decl ])
           bl = BlStatement () u Nothing st
           pu = ProgramFile mi77 [ PUBlockData () u (Just "hello") [ bl ] ]
@@ -118,7 +118,7 @@ spec =
         let dimDecls = [ DimensionDeclarator () u (Just $ intGen 1) (Just $ intGen 2)
                        , DimensionDeclarator () u Nothing (Just $ intGen 15)
                        , DimensionDeclarator () u (Just $ varGen "x") (Just starVal) ]
-            decl = DeclArray () u (varGen "a") (AList () u dimDecls) Nothing Nothing
+            decl = declArray () u (varGen "a") (AList () u dimDecls) Nothing Nothing
             st = StDeclaration () u (TypeSpec () u TypeInteger Nothing) Nothing (AList () u [ decl ])
         sParser "      integer a(1:2, 15, x:*)" `shouldBe'` st
 
@@ -170,10 +170,10 @@ spec =
         sParser "      implicit character*30 (a, b, c), integer (a-z, l)" `shouldBe'` st
 
     it "parses 'parameter (pi = 3.14, b = 'X' // 'O', d = k) '" $ do
-      let sts = [ DeclVariable () u (varGen "pi") Nothing (Just $ realGen (3.14::Double))
+      let sts = [ declVariable () u (varGen "pi") Nothing (Just $ realGen (3.14::Double))
                 , let e = ExpBinary () u Concatenation (strGen "X") (strGen "O")
-                  in DeclVariable () u (varGen "b") Nothing (Just e)
-                , DeclVariable () u (varGen "d") Nothing (Just $ varGen "k") ]
+                  in declVariable () u (varGen "b") Nothing (Just e)
+                , declVariable () u (varGen "d") Nothing (Just $ varGen "k") ]
           st = StParameter () u (AList () u sts)
       sParser "      parameter (pi = 3.14, b = 'X' // 'O', d = k)" `shouldBe'` st
 
@@ -204,7 +204,7 @@ spec =
       sParser "      entry me (a,b,*)" `shouldBe'` st
 
     it "parses 'character a*8'" $ do
-      let decl = DeclVariable () u (varGen "a") (Just $ intGen 8) Nothing
+      let decl = declVariable () u (varGen "a") (Just $ intGen 8) Nothing
           typeSpec = TypeSpec () u TypeCharacter Nothing
           st = StDeclaration () u typeSpec Nothing (AList () u [ decl ])
       sParser "      character a*8" `shouldBe'` st
@@ -212,13 +212,13 @@ spec =
     it "parses 'character c*(ichar('A'))" $ do
       let args = AList () u [ IxSingle () u Nothing (ExpValue () u (ValString "A")) ]
           lenExpr = ExpSubscript () u (ExpValue () u (ValVariable "ichar")) args
-          decl = DeclVariable () u (varGen "c") (Just $ lenExpr) Nothing
+          decl = declVariable () u (varGen "c") (Just $ lenExpr) Nothing
           typeSpec = TypeSpec () u TypeCharacter Nothing
           st = StDeclaration () u typeSpec Nothing (AList () u [ decl ])
       sParser "      character c*(ichar('A'))" `shouldBe'` st
 
     it "parses included files" $ do
-      let decl = DeclVariable () u (varGen "a") Nothing Nothing
+      let decl = declVariable () u (varGen "a") Nothing Nothing
           typeSpec = TypeSpec () u TypeInteger Nothing
           st = StDeclaration () u typeSpec Nothing (AList () u [ decl ])
           bl = BlStatement () u Nothing st
@@ -264,10 +264,10 @@ spec =
                           , "      end structure"]
             ds = [ UnionMap () u $ AList () u
                    [StructFields () u (TypeSpec () u TypeInteger Nothing) Nothing $
-                    AList () u [DeclVariable () u (varGen "i") Nothing Nothing]]
+                    AList () u [declVariable () u (varGen "i") Nothing Nothing]]
                  , UnionMap () u $ AList () u
                    [StructFields () u (TypeSpec () u TypeReal Nothing) Nothing $
-                    AList () u [DeclVariable () u (varGen "r") Nothing Nothing]]
+                    AList () u [declVariable () u (varGen "r") Nothing Nothing]]
                  ]
             st = StStructure () u (Just "foo") $ AList () u [StructUnion () u $ AList () u ds]
         resetSrcSpan (slParser src) `shouldBe` st
@@ -292,10 +292,10 @@ spec =
                           , "      end structure"]
             ds = [ UnionMap () u $ AList () u
                    [StructFields () u (TypeSpec () u TypeInteger Nothing) Nothing $
-                    AList () u [DeclVariable () u (varGen "i") Nothing Nothing]]
+                    AList () u [declVariable () u (varGen "i") Nothing Nothing]]
                  , UnionMap () u $ AList () u
                    [StructFields () u (TypeSpec () u TypeReal Nothing) Nothing $
-                    AList () u [DeclVariable () u (varGen "r") Nothing Nothing]]
+                    AList () u [declVariable () u (varGen "r") Nothing Nothing]]
                  ]
             st = StStructure () u (Just "foo") $ AList () u [StructUnion () u $ AList () u ds]
         resetSrcSpan (slParser src) `shouldBe` st
@@ -307,7 +307,7 @@ spec =
                           , "          integer qux"
                           , "        end structure"
                           , "      end structure"]
-            var = DeclVariable () u (varGen "qux") Nothing Nothing
+            var = declVariable () u (varGen "qux") Nothing Nothing
             innerst = StructStructure () u (Just "bar") ("baz")
               $ AList () u [StructFields () u (TypeSpec () u TypeInteger Nothing) Nothing
                 $ AList () u [var]]
@@ -337,7 +337,7 @@ spec =
       it "parses character declarations with unspecfied lengths" $ do
         let src = "      character s*(*)"
             st = StDeclaration () u (TypeSpec () u TypeCharacter Nothing) Nothing $
-                 AList () u [DeclVariable () u
+                 AList () u [declVariable () u
                                (ExpValue () u (ValVariable "s"))
                                (Just (ExpValue () u ValStar))
                                Nothing]
@@ -347,7 +347,7 @@ spec =
         let src = "      integer xs(3) / 1, 2, 3 /"
             inits = [ExpValue () u (ValInteger "1"), ExpValue () u (ValInteger "2"), ExpValue () u (ValInteger "3")]
             st = StDeclaration () u (TypeSpec () u TypeInteger Nothing) Nothing $
-                 AList () u [DeclArray () u
+                 AList () u [declArray () u
                                (ExpValue () u (ValVariable "xs"))
                                (AList () u [DimensionDeclarator () u Nothing (Just (ExpValue () u (ValInteger "3")))])
                                Nothing
@@ -357,7 +357,7 @@ spec =
         let src1 = "      character xs(2)*5 / 'hello', 'world' /"
             inits1 = [ExpValue () u (ValString "hello"), ExpValue () u (ValString "world")]
             st1 = StDeclaration () u (TypeSpec () u TypeCharacter Nothing) Nothing $
-                 AList () u [DeclArray () u
+                 AList () u [declArray () u
                                (ExpValue () u (ValVariable "xs"))
                                (AList () u [DimensionDeclarator () u Nothing (Just (ExpValue () u (ValInteger "2")))])
                                (Just (ExpValue () u (ValInteger "5")))
@@ -367,7 +367,7 @@ spec =
         let src2 = "      character xs*5(2) / 'hello', 'world' /"
             inits2 = [ExpValue () u (ValString "hello"), ExpValue () u (ValString "world")]
             st2 = StDeclaration () u (TypeSpec () u TypeCharacter Nothing) Nothing $
-                 AList () u [DeclArray () u
+                 AList () u [declArray () u
                                (ExpValue () u (ValVariable "xs"))
                                (AList () u [DimensionDeclarator () u Nothing (Just (ExpValue () u (ValInteger "2")))])
                                (Just (ExpValue () u (ValInteger "5")))
@@ -397,7 +397,7 @@ spec =
             st3 = StExpressionAssign () u tgt3 (ExpValue () u (ValInteger "0"))
         resetSrcSpan (slParser src3) `shouldBe` st3
       it "parses automatic and static statements" $ do
-        let decl = DeclVariable () u (varGen "x") Nothing Nothing
+        let decl = declVariable () u (varGen "x") Nothing Nothing
             autoStmt = StAutomatic () u (AList () u [decl])
             staticStmt = StStatic () u (AList () u [decl])
             autoSrc =  "      automatic x"
