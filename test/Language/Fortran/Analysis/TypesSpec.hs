@@ -152,6 +152,19 @@ spec = do
                                         (Just (CTArray [(Nothing, Just 20)])))]
           `shouldNotSatisfy` null
 
+    describe "Kind parameters and lengths" $ do
+      let mapping = inferTable testkinds
+      it "handles CHARACTER x*2 (RHS CHARACTER length) correctly" $ do
+        idVType (mapping ! "a") `shouldBe` Just (TCharacter (CharLenInt 2) 1)
+      it "handles CHARACTER*2 x (LHS CHARACTER length) correctly" $ do
+        idVType (mapping ! "b") `shouldBe` Just (TCharacter (CharLenInt 2) 1)
+      it "handles INTEGER*2 x (standard kind parameter) correctly" $ do
+        idVType (mapping ! "c") `shouldBe` Just (TInteger 2)
+      it "handles INTEGER x*2 (nonstandard kind parameter) correctly" $ do
+        idVType (mapping ! "d") `shouldBe` Just (TInteger 2)
+      it "handles INTEGER*2 x*1 (nonstandard kind parameter overrides) correctly" $ do
+        idVType (mapping ! "e") `shouldBe` Just (TInteger 1)
+
     describe "structs and arrays" $ do
       it "can handle typing assignments to arrays within structs" $ do
         let mapping = inferTable $ structArray False
@@ -331,6 +344,17 @@ teststrings1 = resetSrcSpan . flip fortran90Parser "" $ unlines [
   , "  character :: e(20)*10"
   , "  character(kind=2) :: f"
   , "end program teststrings"
+  ]
+
+testkinds :: ProgramFile A0
+testkinds = resetSrcSpan . flip fortran90Parser "" $ unlines [
+    "program testkinds"
+  , "  character a*2"
+  , "  character*2 b"
+  , "  integer c*2"
+  , "  integer*2 d"
+  , "  integer*2 e*1"
+  , "end program testkinds"
   ]
 
 commonTransform :: [String] -> String -> [String] -> Bool -> ProgramFile A0
