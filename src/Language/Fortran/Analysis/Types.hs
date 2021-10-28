@@ -592,7 +592,7 @@ isIxSingle _           = False
 -- this rather confusing syntax usage. We report a (soft) type error.
 deriveSemTypeFromDeclaration
     :: SrcSpan -> SrcSpan -> TypeSpec a -> Maybe (Expression a) -> Infer SemType
-deriveSemTypeFromDeclaration stmtSs declSs ts@(TypeSpec _ _ bt mSel) mLenExpr =
+deriveSemTypeFromDeclaration stmtSs declSs ts@(TypeSpec tsA tsSS bt mSel) mLenExpr =
     case mLenExpr of
       Nothing ->
         -- no RHS length, can continue with regular deriving
@@ -602,14 +602,36 @@ deriveSemTypeFromDeclaration stmtSs declSs ts@(TypeSpec _ _ bt mSel) mLenExpr =
         -- we got a RHS length; only CHARACTERs permit this
         case bt of
           TypeCharacter -> deriveCharWithLen lenExpr
+
           _ -> do
-            -- can't use RHS @var*length = x@ syntax on non-CHARACTER: complain,
-            -- continue regular deriving without length
-            flip typeError declSs $
-                "non-CHARACTER variable at declaration "
-             <> show stmtSs
-             <> " given a length"
-            deriveSemTypeFromTypeSpec ts
+            -- oh dear! probably the nonstandard kind param syntax @INTEGER x*2@
+            flip typeError stmtSs $
+                "non-CHARACTER variable given a length @ " <> show (getSpan lenExpr)
+             <> ": treating as nonstandard kind parameter syntax"
+
+            -- silly check to give an in-depth type error
+            case mSel of
+              Just (Selector sA sSS sLen sMKpExpr) -> do
+                _ <- case sMKpExpr of
+                       Nothing     -> return ()
+                       Just kpExpr -> do
+                         -- also got a LHS kind param, inform that we are
+                         -- overriding
+                         flip typeError stmtSs $
+                             "non-CHARACTER variable"
+                          <> " given both"
+                          <> " LHS kind @ " <> show (getSpan kpExpr) <> " and"
+                          <> " nonstandard RHS kind @ " <> show (getSpan lenExpr)
+                          <> ": specific RHS declarator overrides"
+                         return ()
+                let sel = Selector sA sSS sLen (Just lenExpr)
+                    ts' = TypeSpec tsA tsSS bt (Just sel)
+                 in deriveSemTypeFromTypeSpec ts'
+              Nothing ->
+                let sel = Selector undefined undefined Nothing (Just lenExpr)
+                    ts' = TypeSpec tsA tsSS bt (Just sel)
+                 in deriveSemTypeFromTypeSpec ts'
+
   where
     -- Function called when we have a TypeCharacter and a RHS declarator length.
     -- (no function signature due to type variable scoping)
@@ -623,9 +645,8 @@ deriveSemTypeFromDeclaration stmtSs declSs ts@(TypeSpec _ _ bt mSel) mLenExpr =
                       -- Ben has seen this IRL: a high-ranking Fortran
                       -- tutorial site uses it (2021-04-30):
                       -- http://web.archive.org/web/20210118202503/https://www.tutorialspoint.com/fortran/fortran_strings.htm
-                     flip typeError declSs $
-                         "warning: CHARACTER variable at declaration "
-                      <> show stmtSs
+                     flip typeError stmtSs $
+                         "warning: CHARACTER variable @ " <> show declSs
                       <> " has length in LHS type spec and RHS declarator"
                       <> " -- specific RHS declarator overrides"
                    _ -> return ()

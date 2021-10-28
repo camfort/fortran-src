@@ -655,10 +655,10 @@ data Value a =
 -- Syntax note: length is set like @character :: str*10@, dimensions are set
 -- like @integer :: arr(10)@. Careful to not get confused.
 --
--- Note that according to HP's F90 spec, lengths may only be specified for
--- CHARACTER types. So for any declarations that aren't 'TypeCharacter' in the
--- outer 'TypeSpec', the length expression should be Nothing. However, this is
--- not enforced by the AST or parser, so be warned.
+-- Note that lengths may only be specified for CHARACTER types. However, a
+-- nonstandard syntax feature is to use this as a kind parameter for non
+-- CHARACTERs. So we parse length for all 'Declarator's, handle the nonstandard
+-- feature and print a warning during our type analysis.
 data Declarator a =
     DeclVariable a SrcSpan
                  (Expression a)             -- ^ Variable
