@@ -1,4 +1,4 @@
-module Language.Fortran.Analysis.TypesSpec where
+module Language.Fortran.Analysis.TypesSpec ( spec ) where
 
 import Test.Hspec
 import TestUtil
@@ -36,6 +36,8 @@ uniExpr = universeBi
 --   and use the default kind).
 defSTy :: BaseType -> SemType
 defSTy = deriveSemTypeFromBaseType
+
+--------------------------------------------------------------------------------
 
 spec :: Spec
 spec = do
@@ -154,16 +156,33 @@ spec = do
 
     describe "Kind parameters and lengths" $ do
       let mapping = inferTable testkinds
-      it "handles CHARACTER x*2 (RHS CHARACTER length) correctly" $ do
+      it "handles CHARACTER x*2 (RHS CHARACTER length)" $ do
         idVType (mapping ! "a") `shouldBe` Just (TCharacter (CharLenInt 2) 1)
-      it "handles CHARACTER*2 x (LHS CHARACTER length) correctly" $ do
+      it "handles CHARACTER*2 x (LHS CHARACTER length)" $ do
         idVType (mapping ! "b") `shouldBe` Just (TCharacter (CharLenInt 2) 1)
-      it "handles INTEGER*2 x (standard kind parameter) correctly" $ do
+      it "handles INTEGER*2 x (standard kind parameter)" $ do
         idVType (mapping ! "c") `shouldBe` Just (TInteger 2)
-      it "handles INTEGER x*2 (nonstandard kind parameter) correctly" $ do
+      it "handles INTEGER x*2 (nonstandard kind parameter)" $ do
         idVType (mapping ! "d") `shouldBe` Just (TInteger 2)
-      it "handles INTEGER*2 x*1 (nonstandard kind parameter overrides) correctly" $ do
+      it "handles multiple declarators with various kind parameter configurations" $ do
         idVType (mapping ! "e") `shouldBe` Just (TInteger 1)
+        idVType (mapping ! "f") `shouldBe` Just (TInteger 2)
+        idVType (mapping ! "g") `shouldBe` Just (TInteger 8)
+        idVType (mapping ! "h") `shouldBe` Just (TInteger 8)
+
+      it "handles array types with nonstandard kind parameters" $ do
+        -- default kind after a nonstandard (declarator) kind param
+        idVType (mapping ! "i") `shouldBe` Just (TInteger 4)
+
+      it "handles nonstandard character array + length syntax" $ do
+        idVType (mapping ! "i2_arr") `shouldBe` Just (TInteger 2)
+        idCType (mapping ! "i2_arr") `shouldBe` Just (CTArray [(Nothing, Just 2)])
+
+      it "handles multiple declarators with various kind parameter configurations correctly" $ do
+        idVType (mapping ! "ilhs_arr") `shouldBe` Just (TInteger 1)
+        idCType (mapping ! "ilhs_arr") `shouldBe` Just (CTArray [(Nothing, Just 2)])
+        idVType (mapping ! "i8_arr") `shouldBe` Just (TInteger 8)
+        idCType (mapping ! "i8_arr") `shouldBe` Just (CTArray [(Nothing, Just 2)])
 
     describe "structs and arrays" $ do
       it "can handle typing assignments to arrays within structs" $ do
@@ -265,6 +284,7 @@ ex6pu1bs =
   , BlStatement () u Nothing (StExpressionAssign () u
       (ExpSubscript () u (varGen "d") (fromList () [ ixSinGen 1 ])) (intGen 1)) ]
 
+{-
 ex11 :: ProgramFile ()
 ex11 = ProgramFile mi77 [ ex11pu1 ]
 ex11pu1 :: ProgramUnit ()
@@ -274,9 +294,10 @@ ex11pu1bs =
   [ BlStatement () u Nothing (StEntry () u (ExpValue () u (ValVariable "e1")) Nothing Nothing)
   , BlStatement () u Nothing (StEntry () u (ExpValue () u (ValVariable "e2")) Nothing Nothing)
   , BlStatement () u Nothing (StEntry () u (ExpValue () u (ValVariable "e3")) Nothing (Just (varGen "r2"))) ]
+-}
 
 intrinsics1 :: ProgramFile A0
-intrinsics1 = resetSrcSpan . flip fortran90Parser "" $ unlines [
+intrinsics1 = parseStrF90 $ unlines [
     "module intrinsics"
   , "contains"
   , "  subroutine main()"
@@ -296,7 +317,7 @@ intrinsics1 = resetSrcSpan . flip fortran90Parser "" $ unlines [
   ]
 
 intrinsics2 :: ProgramFile A0
-intrinsics2 = resetSrcSpan . flip fortran90Parser "" $ unlines [
+intrinsics2 = parseStrF90 $ unlines [
     "module intrinsics"
   , "contains"
   , "  subroutine main()"
@@ -314,7 +335,7 @@ intrinsics2 = resetSrcSpan . flip fortran90Parser "" $ unlines [
   ]
 
 numerics1 :: ProgramFile A0
-numerics1 = resetSrcSpan . flip fortran90Parser "" $ unlines [
+numerics1 = parseStrF90 $ unlines [
     "module numerics1"
   , "contains"
   , "  subroutine main()"
@@ -332,30 +353,40 @@ numerics1 = resetSrcSpan . flip fortran90Parser "" $ unlines [
   , "end module numerics1"
   ]
 
-
 teststrings1 :: ProgramFile A0
-teststrings1 = resetSrcSpan . flip fortran90Parser "" $ unlines [
-    "program teststrings"
-  , "  character(5,1) :: a"
-  , "  character :: b*10"
-  , "  character(kind=1,len=3) :: c"
-  , "  integer, parameter :: k = 8"
-  , "  character(k), dimension(10) :: d"
-  , "  character :: e(20)*10"
-  , "  character(kind=2) :: f"
-  , "end program teststrings"
+teststrings1 = parseStrF90 . fProgStr $
+  [ "character(5,1) :: a"
+  , "character :: b*10"
+  , "character(kind=1,len=3) :: c"
+  , "integer, parameter :: k = 8"
+  , "character(k), dimension(10) :: d"
+  , "character :: e(20)*10"
+  , "character(kind=2) :: f"
   ]
 
 testkinds :: ProgramFile A0
-testkinds = resetSrcSpan . flip fortran90Parser "" $ unlines [
-    "program testkinds"
-  , "  character a*2"
-  , "  character*2 b"
-  , "  integer c*2"
-  , "  integer*2 d"
-  , "  integer*2 e*1"
-  , "end program testkinds"
+testkinds = parseStrF90 . fProgStr $
+  [ "character   a*2"
+  , "character*2 b"
+  , "integer     c*2"
+  , "integer*2   d"
+  , "integer*2   e*1, f, g*8"
+  , "integer     h*8, i"
+  , "integer*1   i2_arr*2(2), ilhs_arr(2), i8_arr(2)*8"
   ]
+
+--------------------------------------------------------------------------------
+
+-- | Wrapper for creating a string representation of a simple Fortran program.
+--
+-- Wraps in F90-style program.
+fProgStr :: [String] -> String
+fProgStr progContents = unlines prog
+  where prog = ["program test"] <> progContents <> ["end program test"]
+
+-- | Parse a string as an F90 program with initialized 'SrcSpan's.
+parseStrF90 :: String -> ProgramFile A0
+parseStrF90 = resetSrcSpan . flip fortran90Parser ""
 
 commonTransform :: [String] -> String -> [String] -> Bool -> ProgramFile A0
 commonTransform front cdecl back common =
@@ -415,7 +446,6 @@ arrayOfStructsWithArrays = commonTransform front cdecl back
       , "       print *, 'DONE'"
       , "      end subroutine totes"
       ]
-
 
 -- Local variables:
 -- mode: haskell
