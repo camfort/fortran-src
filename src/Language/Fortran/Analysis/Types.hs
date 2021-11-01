@@ -1,5 +1,6 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE LambdaCase          #-}
+{-# LANGUAGE FlexibleContexts    #-}
 
 module Language.Fortran.Analysis.Types
   ( analyseTypes
@@ -23,9 +24,9 @@ import qualified Data.Map as M
 import Data.Maybe (maybeToList)
 import Data.List (find, foldl')
 import Control.Monad.State.Strict
+import Control.Monad.Reader
 import Data.Generics.Uniplate.Data
 import Data.Data
-import Data.Functor.Identity (Identity ())
 import Language.Fortran.Analysis
 import Language.Fortran.Analysis.SemanticTypes
 import Language.Fortran.Intrinsics
@@ -48,7 +49,7 @@ type StructMemberTypeEnv = M.Map Name IDType
 --------------------------------------------------
 
 -- Monad for type inference work
-type Infer a = State InferState a
+type Infer a = StateT InferState (Reader InferConfig) a
 data InferState = InferState { langVersion :: FortranVersion
                              , intrinsics  :: IntrinsicsTable
                              , environ     :: TypeEnv
@@ -56,6 +57,12 @@ data InferState = InferState { langVersion :: FortranVersion
                              , entryPoints :: M.Map Name (Name, Maybe Name)
                              , typeErrors  :: [TypeError] }
   deriving Show
+data InferConfig = InferConfig
+  { inferConfigAcceptNonCharLengthAsKind :: Bool
+  -- ^ How to handle declarations like @INTEGER x*8@. If true, providing a
+  --   character length for a non-character data type will treat it as a kind
+  --   parameter. In both cases, a warning is logged (nonstandard syntax).
+  } deriving (Eq, Show)
 type InferFunc t = t -> Infer ()
 
 --------------------------------------------------
@@ -126,7 +133,7 @@ intrinsicsExp (ExpSubscript _ _ nexp _)    = intrinsicsHelper nexp
 intrinsicsExp (ExpFunctionCall _ _ nexp _) = intrinsicsHelper nexp
 intrinsicsExp _                            = return ()
 
-intrinsicsHelper :: Expression (Analysis a) -> StateT InferState Identity ()
+intrinsicsHelper :: MonadState InferState m => Expression (Analysis a) -> m ()
 intrinsicsHelper nexp | isNamedExpression nexp = do
   itab <- gets intrinsics
   case getIntrinsicReturnType (srcName nexp) itab of
@@ -451,12 +458,24 @@ isNumericType = \case
 -- Monadic helper combinators.
 
 inferState0 :: FortranVersion -> InferState
-inferState0 v = InferState { environ = M.empty, structs = M.empty, entryPoints = M.empty, langVersion = v
-                           , intrinsics = getVersionIntrinsics v, typeErrors = [] }
-runInfer :: FortranVersion -> TypeEnv -> State InferState a -> (a, InferState)
-runInfer v env = flip runState ((inferState0 v) { environ = env })
+inferState0 v = InferState
+  { environ     = M.empty
+  , structs     = M.empty
+  , entryPoints = M.empty
+  , langVersion = v
+  , intrinsics  = getVersionIntrinsics v
+  , typeErrors  = []
+  }
 
-typeError :: String -> SrcSpan -> Infer ()
+inferConfig0 :: InferConfig
+inferConfig0 = InferConfig
+  { inferConfigAcceptNonCharLengthAsKind = True
+  }
+
+runInfer :: FortranVersion -> TypeEnv -> Infer a -> (a, InferState)
+runInfer v env f = flip runReader inferConfig0 $ flip runStateT ((inferState0 v) { environ = env }) f
+
+typeError :: MonadState InferState m => String -> SrcSpan -> m ()
 typeError msg ss = modify $ \ s -> s { typeErrors = (msg, ss):typeErrors s }
 
 emptyType :: IDType
@@ -474,7 +493,7 @@ recordMType :: Maybe SemType -> Maybe ConstructType -> Name -> Infer ()
 recordMType st ct n = modify $ \ s -> s { environ = insert n (IDType st ct) (environ s) }
 
 -- Record the CType of the given name.
-recordCType :: ConstructType -> Name -> Infer ()
+recordCType :: MonadState InferState m => ConstructType -> Name -> m ()
 recordCType ct n = modify $ \ s -> s { environ = M.alter changeFunc n (environ s) }
   where changeFunc mIDType = Just (IDType (mIDType >>= idVType) (Just ct))
 
@@ -591,7 +610,8 @@ isIxSingle _           = False
 -- This matches gfortran's behaviour, though even with -Wall they don't warn on
 -- this rather confusing syntax usage. We report a (soft) type error.
 deriveSemTypeFromDeclaration
-    :: SrcSpan -> SrcSpan -> TypeSpec a -> Maybe (Expression a) -> Infer SemType
+    :: (MonadState InferState m, MonadReader InferConfig m)
+    => SrcSpan -> SrcSpan -> TypeSpec a -> Maybe (Expression a) -> m SemType
 deriveSemTypeFromDeclaration stmtSs declSs ts@(TypeSpec tsA tsSS bt mSel) mLenExpr =
     case mLenExpr of
       Nothing ->
@@ -605,32 +625,41 @@ deriveSemTypeFromDeclaration stmtSs declSs ts@(TypeSpec tsA tsSS bt mSel) mLenEx
 
           _ -> do
             -- oh dear! probably the nonstandard kind param syntax @INTEGER x*2@
-            flip typeError stmtSs $
-                "non-CHARACTER variable given a length @ " <> show (getSpan lenExpr)
-             <> ": treating as nonstandard kind parameter syntax"
+            asks inferConfigAcceptNonCharLengthAsKind >>= \case
+              False -> do
+                flip typeError stmtSs $
+                    "non-CHARACTER variable given a length @ "
+                 <> show (getSpan lenExpr)
+                 <> ": ignoring"
+                deriveSemTypeFromTypeSpec ts
+              True -> do
+                flip typeError stmtSs $
+                    "non-CHARACTER variable given a length @ "
+                 <> show (getSpan lenExpr)
+                 <> ": treating as nonstandard kind parameter syntax"
 
-            -- silly check to give an in-depth type error
-            case mSel of
-              Just (Selector sA sSS sLen sMKpExpr) -> do
-                _ <- case sMKpExpr of
-                       Nothing     -> return ()
-                       Just kpExpr -> do
-                         -- also got a LHS kind param, inform that we are
-                         -- overriding
-                         flip typeError stmtSs $
-                             "non-CHARACTER variable"
-                          <> " given both"
-                          <> " LHS kind @ " <> show (getSpan kpExpr) <> " and"
-                          <> " nonstandard RHS kind @ " <> show (getSpan lenExpr)
-                          <> ": specific RHS declarator overrides"
-                         return ()
-                let sel = Selector sA sSS sLen (Just lenExpr)
-                    ts' = TypeSpec tsA tsSS bt (Just sel)
-                 in deriveSemTypeFromTypeSpec ts'
-              Nothing ->
-                let sel = Selector undefined undefined Nothing (Just lenExpr)
-                    ts' = TypeSpec tsA tsSS bt (Just sel)
-                 in deriveSemTypeFromTypeSpec ts'
+                -- silly check to give an in-depth type error
+                case mSel of
+                  Just (Selector sA sSS sLen sMKpExpr) -> do
+                    _ <- case sMKpExpr of
+                           Nothing     -> return ()
+                           Just kpExpr -> do
+                             -- also got a LHS kind param, inform that we are
+                             -- overriding
+                             flip typeError stmtSs $
+                                 "non-CHARACTER variable"
+                              <> " given both"
+                              <> " LHS kind @ " <> show (getSpan kpExpr) <> " and"
+                              <> " nonstandard RHS kind @ " <> show (getSpan lenExpr)
+                              <> ": specific RHS declarator overrides"
+                             return ()
+                    let sel = Selector sA sSS sLen (Just lenExpr)
+                        ts' = TypeSpec tsA tsSS bt (Just sel)
+                     in deriveSemTypeFromTypeSpec ts'
+                  Nothing ->
+                    let sel = Selector undefined undefined Nothing (Just lenExpr)
+                        ts' = TypeSpec tsA tsSS bt (Just sel)
+                     in deriveSemTypeFromTypeSpec ts'
 
   where
     -- Function called when we have a TypeCharacter and a RHS declarator length.
@@ -660,7 +689,8 @@ deriveSemTypeFromDeclaration stmtSs declSs ts@(TypeSpec tsA tsSS bt mSel) mLenEx
              in return $ TCharacter (charLenSelector' lenExpr) k
 
 -- | Attempt to derive a 'SemType' from a 'TypeSpec'.
-deriveSemTypeFromTypeSpec :: TypeSpec a -> Infer SemType
+deriveSemTypeFromTypeSpec
+    :: MonadState InferState m => TypeSpec a -> m SemType
 deriveSemTypeFromTypeSpec (TypeSpec _ _ bt mSel) =
     case mSel of
       -- Selector present: we might have kind/other info provided
@@ -669,7 +699,8 @@ deriveSemTypeFromTypeSpec (TypeSpec _ _ bt mSel) =
       Nothing  -> return $ deriveSemTypeFromBaseType bt
 
 -- | Attempt to derive a SemType from a 'BaseType' and a 'Selector'.
-deriveSemTypeFromBaseTypeAndSelector :: BaseType -> Selector a -> Infer SemType
+deriveSemTypeFromBaseTypeAndSelector
+    :: MonadState InferState m => BaseType -> Selector a -> m SemType
 deriveSemTypeFromBaseTypeAndSelector bt (Selector _ ss mLen mKindExpr) = do
     st <- deriveFromBaseTypeAndKindExpr mKindExpr
     case mLen of
@@ -684,7 +715,6 @@ deriveSemTypeFromBaseTypeAndSelector bt (Selector _ ss mLen mKindExpr) = do
             typeError "only CHARACTER types can specify length (separate to kind)" ss
             return st
   where
-    deriveFromBaseTypeAndKindExpr :: Maybe (Expression a) -> Infer SemType
     deriveFromBaseTypeAndKindExpr = \case
       Nothing -> defaultSemType
       Just kindExpr ->
@@ -729,7 +759,8 @@ deriveSemTypeFromBaseType = \case
 noKind :: Kind
 noKind = -1
 
-deriveSemTypeFromBaseTypeAndKind :: BaseType -> Kind -> Infer SemType
+deriveSemTypeFromBaseTypeAndKind
+    :: MonadState InferState m => BaseType -> Kind -> m SemType
 deriveSemTypeFromBaseTypeAndKind bt k =
     return $ setTypeKind (deriveSemTypeFromBaseType bt) k
 
