@@ -2,8 +2,10 @@ module Language.Fortran.Parser.Fortran95Spec (spec) where
 
 import Prelude hiding (GT, EQ, exp, pred)
 
-import TestUtil
 import Test.Hspec
+import TestUtil
+import Language.Fortran.Parser.Fortran90PlusCommon
+
 import Control.Exception (evaluate)
 
 import Language.Fortran.AST
@@ -655,3 +657,5 @@ spec =
       let attrs = [AttrVolatile () u]
       let st = StDeclaration () u ty (Just (AList () u attrs)) (AList () u decls)
       sParser "integer, volatile :: a, b" `shouldBe'` st
+
+    specF90PlusCommon sParser
