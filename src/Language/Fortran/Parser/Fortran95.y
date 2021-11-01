@@ -925,6 +925,10 @@ DECLARATOR :: { Declarator A0 }
   { DeclArray () (getTransSpan $1 $4) $1 (aReverse $3) Nothing Nothing }
 | VARIABLE '(' DIMENSION_DECLARATORS ')' '*' EXPRESSION
   { DeclArray () (getTransSpan $1 $6) $1 (aReverse $3) (Just $6) Nothing }
+-- nonstandard char array syntax (wrong order for dimensions & charlen)
+| VARIABLE '*' EXPRESSION '(' DIMENSION_DECLARATORS ')'
+  { let star = ExpValue () (getSpan $4) ValStar
+    in DeclArray () (getTransSpan $1 $6) $1 (aReverse $5) (Just $3) Nothing }
 | VARIABLE '(' DIMENSION_DECLARATORS ')' '*' '(' '*' ')'
   { let star = ExpValue () (getSpan $7) ValStar
     in DeclArray () (getTransSpan $1 $8) $1 (aReverse $3) (Just star) Nothing }

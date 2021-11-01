@@ -162,6 +162,7 @@ test-suite spec
       Language.Fortran.Parser.Fortran66Spec
       Language.Fortran.Parser.Fortran77.IncludeSpec
       Language.Fortran.Parser.Fortran77.ParserSpec
+      Language.Fortran.Parser.Fortran90PlusCommon
       Language.Fortran.Parser.Fortran90Spec
       Language.Fortran.Parser.Fortran95Spec
       Language.Fortran.Parser.UtilsSpec

@@ -3,8 +3,9 @@ module Language.Fortran.Parser.Fortran2003Spec where
 
 import Prelude hiding (GT, EQ, exp, pred)
 
-import TestUtil
 import Test.Hspec
+import TestUtil
+import Language.Fortran.Parser.Fortran90PlusCommon
 
 import Language.Fortran.AST
 import Language.Fortran.ParserMonad
@@ -175,3 +176,5 @@ spec =
             expValVar x = ExpValue () u (ValVariable x)
             expBinVars op x1 x2 = ExpBinary () u op (expValVar x1) (expValVar x2)
         bParser text `shouldBe'` expected
+
+    specF90PlusCommon sParser

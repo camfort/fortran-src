@@ -2,8 +2,9 @@ module Language.Fortran.Parser.Fortran90Spec (spec) where
 
 import Prelude hiding (GT, exp, pred)
 
-import TestUtil
 import Test.Hspec
+import TestUtil
+import Language.Fortran.Parser.Fortran90PlusCommon
 
 import Language.Fortran.AST
 import Language.Fortran.ParserMonad
@@ -592,3 +593,5 @@ spec =
             , UseID () u (ExpValue () u ValAssignment) ]
       let st = StUse () u (varGen "stats_lib") Nothing Exclusive (Just onlys)
       sParser "use stats_lib, only: a, b => c, operator(+), assignment(=)" `shouldBe'` st
+
+    specF90PlusCommon sParser
