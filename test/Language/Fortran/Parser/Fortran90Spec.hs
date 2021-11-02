@@ -594,4 +594,4 @@ spec =
       let st = StUse () u (varGen "stats_lib") Nothing Exclusive (Just onlys)
       sParser "use stats_lib, only: a, b => c, operator(+), assignment(=)" `shouldBe'` st
 
-    specF90PlusCommon sParser
+    specF90PlusCommon sParser eParser
