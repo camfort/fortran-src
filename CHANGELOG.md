@@ -1,7 +1,7 @@
 ### 0.6.2 (Unreleased)
   * No longer treat `!` in strings as comments in continuation reformatter
     (thanks @envp) #179
-  * CI builds on Mac
+  * CI builds on Mac; more release automation
   * Handle nonstandard kind parameter in parsing & type analysis #188
   * Fully parse logical literals early (don't leave as `String`) #185
     * Code that touches `ValLogical` will have to be updated -- it should mean
