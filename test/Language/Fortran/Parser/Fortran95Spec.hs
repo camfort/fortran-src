@@ -658,4 +658,4 @@ spec =
       let st = StDeclaration () u ty (Just (AList () u attrs)) (AList () u decls)
       sParser "integer, volatile :: a, b" `shouldBe'` st
 
-    specF90PlusCommon sParser
+    specF90PlusCommon sParser eParser
