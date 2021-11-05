@@ -166,4 +166,8 @@ scalarTyToSemType = \case
       BTyReal    -> TReal    (iTyKind iTy)
       BTyComplex -> TComplex (iTyKind iTy)
       BTyLogical -> TLogical (iTyKind iTy)
-      BTyCharacter len -> TCharacter (CharLenInt len) (iTyKind iTy)
+      BTyCharacter len ->
+        case len of
+          CharLen len'    -> TCharacter (CharLenInt len') (iTyKind iTy)
+          CharLenAssumed  -> TCharacter CharLenStar       (iTyKind iTy)
+          CharLenDeferred -> TCharacter CharLenColon      (iTyKind iTy)

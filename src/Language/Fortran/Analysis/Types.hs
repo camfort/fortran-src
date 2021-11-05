@@ -439,11 +439,11 @@ binopSimpleCombineSemTypes ss op tyL tyR =
               (_, BTyInteger) -> ret $ iTy BTyInteger (iTyKind iTyR)
               (BTyInteger, _) -> ret $ iTy BTyInteger (iTyKind iTyL)
               (BTyLogical, BTyLogical) -> ret $ iTy BTyLogical (iTyKind iTyL)
-              (BTyCharacter lenL, BTyCharacter lenR)
+              (BTyCharacter (CharLen lenL), BTyCharacter (CharLen lenR))
                 | iTyKind iTyL /= iTyKind iTyR -> do
                     typeError "operation on character strings of different kinds" ss
                     return Nothing
-                | op == Concatenation -> ret $ iTy (BTyCharacter (lenL + lenR)) (iTyKind iTyL)
+                | op == Concatenation -> ret $ iTy (BTyCharacter (CharLen (lenL + lenR))) (iTyKind iTyL)
                 | op `elem` [EQ, NE]  -> ret $ TyScalarTy $ ScalarTyIntrinsic $ deriveIntrinsicTyFromBaseType TypeLogical
                 | otherwise -> do typeError "Invalid op on character strings" ss
                                   return Nothing
@@ -819,8 +819,9 @@ deriveScalarTyFromBaseTypeAndSelector bt (Selector _ ss mLenExpr mKp) = do
             case iTyBase iTy of
               BTyCharacter{} -> do
                 len <- case lenExpr of
-                         ExpValue _ _ ValStar -> error "TODO can't yet encode star in BTyCharacter"
-                         _ -> runWithConstMap $ evalCharLengthInt lenExpr
+                         ExpValue _ _ ValStar  -> return CharLenAssumed
+                         ExpValue _ _ ValColon -> return CharLenDeferred
+                         _ -> CharLen <$> (runWithConstMap $ evalCharLengthInt lenExpr)
                 return $ ScalarTyIntrinsic $ iTy { iTyBase = BTyCharacter len }
               _ -> do
                 -- (unreachable code path in correct parser operation)
@@ -882,7 +883,7 @@ deriveIntrinsicTyFromBaseType = uncurry IntrinsicTy . \case
   TypeByte            -> (BTyInteger, 1)
 
   -- CHARACTERs default to len=1, kind=1 (non-1 is rare)
-  TypeCharacter       -> (BTyCharacter 1, 1)
+  TypeCharacter       -> (BTyCharacter (CharLen 1), 1)
 
   bt -> error $ "not an intrinsic type: " <> show bt
 

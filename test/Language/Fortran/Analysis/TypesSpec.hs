@@ -145,12 +145,12 @@ spec = do
         idVType (mapping ! "a") `shouldBe` Just (charTy 5 1)
         idVType (mapping ! "b") `shouldBe` Just (charTy 10 1)
         idVType (mapping ! "c") `shouldBe` Just (charTy 3 1)
-        --idVType (mapping ! "d") `shouldBe` Just (TCharacter CharLenExp 1) --TODO
-        idCType (mapping ! "d") `shouldBe` Just (CTArray [(Nothing, Just 10)])
         idVType (mapping ! "d") `shouldBe` Just (charTy 8 1) -- var kind param
+        idCType (mapping ! "d") `shouldBe` Just (CTArray [(Nothing, Just 10)])
         idVType (mapping ! "e") `shouldBe` Just (charTy 10 1)
         idCType (mapping ! "e") `shouldBe` Just (CTArray [(Nothing, Just 20)])
         idVType (mapping ! "f") `shouldBe` Just (charTy 1 2)
+        idVType (mapping ! "g") `shouldBe` Just (charTy' CharLenAssumed 1)
         let pf = typedProgramFile teststrings1
         [ () | ExpValue a _ (ValVariable "e") <- uniExpr pf
              , idType a == Just (IDType (Just (charTy 10 1))
@@ -219,7 +219,10 @@ realTy :: Kind -> Ty
 realTy k = TyScalarTy $ ScalarTyIntrinsic $ IntrinsicTy BTyReal k
 
 charTy :: Int -> Kind -> Ty
-charTy len k = TyScalarTy $ ScalarTyIntrinsic $ IntrinsicTy (BTyCharacter len) k
+charTy len k = charTy' (CharLen len) k
+
+charTy' :: CharLen -> Kind -> Ty
+charTy' len k = TyScalarTy $ ScalarTyIntrinsic $ IntrinsicTy (BTyCharacter len) k
 
 ex1 :: ProgramFile ()
 ex1 = ProgramFile mi77 [ ex1pu1 ]
@@ -376,6 +379,7 @@ teststrings1 = parseStrF90 . fProgStr $
   , "character(k), dimension(10) :: d"
   , "character :: e(20)*10"
   , "character(kind=2) :: f"
+  , "character(*) :: g"
   ]
 
 testkinds :: ProgramFile A0

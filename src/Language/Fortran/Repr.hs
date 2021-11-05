@@ -15,6 +15,7 @@ module Language.Fortran.Repr
   , ScalarTy(..)
   , IntrinsicTy(..)
   , BaseTy(..)
+  , CharLen(..)
   , ArrayTy(..)
   , Dimensions
   , recoverTyTypeSpec
@@ -67,11 +68,32 @@ data BaseTy
   | BTyReal
   | BTyComplex              -- TODO: encode via ArrayTy?? (maybe too different?)
   | BTyLogical
-  | BTyCharacter Int
+  | BTyCharacter CharLen
     deriving (Eq, Ord, Show, Data, Typeable, Generic)
 
 instance Out    BaseTy
 instance Binary BaseTy
+
+-- | The length of a CHARACTER value.
+--
+-- IanH provides a great reference on StackOverflow:
+-- https://stackoverflow.com/a/25051522/2246637
+data CharLen
+  = CharLen Int
+  -- ^ @CHARACTER(LEN=x)@ (where @x@ is a constant integer expression). Value
+  --   has the given static length.
+  | CharLenAssumed
+  -- ^ @CHARACTER(LEN=*)@. F90. Value has assumed length. For a dummy argument,
+  --   the length is assumed from the actual argument. For a PARAMETER named
+  --   constant, the length is assumed from the length of the initializing
+  --   expression.
+  | CharLenDeferred
+  -- ^ @CHARACTER(LEN=:)@. F2003. Value has deferred length. Must have the
+  --   ALLOCATABLE or POINTER attribute.
+    deriving (Eq, Ord, Show, Data, Typeable, Generic)
+
+instance Out    CharLen
+instance Binary CharLen
 
 data ArrayTy = ArrayTy
   { aTyScalar :: ScalarTy
@@ -124,10 +146,6 @@ recoverTyTypeSpec a ss v = \case
     recoverScalarTyTypeSpec (aTyScalar aTy)
   TyScalarTy sTy -> recoverScalarTyTypeSpec sTy
   where
-    ts  = TypeSpec a ss
-    sel = Selector a ss
-    intValExpr :: Int -> Expression a
-    intValExpr x = ExpValue a ss (ValInteger (show x))
     recoverScalarTyTypeSpec = \case
       ScalarTyIntrinsic iTy -> recoverIntrinsicTyTypeSpec iTy
       ScalarTyCustom ty' -> ts (TypeCustom ty') Nothing
@@ -144,12 +162,26 @@ recoverTyTypeSpec a ss v = \case
             then buildTs Nothing TypeDoubleComplex Nothing
             else buildTs (Just (k, 8)) TypeComplex Nothing
           BTyCharacter len ->
-            if   len == 1
-            then buildTs (Just (k, 1)) TypeCharacter Nothing
-            else buildTs (Just (k, 1)) TypeCharacter (Just len)
+            case len of
+              CharLen len' ->
+                if   len' == 1
+                then buildTs (Just (k, 1)) TypeCharacter Nothing
+                else buildTs (Just (k, 1)) TypeCharacter (Just (intValExpr len'))
+              CharLenAssumed  -> buildTs (Just (k, 1)) TypeCharacter (Just valStarExpr)
+              CharLenDeferred -> buildTs (Just (k, 1)) TypeCharacter (Just valColonExpr)
+    -- don't get why I need the function signature down here... GHC infers it
+    -- correctly (via @:: _@) but I get an Eq a0 complaint??? assuming scoped
+    -- typevar weirdness...
+    buildTs :: Maybe (Int, Int) -> BaseType -> Maybe (Expression a) -> TypeSpec a
     buildTs (Just (k, kDef)) ty mLen =
         if   k == kDef
         then buildTs Nothing ty mLen
-        else ts ty (Just (sel (intValExpr <$> mLen) (Just (intValExpr k))))
-    buildTs Nothing ty (Just len) = ts ty (Just (sel (Just (intValExpr len)) Nothing))
+        else ts ty (Just (sel mLen (Just (intValExpr k))))
+    buildTs Nothing ty (Just len) = ts ty (Just (sel (Just len) Nothing))
     buildTs Nothing ty Nothing = ts ty Nothing
+    intValExpr x = valExpr (ValInteger (show x))
+    valStarExpr  = valExpr ValStar
+    valColonExpr = valExpr ValStar
+    valExpr = ExpValue a ss
+    ts  = TypeSpec a ss
+    sel = Selector a ss
