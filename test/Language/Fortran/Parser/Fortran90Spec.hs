@@ -472,41 +472,40 @@ spec =
       let printArgs str = Just $ AList () u [ExpValue () u $ ValString str]
           printStmt = StPrint () u (ExpValue () u ValStar) . printArgs
           printBlock = BlStatement () u Nothing . printStmt
-          intLit = ExpValue () u . ValInteger
-          ind2 = AList () u . pure $ IxSingle () u Nothing $ intLit "2"
-          ind3Plus = AList () u . pure $ IxRange () u (Just $ intLit "3") Nothing Nothing
+          ind2 = AList () u . pure $ IxSingle () u Nothing $ intGen 2
+          ind3Plus = AList () u . pure $ IxRange () u (Just $ intGen 3) Nothing Nothing
           conds = [Just ind2, Just ind3Plus, Nothing]
       it "unlabelled case block (with inline comments to be stripped)" $ do
-        let src = unlines [ "select case (x) ! inline select"
+        let src = unlines [ "select case (x) ! comment select"
                           , "! full line before first case (unrepresentable)"
-                          , "case (2) ! inline case 1"
+                          , "case (2) ! comment case 1"
                           , "print *, 'foo'"
-                          , "case (3:) ! inline case 2"
+                          , "case (3:) ! comment case 2"
                           , "print *, 'bar'"
-                          , "case default ! inline case 3"
+                          , "case default ! comment case 3"
                           , "print *, 'baz'"
-                          , "end select ! inline end"
+                          , "end select ! comment end"
                           ]
             blocks = (fmap . fmap) printBlock [["foo"], ["bar"], ["baz"]]
             block = BlCase () u Nothing Nothing (varGen "x") conds blocks Nothing
         blParser src `shouldBe'` block
       it "labelled case block (with inline comments to be stripped" $ do
         let src = unlines [ "10 mylabel: select case (x) ! comment select"
-                          , "20 case (2) ! inline case 1"
+                          , "20 case (2) ! comment case 1"
                           , "30 print *, 'foo'"
-                          , "40 case (3:) ! inline case 2"
+                          , "40 case (3:) ! comment case 2"
                           , "50 print *, 'bar'"
-                          , "60 case default ! inline case 3"
+                          , "60 case default ! comment case 3"
                           , "70 print *, 'baz'"
-                          , "80 end select mylabel ! inline end"
+                          , "80 end select mylabel ! comment end"
                           ]
             blocks = (fmap . fmap)
-                     (\(label, arg) -> BlStatement () u (Just $ intLit label) $ printStmt arg)
-                     [[("30", "foo")], [("50", "bar")], [("70", "baz")]]
+                     (\(label, arg) -> BlStatement () u (Just $ intGen label) $ printStmt arg)
+                     [[(30, "foo")], [(50, "bar")], [(70, "baz")]]
             block = BlCase () u
-                           (Just $ intLit "10") (Just "mylabel") (varGen "x")
+                           (Just $ intGen 10) (Just "mylabel") (varGen "x")
                            conds blocks
-                           (Just $ intLit "80")
+                           (Just $ intGen 80)
         blParser src `shouldBe'` block
 
     describe "Do" $ do

@@ -917,8 +917,8 @@ VARIABLE :: { Expression A0 }
 : id { ExpValue () (getSpan $1) $ let (TId _ s) = $1 in ValVariable s }
 
 INTEGER_LITERAL :: { Expression A0 }
-: int { ExpValue () (getSpan $1) $ let (TInt _ i) = $1 in ValInteger i }
-| boz { let TBozInt s i = $1 in ExpValue () s $ ValInteger i }
+: int { ExpValue () (getSpan $1) $ let (TInt _ i) = $1 in ValInteger i Nothing}
+| boz { let TBozInt s i = $1 in ExpValue () s $ ValInteger i Nothing}
 
 REAL_LITERAL :: { Expression A0 }
 : int EXPONENT { makeReal (Just $1) Nothing Nothing (Just $2) }
@@ -954,10 +954,10 @@ LABELS_IN_STATEMENT_LEVEL1 :: { AList Expression A0 }
 | '(' LABEL_IN_STATEMENT { AList () (getTransSpan $1 $2) [ $2 ] }
 
 -- Labels that occur in the first 6 columns
-LABEL_IN_6COLUMN :: { Expression A0 } : label { ExpValue () (getSpan $1) (let (TLabel _ l) = $1 in ValInteger l) }
+LABEL_IN_6COLUMN :: { Expression A0 } : label { ExpValue () (getSpan $1) (let (TLabel _ l) = $1 in ValInteger l Nothing) }
 
 -- Labels that occur in statements
-LABEL_IN_STATEMENT :: { Expression A0 } : int { ExpValue () (getSpan $1) (let (TInt _ l) = $1 in ValInteger l) }
+LABEL_IN_STATEMENT :: { Expression A0 } : int { ExpValue () (getSpan $1) (let (TInt _ l) = $1 in ValInteger l Nothing) }
 
 TYPE_SPEC :: { TypeSpec A0 }
 : integer   KIND_SELECTOR { TypeSpec () (getSpan ($1, $2)) TypeInteger $2 }

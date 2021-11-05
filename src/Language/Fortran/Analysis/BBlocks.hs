@@ -278,7 +278,7 @@ dropLeadingZeroes = dropWhile (== '0')
 lookupBBlock :: Num a1 => M.Map String a1 -> Expression a2 -> a1
 lookupBBlock lm a =
   case a of
-    ExpValue _ _ (ValInteger l) -> (-1) `fromMaybe` M.lookup (dropLeadingZeroes l) lm
+    ExpValue _ _ (ValInteger l _) -> (-1) `fromMaybe` M.lookup (dropLeadingZeroes l) lm
 -- This occurs if a variable is being used for a label, e.g., from a Fortran 77 ASSIGN statement
     ExpValue _ _ (ValVariable l) -> (-1) `fromMaybe` M.lookup l lm
     _ -> error "unhandled lookupBBlock"
@@ -432,7 +432,7 @@ perBlock (BlStatement a s l (StCall a' s' cn@ExpValue{} (Just aargs))) = do
 
   -- create bblock that assigns formal parameters (n[1], n[2], ...)
   case l of
-    Just (ExpValue _ _ (ValInteger l')) -> insertLabel l' formalN -- label goes here, if present
+    Just (ExpValue _ _ (ValInteger l' _)) -> insertLabel l' formalN -- label goes here, if present
     _                                   -> return ()
   let name i   = varName cn ++ "[" ++ show i ++ "]"
   let formal (ExpValue a'' s'' (ValVariable _)) i = genVar a''{ insLabel = Nothing } s'' (name i)
@@ -490,7 +490,7 @@ perDoBlock :: Data a => Maybe (Expression (Analysis a)) -> Block (Analysis a) ->
 perDoBlock repeatExpr b bs = do
   (n, doN) <- closeBBlock
   case getLabel b of
-    Just (ExpValue _ _ (ValInteger l)) -> insertLabel l doN
+    Just (ExpValue _ _ (ValInteger l _)) -> insertLabel l doN
     _                                  -> return ()
   case repeatExpr of Just e -> void (processFunctionCalls e); Nothing -> return ()
   addToBBlock $ stripNestedBlocks b
@@ -504,7 +504,7 @@ perDoBlock repeatExpr b bs = do
 -- Maintains perBlock invariants while potentially starting a new
 -- bblock in case of a label.
 processLabel :: Block a -> BBlocker a ()
-processLabel b | Just (ExpValue _ _ (ValInteger l)) <- getLabel b = do
+processLabel b | Just (ExpValue _ _ (ValInteger l _)) <- getLabel b = do
   (n, n') <- closeBBlock
   insertLabel l n'
   createEdges [(n, n', ())]
@@ -687,7 +687,7 @@ fromJustMsg msg _      = error msg
 findLabeledBBlock :: String -> BBGr a -> Maybe Node
 findLabeledBBlock llab gr =
   listToMaybe [ n | (n, bs) <- labNodes (bbgrGr gr), b <- bs
-                  , ExpValue _ _ (ValInteger llab') <- maybeToList (getLabel b)
+                  , ExpValue _ _ (ValInteger llab' _) <- maybeToList (getLabel b)
                   , llab == llab' ]
 
 -- | Show a basic block graph in a somewhat decent way.
@@ -821,13 +821,13 @@ showLab :: Maybe (Expression a) -> String
 showLab a =
   case a of
     Nothing -> replicate 6 ' '
-    Just (ExpValue _ _ (ValInteger l)) -> ' ':l ++ replicate (5 - length l) ' '
+    Just (ExpValue _ _ (ValInteger l _)) -> ' ':l ++ replicate (5 - length l) ' '
     _ -> error "unhandled showLab"
 
 showValue :: Value a -> Name
 showValue (ValVariable v)       = v
 showValue (ValIntrinsic v)      = v
-showValue (ValInteger v)        = v
+showValue (ValInteger v _)      = v
 showValue (ValReal v)           = v
 showValue (ValComplex e1 e2)    = "( " ++ showExpr e1 ++ " , " ++ showExpr e2 ++ " )"
 showValue (ValString s)         = "\\\"" ++ escapeStr s ++ "\\\""

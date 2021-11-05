@@ -130,10 +130,10 @@ spec = do
         [ a | ExpFunctionCall a _ (ExpValue _ _ (ValIntrinsic "abs")) _ <- uniExpr pf
             , idType a == Just (IDType (Just (defSTy TypeReal)) Nothing) ]
           `shouldNotSatisfy` null
-        [ a | ExpBinary a _ Addition (ExpValue _ _ (ValInteger "1")) _ <- uniExpr pf
+        [ a | ExpBinary a _ Addition (ExpValue _ _ (ValInteger "1" _)) _ <- uniExpr pf
             , idType a == Just (IDType (Just (defSTy TypeComplex)) Nothing) ]
           `shouldNotSatisfy` null
-        [ a | ExpBinary a _ Addition (ExpValue _ _ (ValInteger "2")) _ <- uniExpr pf
+        [ a | ExpBinary a _ Addition (ExpValue _ _ (ValInteger "2" _)) _ <- uniExpr pf
             , idType a == Just (IDType (Just (TReal 8)) Nothing) ]
           `shouldNotSatisfy` null
 

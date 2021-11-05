@@ -1,7 +1,8 @@
-{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE LambdaCase            #-}
+{-# LANGUAGE FlexibleInstances     #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE OverloadedStrings     #-}
+{-# LANGUAGE UndecidableInstances  #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
 
 module Language.Fortran.PrettyPrint where
@@ -430,7 +431,7 @@ instance Pretty (Selector a) where
     where
       len e  = "len=" <> pprint' v e
       kind e = "kind=" <> pprint' v e
-      noParensLit e@(ExpValue _ _ (ValInteger _))  = pprint' v e
+      noParensLit e@(ExpValue _ _ (ValInteger _ _))  = pprint' v e
       noParensLit e = parens $ pprint' v e
 
 instance Pretty (Statement a) where
@@ -964,14 +965,16 @@ instance Pretty (Value a) where
       | otherwise = tooOld v "Operator" Fortran90
     pprint' v (ValComplex e1 e2) = parens $ commaSep [pprint' v e1, pprint' v e2]
     pprint' _ (ValString str) = quotes $ text str
-    pprint' v (ValLogical b kp) = text litStr <> kpPretty
-      where
-        litStr   = if b then ".true." else ".false."
-        kpPretty =
-            case kp of
-              Nothing  -> empty
-              Just kp' -> text "_" <> pprint' v kp'
+    pprint' v (ValLogical b kp) = text litStr <> kpPretty v kp
+      where litStr = if b then ".true." else ".false."
+    pprint' v (ValInteger i kp) = text i <> kpPretty v kp
     pprint' _ valLit = text . getFirstParameter $ valLit
+
+-- | Helper for pretty printing an optional kind parameter 'Expression'.
+kpPretty :: FortranVersion -> Maybe (Expression a) -> Doc
+kpPretty v = \case
+  Nothing -> empty
+  Just kp -> text "_" <> pprint' v kp
 
 instance IndentablePretty (StructureItem a) where
   pprint v (StructFields a s spec mAttrs decls) _ = pprint' v (StDeclaration a s spec mAttrs decls)

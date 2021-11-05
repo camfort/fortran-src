@@ -281,7 +281,7 @@ findSuccsBB gr = IS.fromList . concatMap (suc $ bbgrGr gr) . mapMaybe (flip find
 -- For each Fortran label in the list, find the AST-block label numbers ('insLabel') associated
 findLabelsBl :: forall a. Data a => ProgramFile (Analysis a) -> [Int] -> IS.IntSet
 findLabelsBl pf labs = IS.fromList [ i | b <- universeBi pf :: [Block (Analysis a)]
-                                       , ExpValue _ _ (ValInteger lab') <- maybeToList (getLabel b)
+                                       , ExpValue _ _ (ValInteger lab' _) <- maybeToList (getLabel b)
                                        , lab' `elem` labsS
                                        , let a = getAnnotation b
                                        , i <- maybeToList (insLabel a) ]

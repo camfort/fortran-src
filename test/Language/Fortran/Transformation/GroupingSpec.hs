@@ -74,7 +74,7 @@ expectedForall name  = buildExampleProgram "forall"
 -- do 10 i = 0, 10
 -- 10   continue
 label10 :: Maybe (Expression ())
-label10 = Just (ExpValue () u (ValInteger "10"))
+label10 = Just (labelGen 10)
 example1do :: ProgramFile ()
 example1do = ProgramFile mi77 [ PUMain () u (Just "example1") example1doblocks Nothing ]
 example1doblocks :: [Block ()]
@@ -82,10 +82,13 @@ example1doblocks =
   [ BlStatement () u Nothing (StDo () u Nothing label10 dospec)
   , BlStatement () u label10 (StContinue () u) ]
 dospec :: Maybe (DoSpecification ())
-dospec = Just (DoSpecification () u
-           (StExpressionAssign () u (ExpValue () u (ValVariable "i"))
-                                    (ExpValue () u (ValInteger "0")))
-                                    (ExpValue () u (ValInteger "10")) Nothing)
+dospec = Just $
+  DoSpecification
+    ()
+    u
+    (StExpressionAssign () u (varGen "i") (intGen 0))
+    (intGen 10)
+    Nothing
 
 expectedExample1do :: ProgramFile ()
 expectedExample1do = ProgramFile mi77 [ PUMain () u (Just "example1") expectedExample1doBlocks Nothing ]
@@ -95,7 +98,7 @@ expectedExample1doBlocks =
      [ ] label10 ]
 
 label20 :: Maybe (Expression ())
-label20 = Just (ExpValue () u (ValInteger "20"))
+label20 = Just (labelGen 20)
 -- do 10 i = 0, 10
 -- do 10 i = 0, 10
 -- 10   continue

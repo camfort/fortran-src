@@ -405,9 +405,9 @@ genConstExpMap pf = ceMap
     labelOf = insLabel . getAnnotation
     doExpr :: Expression (Analysis a) -> Maybe Constant
     doExpr e = case e of
-      ExpValue _ _ (ValInteger str)
+      ExpValue _ _ (ValInteger str _)
         | Just i <- readInteger str -> Just . ConstInt $ fromIntegral i
-      ExpValue _ _ (ValInteger str) -> Just $ ConstUninterpInt str
+      ExpValue _ _ (ValInteger str _) -> Just $ ConstUninterpInt str
       ExpValue _ _ (ValReal str)    -> Just $ ConstUninterpReal str
       ExpValue _ _ (ValVariable _)  -> getV e
       -- Recursively seek information about sub-expressions, relying on laziness.
@@ -602,7 +602,7 @@ derivedInductionExprMemo flow e
 derivedInductionExpr :: Data a => IEFlow -> Expression (Analysis a) -> InductionExpr
 derivedInductionExpr flow e = case e of
   v@(ExpValue _ _ (ValVariable _))   -> fromMaybe IETop $ M.lookup (varName v) (ieFlowVars flow)
-  ExpValue _ _ (ValInteger str)
+  ExpValue _ _ (ValInteger str _)
     | Just i <- readInteger str      -> IELinear "" 0 (fromIntegral i)
   ExpBinary _ _ Addition e1 e2       -> derive e1 `addInductionExprs` derive e2
   ExpBinary _ _ Subtraction e1 e2    -> derive e1 `addInductionExprs` negInductionExpr (derive e2)
@@ -620,7 +620,7 @@ derivedInductionExprM e = do
                 | otherwise = derivedInductionExprM e'
   ie <- case e of
         v@(ExpValue _ _ (ValVariable _))   -> pure . fromMaybe IETop $ M.lookup (varName v) (ieFlowVars flow)
-        ExpValue _ _ (ValInteger str)
+        ExpValue _ _ (ValInteger str _)
           | Just i <- readInteger str      -> pure $ IELinear "" 0 (fromIntegral i)
         ExpBinary _ _ Addition e1 e2       -> addInductionExprs <$> derive e1 <*> derive e2
         ExpBinary _ _ Subtraction e1 e2    -> addInductionExprs <$> derive e1 <*> (negInductionExpr <$> derive e2)

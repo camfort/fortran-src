@@ -105,7 +105,7 @@ spec =
 
       it "prints logical literal with kind parameter (>=F90)" $ do
         let lit    = ValLogical False (Just kpExpr)
-            kpExpr = ExpValue () u (ValInteger "8")
+            kpExpr = intGen 8
         pprint Fortran90 lit Nothing `shouldBe` ".false._8"
 
     describe "Statement" $ do

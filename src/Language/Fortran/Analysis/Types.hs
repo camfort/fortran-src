@@ -174,9 +174,9 @@ declarator _ = return ()
 
 dimDeclarator :: AList DimensionDeclarator a -> [(Maybe Int, Maybe Int)]
 dimDeclarator ddAList = [ (lb, ub) | DimensionDeclarator _ _ lbExp ubExp <- aStrip ddAList
-                                   , let lb = do ExpValue _ _ (ValInteger i) <- lbExp
+                                   , let lb = do ExpValue _ _ (ValInteger i _) <- lbExp
                                                  return $ read i
-                                   , let ub = do ExpValue _ _ (ValInteger i) <- ubExp
+                                   , let ub = do ExpValue _ _ (ValInteger i _) <- ubExp
                                                  return $ read i ]
 
 -- | Auxiliary function for getting semantic and construct type of a declaration.
@@ -270,7 +270,7 @@ annotateExpression e@(ExpValue _ ss (ValReal r))        = do
 annotateExpression e@(ExpValue _ ss (ValComplex e1 e2)) = do
     st <- complexLiteralType ss e1 e2
     return $ setSemType st e
-annotateExpression e@(ExpValue _ _ (ValInteger{}))     =
+annotateExpression e@(ExpValue _ _ ValInteger{})     =
     -- FIXME: in >F90, int lits can have kind info on end @_8@, same as real
     -- lits. We do parse this into the lit string, it is available to us.
     return $ setSemType (deriveSemTypeFromBaseType TypeInteger) e
@@ -721,7 +721,7 @@ deriveSemTypeFromBaseTypeAndSelector bt (Selector _ ss mLen mKindExpr) = do
         case kindExpr of
           -- FIXME: only support integer kind selectors for now, no params/exprs
           -- (would require a wide change across codebase)
-          ExpValue _ _ (ValInteger k) ->
+          ExpValue _ _ (ValInteger k _) ->
             deriveSemTypeFromBaseTypeAndKind bt (read k)
           _ -> do
             typeError "unsupported or invalid kind selector, only literal integers allowed" (getSpan kindExpr)

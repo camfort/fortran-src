@@ -172,8 +172,8 @@ collectNonLabeledDoBlocks targetLabel blocks =
 
 
 compLabel :: Maybe (Expression a) -> Maybe (Expression a) -> Bool
-compLabel (Just (ExpValue _ _ (ValInteger l1)))
-          (Just (ExpValue _ _ (ValInteger l2))) = strip l1 == strip l2
+compLabel (Just (ExpValue _ _ (ValInteger l1 _)))
+          (Just (ExpValue _ _ (ValInteger l2 _))) = strip l1 == strip l2
 compLabel _ _ = False
 
 strip :: String -> String

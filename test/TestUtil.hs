@@ -39,7 +39,7 @@ declVarGen :: String -> Declarator ()
 declVarGen str = DeclVariable () u (varGen str) Nothing Nothing
 
 intGen :: Integer -> Expression ()
-intGen i = ExpValue () u $ ValInteger $ show i
+intGen i = ExpValue () u $ ValInteger (show i) Nothing
 
 initGen :: [Expression ()] -> Expression ()
 initGen es = ExpInitialisation () u $ fromList () es
@@ -51,7 +51,7 @@ strGen :: String -> Expression ()
 strGen str = ExpValue () u $ ValString str
 
 labelGen :: Integer -> Expression ()
-labelGen i = ExpValue () u $ ValInteger $ show i
+labelGen = intGen
 
 starVal :: Expression ()
 starVal = ExpValue () u ValStar
