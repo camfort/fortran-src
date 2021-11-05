@@ -87,14 +87,11 @@ spec =
       pParser exampleProgram2 `shouldBe'` pu
 
     it "parses 'intrinsic cosh, sin'" $ do
-      let fun1 = ExpValue () u (ValVariable "cosh")
-          fun2 = ExpValue () u (ValVariable "sin")
-          st = StIntrinsic () u (AList () u [ fun1, fun2 ])
+      let st = StIntrinsic () u (AList () u [ varGen "cosh", varGen "sin" ])
       sParser "      intrinsic cosh, sin" `shouldBe'` st
 
     it "parses 'intrinsic real" $ do
-      let fun = ExpValue () u (ValVariable "real")
-          st = StIntrinsic () u (AList () u [ fun ])
+      let st = StIntrinsic () u (AList () u [ varGen "real" ])
       sParser "      intrinsic real" `shouldBe'` st
 
     describe "CHARACTER" $ do
@@ -198,9 +195,8 @@ spec =
       eParser ".true. .eqv. f(42) .neqv. x" `shouldBe'` exp
 
     it "parses 'entry me (a,b,*)'" $ do
-      let func = ExpValue () u (ValVariable "me")
-          args = [ varGen "a", varGen "b", starVal ]
-          st = StEntry () u func (Just $ AList () u args) Nothing
+      let args = [ varGen "a", varGen "b", starVal ]
+          st = StEntry () u (varGen "me") (Just $ AList () u args) Nothing
       sParser "      entry me (a,b,*)" `shouldBe'` st
 
     it "parses 'character a*8'" $ do
@@ -211,7 +207,7 @@ spec =
 
     it "parses 'character c*(ichar('A'))" $ do
       let args = AList () u [ IxSingle () u Nothing (ExpValue () u (ValString "A")) ]
-          lenExpr = ExpSubscript () u (ExpValue () u (ValVariable "ichar")) args
+          lenExpr = ExpSubscript () u (varGen "ichar") args
           decl = DeclVariable () u (varGen "c") (Just $ lenExpr) Nothing
           typeSpec = TypeSpec () u TypeCharacter Nothing
           st = StDeclaration () u typeSpec Nothing (AList () u [ decl ])
@@ -238,8 +234,8 @@ spec =
                           ]
         blParser src `shouldBe'` bl
       it "labelled" $ do
-        let label str = Just $ ExpValue () u $ ValInteger str
-            bl = BlIf () u (label "10")  Nothing [Just valTrue, Nothing] [[printBlock], [printBlock]] (label "30")
+        let label = Just . intGen
+            bl = BlIf () u (label 10)  Nothing [Just valTrue, Nothing] [[printBlock], [printBlock]] (label 30)
             src = unlines [ "10    if (.true.) then ! comment if"
                           , "        print *, 'foo'"
                           , "20    else ! comment else"
@@ -317,38 +313,37 @@ spec =
         let src = init $ unlines [ "      print *, foo % bar"
                                  , "      print *, foo.bar" ]
             expStar = ExpValue () u ValStar
-            foobar = ExpDataRef () u (ExpValue () u (ValVariable "foo")) (ExpValue () u (ValVariable "bar"))
+            foobar = ExpDataRef () u (varGen "foo") (varGen "bar")
             blStmt = BlStatement () u Nothing $ StPrint () u expStar $ Just $ AList () u [foobar]
         resetSrcSpan (iParser src) `shouldBe` [ blStmt, blStmt ]
 
       it "parse special intrinsics to arguments" $ do
         let blStmt stmt = BlStatement () u Nothing stmt
-            var = ExpValue () u . ValVariable
-            ext = blStmt $ StExternal () u $ AList () u [var "bar"]
+            ext = blStmt $ StExternal () u $ AList () u [varGen "bar"]
             arg = Just . AList () u . pure . Argument () u Nothing
             valBar = ExpFunctionCall () u (ExpValue () u (ValIntrinsic "%val"))
-                     $ arg $ var "baz"
-            call = blStmt $ StCall () u (var "bar") $ arg valBar
+                     $ arg $ varGen "baz"
+            call = blStmt $ StCall () u (varGen "bar") $ arg valBar
             pu = ProgramFile mi77 [ PUSubroutine () u (Nothing, Nothing) "foo"
-                                   (Just $ AList () u [var "baz"]) [ ext, call ] Nothing ]
+                                   (Just $ AList () u [varGen "baz"]) [ ext, call ] Nothing ]
         resetSrcSpan (pParser exampleProgram3) `shouldBe` pu
 
       it "parses character declarations with unspecfied lengths" $ do
         let src = "      character s*(*)"
             st = StDeclaration () u (TypeSpec () u TypeCharacter Nothing) Nothing $
                  AList () u [DeclVariable () u
-                               (ExpValue () u (ValVariable "s"))
+                               (varGen "s")
                                (Just (ExpValue () u ValStar))
                                Nothing]
         resetSrcSpan (slParser src) `shouldBe` st
 
       it "parses array initializers" $ do
         let src = "      integer xs(3) / 1, 2, 3 /"
-            inits = [ExpValue () u (ValInteger "1"), ExpValue () u (ValInteger "2"), ExpValue () u (ValInteger "3")]
+            inits = [intGen 1, intGen 2, intGen 3]
             st = StDeclaration () u (TypeSpec () u TypeInteger Nothing) Nothing $
                  AList () u [DeclArray () u
-                               (ExpValue () u (ValVariable "xs"))
-                               (AList () u [DimensionDeclarator () u Nothing (Just (ExpValue () u (ValInteger "3")))])
+                               (varGen "xs")
+                               (AList () u [DimensionDeclarator () u Nothing (Just (intGen 3))])
                                Nothing
                                (Just (ExpInitialisation () u $ AList () u inits))]
         resetSrcSpan (slParser src) `shouldBe` st
@@ -357,9 +352,9 @@ spec =
             inits1 = [ExpValue () u (ValString "hello"), ExpValue () u (ValString "world")]
             st1 = StDeclaration () u (TypeSpec () u TypeCharacter Nothing) Nothing $
                  AList () u [DeclArray () u
-                               (ExpValue () u (ValVariable "xs"))
-                               (AList () u [DimensionDeclarator () u Nothing (Just (ExpValue () u (ValInteger "2")))])
-                               (Just (ExpValue () u (ValInteger "5")))
+                               (varGen "xs")
+                               (AList () u [DimensionDeclarator () u Nothing (Just (intGen 2))])
+                               (Just (intGen 5))
                                (Just (ExpInitialisation () u $ AList () u inits1))]
         resetSrcSpan (slParser src1) `shouldBe` st1
 
@@ -367,33 +362,33 @@ spec =
             inits2 = [ExpValue () u (ValString "hello"), ExpValue () u (ValString "world")]
             st2 = StDeclaration () u (TypeSpec () u TypeCharacter Nothing) Nothing $
                  AList () u [DeclArray () u
-                               (ExpValue () u (ValVariable "xs"))
-                               (AList () u [DimensionDeclarator () u Nothing (Just (ExpValue () u (ValInteger "2")))])
-                               (Just (ExpValue () u (ValInteger "5")))
+                               (varGen "xs")
+                               (AList () u [DimensionDeclarator () u Nothing (Just (intGen 2))])
+                               (Just (intGen 5))
                                (Just (ExpInitialisation () u $ AList () u inits2))]
         resetSrcSpan (slParser src2) `shouldBe` st2
 
       it "parses subscripts in assignments" $ do
-        let mkIdx i = IxSingle () u Nothing (ExpValue () u (ValInteger i))
+        let mkIdx i = IxSingle () u Nothing (intGen i)
 
             src = "      x(0,1) = 0"
-            tgt = ExpSubscript () u (ExpValue () u (ValVariable "x")) (AList () u [mkIdx "0", mkIdx "1"])
-            st = StExpressionAssign () u tgt (ExpValue () u (ValInteger "0"))
+            tgt = ExpSubscript () u (varGen "x") (AList () u [mkIdx 0, mkIdx 1])
+            st = StExpressionAssign () u tgt (intGen 0)
         resetSrcSpan (slParser src) `shouldBe` st
 
         let src1 = "      x(0).foo = 0"
-            tgt1 = ExpDataRef () u (ExpSubscript () u (ExpValue () u (ValVariable "x")) (AList () u [mkIdx "0"])) (ExpValue () u (ValVariable "foo"))
-            st1 = StExpressionAssign () u tgt1 (ExpValue () u (ValInteger "0"))
+            tgt1 = ExpDataRef () u (ExpSubscript () u (varGen "x") (AList () u [mkIdx 0])) (varGen "foo")
+            st1 = StExpressionAssign () u tgt1 (intGen 0)
         resetSrcSpan (slParser src1) `shouldBe` st1
 
         let src2 = "      x.foo = 0"
-            tgt2 = ExpDataRef () u (ExpValue () u (ValVariable "x")) (ExpValue () u (ValVariable "foo"))
-            st2 = StExpressionAssign () u tgt2 (ExpValue () u (ValInteger "0"))
+            tgt2 = ExpDataRef () u (varGen "x") (varGen "foo")
+            st2 = StExpressionAssign () u tgt2 (intGen 0)
         resetSrcSpan (slParser src2) `shouldBe` st2
 
         let src3 = "      x.foo(0) = 0"
-            tgt3 = ExpSubscript () u (ExpDataRef () u (ExpValue () u (ValVariable "x")) (ExpValue () u (ValVariable "foo"))) (AList () u [mkIdx "0"])
-            st3 = StExpressionAssign () u tgt3 (ExpValue () u (ValInteger "0"))
+            tgt3 = ExpSubscript () u (ExpDataRef () u (varGen "x") (varGen "foo")) (AList () u [mkIdx 0])
+            st3 = StExpressionAssign () u tgt3 (intGen 0)
         resetSrcSpan (slParser src3) `shouldBe` st3
       it "parses automatic and static statements" $ do
         let decl = DeclVariable () u (varGen "x") Nothing Nothing

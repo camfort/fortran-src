@@ -604,8 +604,8 @@ data Index a =
   deriving (Eq, Show, Data, Typeable, Generic, Functor)
 
 -- All recursive Values
-data Value a =
-    ValInteger           String
+data Value a
+  = ValInteger           String (Maybe (Expression a))
   -- ^ The string representation of an integer literal
   | ValReal              String
   -- ^ The string representation of a real literal

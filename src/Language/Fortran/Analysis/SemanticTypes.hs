@@ -80,7 +80,7 @@ charLenSelector Nothing                          = (Nothing, Nothing)
 charLenSelector (Just (Selector _ _ mlen mkind)) = (l, k)
   where
     l = charLenSelector' <$> mlen
-    k | Just (ExpValue _ _ (ValInteger i)) <- mkind  = Just i
+    k | Just (ExpValue _ _ (ValInteger i _)) <- mkind  = Just i
       | Just (ExpValue _ _ (ValVariable s)) <- mkind = Just s
       -- FIXME: some references refer to things like kind=kanji but I can't find any spec for it
       | otherwise                                    = Nothing
@@ -89,7 +89,7 @@ charLenSelector' :: Expression a -> CharacterLen
 charLenSelector' = \case
   ExpValue _ _ ValStar        -> CharLenStar
   ExpValue _ _ ValColon       -> CharLenColon
-  ExpValue _ _ (ValInteger i) -> CharLenInt (read i)
+  ExpValue _ _ (ValInteger i _) -> CharLenInt (read i)
   _                           -> CharLenExp
 
 -- | Attempt to recover the 'Value' that generated the given 'CharacterLen'.
@@ -97,7 +97,7 @@ charLenToValue :: CharacterLen -> Maybe (Value a)
 charLenToValue = \case
   CharLenStar  -> Just ValStar
   CharLenColon -> Just ValColon
-  CharLenInt i -> Just (ValInteger (show i))
+  CharLenInt i -> Just (ValInteger (show i) Nothing)
   CharLenExp   -> Nothing
 
 getTypeKind :: SemType -> Kind
@@ -173,7 +173,7 @@ recoverSemTypeTypeSpec a ss v = \case
   where
     ts = TypeSpec a ss
     intValExpr :: Int -> Expression a
-    intValExpr x = ExpValue a ss (ValInteger (show x))
+    intValExpr x = ExpValue a ss (ValInteger (show x) Nothing)
 
     -- | Wraps 'BaseType' and 'Kind' into 'TypeSpec'. If the kind is the
     --   'BaseType''s default kind, it is omitted.

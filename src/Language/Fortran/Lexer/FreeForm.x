@@ -49,7 +49,6 @@ $hash = [\#]
 
 @digitString = $digit+
 @kindParam = (@digitString|@name)
-@intLiteralConst = @digitString (\_ @kindParam)?
 @bozLiteralConst = (@binary|@octal|@hex)
 
 $expLetter = [ed]
@@ -65,9 +64,6 @@ $expLetter = [ed]
 @altRealLiteral = @digitString \.
 
 @characterLiteralBeg = (@kindParam \_)? (\'|\")
-
-@bool = ".true." | ".false."
-@logicalLiteral = @bool (\_ @kindParam)?
 
 --------------------------------------------------------------------------------
 -- Start codes | Explanation
@@ -293,8 +289,9 @@ tokens :-
 <scN> "(".*")" / { formatP }                      { addSpanAndMatch TBlob }
 
 -- Literals
+<scN> "_"                                         { addSpan TUnderscore }
 <0> @label                                        { toSC 0 >> addSpanAndMatch TIntegerLiteral }
-<scN,scI> @intLiteralConst                        { addSpanAndMatch TIntegerLiteral  }
+<scN,scI> @digitString                            { addSpanAndMatch TIntegerLiteral }
 <scN> @bozLiteralConst                            { addSpanAndMatch TBozLiteral }
 
 <scN> @realLiteral                                { addSpanAndMatch TRealLiteral }
@@ -304,7 +301,6 @@ tokens :-
 
 <scN> ".true."  { addSpan (\s -> TLogicalLiteral s True)  }
 <scN> ".false." { addSpan (\s -> TLogicalLiteral s False) }
-<scN> "_"       { addSpan TUnderscore            }
 
 -- Operators
 <scN> ("."$letter+"."|"**"|\*|\/|\+|\-) / { opP } { addSpanAndMatch TOpCustom }

@@ -22,7 +22,7 @@ spec = do
 
     it "recovers REAL(8) for REAL(8) in Fortran 90" $ do
       let semtype  = TReal 8
-          typespec = TypeSpec () u TypeReal (Just (Selector () u Nothing (Just (ExpValue () u (ValInteger "8")))))
+          typespec = TypeSpec () u TypeReal (Just (Selector () u Nothing (Just (intGen 8))))
        in recoverSemTypeTypeSpec () u Fortran90 semtype `shouldBe` typespec
 
     it "recovers CHARACTER(*)" $ do
