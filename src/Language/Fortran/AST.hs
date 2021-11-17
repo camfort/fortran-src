@@ -114,18 +114,20 @@ module Language.Fortran.AST
   ) where
 
 import Prelude hiding (init)
+
+import Language.Fortran.AST.AList
+import Language.Fortran.AST.RealLit
+import Language.Fortran.Util.Position
+import Language.Fortran.Util.FirstParameter
+import Language.Fortran.Util.SecondParameter
+import Language.Fortran.Version (FortranVersion(..))
+
 import Data.Data
 import Data.Generics.Uniplate.Data ()
 import Data.Typeable ()
 import Data.Binary
 import Control.DeepSeq
 import Text.PrettyPrint.GenericPretty
-import Language.Fortran.Version (FortranVersion(..))
-
-import Language.Fortran.Util.Position
-import Language.Fortran.Util.FirstParameter
-import Language.Fortran.Util.SecondParameter
-import Language.Fortran.AST.AList
 
 -- | The empty annotation.
 type A0 = ()
@@ -607,7 +609,7 @@ data Index a =
 data Value a
   = ValInteger           String (Maybe (Expression a))
   -- ^ The string representation of an integer literal
-  | ValReal              String
+  | ValReal              RealLit (Maybe (Expression a))
   -- ^ The string representation of a real literal
   | ValComplex           (Expression a) (Expression a)
   -- ^ The real and imaginary parts of a complex value

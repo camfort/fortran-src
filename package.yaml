@@ -62,10 +62,12 @@ library:
   - Language.Fortran.Analysis.DataFlow
   - Language.Fortran.AST
   - Language.Fortran.AST.AList
+  - Language.Fortran.AST.RealLit
   - Language.Fortran.Version
   - Language.Fortran.LValue
   - Language.Fortran.Intrinsics
   - Language.Fortran.Lexer.FixedForm
+  - Language.Fortran.Lexer.FixedForm.Utils
   - Language.Fortran.Lexer.FreeForm
   - Language.Fortran.ParserMonad
   - Language.Fortran.Parser.Any

@@ -3,7 +3,8 @@ module Language.Fortran.Lexer.FreeFormSpec where
 import Test.Hspec
 import TestUtil
 
-import Language.Fortran.ParserMonad (FortranVersion(..))
+import Language.Fortran.AST.RealLit
+import Language.Fortran.Version
 import Language.Fortran.Lexer.FreeForm (collectFreeTokens, Token(..))
 import Language.Fortran.Util.Position (SrcSpan)
 import qualified Data.ByteString.Char8 as B
@@ -222,21 +223,29 @@ spec =
                     pseudoAssign $ flip TIntegerLiteral "42"
 
         describe "Real" $ do
-          it "lexes real (1)" $
-            shouldBe' (collectF90 "i = 10.5e2") $
-                      pseudoAssign $ flip TRealLiteral "10.5e2"
+          it "lexes real (1)" $ do
+            let litStr      = "10.5e2"
+                expectedLit = RealLit "10.5" (Exponent ExpLetterE "2")
+                expected    = pseudoAssign $ flip TRealLiteral expectedLit
+            collectF90 ("i = "<>litStr) `shouldBe'` expected
 
-          it "lexes real (2)" $
-            shouldBe' (collectF90 "i = 10.") $
-                      pseudoAssign $ flip TRealLiteral "10."
+          it "lexes real (2)" $ do
+            let litStr      = "10."
+                expectedLit = RealLit "10.0" (Exponent ExpLetterE "0")
+                expected    = pseudoAssign $ flip TRealLiteral expectedLit
+            collectF90 ("i = "<>litStr) `shouldBe'` expected
 
-          it "lexes real (3)" $
-            shouldBe' (collectF90 "i = .42") $
-                      pseudoAssign $ flip TRealLiteral ".42"
+          it "lexes real (3)" $ do
+            let litStr      = ".42"
+                expectedLit = RealLit "0.42" (Exponent ExpLetterE "0")
+                expected    = pseudoAssign $ flip TRealLiteral expectedLit
+            collectF90 ("i = "<>litStr) `shouldBe'` expected
 
-          it "lexes real (3)" $
-            shouldBe' (collectF90 "i = 42d-3") $
-                      pseudoAssign $ flip TRealLiteral "42d-3"
+          it "lexes real (4)" $ do
+            let litStr      = "42d-3"
+                expectedLit = RealLit "42.0" (Exponent ExpLetterD "-3")
+                expected    = pseudoAssign $ flip TRealLiteral expectedLit
+            collectF90 ("i = "<>litStr) `shouldBe'` expected
 
           it "resolves disambiguity when xxx. follows relational operator" $
             shouldBe' (collectF90 "if (10.EQ. 20)") $

@@ -9,7 +9,16 @@
   * Explicitly parse integer literal kind parameter #191
     * The `String` representation stored should now always be safe to `read` to
       a Haskell `Integral`.
-  * Fix renamer ambiguity resulting in unusual name-related breakages #190
+  * Fix renamer ambiguity resulting in unusual name-related breakages (e.g.
+    `ValVariable` not getting transformed to `ValIntrinsic`) #190
+  * Provide real literals in a semi-parsed "decomposed" format #193
+    * Kind parameters are also made explicit.
+    * Libraries with custom real literal parsing should be able to replace it
+      with `readRealLit :: (Fractional a, Read a) => RealLit -> a`.
+
+Note that kind parameters are disabled in fixed form parsers (F77, F66), so for
+codebases targeting older standards, most changes will be along the lines of
+`ValInteger x` -> `ValInteger x _`.
 
 ### 0.6.1 (Sep 17, 2021)
   * Properly include test data in package dist (in preparation for placing on

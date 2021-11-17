@@ -34,6 +34,7 @@ import Language.Fortran.Parser.Utils
 import Language.Fortran.Analysis
 import Language.Fortran.Analysis.BBlocks (showBlock, ASTBlockNode, ASTExprNode)
 import Language.Fortran.AST
+import Language.Fortran.AST.RealLit
 import qualified Data.Map as M
 import qualified Data.IntMap.Lazy as IM
 import qualified Data.IntMap.Strict as IMS
@@ -408,7 +409,7 @@ genConstExpMap pf = ceMap
       ExpValue _ _ (ValInteger str _)
         | Just i <- readInteger str -> Just . ConstInt $ fromIntegral i
       ExpValue _ _ (ValInteger str _) -> Just $ ConstUninterpInt str
-      ExpValue _ _ (ValReal str)    -> Just $ ConstUninterpReal str
+      ExpValue _ _ (ValReal r _)    -> Just $ ConstUninterpReal (prettyHsRealLit r) -- TODO
       ExpValue _ _ (ValVariable _)  -> getV e
       -- Recursively seek information about sub-expressions, relying on laziness.
       ExpBinary _ _ binOp e1 e2     -> constantFolding <$> liftM2 (ConstBinary binOp) (getE e1) (getE e2)

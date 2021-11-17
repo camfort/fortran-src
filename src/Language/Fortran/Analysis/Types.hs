@@ -17,6 +17,7 @@ module Language.Fortran.Analysis.Types
   ) where
 
 import Language.Fortran.AST
+import Language.Fortran.AST.RealLit
 
 import Prelude hiding (lookup, EQ, LT, GT)
 import Data.Map (insert)
@@ -32,7 +33,6 @@ import Language.Fortran.Analysis.SemanticTypes
 import Language.Fortran.Intrinsics
 import Language.Fortran.Util.Position
 import Language.Fortran.Version (FortranVersion(..))
-import Language.Fortran.Parser.Utils
 
 --------------------------------------------------
 
@@ -264,8 +264,8 @@ annotateExpression :: Data a => Expression (Analysis a) -> Infer (Expression (An
 -- handle the various literals
 annotateExpression e@(ExpValue _ _ (ValVariable _))    = maybe e (`setIDType` e) `fmap` getRecordedType (varName e)
 annotateExpression e@(ExpValue _ _ (ValIntrinsic _))   = maybe e (`setIDType` e) `fmap` getRecordedType (varName e)
-annotateExpression e@(ExpValue _ ss (ValReal r))        = do
-    k <- deriveRealLiteralKind ss r
+annotateExpression e@(ExpValue _ ss (ValReal r mkp))        = do
+    k <- deriveRealLiteralKind ss r mkp
     return $ setSemType (TReal k) e
 annotateExpression e@(ExpValue _ ss (ValComplex e1 e2)) = do
     st <- complexLiteralType ss e1 e2
@@ -291,39 +291,28 @@ annotateProgramUnit pu                        = return pu
 --
 -- Logic taken from HP's F90 reference pg.33, written to gfortran's behaviour.
 -- Stays in the 'Infer' monad so it can report type errors
-deriveRealLiteralKind :: SrcSpan -> String -> Infer Kind
-deriveRealLiteralKind ss r =
-    case realLitKindParam realLit of
-      Nothing -> return kindFromExpOrDefault
-      Just k  ->
-        case realLitExponent realLit of
-          Nothing  -> return k  -- no exponent, use kind param
-          Just expo ->
-            -- can only use kind param with 'e' or no exponent
-            case expLetter expo of
-              ExpLetterE -> return k
-              _          -> do
-                -- badly formed literal, but we'll allow and use the provided
-                -- kind param (with no doubling or anything)
-                typeError "only real literals with exponent letter 'e' can specify explicit kind parameter" ss
-                return k
-  where
-    realLit = parseRealLiteral r
-    kindFromExpOrDefault =
-        case realLitExponent realLit of
-          -- no exponent: select default real kind
-          Nothing             -> 4
-          Just expo           ->
-            case expLetter expo of
-              ExpLetterE -> 4
-              ExpLetterD -> 8
+deriveRealLiteralKind :: SrcSpan -> RealLit -> Maybe (Expression a) -> Infer Kind
+deriveRealLiteralKind ss r mkp =
+    case mkp of
+      Nothing -> case exponentLetter (realLitExponent r) of
+                   ExpLetterE -> return  4
+                   ExpLetterD -> return  8
+                   ExpLetterQ -> return 16
+      Just _ {- kp -} -> case exponentLetter (realLitExponent r) of
+                   ExpLetterE -> return 0 -- TODO return k
+                   _          -> do
+                     -- badly formed literal, but we'll allow and use the
+                     -- provided kind param (with no doubling or anything)
+                     typeError ("only real literals with exponent letter 'e'"
+                             <> "can specify explicit kind parameter") ss
+                     return 0 -- TODO return k
 
 -- | Get the type of a COMPLEX literal constant.
 --
 -- The kind is derived only from the first expression, the second is ignored.
 complexLiteralType :: SrcSpan -> Expression a -> Expression a -> Infer SemType
-complexLiteralType ss (ExpValue _ _ (ValReal r)) _ = do
-    k1 <- deriveRealLiteralKind ss r
+complexLiteralType ss (ExpValue _ _ (ValReal r mkp)) _ = do
+    k1 <- deriveRealLiteralKind ss r mkp
     return $ TComplex k1
 complexLiteralType _ _ _ = return $ deriveSemTypeFromBaseType TypeComplex
 

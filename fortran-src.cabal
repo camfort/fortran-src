@@ -71,10 +71,12 @@ library
       Language.Fortran.Analysis.DataFlow
       Language.Fortran.AST
       Language.Fortran.AST.AList
+      Language.Fortran.AST.RealLit
       Language.Fortran.Version
       Language.Fortran.LValue
       Language.Fortran.Intrinsics
       Language.Fortran.Lexer.FixedForm
+      Language.Fortran.Lexer.FixedForm.Utils
       Language.Fortran.Lexer.FreeForm
       Language.Fortran.ParserMonad
       Language.Fortran.Parser.Any
@@ -155,6 +157,7 @@ test-suite spec
       Language.Fortran.Analysis.SemanticTypesSpec
       Language.Fortran.Analysis.TypesSpec
       Language.Fortran.AnalysisSpec
+      Language.Fortran.AST.RealLitSpec
       Language.Fortran.Lexer.FixedFormSpec
       Language.Fortran.Lexer.FreeFormSpec
       Language.Fortran.Parser.Fortran2003Spec
@@ -162,9 +165,9 @@ test-suite spec
       Language.Fortran.Parser.Fortran66Spec
       Language.Fortran.Parser.Fortran77.IncludeSpec
       Language.Fortran.Parser.Fortran77.ParserSpec
-      Language.Fortran.Parser.Fortran90PlusCommon
       Language.Fortran.Parser.Fortran90Spec
       Language.Fortran.Parser.Fortran95Spec
+      Language.Fortran.Parser.FreeFormCommon
       Language.Fortran.Parser.UtilsSpec
       Language.Fortran.ParserMonadSpec
       Language.Fortran.PrettyPrintSpec

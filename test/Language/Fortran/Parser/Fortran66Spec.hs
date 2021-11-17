@@ -29,35 +29,6 @@ spec =
   describe "Fortran 66 Parser" $ do
     describe "Expressions" $ do
       describe "Arithmetic expressions" $ do
-        describe "Real numbers" $ do
-          it "parses 'hello" $ do
-            let expectedExp = varGen "hello"
-            eParser "hello" `shouldBe'` expectedExp
-
-          it "parses '3.14" $ do
-            let expectedExp = ExpValue () u (ValReal "3.14")
-            eParser "3.14" `shouldBe'` expectedExp
-
-          it "parses '.14" $ do
-            let expectedExp = ExpValue () u (ValReal ".14")
-            eParser ".14" `shouldBe'` expectedExp
-
-          it "parses '3." $ do
-            let expectedExp = ExpValue () u (ValReal "3.")
-            eParser "3." `shouldBe'` expectedExp
-
-          it "parses '3E12" $ do
-            let expectedExp = ExpValue () u (ValReal "3e12")
-            eParser "3E12" `shouldBe'` expectedExp
-
-          it "parses '3.14d12" $ do
-            let expectedExp = ExpValue () u (ValReal "3.14d12")
-            eParser "3.14d12" `shouldBe'` expectedExp
-
-          it "parses '.14d+1" $ do
-            let expectedExp = ExpValue () u (ValReal ".14d+1")
-            eParser ".14d+1" `shouldBe'` expectedExp
-
         it "parses '3'" $ do
           let expectedExp = intGen 3
           eParser "3" `shouldBe'` expectedExp

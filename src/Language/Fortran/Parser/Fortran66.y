@@ -18,8 +18,10 @@ import Language.Fortran.Util.Position
 import Language.Fortran.Util.ModFile
 import Language.Fortran.ParserMonad
 import Language.Fortran.Lexer.FixedForm
+import Language.Fortran.Lexer.FixedForm.Utils
 import Language.Fortran.Transformer
 import Language.Fortran.AST
+import Language.Fortran.AST.RealLit
 
 }
 
@@ -446,18 +448,6 @@ TYPE_SPEC :: { TypeSpec A0 }
 | complex           { TypeSpec () (getSpan $1) TypeComplex Nothing }
 
 {
-
-makeReal :: Maybe Token -> Maybe Token -> Maybe Token -> Maybe (SrcSpan, String) -> Expression A0
-makeReal i1 dot i2 exp =
-  let span1   = getSpan (i1, dot, i2)
-      span2   = case exp of
-                  Just e -> getTransSpan span1 (fst e)
-                  Nothing -> span1
-      i1Str   = case i1 of { Just (TInt _ s) -> s ; _ -> "" }
-      dotStr  = case dot of { Just (TDot _) -> "." ; _ -> "" }
-      i2Str   = case i2 of { Just (TInt _ s) -> s ; _ -> "" }
-      expStr  = case exp of { Just (_, s) -> s ; _ -> "" } in
-    ExpValue () span2 (ValReal $ i1Str ++ dotStr ++ i2Str ++ expStr)
 
 parse = runParse programParser
 defTransforms = defaultTransformations Fortran66

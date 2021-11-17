@@ -1397,7 +1397,12 @@ INTEGER_LITERAL :: { Expression A0 }
 | boz { let TBozLiteral s i = $1 in ExpValue () s $ ValInteger i Nothing }
 
 REAL_LITERAL :: { Expression A0 }
-: float { let TRealLiteral s r = $1 in ExpValue () s $ ValReal r }
+: float
+  { let TRealLiteral s r = $1
+     in ExpValue () s $ ValReal r Nothing }
+| float '_' KIND_PARAM
+  { let TRealLiteral s r = $1
+     in ExpValue () s $ ValReal r (Just $3) }
 
 LOGICAL_LITERAL :: { Expression A0 }
 : bool

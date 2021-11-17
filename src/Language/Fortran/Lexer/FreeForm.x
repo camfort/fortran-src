@@ -27,6 +27,7 @@ import Language.Fortran.ParserMonad
 import Language.Fortran.Util.Position
 import Language.Fortran.Util.FirstParameter
 import Language.Fortran.Parser.Utils (readInteger)
+import Language.Fortran.AST.RealLit (RealLit, parseRealLit)
 
 }
 
@@ -54,13 +55,12 @@ $hash = [\#]
 $expLetter = [ed]
 @exponent = [\-\+]? @digitString
 @significand = @digitString? \. @digitString
-@realLiteral = @significand ($expLetter @exponent)? (\_ @kindParam)?
-             | @digitString $expLetter @exponent (\_ @kindParam)?
-             -- The following two complements @altRealLiteral the reason they
-             -- are included in the general case is to reduce the number of
+@realLiteral = @significand ($expLetter @exponent)?
+             | @digitString $expLetter @exponent
+             -- The following complements @altRealLiteral . The reason it is
+             -- included in the general case is to reduce the number of
              -- semantic predicates to be made while lexing.
-             | @digitString \. $expLetter @exponent (\_ @kindParam)?
-             | @digitString \. \_ @kindParam
+             | @digitString \. $expLetter @exponent
 @altRealLiteral = @digitString \.
 
 @characterLiteralBeg = (@kindParam \_)? (\'|\")
@@ -294,8 +294,8 @@ tokens :-
 <scN,scI> @digitString                            { addSpanAndMatch TIntegerLiteral }
 <scN> @bozLiteralConst                            { addSpanAndMatch TBozLiteral }
 
-<scN> @realLiteral                                { addSpanAndMatch TRealLiteral }
-<scN> @altRealLiteral / { notPrecedingDotP }      { addSpanAndMatch TRealLiteral }
+<scN> @realLiteral                                { addSpanAndMatch $ \ss s -> TRealLiteral ss (parseRealLit s) }
+<scN> @altRealLiteral / { notPrecedingDotP }      { addSpanAndMatch $ \ss s -> TRealLiteral ss (parseRealLit s) }
 
 <scN,scC> @characterLiteralBeg                    { lexCharacter }
 
@@ -1152,8 +1152,7 @@ data Token =
   | TComment            SrcSpan String
   | TString             SrcSpan String
   | TIntegerLiteral     SrcSpan String
-  -- | TRealLiteral        SrcSpan String (Maybe RealExponent) (Maybe KindParam)
-  | TRealLiteral        SrcSpan String
+  | TRealLiteral        SrcSpan RealLit
   | TBozLiteral         SrcSpan String
   | TComma              SrcSpan
   | TComma2             SrcSpan
