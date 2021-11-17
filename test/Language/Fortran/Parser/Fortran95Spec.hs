@@ -4,7 +4,7 @@ import Prelude hiding (GT, EQ, exp, pred)
 
 import Test.Hspec
 import TestUtil
-import Language.Fortran.Parser.Fortran90PlusCommon
+import Language.Fortran.Parser.FreeFormCommon
 
 import Control.Exception (evaluate)
 
@@ -657,4 +657,4 @@ spec =
       let st = StDeclaration () u ty (Just (AList () u attrs)) (AList () u decls)
       sParser "integer, volatile :: a, b" `shouldBe'` st
 
-    specF90PlusCommon sParser eParser
+    specFreeFormCommon sParser eParser

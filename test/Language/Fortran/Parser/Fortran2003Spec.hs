@@ -5,7 +5,7 @@ import Prelude hiding (GT, EQ, exp, pred)
 
 import Test.Hspec
 import TestUtil
-import Language.Fortran.Parser.Fortran90PlusCommon
+import Language.Fortran.Parser.FreeFormCommon
 
 import Language.Fortran.AST
 import Language.Fortran.ParserMonad
@@ -177,4 +177,4 @@ spec =
             expBinVars op x1 x2 = ExpBinary () u op (expValVar x1) (expValVar x2)
         bParser text `shouldBe'` expected
 
-    specF90PlusCommon sParser eParser
+    specFreeFormCommon sParser eParser

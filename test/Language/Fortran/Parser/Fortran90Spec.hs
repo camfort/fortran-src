@@ -4,7 +4,7 @@ import Prelude hiding (GT, exp, pred)
 
 import Test.Hspec
 import TestUtil
-import Language.Fortran.Parser.Fortran90PlusCommon
+import Language.Fortran.Parser.FreeFormCommon
 
 import Language.Fortran.AST
 import Language.Fortran.ParserMonad
@@ -593,4 +593,4 @@ spec =
       let st = StUse () u (varGen "stats_lib") Nothing Exclusive (Just onlys)
       sParser "use stats_lib, only: a, b => c, operator(+), assignment(=)" `shouldBe'` st
 
-    specF90PlusCommon sParser eParser
+    specFreeFormCommon sParser eParser

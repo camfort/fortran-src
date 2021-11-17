@@ -8,6 +8,7 @@ import Data.Data
 import Data.Generics.Uniplate.Data
 
 import Language.Fortran.AST
+import Language.Fortran.AST.RealLit
 import Language.Fortran.ParserMonad
 import Language.Fortran.Util.Position
 
@@ -45,7 +46,7 @@ initGen :: [Expression ()] -> Expression ()
 initGen es = ExpInitialisation () u $ fromList () es
 
 realGen :: (Fractional a, Show a) => a -> Expression ()
-realGen i = ExpValue () u $ ValReal $ show i
+realGen i = ExpValue () u $ ValReal (parseRealLit (show i)) Nothing
 
 strGen :: String -> Expression ()
 strGen str = ExpValue () u $ ValString str
