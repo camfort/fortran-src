@@ -72,6 +72,7 @@ library
       Language.Fortran.AST
       Language.Fortran.AST.AList
       Language.Fortran.AST.RealLit
+      Language.Fortran.AST.Boz
       Language.Fortran.Version
       Language.Fortran.LValue
       Language.Fortran.Intrinsics
@@ -157,6 +158,7 @@ test-suite spec
       Language.Fortran.Analysis.SemanticTypesSpec
       Language.Fortran.Analysis.TypesSpec
       Language.Fortran.AnalysisSpec
+      Language.Fortran.AST.BozSpec
       Language.Fortran.AST.RealLitSpec
       Language.Fortran.Lexer.FixedFormSpec
       Language.Fortran.Lexer.FreeFormSpec

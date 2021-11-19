@@ -63,6 +63,7 @@ library:
   - Language.Fortran.AST
   - Language.Fortran.AST.AList
   - Language.Fortran.AST.RealLit
+  - Language.Fortran.AST.Boz
   - Language.Fortran.Version
   - Language.Fortran.LValue
   - Language.Fortran.Intrinsics

@@ -117,6 +117,7 @@ import Prelude hiding (init)
 
 import Language.Fortran.AST.AList
 import Language.Fortran.AST.RealLit
+import Language.Fortran.AST.Boz (Boz)
 import Language.Fortran.Util.Position
 import Language.Fortran.Util.FirstParameter
 import Language.Fortran.Util.SecondParameter
@@ -615,6 +616,8 @@ data Value a
   -- ^ The real and imaginary parts of a complex value
   | ValString            String
   -- ^ A string literal
+  | ValBoz               Boz
+  -- ^ A BOZ literal constant
   | ValHollerith         String
   -- ^ A Hollerith literal
   | ValVariable          Name
