@@ -1,7 +1,9 @@
 module Language.Fortran.Lexer.FixedFormSpec where
 
 import Language.Fortran.ParserMonad
+--import Language.Fortran.Version (required when ParserMonad stops exporting it)
 import Language.Fortran.Lexer.FixedForm
+import Language.Fortran.AST.Boz
 
 import Test.Hspec
 import Test.Hspec.QuickCheck
@@ -214,9 +216,12 @@ spec =
 
       it "lexes BOZ constants" $
         resetSrcSpan (collectFixedTokens' Fortran77Legacy "      integer i, j, k / b'0101', o'0755', z'ab01' /")
-          `shouldBe` resetSrcSpan [ TType u "integer", TId u "i", TComma u, TId u "j", TComma u, TId u"k"
-                                  , TSlash u, TBozInt u "b'0101'", TComma u, TBozInt u "o'0755'", TComma u, TBozInt u "z'ab01'", TSlash u
-                                  , TEOF u ]
+          `shouldBe` resetSrcSpan [ TType u "integer"
+                                  , TId u "i", TComma u, TId u "j", TComma u, TId u "k"
+                                  , TSlash u, TBozLiteral u (parseBoz "b'0101'")
+                                  , TComma u, TBozLiteral u (parseBoz "o'0755'")
+                                  , TComma u, TBozLiteral u (parseBoz "z'ab01'")
+                                  , TSlash u , TEOF u ]
 
       it "lexes non-standard identifiers" $
         resetSrcSpan (collectFixedTokens' Fortran77Legacy "      integer _this_is_a_long_identifier$")

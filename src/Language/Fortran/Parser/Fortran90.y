@@ -1135,7 +1135,7 @@ INTEGER_LITERAL :: { Expression A0 }
 | int '_' KIND_PARAM
   { let TIntegerLiteral s i = $1
      in ExpValue () s $ ValInteger i (Just $3) }
-| boz { let TBozLiteral s i = $1 in ExpValue () s $ ValInteger i Nothing }
+| boz { let TBozLiteral s b = $1 in ExpValue () s $ ValBoz b }
 
 REAL_LITERAL :: { Expression A0 }
 : float

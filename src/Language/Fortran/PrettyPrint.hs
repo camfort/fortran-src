@@ -14,6 +14,7 @@ import Prelude hiding (EQ,LT,GT,pred,exp,(<>))
 
 import Language.Fortran.AST
 import Language.Fortran.AST.RealLit
+import Language.Fortran.AST.Boz
 import Language.Fortran.Version
 import Language.Fortran.Util.FirstParameter
 
@@ -970,6 +971,7 @@ instance Pretty (Value a) where
       where litStr = if b then ".true." else ".false."
     pprint' v (ValInteger i kp) = text i <> kpPretty v kp
     pprint' v (ValReal r kp) = text (prettyHsRealLit r) <> kpPretty v kp
+    pprint' _ (ValBoz b) = text $ prettyBoz b
     pprint' _ valLit = text . getFirstParameter $ valLit
 
 -- | Helper for pretty printing an optional kind parameter 'Expression'.

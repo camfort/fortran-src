@@ -141,7 +141,7 @@ import Control.Exception
   format                { TFormat _ }
   blob                  { TBlob _ _ }
   int                   { TInt _ _ }
-  boz                   { TBozInt _ _ }
+  boz                   { TBozLiteral _ _ }
   exponent              { TExponent _ _ }
   bool                  { TBool _ _ }
   '+'                   { TOpPlus _ }
@@ -920,7 +920,7 @@ VARIABLE :: { Expression A0 }
 
 INTEGER_LITERAL :: { Expression A0 }
 : int { ExpValue () (getSpan $1) $ let (TInt _ i) = $1 in ValInteger i Nothing}
-| boz { let TBozInt s i = $1 in ExpValue () s $ ValInteger i Nothing}
+| boz { let TBozLiteral s b = $1 in ExpValue () s $ ValBoz b }
 
 REAL_LITERAL :: { Expression A0 }
 : int EXPONENT { makeReal (Just $1) Nothing Nothing (Just $2) }

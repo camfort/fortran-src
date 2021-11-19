@@ -11,6 +11,7 @@ import Data.Generics.Uniplate.Operations
 import Data.Maybe (catMaybes)
 
 import Language.Fortran.AST as LFA
+import Language.Fortran.AST.Boz
 import Language.Fortran.ParserMonad
 import Language.Fortran.PrettyPrint
 
@@ -107,6 +108,10 @@ spec =
         let lit    = ValLogical False (Just kpExpr)
             kpExpr = intGen 8
         pprint Fortran90 lit Nothing `shouldBe` ".false._8"
+
+      it "prints BOZ constant with prefix" $ do
+        let lit = ValBoz $ Boz BozPrefixZ "123abc"
+        pprint Fortran90 lit Nothing `shouldBe` "z'123abc'"
 
     describe "Statement" $ do
       describe "Declaration" $ do

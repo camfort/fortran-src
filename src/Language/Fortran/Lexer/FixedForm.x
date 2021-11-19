@@ -26,25 +26,26 @@ import Control.Monad.State
 import GHC.Generics
 
 import Language.Fortran.ParserMonad
-
+--import Language.Fortran.Version (required when ParserMonad stops exporting it)
 import Language.Fortran.Util.FirstParameter
 import Language.Fortran.Util.Position
 import Language.Fortran.Parser.Utils (readInteger)
+import Language.Fortran.AST.Boz
 
 }
 
-$digit = [0-9]
+$digit      = 0-9
+$bit        = 0-1
 $octalDigit = 0-7
-$hexDigit = [a-f $digit]
-$bit = 0-1
+$hexDigit   = [a-f $digit]
 
 $hash = [\#]
 
 @binary = b\'$bit+\' | \'$bit+\'b
-@octal = o\'$octalDigit+\' | \'$octalDigit+\'o
-@hex = x\'$hexDigit+\' | \'$hexDigit+\'x | z\'$hexDigit+\' | \'$hexDigit+\'z
+@octal  = o\'$octalDigit+\' | \'$octalDigit+\'o
+@hex    = [xz]\'$hexDigit+\' | \'$hexDigit+\'[xz]
 
-$letter = [a-z]
+$letter = a-z
 $alphanumeric = [$letter $digit]
 $alphanumericExtended = [$letter $digit \_]
 $special = [\ \=\+\-\*\/\(\)\,\.\$]
@@ -62,7 +63,7 @@ $special = [\ \=\+\-\*\/\(\)\,\.\$]
           | "byte"
 
 -- Numbers
-@integerConst = $digit+ -- Integer constant
+@integerConst = $digit+
 @posIntegerConst = [1-9] $digit*
 @bozLiteralConst = (@binary|@octal|@hex)
 
@@ -210,7 +211,7 @@ tokens :-
   <st,iif> @integerConst                      { addSpanAndMatch TInt }
     -- can be part (end) of function type declaration
   <keyword> @integerConst                     { typeSCChange >> addSpanAndMatch TInt }
-  <st,iif,keyword> @bozLiteralConst / { legacy77P } { addSpanAndMatch TBozInt }
+  <st,iif,keyword> @bozLiteralConst / { legacy77P } { addSpanAndMatch $ \ss s -> TBozLiteral ss (parseBoz s) }
 
   -- String
   <st,iif> \' / { fortran77P }                { strAutomaton '\'' 0 }
@@ -803,7 +804,7 @@ data Token = TLeftPar             SrcSpan
            | TFormat              SrcSpan
            | TBlob                SrcSpan String
            | TInt                 SrcSpan String
-           | TBozInt              SrcSpan String
+           | TBozLiteral          SrcSpan Boz
            | TExponent            SrcSpan String
            | TBool                SrcSpan Bool
            | TOpPlus              SrcSpan

@@ -24,17 +24,19 @@ import Control.Monad.State (get)
 import GHC.Generics
 
 import Language.Fortran.ParserMonad
+--import Language.Fortran.Version (required when ParserMonad stops exporting it)
 import Language.Fortran.Util.Position
 import Language.Fortran.Util.FirstParameter
 import Language.Fortran.Parser.Utils (readInteger)
 import Language.Fortran.AST.RealLit (RealLit, parseRealLit)
+import Language.Fortran.AST.Boz
 
 }
 
-$digit = 0-9
+$digit      = 0-9
+$bit        = 0-1
 $octalDigit = 0-7
-$hexDigit = [a-f $digit]
-$bit = 0-1
+$hexDigit   = [a-f $digit]
 
 $letter = a-z
 $alphanumeric = [$letter $digit \_]
@@ -45,13 +47,14 @@ $hash = [\#]
 @name = $letter $alphanumeric*
 
 @binary = b\'$bit+\'
-@octal = o\'$octalDigit+\'
-@hex = z\'$hexDigit+\'
+@octal  = o\'$octalDigit+\'
+@hex    = z\'$hexDigit+\'
 
 @digitString = $digit+
 @kindParam = (@digitString|@name)
 @bozLiteralConst = (@binary|@octal|@hex)
 
+-- Real literals
 $expLetter = [ed]
 @exponent = [\-\+]? @digitString
 @significand = @digitString? \. @digitString
@@ -292,7 +295,7 @@ tokens :-
 <scN> "_"                                         { addSpan TUnderscore }
 <0> @label                                        { toSC 0 >> addSpanAndMatch TIntegerLiteral }
 <scN,scI> @digitString                            { addSpanAndMatch TIntegerLiteral }
-<scN> @bozLiteralConst                            { addSpanAndMatch TBozLiteral }
+<scN> @bozLiteralConst                            { addSpanAndMatch $ \ss s -> TBozLiteral ss (parseBoz s) }
 
 <scN> @realLiteral                                { addSpanAndMatch $ \ss s -> TRealLiteral ss (parseRealLit s) }
 <scN> @altRealLiteral / { notPrecedingDotP }      { addSpanAndMatch $ \ss s -> TRealLiteral ss (parseRealLit s) }
@@ -1153,7 +1156,7 @@ data Token =
   | TString             SrcSpan String
   | TIntegerLiteral     SrcSpan String
   | TRealLiteral        SrcSpan RealLit
-  | TBozLiteral         SrcSpan String
+  | TBozLiteral         SrcSpan Boz
   | TComma              SrcSpan
   | TComma2             SrcSpan
   | TSemiColon          SrcSpan

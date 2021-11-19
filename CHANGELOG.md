@@ -3,21 +3,25 @@
     (thanks @envp) #179
   * CI builds on Mac; more release automation #181 #189
   * Handle nonstandard kind parameter in parsing & type analysis #188
+  * Fix renamer ambiguity resulting in unusual name-related breakages (e.g.
+    `ValVariable` not getting transformed to `ValIntrinsic`) #190
   * Fully parse logical literals early (don't leave as `String`) #185
     * Code that touches `ValLogical` will have to be updated -- it should mean
       removal of user-side parsing.
   * Explicitly parse integer literal kind parameter #191
     * The `String` representation stored should now always be safe to `read` to
       a Haskell `Integral`.
-  * Fix renamer ambiguity resulting in unusual name-related breakages (e.g.
-    `ValVariable` not getting transformed to `ValIntrinsic`) #190
   * Provide real literals in a semi-parsed "decomposed" format #193
     * Kind parameters are also made explicit.
     * Libraries with custom real literal parsing should be able to replace it
       with `readRealLit :: (Fractional a, Read a) => RealLit -> a`.
+  * Parse BOZ literal constants into their own `Value` constructor (instead of
+    together with integers) #194
+    * Also parse them to an intermediate data type and provide handling
+      functions.
 
 Note that kind parameters are disabled in fixed form parsers (F77, F66), so for
-codebases targeting older standards, most changes will be along the lines of
+codebases targeting older standards, many changes will be along the lines of
 `ValInteger x` -> `ValInteger x _`.
 
 ### 0.6.1 (Sep 17, 2021)
