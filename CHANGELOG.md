@@ -9,6 +9,7 @@
   * Explicitly parse integer literal kind parameter #191
     * The `String` representation stored should now always be safe to `read` to
       a Haskell `Integral`.
+  * Fix renamer ambiguity resulting in unusual name-related breakages #190
 
 ### 0.6.1 (Sep 17, 2021)
   * Properly include test data in package dist (in preparation for placing on
