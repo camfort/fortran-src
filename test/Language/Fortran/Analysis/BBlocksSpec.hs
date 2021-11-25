@@ -62,7 +62,7 @@ spec =
         reached `shouldBe` nodeSet
     describe "gotos" $ do
       let pf = pParser programGotos
-          gr = fromJust . M.lookup (Named "_gotos1") $ genBBlockMap pf
+          gr = fromJust . M.lookup (Named "_gotos_1") $ genBBlockMap pf
           ns = nodes $ bbgrGr gr
           es = edges $ bbgrGr gr
           nodeSet = IS.fromList ns

@@ -201,12 +201,26 @@ getUniqNum = do
   modify $ \ s -> s { uniqNums = drop 1 (uniqNums s) }
   return uniqNum
 
--- Concat a scope, a variable, and a freshly generated number together
--- to generate a "unique name".
+-- | Concat a scope, a variable, and a freshly generated number together to
+--   generate a "unique name".
+--
+-- GitHub issue #190 showed it was possible to generate the same unique name for
+-- two different variables, if using the following unique name schema:
+--
+--     scope "_" var n
+--     n=3:  int1 -> func_int13
+--     n=13: int  -> func_int13
+--
+-- Instead, we now insert another underscore between the variable and the fresh
+-- number, to disambiguate where the fresh number starts.
+--
+--     scope "_" var "_" n
+--     n=3:  int1 -> func_int1_3
+--     n=13: int  -> func_int_13
 uniquify :: String -> String -> Renamer String
 uniquify scope var = do
   n <- getUniqNum
-  return $ scope ++ "_" ++ var ++ show n
+  return $ scope ++ "_" ++ var ++ "_" ++ show n
 
 --isModule :: ProgramUnit a -> Bool
 --isModule (PUModule {}) = True; isModule _             = False

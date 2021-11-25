@@ -24,6 +24,11 @@ unrename' = stripAnalysis . unrename . rename . analyseRenames . initAnalysis
 --renameAndStrip' :: Data a => ProgramFile a -> ProgramFile a
 --renameAndStrip' x = stripAnalysis . rename . analyseRenames . initAnalysis $ x
 
+-- ideally use renaming internals instead of redefining here (but tests should
+-- error if they don't match)
+buildUniqueName :: String -> String -> Int -> String
+buildUniqueName scope var n = scope <> "_" <> var <> "_" <> show n
+
 countUnrenamed :: ProgramFile (Analysis ()) -> Int
 countUnrenamed e = length [ () | ExpValue Analysis { uniqueName = Nothing } _ ValVariable {} <- uniE_PF e ]
   where uniE_PF :: ProgramFile (Analysis ()) -> [Expression (Analysis ())]
@@ -104,6 +109,22 @@ spec = do
     it "exScope2 testing shadowing of variables" $ do
       let entry = extractNameMap' exScope2
       length (filter (=="x") (elems entry)) `shouldBe` 2
+
+    -- GitHub issue #190 https://github.com/camfort/fortran-src/issues/190
+    it "doesn't generate same unique name in edge case" $ do
+      let ex = resetSrcSpan . flip fortran90Parser "" $ unlines
+                 [ "program p1"
+                 , "  implicit none"
+                 , "  integer x, int1, a1, a2, a3, a4, a5, a6, a7, a8, a9"
+                 , "  x = INT(int1)"
+                 , "end program p1"
+                 ]
+          entry  = extractNameMap' ex
+          v1 = buildUniqueName "p1" "int1" 2
+          v2 = buildUniqueName "p1" "int" 12
+          Just v1uniq = M.lookup v1 entry   -- p1_int1_2
+          Just v2uniq = M.lookup v2 entry   -- p1_int_12
+      v1uniq `shouldNotBe` v2uniq
 
   describe "Ordering" $
     it "exScope3 testing out-of-order definitions" $ do
