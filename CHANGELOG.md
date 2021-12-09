@@ -1,4 +1,4 @@
-### 0.6.2 (Unreleased)
+### 0.7.0 (Dec 09, 2021)
   * No longer treat `!` in strings as comments in continuation reformatter
     (thanks @envp) #179
   * CI builds on Mac; more release automation #181 #189
@@ -15,8 +15,8 @@
     * Kind parameters are also made explicit.
     * Libraries with custom real literal parsing should be able to replace it
       with `readRealLit :: (Fractional a, Read a) => RealLit -> a`.
-  * Parse BOZ literal constants into their own `Value` constructor (instead of
-    together with integers) #194
+  * BOZ literal constants receive their own `Value` constructor (instead of
+    sharing one with integers) #194
     * Also parse them to an intermediate data type and provide handling
       functions.
 
