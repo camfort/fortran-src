@@ -44,7 +44,7 @@ specFreeFormCommon sParser eParser =
               expected = StDeclaration () u typeSpec Nothing decls
               typeSpec = TypeSpec () u TypeInteger Nothing
               decls    = AList () u
-                [ DeclVariable () u (varGen "x") (Just (intGen 8)) Nothing ]
+                [ declVariable () u (varGen "x") (Just (intGen 8)) Nothing ]
           sParser stStr `shouldBe'` expected
 
         it "parses array declaration with nonstandard kind param (non-CHAR)" $ do
@@ -52,7 +52,7 @@ specFreeFormCommon sParser eParser =
               expected = StDeclaration () u typeSpec Nothing decls
               typeSpec = TypeSpec () u TypeInteger Nothing
               decls    = AList () u
-                [ DeclArray () u (varGen "x") dims (Just (intGen 8)) Nothing ]
+                [ declArray () u (varGen "x") dims (Just (intGen 8)) Nothing ]
               dims     = AList () u
                 [ DimensionDeclarator () u Nothing (Just (intGen 2)) ]
           sParser stStr `shouldBe'` expected
@@ -62,7 +62,7 @@ specFreeFormCommon sParser eParser =
               expected = StDeclaration () u typeSpec Nothing decls
               typeSpec = TypeSpec () u TypeInteger Nothing
               decls    = AList () u
-                [ DeclArray () u (varGen "x") dims (Just (intGen 8)) Nothing ]
+                [ declArray () u (varGen "x") dims (Just (intGen 8)) Nothing ]
               dims     = AList () u
                 [ DimensionDeclarator () u Nothing (Just (intGen 2)) ]
           sParser stStr `shouldBe'` expected

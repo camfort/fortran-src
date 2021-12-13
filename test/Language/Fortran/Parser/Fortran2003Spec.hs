@@ -43,34 +43,34 @@ spec =
         let renames = fromList ()
               [ UseRename () u (varGen "sprod") (varGen "prod")
               , UseRename () u (varGen "a") (varGen "b") ]
-        let st = StUse () u (varGen "mod") (Just ModIntrinsic) Permissive (Just renames)
+            st = StUse () u (varGen "mod") (Just ModIntrinsic) Permissive (Just renames)
         sParser "use, intrinsic :: mod, sprod => prod, a => b" `shouldBe'` st
 
       it "parses use statement, non_intrinsic module" $ do
         let renames = fromList ()
               [ UseRename () u (varGen "sprod") (varGen "prod")
               , UseRename () u (varGen "a") (varGen "b") ]
-        let st = StUse () u (varGen "mod") (Just ModNonIntrinsic) Exclusive (Just renames)
+            st = StUse () u (varGen "mod") (Just ModNonIntrinsic) Exclusive (Just renames)
         sParser "use, non_intrinsic :: mod, only: sprod => prod, a => b" `shouldBe'` st
 
       it "parses use statement, unspecified nature of module" $ do
         let renames = fromList ()
               [ UseRename () u (varGen "sprod") (varGen "prod")
               , UseRename () u (varGen "a") (varGen "b") ]
-        let st = StUse () u (varGen "mod") Nothing Permissive (Just renames)
+            st = StUse () u (varGen "mod") Nothing Permissive (Just renames)
         sParser "use :: mod, sprod => prod, a => b" `shouldBe'` st
 
       it "parses procedure (interface-name, attribute, proc-decl)" $ do
         let call = ExpFunctionCall () u (varGen "c") Nothing
-        let st = StProcedure () u (Just (ProcInterfaceName () u (varGen "a")))
+            st = StProcedure () u (Just (ProcInterfaceName () u (varGen "a")))
                                   (Just (AttrSave () u))
                                   (AList () u [ProcDecl () u (varGen "b") (Just call)])
         sParser "PROCEDURE(a), SAVE :: b => c()" `shouldBe'` st
 
       it "parses procedure (class-star, bind-name, proc-decls)" $ do
         let call = ExpFunctionCall () u (varGen "c") Nothing
-        let clas = TypeSpec () u ClassStar Nothing
-        let st = StProcedure () u (Just (ProcInterfaceType () u clas))
+            clas = TypeSpec () u ClassStar Nothing
+            st = StProcedure () u (Just (ProcInterfaceType () u clas))
                                   (Just (AttrSuffix () u (SfxBind () u (Just (ExpValue () u (ValString "e"))))))
                                   (AList () u [ProcDecl () u (varGen "b") (Just call)
                                               ,ProcDecl () u (varGen "d") (Just call)])
@@ -78,8 +78,8 @@ spec =
 
       it "parses procedure (class-custom, bind, proc-decls)" $ do
         let call = ExpFunctionCall () u (varGen "c") Nothing
-        let clas = TypeSpec () u (ClassCustom "e") Nothing
-        let st = StProcedure () u (Just (ProcInterfaceType () u clas))
+            clas = TypeSpec () u (ClassCustom "e") Nothing
+            st = StProcedure () u (Just (ProcInterfaceType () u clas))
                                   (Just (AttrSuffix () u (SfxBind () u Nothing)))
                                   (AList () u [ProcDecl () u (varGen "b") (Just call)
                                               ,ProcDecl () u (varGen "d") (Just call)])
@@ -106,44 +106,44 @@ spec =
           fParser fStr `shouldBe'` expected
 
       it "parses asynchronous decl" $ do
-        let decls = [DeclVariable () u (varGen "a") Nothing Nothing, DeclVariable () u (varGen "b") Nothing Nothing]
-        let st = StAsynchronous () u (AList () u decls)
+        let decls = [declVarGen "a", declVarGen "b"]
+            st = StAsynchronous () u (AList () u decls)
         sParser "asynchronous a, b" `shouldBe'` st
         sParser "asynchronous :: a, b" `shouldBe'` st
 
       it "parses asynchronous attribute" $ do
-        let decls = [DeclVariable () u (varGen "a") Nothing Nothing, DeclVariable () u (varGen "b") Nothing Nothing]
-        let ty = TypeSpec () u TypeInteger Nothing
-        let attrs = [AttrAsynchronous () u]
-        let st = StDeclaration () u ty (Just (AList () u attrs)) (AList () u decls)
+        let decls = [declVarGen "a", declVarGen "b"]
+            ty = TypeSpec () u TypeInteger Nothing
+            attrs = [AttrAsynchronous () u]
+            st = StDeclaration () u ty (Just (AList () u attrs)) (AList () u decls)
         sParser "integer, asynchronous :: a, b" `shouldBe'` st
 
       it "parses enumerators" $ do
-        let decls = [ DeclVariable () u (varGen "a") Nothing (Just (intGen 1))
-                    , DeclVariable () u (varGen "b") Nothing Nothing ]
-        let st = StEnumerator () u (AList () u decls)
+        let decls = [ declVariable () u (varGen "a") Nothing (Just (intGen 1))
+                    , declVariable () u (varGen "b") Nothing Nothing ]
+            st = StEnumerator () u (AList () u decls)
         sParser "enum, bind(c)" `shouldBe'` StEnum () u
         sParser "enumerator :: a = 1, b" `shouldBe'` st
         sParser "end enum" `shouldBe'` StEndEnum () u
 
       it "parses allocate with type_spec" $ do
         let sel = Selector () u (Just (ExpValue () u ValColon)) (Just (varGen "foo"))
-        let ty = TypeSpec () u TypeCharacter (Just sel)
-        let decls = [DeclVariable () u (varGen "s") Nothing Nothing]
-        let st = StDeclaration () u ty (Just (AList () u [AttrAllocatable () u])) (AList () u decls)
+            ty = TypeSpec () u TypeCharacter (Just sel)
+            decls = AList () u [declVarGen "s"]
+            st = StDeclaration () u ty (Just (AList () u [AttrAllocatable () u])) decls
         sParser "character(len=:,kind=foo), allocatable :: s" `shouldBe'` st
 
       it "parses allocate with type_spec" $ do
         let sel = Selector () u (Just (intGen 3)) (Just (varGen "foo"))
-        let ty = TypeSpec () u TypeCharacter (Just sel)
-        let st = StAllocate () u (Just ty) (AList () u [varGen "s"]) Nothing
+            ty = TypeSpec () u TypeCharacter (Just sel)
+            st = StAllocate () u (Just ty) (AList () u [varGen "s"]) Nothing
         sParser "allocate(character(len=3,kind=foo) :: s)" `shouldBe'` st
 
       it "parses protected" $ do
         let ty = TypeSpec () u TypeReal Nothing
-        let decls = AList () u [DeclVariable () u (varGen "x") Nothing Nothing]
-        let st1 = StDeclaration () u ty (Just (AList () u [AttrProtected () u, AttrPublic () u])) decls
-        let st2 = StProtected () u (Just (AList () u [varGen "x"]))
+            decls = AList () u [declVarGen "x"]
+            st1 = StDeclaration () u ty (Just (AList () u [AttrProtected () u, AttrPublic () u])) decls
+            st2 = StProtected () u (Just (AList () u [varGen "x"]))
         sParser "real, protected, public :: x" `shouldBe'` st1
         sParser "protected x" `shouldBe'` st2
 

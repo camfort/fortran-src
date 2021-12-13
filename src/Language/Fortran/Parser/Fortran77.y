@@ -556,7 +556,7 @@ PARAMETER_ASSIGNMENTS :: { [ Declarator A0 ] }
 
 PARAMETER_ASSIGNMENT :: { Declarator A0 }
 : VARIABLE '=' CONSTANT_EXPRESSION
-  { DeclVariable () (getTransSpan $1 $3) $1 Nothing (Just $3) }
+  { Declarator () (getTransSpan $1 $3) $1 ScalarDeclarator Nothing (Just $3) }
 
 DECLARATION_STATEMENT :: { Statement A0 }
 : TYPE_SPEC maybe(',') INITIALIZED_DECLARATORS
@@ -631,7 +631,7 @@ POINTER_LIST :: { [ Declarator A0 ] }
 
 POINTER :: { Declarator A0 }
 : '(' VARIABLE ',' VARIABLE ')'
-  { DeclVariable () (getTransSpan $1 $5) $2 Nothing (Just $4) }
+  { Declarator () (getTransSpan $1 $5) $2 ScalarDeclarator Nothing (Just $4) }
 
 COMMON_GROUPS :: { AList CommonGroup A0 }
 : COMMON_GROUPS COMMON_GROUP { setSpan (getTransSpan $1 $2) $ $2 `aCons` $1 }
@@ -664,16 +664,17 @@ UNINITIALIZED_DECLARATOR :: { Declarator A0 }
 
 UNINITIALIZED_ARRAY_DECLARATOR :: { Declarator A0 }
 : VARIABLE '(' DIMENSION_DECLARATORS ')'
-  { DeclArray () (getTransSpan $1 $4) $1 (aReverse $3) Nothing Nothing }
+  { Declarator () (getTransSpan $1 $4) $1 (ArrayDeclarator (aReverse $3)) Nothing   Nothing }
 | VARIABLE '*' SIMPLE_EXPRESSION '(' DIMENSION_DECLARATORS ')'
-  { DeclArray () (getTransSpan $1 $6) $1 (aReverse $5) (Just $3) Nothing }
+  { Declarator () (getTransSpan $1 $6) $1 (ArrayDeclarator (aReverse $5)) (Just $3) Nothing }
 | VARIABLE '(' DIMENSION_DECLARATORS ')' '*' SIMPLE_EXPRESSION
-  { DeclArray () (getTransSpan $1 $6) $1 (aReverse $3) (Just $6) Nothing }
+  { Declarator () (getTransSpan $1 $6) $1 (ArrayDeclarator (aReverse $3)) (Just $6) Nothing }
 
 UNINITIALIZED_VARIABLE_DECLARATOR :: { Declarator A0 }
-: VARIABLE { DeclVariable () (getSpan $1) $1 Nothing Nothing }
+: VARIABLE
+  { Declarator () (getSpan $1)         $1 ScalarDeclarator Nothing   Nothing }
 | VARIABLE '*' SIMPLE_EXPRESSION
-  { DeclVariable () (getTransSpan $1 $3) $1 (Just $3) Nothing }
+  { Declarator () (getTransSpan $1 $3) $1 ScalarDeclarator (Just $3) Nothing }
 
 INITIALIZED_DECLARATORS :: { AList Declarator A0 }
 : INITIALIZED_DECLARATORS ',' INITIALIZED_DECLARATOR { setSpan (getTransSpan $1 $3) $ $3 `aCons` $1 }
@@ -691,21 +692,21 @@ INITIALIZED_ARRAY_DECLARATORS :: { AList Declarator A0 }
 INITIALIZED_ARRAY_DECLARATOR :: { Declarator A0 }
 : UNINITIALIZED_ARRAY_DECLARATOR { $1 }
 | VARIABLE '(' DIMENSION_DECLARATORS ')' '/' SIMPLE_EXPRESSION_LIST '/'
-  { DeclArray () (getTransSpan $1 $7) $1 (aReverse $3) Nothing
+  { Declarator () (getTransSpan $1 $7) $1 (ArrayDeclarator (aReverse $3))  Nothing
     (Just (ExpInitialisation () (getSpan $6) (fromReverseList $6))) }
 | VARIABLE '*' SIMPLE_EXPRESSION '(' DIMENSION_DECLARATORS ')' '/' SIMPLE_EXPRESSION_LIST '/'
-  { DeclArray () (getTransSpan $1 $9) $1 (aReverse $5) (Just $3)
+  { Declarator () (getTransSpan $1 $9) $1 (ArrayDeclarator (aReverse $5)) (Just $3)
     (Just (ExpInitialisation () (getSpan $8) (fromReverseList $8))) }
 | VARIABLE '(' DIMENSION_DECLARATORS ')' '*' SIMPLE_EXPRESSION '/' SIMPLE_EXPRESSION_LIST '/'
-  { DeclArray () (getTransSpan $1 $9) $1 (aReverse $3) (Just $6)
+  { Declarator () (getTransSpan $1 $9) $1 (ArrayDeclarator (aReverse $3)) (Just $6)
     (Just (ExpInitialisation () (getSpan $8) (fromReverseList $8))) }
 
 INITIALIZED_VARIABLE_DECLARATOR :: { Declarator A0 }
 : UNINITIALIZED_VARIABLE_DECLARATOR { $1 }
 | VARIABLE '/' SIMPLE_EXPRESSION '/'
-  { DeclVariable () (getTransSpan $1 $4) $1 Nothing (Just $3) }
+  { Declarator () (getTransSpan $1 $4) $1 ScalarDeclarator Nothing   (Just $3) }
 | VARIABLE '*' SIMPLE_EXPRESSION '/' SIMPLE_EXPRESSION '/'
-  { DeclVariable () (getTransSpan $1 $6) $1 (Just $3) (Just $5) }
+  { Declarator () (getTransSpan $1 $6) $1 ScalarDeclarator (Just $3) (Just $5) }
 
 SIMPLE_EXPRESSION_LIST :: { [Expression A0] }
 : SIMPLE_EXPRESSION_LIST ',' SIMPLE_EXPRESSION  { $3 : $1 }

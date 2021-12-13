@@ -59,11 +59,11 @@ ex1pu1 = PUMain () u (Just "main") ex1pu1bs Nothing
 ex1pu1bs :: [Block ()]
 ex1pu1bs =
   [ BlStatement () u Nothing (StDeclaration () u (TypeSpec () u TypeInteger Nothing) Nothing (AList () u
-      [ DeclVariable () u (varGen "a") Nothing Nothing
-      , DeclArray () u (varGen "b") (AList () u [ DimensionDeclarator () u Nothing (Just $ intGen 1) ]) Nothing Nothing
-      , DeclVariable () u (varGen "c") Nothing Nothing ]))
+      [ declVarGen "a"
+      , Declarator () u (varGen "b") (ArrayDeclarator (AList () u [ DimensionDeclarator () u Nothing (Just $ intGen 1) ])) Nothing Nothing
+      , declVarGen "c" ]))
   , BlStatement () u Nothing (StDimension () u (AList () u
-      [ DeclArray () u (varGen "a") (AList () u [ DimensionDeclarator () u Nothing (Just $ intGen 1 ) ]) Nothing Nothing ]))
+      [ Declarator () u (varGen "a") (ArrayDeclarator (AList () u [ DimensionDeclarator () u Nothing (Just $ intGen 1) ])) Nothing Nothing ]))
   , BlStatement () u Nothing (StExpressionAssign () u
       (ExpSubscript () u (varGen "a") (AList () u [ ixSinGen 1 ])) (intGen 1))
   , BlStatement () u Nothing (StExpressionAssign () u
@@ -82,11 +82,11 @@ expectedEx1pu1 = PUMain () u (Just "main") expectedEx1pu1bs Nothing
 expectedEx1pu1bs :: [Block ()]
 expectedEx1pu1bs =
   [ BlStatement () u Nothing (StDeclaration () u (TypeSpec () u TypeInteger Nothing) Nothing (AList () u
-      [ DeclVariable () u (varGen "a") Nothing Nothing
-      , DeclArray () u (varGen "b") (AList () u [ DimensionDeclarator () u Nothing (Just $ intGen 1) ]) Nothing Nothing
-      , DeclVariable () u (varGen "c") Nothing Nothing ]))
+      [ declVarGen "a"
+      , Declarator () u (varGen "b") (ArrayDeclarator (AList () u [ DimensionDeclarator () u Nothing (Just $ intGen 1) ])) Nothing Nothing
+      , declVarGen "c" ]))
   , BlStatement () u Nothing (StDimension () u (AList () u
-      [ DeclArray () u (varGen "a") (AList () u [ DimensionDeclarator () u Nothing (Just $ intGen 1 ) ]) Nothing Nothing ]))
+      [ Declarator () u (varGen "a") (ArrayDeclarator (AList () u [ DimensionDeclarator () u Nothing (Just $ intGen 1) ])) Nothing Nothing ]))
   , BlStatement () u Nothing (StExpressionAssign () u
       (ExpSubscript () u (varGen "a") (AList () u [ ixSinGen 1 ])) (intGen 1))
   , BlStatement () u Nothing (StExpressionAssign () u
@@ -203,8 +203,8 @@ ex4pu1 = PUMain () u (Just "main") ex4pu1bs Nothing
 ex4pu1bs :: [Block ()]
 ex4pu1bs =
   [ BlStatement () u Nothing (StDeclaration () u (TypeSpec () u TypeInteger Nothing) Nothing (AList () u
-      [ DeclVariable () u (varGen "a") Nothing Nothing
-      , DeclVariable () u (varGen "f") Nothing Nothing ]))
+      [ declVarGen "a"
+      , declVarGen "f" ]))
   , BlStatement () u Nothing
       (StExpressionAssign () u (varGen "a") (ExpSubscript () u (varGen "f") (AList () u [ ixSinGen 1 ]))) ]
 
@@ -216,8 +216,8 @@ expectedEx4pu1 = PUMain () u (Just "main") expectedEx4pu1bs Nothing
 expectedEx4pu1bs :: [Block ()]
 expectedEx4pu1bs =
   [ BlStatement () u Nothing (StDeclaration () u (TypeSpec () u TypeInteger Nothing) Nothing (AList () u
-      [ DeclVariable () u (varGen "a") Nothing Nothing
-      , DeclVariable () u (varGen "f") Nothing Nothing ]))
+      [ declVarGen "a"
+      , declVarGen "f" ]))
   , BlStatement () u Nothing
       (StExpressionAssign () u (varGen "a")
        (ExpFunctionCall () u (ExpValue () u $ ValVariable "f")
@@ -237,8 +237,7 @@ ex5pu1 = PUMain () u (Just "main") ex5pu1bs Nothing
 ex5pu1bs :: [Block ()]
 ex5pu1bs =
   [ BlStatement () u Nothing (StDeclaration () u (TypeSpec () u TypeInteger Nothing) Nothing (AList () u
-      [ DeclVariable () u (varGen "a") Nothing Nothing
-      ]))
+      [ declVarGen "a" ]))
   , BlStatement () u Nothing
       (StExpressionAssign () u (varGen "a") (ExpSubscript () u (varGen "f") (AList () u [ ixSinGen 1 ]))) ]
 
@@ -250,7 +249,7 @@ expectedEx5pu1 = PUMain () u (Just "main") expectedEx5pu1bs Nothing
 expectedEx5pu1bs :: [Block ()]
 expectedEx5pu1bs =
   [ BlStatement () u Nothing (StDeclaration () u (TypeSpec () u TypeInteger Nothing) Nothing (AList () u
-      [ DeclVariable () u (varGen "a") Nothing Nothing ]))
+      [ declVarGen "a" ]))
   , BlStatement () u Nothing
       (StExpressionAssign () u (varGen "a")
        (ExpFunctionCall () u (ExpValue () u $ ValVariable "f")
@@ -271,10 +270,10 @@ ex6pu1 = PUMain () u (Just "main") ex6pu1bs Nothing
 ex6pu1bs :: [Block ()]
 ex6pu1bs =
   [ BlStatement () u Nothing (StDeclaration () u (TypeSpec () u TypeInteger Nothing) Nothing (AList () u
-      [ DeclVariable () u (varGen "a") Nothing Nothing
+      [ declVarGen "a"
       ]))
   , BlStatement () u Nothing (StDimension () u (AList () u
-      [ DeclArray () u (varGen "f") (AList () u [ DimensionDeclarator () u Nothing (Just $ intGen 10 ) ]) Nothing Nothing ]))
+      [ Declarator () u (varGen "f") (ArrayDeclarator (AList () u [ DimensionDeclarator () u Nothing (Just $ intGen 10) ])) Nothing Nothing ]))
   , BlStatement () u Nothing
       (StExpressionAssign () u (varGen "a") (ExpSubscript () u (varGen "f") (AList () u [ ixSinGen 1 ]))) ]
 
@@ -286,9 +285,9 @@ expectedEx6pu1 = PUMain () u (Just "main") expectedEx6pu1bs Nothing
 expectedEx6pu1bs :: [Block ()]
 expectedEx6pu1bs =
   [ BlStatement () u Nothing (StDeclaration () u (TypeSpec () u TypeInteger Nothing) Nothing (AList () u
-      [ DeclVariable () u (varGen "a") Nothing Nothing ]))
+      [ Declarator () u (varGen "a") ScalarDeclarator Nothing Nothing ]))
   , BlStatement () u Nothing (StDimension () u (AList () u
-      [ DeclArray () u (varGen "f") (AList () u [ DimensionDeclarator () u Nothing (Just $ intGen 10 ) ]) Nothing Nothing ]))
+      [ Declarator () u (varGen "f") (ArrayDeclarator (AList () u [ DimensionDeclarator () u Nothing (Just $ intGen 10 ) ])) Nothing Nothing ]))
   , BlStatement () u Nothing
       (StExpressionAssign () u (varGen "a") (ExpSubscript () u (varGen "f") (AList () u [ ixSinGen 1 ]))) ]
 
