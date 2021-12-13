@@ -890,15 +890,15 @@ showBaseType ClassStar           = "class(*)"
 showBaseType (ClassCustom s)     = "class(" ++ s ++ ")"
 
 showDecl :: Declarator a -> String
-showDecl (DeclArray _ _ e adims length' initial) =
-  showExpr e ++
-    "(" ++ aIntercalate "," showDim adims ++ ")" ++
-    maybe "" (\e' -> "*" ++ showExpr e') length' ++
-    maybe "" (\e' -> " = " ++ showExpr e') initial
-showDecl (DeclVariable _ _ e length' initial) =
-  showExpr e ++
-    maybe "" (\e' -> "*" ++ showExpr e') length' ++
-    maybe "" (\e' -> " = " ++ showExpr e') initial
+showDecl (Declarator _ _ e mAdims length' initial) =
+    let partDims = case mAdims of
+                     ScalarDeclarator -> mempty
+                     ArrayDeclarator dims ->
+                       "(" ++ aIntercalate "," showDim dims ++ ")"
+     in  showExpr e
+           ++ partDims
+           ++ maybe "" (\e' -> "*" ++ showExpr e') length'
+           ++ maybe "" (\e' -> " = " ++ showExpr e') initial
 
 showDim :: DimensionDeclarator a -> String
 showDim (DimensionDeclarator _ _ me1 me2) = maybe "" ((++":") . showExpr) me1 ++ maybe "" showExpr me2

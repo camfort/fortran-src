@@ -228,8 +228,8 @@ spec =
                                   ]
                                ]
             declarators = AList () u
-              [ DeclVariable () u (varGen "x") Nothing Nothing
-              , DeclVariable () u (varGen "y") Nothing Nothing ]
+              [ declVariable () u (varGen "x") Nothing Nothing
+              , declVariable () u (varGen "y") Nothing Nothing ]
             expected = StDeclaration () u typeSpec (Just attrs) declarators
             stStr = "real, external, intent (out), dimension (3:10) :: x, y"
         sParser stStr `shouldBe'` expected
@@ -237,8 +237,8 @@ spec =
       it "parses declaration with old syntax" $ do
         let typeSpec = TypeSpec () u TypeLogical Nothing
             declarators = AList () u
-              [ DeclVariable () u (varGen "x") Nothing Nothing
-              , DeclVariable () u (varGen "y") Nothing Nothing ]
+              [ declVariable () u (varGen "x") Nothing Nothing
+              , declVariable () u (varGen "y") Nothing Nothing ]
             expected = StDeclaration () u typeSpec Nothing declarators
             stStr = "logical x, y"
         sParser stStr `shouldBe'` expected
@@ -247,7 +247,7 @@ spec =
         let typeSpec = TypeSpec () u TypeComplex Nothing
             init' = ExpValue () u (ValComplex (intGen 24) (realGen (42.0::Double)))
             declarators = AList () u
-              [ DeclVariable () u (varGen "x") Nothing (Just init') ]
+              [ declVariable () u (varGen "x") Nothing (Just init') ]
             expected = StDeclaration () u typeSpec Nothing declarators
             stStr = "complex :: x = (24, 42.0)"
         sParser stStr `shouldBe'` expected
@@ -255,7 +255,7 @@ spec =
       it "parses declaration of custom type" $ do
         let typeSpec = TypeSpec () u (TypeCustom "meinetype") Nothing
             declarators = AList () u
-              [ DeclVariable () u (varGen "x") Nothing Nothing ]
+              [ declVariable () u (varGen "x") Nothing Nothing ]
             expected = StDeclaration () u typeSpec Nothing declarators
             stStr = "type (MeineType) :: x"
         sParser stStr `shouldBe'` expected
@@ -264,7 +264,7 @@ spec =
         let selector = Selector () u Nothing (Just $ varGen "hello")
             typeSpec = TypeSpec () u TypeInteger (Just selector)
             declarators = AList () u
-              [ DeclVariable () u (varGen "x") Nothing Nothing ]
+              [ declVariable () u (varGen "x") Nothing Nothing ]
             expected = StDeclaration () u typeSpec Nothing declarators
             stStr = "integer (hello) :: x"
         sParser stStr `shouldBe'` expected
@@ -302,8 +302,8 @@ spec =
         sParser stStr `shouldBe'` expected
 
       it "parses parameter statement" $ do
-        let ass1 = DeclVariable () u (varGen "x") Nothing (Just $ intGen 10)
-            ass2 = DeclVariable () u (varGen "y") Nothing (Just $ intGen 20)
+        let ass1 = declVariable () u (varGen "x") Nothing (Just $ intGen 10)
+            ass2 = declVariable () u (varGen "y") Nothing (Just $ intGen 20)
             expected = StParameter () u (fromList () [ ass1, ass2 ])
         sParser "parameter (x = 10, y = 20)" `shouldBe'` expected
 
@@ -628,33 +628,33 @@ spec =
       let renames = fromList ()
             [ UseRename () u (varGen "sprod") (varGen "prod")
             , UseRename () u (varGen "a") (varGen "b") ]
-      let st = StUse () u (varGen "stats_lib") Nothing Permissive (Just renames)
+          st = StUse () u (varGen "stats_lib") Nothing Permissive (Just renames)
       sParser "use stats_lib, sprod => prod, a => b" `shouldBe'` st
 
     it "parses value decl" $ do
-      let decls = [DeclVariable () u (varGen "a") Nothing Nothing, DeclVariable () u (varGen "b") Nothing Nothing]
-      let st = StValue () u (AList () u decls)
+      let decls = [declVarGen "a", declVarGen "b"]
+          st = StValue () u (AList () u decls)
       sParser "value a, b" `shouldBe'` st
       sParser "value :: a, b" `shouldBe'` st
 
     it "parses value attribute" $ do
-      let decls = [DeclVariable () u (varGen "a") Nothing Nothing, DeclVariable () u (varGen "b") Nothing Nothing]
-      let ty = TypeSpec () u TypeInteger Nothing
-      let attrs = [AttrValue () u]
-      let st = StDeclaration () u ty (Just (AList () u attrs)) (AList () u decls)
+      let decls = [declVarGen "a", declVarGen "b"]
+          ty = TypeSpec () u TypeInteger Nothing
+          attrs = [AttrValue () u]
+          st = StDeclaration () u ty (Just (AList () u attrs)) (AList () u decls)
       sParser "integer, value :: a, b" `shouldBe'` st
 
     it "parses volatile decl" $ do
-      let decls = [DeclVariable () u (varGen "a") Nothing Nothing, DeclVariable () u (varGen "b") Nothing Nothing]
-      let st = StVolatile () u (AList () u decls)
+      let decls = [declVarGen "a", declVarGen "b"]
+          st = StVolatile () u (AList () u decls)
       sParser "volatile a, b" `shouldBe'` st
       sParser "volatile :: a, b" `shouldBe'` st
 
     it "parses volatile attribute" $ do
-      let decls = [DeclVariable () u (varGen "a") Nothing Nothing, DeclVariable () u (varGen "b") Nothing Nothing]
-      let ty = TypeSpec () u TypeInteger Nothing
-      let attrs = [AttrVolatile () u]
-      let st = StDeclaration () u ty (Just (AList () u attrs)) (AList () u decls)
+      let decls = [declVarGen "a", declVarGen "b"]
+          ty = TypeSpec () u TypeInteger Nothing
+          attrs = [AttrVolatile () u]
+          st = StDeclaration () u ty (Just (AList () u attrs)) (AList () u decls)
       sParser "integer, volatile :: a, b" `shouldBe'` st
 
     specFreeFormCommon sParser eParser

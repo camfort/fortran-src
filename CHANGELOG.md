@@ -1,3 +1,7 @@
+### 0.8.0 (Unreleased)
+  * Merge declarator constructors. Now you differentiate between array and
+    scalar declarators by looking at the relevant field.
+
 ### 0.7.0 (Dec 09, 2021)
   * No longer treat `!` in strings as comments in continuation reformatter
     (thanks @envp) #179

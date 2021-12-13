@@ -144,14 +144,16 @@ NAME :: { Name } : id { let (TId _ name) = $1 in name }
 
 BLOCKS :: { [ Block A0 ] }
 : BLOCKS BLOCK { $2 : $1 }
-| {- EMPTY -} { [ ] }
+| {- EMPTY -}  { [ ] }
 
 BLOCK :: { Block A0 }
 : LABEL_IN_6COLUMN STATEMENT NEWLINE { BlStatement () (getTransSpan $1 $2) (Just $1) $2 }
 | STATEMENT NEWLINE { BlStatement () (getSpan $1) Nothing $1 }
 | comment NEWLINE { let (TComment s c) = $1 in BlComment () s (Comment c) }
 
-MAYBE_NEWLINE :: { Maybe Token } : NEWLINE { Just $1 } | {- EMPTY -} { Nothing }
+MAYBE_NEWLINE :: { Maybe Token }
+: NEWLINE     { Just $1 }
+| {- EMPTY -} { Nothing }
 
 NEWLINE :: { Token }
 : NEWLINE newline { $1 }
@@ -164,16 +166,22 @@ STATEMENT :: { Statement A0 }
 | NONEXECUTABLE_STATEMENT { $1 }
 
 LOGICAL_IF_STATEMENT :: { Statement A0 }
-: if '(' EXPRESSION ')' OTHER_EXECUTABLE_STATEMENT { StIfLogical () (getTransSpan $1 $5) $3 $5 }
+: if '(' EXPRESSION ')' OTHER_EXECUTABLE_STATEMENT
+  { StIfLogical () (getTransSpan $1 $5) $3 $5 }
 
 DO_STATEMENT :: { Statement A0 }
-: do LABEL_IN_STATEMENT DO_SPECIFICATION { StDo () (getTransSpan $1 $3) Nothing (Just $2) (Just $3) }
+: do LABEL_IN_STATEMENT DO_SPECIFICATION
+  { StDo () (getTransSpan $1 $3) Nothing (Just $2) (Just $3) }
 
 DO_SPECIFICATION :: { DoSpecification A0 }
-: EXPRESSION_ASSIGNMENT_STATEMENT ',' INT_OR_VAR ',' INT_OR_VAR { DoSpecification () (getTransSpan $1 $5) $1 $3 (Just $5) }
-| EXPRESSION_ASSIGNMENT_STATEMENT ',' INT_OR_VAR                { DoSpecification () (getTransSpan $1 $3) $1 $3 Nothing }
+: EXPRESSION_ASSIGNMENT_STATEMENT ',' INT_OR_VAR ',' INT_OR_VAR
+  { DoSpecification () (getTransSpan $1 $5) $1 $3 (Just $5) }
+| EXPRESSION_ASSIGNMENT_STATEMENT ',' INT_OR_VAR
+  { DoSpecification () (getTransSpan $1 $3) $1 $3 Nothing }
 
-INT_OR_VAR :: { Expression A0 } : INTEGER_LITERAL { $1 } | VARIABLE { $1 }
+INT_OR_VAR :: { Expression A0 }
+: INTEGER_LITERAL { $1 }
+| VARIABLE { $1 }
 
 OTHER_EXECUTABLE_STATEMENT :: { Statement A0 }
 : EXPRESSION_ASSIGNMENT_STATEMENT { $1 }
@@ -219,9 +227,13 @@ READ_WRITE_ARGUMENTS :: { (AList ControlPair A0, Maybe (AList Expression A0)) }
 | '(' UNIT ',' FORM ')' { (AList () (getTransSpan $2 $4) [ ControlPair () (getSpan $2) Nothing $2, ControlPair () (getSpan $4) Nothing $4 ], Nothing) }
 
 -- Not my terminology a VAR or an INT (probably positive) is defined as UNIT.
-UNIT :: { Expression A0 } : INTEGER_LITERAL { $1 } | VARIABLE { $1 }
+UNIT :: { Expression A0 }
+: INTEGER_LITERAL { $1 }
+| VARIABLE { $1 }
 
-FORM :: { Expression A0 } : VARIABLE { $1 } | LABEL_IN_STATEMENT { $1 }
+FORM :: { Expression A0 }
+: VARIABLE { $1 }
+| LABEL_IN_STATEMENT { $1 }
 
 IO_ELEMENTS :: { AList Expression A0 }
 : IO_ELEMENTS ',' IO_ELEMENT { setSpan (getTransSpan $1 $3) $ $3 `aCons` $1}
@@ -283,34 +295,40 @@ NAME_LIST :: { AList Expression A0 }
 : NAME_LIST ',' NAME_LIST_ELEMENT { setSpan (getTransSpan $1 $3) $ $3 `aCons` $1 }
 | NAME_LIST_ELEMENT { AList () (getSpan $1) [ $1 ] }
 
-NAME_LIST_ELEMENT :: { Expression A0 } : VARIABLE { $1 } | SUBSCRIPT { $1 }
+NAME_LIST_ELEMENT :: { Expression A0 }
+: VARIABLE { $1 }
+| SUBSCRIPT { $1 }
 
 -- Note that declarator lists in the F66 parser don't have initializers.
 DECLARATORS :: { AList Declarator A0 }
 : DECLARATORS ',' DECLARATOR { setSpan (getTransSpan $1 $3) $ $3 `aCons` $1 }
 | DECLARATOR { AList () (getSpan $1) [ $1 ] }
 
--- Parses arrays as DeclVariable, otherwise we get a conflict.
 DECLARATOR :: { Declarator A0 }
-: ARRAY_DECLARATOR { $1 }
+: ARRAY_DECLARATOR    { $1 }
 | VARIABLE_DECLARATOR { $1 }
 
 ARRAY_DECLARATORS :: { AList Declarator A0 }
-: ARRAY_DECLARATORS ',' ARRAY_DECLARATOR { setSpan (getTransSpan $1 $3) $ $3 `aCons` $1 }
-| ARRAY_DECLARATOR { AList () (getSpan $1) [ $1 ] }
+: ARRAY_DECLARATORS ',' ARRAY_DECLARATOR
+  { setSpan (getTransSpan $1 $3) $ $3 `aCons` $1 }
+| ARRAY_DECLARATOR
+  { AList () (getSpan $1) [ $1 ] }
 
 ARRAY_DECLARATOR :: { Declarator A0 }
-: VARIABLE '(' DIMENSION_DECLARATORS ')' { DeclArray () (getTransSpan $1 $4) $1 (aReverse $3) Nothing Nothing }
+: VARIABLE '(' DIMENSION_DECLARATORS ')'
+  { Declarator () (getTransSpan $1 $4) $1 (ArrayDeclarator (aReverse $3)) Nothing Nothing }
 
 DIMENSION_DECLARATORS :: { AList DimensionDeclarator A0 }
-: DIMENSION_DECLARATORS ',' DIMENSION_DECLARATOR { setSpan (getTransSpan $1 $3) $ $3 `aCons` $1 }
-| DIMENSION_DECLARATOR { AList () (getSpan $1) [ $1 ] }
+: DIMENSION_DECLARATORS ',' DIMENSION_DECLARATOR
+  { setSpan (getTransSpan $1 $3) $ $3 `aCons` $1 }
+| DIMENSION_DECLARATOR
+  { AList () (getSpan $1) [ $1 ] }
 
 DIMENSION_DECLARATOR :: { DimensionDeclarator A0 }
 : EXPRESSION { DimensionDeclarator () (getSpan $1) Nothing (Just $1) }
 
 VARIABLE_DECLARATOR :: { Declarator A0 }
-: VARIABLE { DeclVariable () (getSpan $1) $1 Nothing Nothing }
+: VARIABLE { Declarator () (getSpan $1) $1 ScalarDeclarator Nothing Nothing }
 
 -- Here the procedure should be either a function or subroutine name, but
 -- since they are syntactically identical at this stage subroutine names

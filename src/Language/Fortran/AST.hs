@@ -48,8 +48,10 @@ module Language.Fortran.AST
   , Name
   , BaseType(..)
   , TypeSpec(..)
-  , Declarator(..)
   , Selector(..)
+  , Declarator(..)
+  , DeclaratorType(..)
+  , declaratorType
   , DimensionDeclarator(..)
 
   -- ** Annotated node list (re-export)
@@ -635,53 +637,40 @@ data Value a
   | ValColon                   -- see R402 / C403 in Fortran2003 spec.
   deriving (Eq, Show, Data, Typeable, Generic, Functor)
 
--- | Declarators.
+-- | Declarators. R505 entity-decl from F90 ISO spec.
 --
 -- Declaration statements can have multiple variables on the right of the double
 -- colon, separated by commas. A 'Declarator' identifies a single one of these.
+-- In F90, they look like this:
 --
--- Each declared variable can have an initializing expression. These expressions
--- are defined in HP's F90 spec to be /initialization expressions/, which are
--- specialized constant expressions.
+--     VAR_NAME ( OPT_ARRAY_DIMS ) * CHAR_LENGTH_EXPR = INIT_EXPR
 --
--- The length expressions here are defined in HP's F90 spec to be specifications
--- expressions, which are scalar integer expressions with a bunch of
--- restrictions similar to initialization expressions.
+-- F77 doesn't standardize so nicely -- in particular, I'm not confident in
+-- initializing expression syntax. So no example.
 --
--- 'Declarator's are also used for some less-used syntax that let you set
--- variable attributes using statements, like:
---
---     integer arr
---     dimension arr(10)
---
--- Some of these only set part of the 'Declarator' (e.g. @parameter@ only sets
--- the initial value).
---
--- Syntax note: length is set like @character :: str*10@, dimensions are set
--- like @integer :: arr(10)@. Careful to not get confused.
---
--- Note that lengths may only be specified for CHARACTER types. However, a
--- nonstandard syntax feature is to use this as a kind parameter for non
--- CHARACTERs. So we parse length for all 'Declarator's, handle the nonstandard
--- feature and print a warning during our type analysis.
-data Declarator a =
-    DeclVariable a SrcSpan
-                 (Expression a)             -- ^ Variable
-                 (Maybe (Expression a))     -- ^ Length (character)
-                 (Maybe (Expression a))     -- ^ Initial value
-  | DeclArray a SrcSpan
-              (Expression a)                -- ^ Array
-              (AList DimensionDeclarator a) -- ^ Dimensions
-              (Maybe (Expression a))        -- ^ Length (character)
-              (Maybe (Expression a))        -- ^ Initial value
+-- Only CHARACTERs may specify a length. However, a nonstandard syntax feature
+-- uses non-CHARACTER lengths as a kind parameter. We parse regardless of type
+-- and warn during analysis.
+data Declarator a
+  = Declarator a SrcSpan
+               (Expression a)         -- ^ Variable
+               (DeclaratorType a)     -- ^ Declarator type (dimensions if array)
+               (Maybe (Expression a)) -- ^ Length (character)
+               (Maybe (Expression a)) -- ^ Initial value
   deriving (Eq, Show, Data, Typeable, Generic, Functor)
 
+data DeclaratorType a
+  = ScalarDeclarator
+  | ArrayDeclarator (AList DimensionDeclarator a)
+  deriving (Eq, Show, Data, Typeable, Generic, Functor)
+
+declaratorType :: Declarator a -> DeclaratorType a
+declaratorType (Declarator _ _ _ dt _ _) = dt
+
+-- | Set a 'Declarator''s initializing expression only if it has none already.
 setInitialisation :: Declarator a -> Expression a -> Declarator a
-setInitialisation (DeclVariable a s v l Nothing) init =
-  DeclVariable a (getTransSpan s init) v l (Just init)
-setInitialisation (DeclArray a s v ds l Nothing) init =
-  DeclArray a (getTransSpan s init) v ds l (Just init)
--- do nothing when there is already a value
+setInitialisation (Declarator a s v dt l Nothing) init =
+  Declarator a (getTransSpan s init) v dt l (Just init)
 setInitialisation d _ = d
 
 -- | Dimension declarator stored in @dimension@ attributes and 'Declarator's.
@@ -952,6 +941,7 @@ instance Out a => Out (Selector a)
 instance Out BaseType
 instance Out a => Out (Declarator a)
 instance Out a => Out (DimensionDeclarator a)
+instance Out a => Out (DeclaratorType a)
 instance Out a => Out (ControlPair a)
 instance Out a => Out (AllocOpt a)
 instance Out UnaryOp
@@ -1034,6 +1024,7 @@ instance NFData a => NFData (AllocOpt a)
 instance NFData a => NFData (DataGroup a)
 instance NFData a => NFData (DimensionDeclarator a)
 instance NFData a => NFData (Declarator a)
+instance NFData a => NFData (DeclaratorType a)
 instance NFData a => NFData (FormatItem a)
 instance NFData a => NFData (FlushSpec a)
 instance NFData a => NFData (ImpElement a)
