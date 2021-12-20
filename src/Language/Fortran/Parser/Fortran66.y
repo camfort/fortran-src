@@ -316,7 +316,7 @@ ARRAY_DECLARATORS :: { AList Declarator A0 }
 
 ARRAY_DECLARATOR :: { Declarator A0 }
 : VARIABLE '(' DIMENSION_DECLARATORS ')'
-  { Declarator () (getTransSpan $1 $4) $1 (ArrayDeclarator (aReverse $3)) Nothing Nothing }
+  { Declarator () (getTransSpan $1 $4) $1 (ArrayDecl (aReverse $3)) Nothing Nothing }
 
 DIMENSION_DECLARATORS :: { AList DimensionDeclarator A0 }
 : DIMENSION_DECLARATORS ',' DIMENSION_DECLARATOR
@@ -328,7 +328,7 @@ DIMENSION_DECLARATOR :: { DimensionDeclarator A0 }
 : EXPRESSION { DimensionDeclarator () (getSpan $1) Nothing (Just $1) }
 
 VARIABLE_DECLARATOR :: { Declarator A0 }
-: VARIABLE { Declarator () (getSpan $1) $1 ScalarDeclarator Nothing Nothing }
+: VARIABLE { Declarator () (getSpan $1) $1 ScalarDecl Nothing Nothing }
 
 -- Here the procedure should be either a function or subroutine name, but
 -- since they are syntactically identical at this stage subroutine names

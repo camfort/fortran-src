@@ -660,8 +660,8 @@ data Declarator a
   deriving (Eq, Show, Data, Typeable, Generic, Functor)
 
 data DeclaratorType a
-  = ScalarDeclarator
-  | ArrayDeclarator (AList DimensionDeclarator a)
+  = ScalarDecl
+  | ArrayDecl (AList DimensionDeclarator a)
   deriving (Eq, Show, Data, Typeable, Generic, Functor)
 
 declaratorType :: Declarator a -> DeclaratorType a

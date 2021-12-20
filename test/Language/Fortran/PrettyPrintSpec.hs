@@ -120,8 +120,8 @@ spec =
           let typeSpec = TypeSpec () u TypeCharacter (Just sel)
           let attrs = [ AttrIntent () u In , AttrPointer () u ]
           let declList =
-                [ Declarator () u (varGen "x") ScalarDeclarator Nothing (Just $ intGen 42)
-                , Declarator () u (varGen "y") ScalarDeclarator (Just $ intGen 3) Nothing ]
+                [ Declarator () u (varGen "x") ScalarDecl Nothing (Just $ intGen 42)
+                , Declarator () u (varGen "y") ScalarDecl (Just $ intGen 3) Nothing ]
           let st = StDeclaration () u typeSpec
                                       (Just $ AList () u attrs)
                                       (AList () u declList)
@@ -132,7 +132,7 @@ spec =
           let typeSpec = TypeSpec () u TypeInteger Nothing
           let dds = [ DimensionDeclarator () u Nothing (Just $ intGen 5) ]
           let declList =
-                [ Declarator () u (varGen "x") (ArrayDeclarator (AList () u dds)) Nothing
+                [ Declarator () u (varGen "x") (ArrayDecl (AList () u dds)) Nothing
                             (Just . initGen $ map intGen [1..5])
                 ]
           let st = StDeclaration () u typeSpec Nothing (AList () u declList)
@@ -173,8 +173,8 @@ spec =
 
       describe "Parameter" $
         it "prints vanilla statement" $ do
-          let decls = [ Declarator () u (varGen "x") ScalarDeclarator Nothing (Just $ intGen 42)
-                      , Declarator () u (varGen "y") ScalarDeclarator Nothing (Just $ intGen 24)
+          let decls = [ Declarator () u (varGen "x") ScalarDecl Nothing (Just $ intGen 42)
+                      , Declarator () u (varGen "y") ScalarDecl Nothing (Just $ intGen 24)
                       ]
           let st = StParameter () u (AList () u decls)
           pprint Fortran90 st Nothing `shouldBe` "parameter (x = 42, y = 24)"
