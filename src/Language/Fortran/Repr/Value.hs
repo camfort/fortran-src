@@ -8,6 +8,7 @@ module Language.Fortran.Repr.Value where
 
 import           Language.Fortran.Repr.Type
 
+import           Data.Int                       ( Int8, Int16, Int32, Int64 )
 import           Data.Data                      ( Data, Typeable )
 import           GHC.Generics                   ( Generic )
 import           Data.Binary                    ( Binary )
@@ -23,6 +24,9 @@ data FValScalar
 data FValInt = FValInt FTypeInt Integer
     deriving stock    (Eq, Ord, Show, Data, Typeable, Generic)
     deriving anyclass (Out, Binary)
+
+fvalInt :: FValInt -> Integer
+fvalInt (FValInt _ i) = i
 
 -- | A bounds-checked operation on 'ty'. True is valid, False is invalid.
 type CheckedOp ty = ty -> ty -> (ty, Bool)
@@ -44,3 +48,12 @@ fValIntSafeBinOp op (FValInt t1 v1) (FValInt t2 v2) = (FValInt t v, isInBound)
 
 fValIntSafeAdd :: CheckedOp FValInt
 fValIntSafeAdd = fValIntSafeBinOp (+)
+
+toRuntimeRepr :: FValInt -> FValInt
+toRuntimeRepr (FValInt t x) =
+  FValInt t $
+    case t of
+      FTypeInt1 -> toInteger ((fromInteger x) :: Int8)
+      FTypeInt2 -> toInteger ((fromInteger x) :: Int16)
+      FTypeInt4 -> toInteger ((fromInteger x) :: Int32)
+      FTypeInt8 -> toInteger ((fromInteger x) :: Int64)
