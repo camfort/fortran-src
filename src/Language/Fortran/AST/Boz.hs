@@ -18,6 +18,8 @@ import           Text.PrettyPrint.GenericPretty ( Out )
 
 import qualified Data.List as List
 import qualified Data.Char as Char
+import qualified Numeric   as Num
+import           Data.Maybe ( isJust, fromJust )
 
 -- | A Fortran BOZ literal constant.
 --
@@ -69,3 +71,20 @@ prettyBoz b = prettyBozPrefix (bozPrefix b) : '\'' : bozString b <> "'"
           BozPrefixB -> 'b'
           BozPrefixO -> 'o'
           BozPrefixZ -> 'z'
+
+-- | Resolve a BOZ constant as a natural (positive integer).
+--
+-- Is actually polymorphic over the output type, but you probably want to
+-- resolve to 'Integer' or 'Natural' usually.
+bozAsNatural :: (Num a, Eq a) => Boz -> a
+bozAsNatural (Boz pfx str) = runReadS $ parser str
+  where
+    runReadS = fst . head
+    parser = case pfx of
+               BozPrefixB -> -- TODO on GHC 9.2, 'Num.readBin'
+                 Num.readInt 2 (isJust . binCharFunc) (fromJust . binCharFunc)
+               BozPrefixO -> Num.readOct
+               BozPrefixZ -> Num.readHex
+    binCharFunc = \case '0' -> Just 0
+                        '1' -> Just 1
+                        _   -> Nothing

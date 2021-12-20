@@ -1,8 +1,11 @@
+{-# LANGUAGE TypeApplications #-}
+
 module Language.Fortran.AST.BozSpec where
 
 import Test.Hspec
 
 import Language.Fortran.AST.Boz
+import Numeric.Natural ( Natural )
 
 spec :: Spec
 spec = do
@@ -12,3 +15,6 @@ spec = do
 
     it "parses nonstandard X as Z (hex)" $ do
       parseBoz "x'09af'" `shouldBe` parseBoz "z'09af'"
+
+    it "resolves a BOZ as a natural" $ do
+      bozAsNatural @Natural (parseBoz "x'FF'") `shouldBe` 255
