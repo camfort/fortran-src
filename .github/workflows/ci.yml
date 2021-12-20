@@ -226,6 +226,6 @@ jobs:
     - name: Upload executable
       uses: actions/upload-artifact@v2
       with:
-        path: "C:/Users/runneradmin/AppData/Roaming/cabal/bin/${{ env.EXE_NAME }}.exe"
+        path: "C:/cabal/bin/${{ env.EXE_NAME }}.exe"
         name: ${{ env.EXE_NAME }}-windows-ghc-${{ matrix.ghc }}-cabal-${{ github.sha }}.exe
         if-no-files-found: error
