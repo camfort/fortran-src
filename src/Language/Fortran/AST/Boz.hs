@@ -4,9 +4,18 @@ Using the definition from the latest Fortran standards (F2003, F2008), BOZ
 constants are bitstrings (untyped!) which have basically no implicit rules. How
 they're interpreted depends on context (they are generally limited to DATA
 statements and a small handful of intrinsic functions).
+
+Note that currently, we don't store BOZ constants as bitstrings. Storing them in
+their string representation is easy and in that form, they're easy to safely
+resolve to an integer. An alternate option would be to store them as the
+bitstring "B" of BOZ, and only implement functions on that. For simple uses
+(integer), I'm doubtful that would provide extra utility or performance, but it
+may be more sensible in the future. For now, you may retrieve a bitstring by
+converting to a numeric type and using something like 'showIntAtBase', or a
+'Bits' instance.
 -}
 
-{-# LANGUAGE DeriveDataTypeable, DeriveGeneric, DeriveAnyClass #-}
+{-# LANGUAGE DerivingStrategies, DeriveDataTypeable, DeriveGeneric, DeriveAnyClass #-}
 {-# LANGUAGE LambdaCase #-}
 
 module Language.Fortran.AST.Boz where
@@ -31,13 +40,15 @@ import           Data.Maybe ( isJust, fromJust )
 data Boz = Boz
   { bozPrefix :: BozPrefix
   , bozString :: String
-  } deriving (Eq, Show, Data, Typeable, Generic, NFData, Out, Ord)
+  } deriving stock    (Eq, Show, Generic, Data, Typeable, Ord)
+    deriving anyclass (NFData, Out)
 
 data BozPrefix
   = BozPrefixB
   | BozPrefixO
   | BozPrefixZ -- also @x@
-    deriving (Eq, Show, Data, Typeable, Generic, NFData, Out, Ord)
+    deriving stock    (Eq, Show, Generic, Data, Typeable, Ord)
+    deriving anyclass (NFData, Out)
 
 -- | UNSAFE. Parses a BOZ literal constant string.
 --

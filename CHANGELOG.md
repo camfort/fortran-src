@@ -1,6 +1,7 @@
 ### 0.8.0 (Unreleased)
   * Merge declarator constructors. Now you differentiate between array and
-    scalar declarators by looking at the relevant field.
+    scalar declarators by looking at the relevant field. See
+    `Language.Fortran.AST.Declarator` for details.
   * Add `bozAsNatural :: Num a => Boz -> a` function to resolve BOZ constants as
     integers
 
