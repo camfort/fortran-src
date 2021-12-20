@@ -37,7 +37,7 @@ varGen :: String -> Expression ()
 varGen str = ExpValue () u $ ValVariable str
 
 declVarGen :: String -> Declarator ()
-declVarGen str = Declarator () u (varGen str) ScalarDeclarator Nothing Nothing
+declVarGen str = Declarator () u (varGen str) ScalarDecl Nothing Nothing
 
 intGen :: Integer -> Expression ()
 intGen i = ExpValue () u $ ValInteger (show i) Nothing
@@ -64,10 +64,10 @@ assVal :: Expression ()
 assVal = ExpValue () u ValAssignment
 
 declVariable :: a -> SrcSpan -> Expression a -> Maybe (Expression a) -> Maybe (Expression a) -> Declarator a
-declVariable a ss v mLen mVal = Declarator a ss v ScalarDeclarator mLen mVal
+declVariable a ss v mLen mVal = Declarator a ss v ScalarDecl mLen mVal
 
 declArray :: a -> SrcSpan -> Expression a -> AList DimensionDeclarator a -> Maybe (Expression a) -> Maybe (Expression a) -> Declarator a
-declArray a ss v dims mLen mVal = Declarator a ss v (ArrayDeclarator dims) mLen mVal
+declArray a ss v dims mLen mVal = Declarator a ss v (ArrayDecl dims) mLen mVal
 
 ixSinGen :: Integer -> Index ()
 ixSinGen i = IxSingle () u Nothing (intGen i)

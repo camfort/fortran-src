@@ -674,7 +674,7 @@ ENUMERATOR_LIST :: { [Declarator A0] }
 -- R463
 ENUMERATOR :: { Declarator A0 }
 : PARAMETER_ASSIGNMENT { $1 }
-| VARIABLE { Declarator () (getSpan $1) $1 ScalarDeclarator Nothing Nothing }
+| VARIABLE { Declarator () (getSpan $1) $1 ScalarDecl Nothing Nothing }
 
 MAYBE_PROC_INTERFACE :: { Maybe (ProcInterface A0) }
 : TYPE_SPEC             { Just $ ProcInterfaceType () (getSpan $1) $1 }
@@ -1018,7 +1018,7 @@ PARAMETER_ASSIGNMENTS :: { [ Declarator A0 ] }
 
 PARAMETER_ASSIGNMENT :: { Declarator A0 }
 : VARIABLE '=' EXPRESSION
-  { Declarator () (getTransSpan $1 $3) $1 ScalarDeclarator Nothing (Just $3) }
+  { Declarator () (getTransSpan $1 $3) $1 ScalarDecl Nothing (Just $3) }
 
 DECLARATION_STATEMENT :: { Statement A0 }
 : TYPE_SPEC ATTRIBUTE_LIST '::' INITIALIZED_DECLARATOR_LIST
@@ -1097,22 +1097,22 @@ INITIALIZED_DECLARATOR :: { Declarator A0 }
 
 DECLARATOR :: { Declarator A0 }
 : VARIABLE
-  {     Declarator () (getSpan $1)         $1 ScalarDeclarator                Nothing     Nothing }
+  {     Declarator () (getSpan $1)         $1 ScalarDecl                Nothing     Nothing }
 | VARIABLE '*' EXPRESSION
-  {     Declarator () (getTransSpan $1 $3) $1 ScalarDeclarator                (Just $3)   Nothing }
+  {     Declarator () (getTransSpan $1 $3) $1 ScalarDecl                (Just $3)   Nothing }
 | VARIABLE '*' '(' '*' ')'
   { let star = ExpValue () (getSpan $4) ValStar
-     in Declarator () (getTransSpan $1 $5) $1 ScalarDeclarator                (Just star) Nothing }
+     in Declarator () (getTransSpan $1 $5) $1 ScalarDecl                (Just star) Nothing }
 | VARIABLE '(' DIMENSION_DECLARATORS ')'
-  {     Declarator () (getTransSpan $1 $4) $1 (ArrayDeclarator (aReverse $3)) Nothing     Nothing }
+  {     Declarator () (getTransSpan $1 $4) $1 (ArrayDecl (aReverse $3)) Nothing     Nothing }
 | VARIABLE '(' DIMENSION_DECLARATORS ')' '*' EXPRESSION
-  {     Declarator () (getTransSpan $1 $6) $1 (ArrayDeclarator (aReverse $3)) (Just $6)   Nothing }
+  {     Declarator () (getTransSpan $1 $6) $1 (ArrayDecl (aReverse $3)) (Just $6)   Nothing }
 -- nonstandard char array syntax (wrong order for dimensions & charlen)
 | VARIABLE '*' EXPRESSION '(' DIMENSION_DECLARATORS ')'
-  {     Declarator () (getTransSpan $1 $6) $1 (ArrayDeclarator (aReverse $5)) (Just $3)   Nothing }
+  {     Declarator () (getTransSpan $1 $6) $1 (ArrayDecl (aReverse $5)) (Just $3)   Nothing }
 | VARIABLE '(' DIMENSION_DECLARATORS ')' '*' '(' '*' ')'
   { let star = ExpValue () (getSpan $7) ValStar
-     in Declarator () (getTransSpan $1 $8) $1 (ArrayDeclarator (aReverse $3)) (Just star) Nothing }
+     in Declarator () (getTransSpan $1 $8) $1 (ArrayDecl (aReverse $3)) (Just star) Nothing }
 
 DIMENSION_DECLARATORS :: { AList DimensionDeclarator A0 }
 : DIMENSION_DECLARATORS ',' DIMENSION_DECLARATOR

@@ -297,12 +297,12 @@ extractParamVarMap pf = M.fromList cvm
           | F.PUModule _ _ _ bs _                             <- universeBi pf' :: [F.ProgramUnit (FA.Analysis a)]
           , st@(F.StDeclaration _ _ (F.TypeSpec _ _ _ _) _ _) <- universeBi bs  :: [F.Statement (FA.Analysis a)]
           , F.AttrParameter _ _                               <- universeBi st  :: [F.Attribute (FA.Analysis a)]
-          , (F.Declarator _ _ v F.ScalarDeclarator _ _)       <- universeBi st  :: [F.Declarator (FA.Analysis a)]
+          , (F.Declarator _ _ v F.ScalarDecl _ _)       <- universeBi st  :: [F.Declarator (FA.Analysis a)]
           , Just con                                          <- [FA.constExp (F.getAnnotation v)] ] ++
           [ (FA.varName v, con)
           | F.PUModule _ _ _ bs _                             <- universeBi pf' :: [F.ProgramUnit (FA.Analysis a)]
           , st@F.StParameter {}                               <- universeBi bs  :: [F.Statement (FA.Analysis a)]
-          , (F.Declarator _ _ v F.ScalarDeclarator _ _)       <- universeBi st  :: [F.Declarator (FA.Analysis a)]
+          , (F.Declarator _ _ v F.ScalarDecl _ _)       <- universeBi st  :: [F.Declarator (FA.Analysis a)]
           , Just con                                          <- [FA.constExp (F.getAnnotation v)] ]
 
 -- | Status of mod-file compared to Fortran file.

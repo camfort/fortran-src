@@ -892,8 +892,8 @@ showBaseType (ClassCustom s)     = "class(" ++ s ++ ")"
 showDecl :: Declarator a -> String
 showDecl (Declarator _ _ e mAdims length' initial) =
     let partDims = case mAdims of
-                     ScalarDeclarator -> mempty
-                     ArrayDeclarator dims ->
+                     ScalarDecl -> mempty
+                     ArrayDecl dims ->
                        "(" ++ aIntercalate "," showDim dims ++ ")"
      in  showExpr e
            ++ partDims

@@ -97,7 +97,7 @@ analyseTypesWithEnv' env pf@(ProgramFile mi _) = runInfer (miVersion mi) env $ d
   -- Gather information.
   mapM_ intrinsicsExp (allExpressions pf)
   mapM_ programUnit (allProgramUnits pf)
-  mapM_ recordArrayDeclarator (allDeclarators pf)
+  mapM_ recordArrayDecl (allDeclarators pf)
   mapM_ statement (allStatements pf)
 
   -- Gather types for known entry points.
@@ -174,10 +174,10 @@ programUnit _                                           = return ()
 --   Note that 'ConstructType' is rewritten for 'Declarator's in
 --   'handleDeclaration' later. TODO how does this assist exactly? disabling
 --   apparently doesn't impact tests
-recordArrayDeclarator :: Data a => InferFunc (Declarator (Analysis a))
-recordArrayDeclarator (Declarator _ _ v (ArrayDeclarator ddAList) _ _) =
+recordArrayDecl :: Data a => InferFunc (Declarator (Analysis a))
+recordArrayDecl (Declarator _ _ v (ArrayDecl ddAList) _ _) =
     recordCType (CTArray $ dimDeclarator ddAList) (varName v)
-recordArrayDeclarator _ = return ()
+recordArrayDecl _ = return ()
 
 dimDeclarator :: AList DimensionDeclarator a -> [(Maybe Int, Maybe Int)]
 dimDeclarator ddAList = [ (lb, ub) | DimensionDeclarator _ _ lbExp ubExp <- aStrip ddAList
@@ -209,8 +209,8 @@ handleDeclaration env stmtSs ts mAttrAList declAList
             st <- deriveSemTypeFromDeclaration stmtSs declSs ts mLenExpr
             let n  = varName v
                 ct = case mDdAList of
-                       ScalarDeclarator -> cType n
-                       ArrayDeclarator dims -> CTArray $ dimDeclarator dims
+                       ScalarDecl -> cType n
+                       ArrayDecl dims -> CTArray $ dimDeclarator dims
             pure $ (n, st, ct) : rs
     in foldM handler [] decls
 
@@ -259,7 +259,7 @@ statement (StExpressionAssign _ _ (ExpFunctionCall _ _ v Nothing) _) = recordCTy
 statement (StDimension _ _ declAList) = do
   let decls = aStrip declAList
   forM_ decls $ \ decl -> case decl of
-    Declarator _ _ v (ArrayDeclarator ddAList) _ _ ->
+    Declarator _ _ v (ArrayDecl ddAList) _ _ ->
       recordCType (CTArray $ dimDeclarator ddAList) (varName v)
     _ -> return ()
 
