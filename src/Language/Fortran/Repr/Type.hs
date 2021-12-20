@@ -64,7 +64,7 @@ data FTypeInt
   | FTypeInt2
   | FTypeInt4
   | FTypeInt8
-    deriving stock    (Eq, Ord, Show, Data, Typeable, Generic)
+    deriving stock    (Eq, Ord, Show, Data, Enum, Typeable, Generic)
     deriving anyclass (Out, Binary)
 
 parseKindInt :: Integer -> Maybe FTypeInt
@@ -97,7 +97,7 @@ fTypeIntMin = \case FTypeInt1 -> toInteger (minBound @Int8)
 data FTypeReal
   = FTypeReal4
   | FTypeReal8
-    deriving stock    (Eq, Ord, Show, Data, Typeable, Generic)
+    deriving stock    (Eq, Ord, Show, Enum, Data, Typeable, Generic)
     deriving anyclass (Out, Binary)
 
 parseKindReal :: Integer -> Maybe FTypeReal
@@ -218,3 +218,14 @@ recoverTyTypeSpec a ss v = \case
     sel = Selector a ss
 
 -}
+
+class JoinType t where
+  -- | Calculate the least-upper bound type of two types, if it exists
+  -- | (according to the Fortran spec)
+  -- | Should be reflexive, symmetric, and transitive
+  joinType :: t -> t -> Maybe t
+
+instance JoinType FTypeInt where
+  joinType x y | x == y = Just x
+  -- Use the pretty printer to get the maximum size of integer, and convert back to the type repr
+  joinType x y = parseKindInt (prettyKindInt x `max` prettyKindInt y)
