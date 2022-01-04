@@ -1,4 +1,4 @@
-### 0.8.0 (Unreleased)
+### 0.8.0 (Jan 04, 2022)
   * Merge declarator constructors. Now you differentiate between array and
     scalar declarators by looking at the relevant field. See
     `Language.Fortran.AST.Declarator` for details.
