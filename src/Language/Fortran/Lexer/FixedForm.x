@@ -947,6 +947,7 @@ alexGetByte ai
             aiPosition =
               case _curChar of
                 '\n'  -> advance Newline ai
+                '\t'  -> advanceNChars 4 ai
                 _     -> advance Char ai,
             aiBytes = _bs,
             aiPreviousChar = _curChar,
@@ -1020,6 +1021,14 @@ advance move ai =
     position = aiPosition ai
     _col = posColumn position
     _line = posLine position
+    _absl = posAbsoluteOffset position
+
+advanceNChars :: Int -> AlexInput -> Position
+advanceNChars n ai =
+      position { posAbsoluteOffset = _absl + n, posColumn = _col + n }
+  where
+    position = aiPosition ai
+    _col = posColumn position
     _absl = posAbsoluteOffset position
 
 skipComment :: AlexInput -> Position -> Position
