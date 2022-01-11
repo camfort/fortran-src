@@ -786,6 +786,8 @@ EXPRESSION :: { Expression A0 }
 | EXPRESSION neqv EXPRESSION { ExpBinary () (getTransSpan $1 $3) NotEquivalent $1 $3 }
 | EXPRESSION RELATIONAL_OPERATOR EXPRESSION %prec RELATIONAL { ExpBinary () (getTransSpan $1 $3) $2 $1 $3 }
 | '(' EXPRESSION ')' { setSpan (getTransSpan $1 $3) $2 }
+| '(' VARIABLE ')'
+  { let ExpValue _ _ (ValVariable v) = $2 in ExpVarIndirect () (getTransSpan $1 $3) v }
 | NUMERIC_LITERAL                   { $1 }
 | '(' EXPRESSION ',' EXPRESSION ')' { ExpValue () (getTransSpan $1 $5) (ValComplex $2 $4) }
 | LOGICAL_LITERAL                   { $1 }

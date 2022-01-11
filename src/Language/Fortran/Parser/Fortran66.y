@@ -362,6 +362,8 @@ EXPRESSION :: { Expression A0 }
 | not EXPRESSION { ExpUnary () (getTransSpan $1 $2) Not $2 }
 | EXPRESSION RELATIONAL_OPERATOR EXPRESSION %prec RELATIONAL { ExpBinary () (getTransSpan $1 $3) $2 $1 $3 }
 | '(' EXPRESSION ')' { setSpan (getTransSpan $1 $3) $2 }
+| '(' VARIABLE ')'
+  { let ExpValue _ _ (ValVariable v) = $2 in ExpVarIndirect () (getTransSpan $1 $3) v }
 | INTEGER_LITERAL               { $1 }
 | REAL_LITERAL                  { $1 }
 | COMPLEX_LITERAL               { $1 }

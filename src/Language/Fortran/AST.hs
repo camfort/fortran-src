@@ -582,6 +582,8 @@ data DoSpecification a =
 data Expression a =
     ExpValue         a SrcSpan (Value a)
   -- ^ Use a value as an expression.
+  | ExpVarIndirect   a SrcSpan Name
+  -- ^ TODO
   | ExpBinary        a SrcSpan BinaryOp (Expression a) (Expression a)
   -- ^ A binary operator applied to two expressions.
   | ExpUnary         a SrcSpan UnaryOp (Expression a)
