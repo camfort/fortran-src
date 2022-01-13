@@ -428,8 +428,8 @@ functionCallType ss (ExpValue _ _ (ValIntrinsic n)) (Just (AList _ _ params)) = 
             ITLogical   -> wrapBaseType TypeLogical
             ITCharacter -> wrapBaseType TypeCharacter
             ITParam i
-              | length params >= i, Argument _ _ _ e <- params !! (i-1)
-                -> return $ idVType =<< getIDType e
+              | length params >= i, Argument _ _ _ ae <- params !! (i-1)
+                -> return $ idVType =<< getIDType (argExprNormalize ae)
               | otherwise -> typeError ("Invalid parameter list to intrinsic '" ++ n ++ "'") ss >> return Nothing
       case mst of
         Nothing -> return emptyType

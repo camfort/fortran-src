@@ -639,9 +639,12 @@ ARGUMENTS :: { [ Argument A0 ] }
 ARGUMENT :: { Argument A0 }
 : id '=' EXPRESSION
   { let TId span keyword = $1
-    in Argument () (getTransSpan span $3) (Just keyword) $3 }
+     in Argument () (getTransSpan span $3) (Just keyword) (ArgExpr $3) }
+| '(' VARIABLE ')'
+  { let ExpValue _ _ (ValVariable v) = $2
+     in Argument () (getTransSpan $1 $3) Nothing (ArgExprVar () (getSpan $2) v) }
 | EXPRESSION
-  { Argument () (getSpan $1) Nothing $1 }
+  { Argument () (getSpan $1) Nothing (ArgExpr $1) }
 
 MAYBE_RENAME_LIST :: { Maybe (AList Use A0) }
 : RENAME_LIST { Just $ fromReverseList $1 }
@@ -1042,8 +1045,6 @@ EXPRESSION :: { Expression A0 }
   { let TOpCustom _ str = $2
     in ExpBinary () (getTransSpan $1 $3) (BinCustom str) $1 $3 }
 | '(' EXPRESSION ')' { setSpan (getTransSpan $1 $3) $2 }
-| '(' VARIABLE ')'
-  { let ExpValue _ _ (ValVariable v) = $2 in ExpVarIndirect () (getTransSpan $1 $3) v }
 | NUMERIC_LITERAL                   { $1 }
 | '(' EXPRESSION ',' EXPRESSION ')'
   { ExpValue () (getTransSpan $1 $5) (ValComplex $2 $4) }

@@ -5,6 +5,7 @@
 {-# LANGUAGE DeriveFunctor #-}
 {-# LANGUAGE DefaultSignatures #-}
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE LambdaCase #-}
 
 -- |
 --
@@ -73,6 +74,9 @@ module Language.Fortran.AST
   , ModuleNature(..)
   , Use(..)
   , Argument(..)
+  , ArgumentExpression(..)
+  , argExprNormalize
+  , argExtractExpr
   , Intent(..)
   , ControlPair(..)
   , AllocOpt(..)
@@ -490,8 +494,21 @@ data Use a =
   | UseID a SrcSpan (Expression a)
   deriving (Eq, Show, Data, Typeable, Generic, Functor)
 
-data Argument a = Argument a SrcSpan (Maybe String) (Expression a)
+-- TODO potentially should throw Maybe String into ArgumentExpression too?
+data Argument a = Argument a SrcSpan (Maybe String) (ArgumentExpression a)
   deriving (Eq, Show, Data, Typeable, Generic, Functor)
+
+data ArgumentExpression a
+  = ArgExpr              (Expression a)
+  | ArgExprVar a SrcSpan Name
+  deriving (Eq, Show, Data, Typeable, Generic, Functor)
+
+argExprNormalize :: ArgumentExpression a -> Expression a
+argExprNormalize = \case ArgExpr         e -> e
+                         ArgExprVar a ss v -> ExpValue a ss (ValVariable v)
+
+argExtractExpr :: Argument a -> Expression a
+argExtractExpr (Argument _ _ _ ae) = argExprNormalize ae
 
 data Attribute a =
     AttrAllocatable a SrcSpan
@@ -582,8 +599,6 @@ data DoSpecification a =
 data Expression a =
     ExpValue         a SrcSpan (Value a)
   -- ^ Use a value as an expression.
-  | ExpVarIndirect   a SrcSpan Name
-  -- ^ TODO
   | ExpBinary        a SrcSpan BinaryOp (Expression a) (Expression a)
   -- ^ A binary operator applied to two expressions.
   | ExpUnary         a SrcSpan UnaryOp (Expression a)
@@ -920,6 +935,7 @@ instance Out a => Out (ProcInterface a)
 instance Out Only
 instance Out ModuleNature
 instance Out a => Out (Argument a)
+instance Out a => Out (ArgumentExpression a)
 instance Out a => Out (Use a)
 instance Out a => Out (Attribute a)
 instance Out Intent
@@ -1018,6 +1034,7 @@ instance NFData a => NFData (DoSpecification a)
 instance NFData a => NFData (Selector a)
 instance NFData a => NFData (ForallHeader a)
 instance NFData a => NFData (Argument a)
+instance NFData a => NFData (ArgumentExpression a)
 instance NFData a => NFData (Use a)
 instance NFData a => NFData (Attribute a)
 instance NFData a => NFData (CommonGroup a)

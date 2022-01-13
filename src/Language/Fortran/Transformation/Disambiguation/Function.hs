@@ -60,7 +60,7 @@ class Indexed a where
   fromIndex :: Index b -> a b
 
 instance Indexed Argument where
-  fromIndex (IxSingle a s mKey e) = Argument a s mKey e
+  fromIndex (IxSingle a s mKey e) = Argument a s mKey (ArgExpr e)
   fromIndex IxRange{} =
     error "Deduced a function but argument is not an expression."
 
