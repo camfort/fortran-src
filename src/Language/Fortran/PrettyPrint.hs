@@ -805,6 +805,11 @@ instance Pretty (Argument a) where
          Just keyName -> text keyName <+> char '=' <+> pprint' v e
          Nothing      -> pprint' v e
 
+instance Pretty (ArgumentExpression a) where
+    pprint' v = \case
+      ArgExpr        e   -> pprint' v e
+      ArgExprVar _ _ var -> "(" <> pprint' v var <> ")"
+
 instance Pretty (Attribute a) where
     pprint' v attr
       | v >= Fortran90 =

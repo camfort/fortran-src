@@ -240,7 +240,7 @@ lhsExprs x = concatMap lhsOfStmt (universeBi x)
     lhsOfStmt :: Statement a -> [Expression a]
     lhsOfStmt (StExpressionAssign _ _ e e') = e : onExprs e'
     lhsOfStmt (StCall _ _ _ (Just aexps)) = filter isLExpr argExps ++ concatMap onExprs argExps
-       where argExps = map extractExp . aStrip $ aexps
+       where argExps = map argExtractExpr . aStrip $ aexps
     lhsOfStmt s =  onExprs s
 
     onExprs :: (Data a, Data (c a)) => c a -> [Expression a]
@@ -249,8 +249,7 @@ lhsExprs x = concatMap lhsOfStmt (universeBi x)
     lhsOfExp (ExpFunctionCall _ _ _ (Just aexps)) = fstLvl aexps
     lhsOfExp _ = []
 
-    fstLvl = filter isLExpr . map extractExp . aStrip
-    extractExp (Argument _ _ _ exp) = exp
+    fstLvl = filter isLExpr . map argExtractExpr . aStrip
 
 -- | Return list of expressions that are not "left-hand-side" of
 -- assignment statements.
@@ -298,7 +297,7 @@ computeAllLhsVars = concatMap lhsOfStmt . universeBi
     lhsOfStmt (StDeclaration _ _ _ _ decls) = concat [ lhsOfDecls decl | decl <- universeBi decls ]
     lhsOfStmt (StCall _ _ f@(ExpValue _ _ (ValIntrinsic _)) _)
       | Just defs <- intrinsicDefs f = defs
-    lhsOfStmt (StCall _ _ _ (Just aexps)) = concatMap (match'' . extractExp) (aStrip aexps)
+    lhsOfStmt (StCall _ _ _ (Just aexps)) = concatMap (match'' . argExtractExpr) (aStrip aexps)
     lhsOfStmt s = onExprs s
 
     lhsOfDecls (Declarator _ _ e _ _ (Just e')) = match' e : onExprs e'
@@ -308,10 +307,8 @@ computeAllLhsVars = concatMap lhsOfStmt . universeBi
     onExprs = concatMap lhsOfExp . universeBi
 
     lhsOfExp :: Expression (Analysis a) -> [Name]
-    lhsOfExp (ExpFunctionCall _ _ _ (Just aexps)) = concatMap (match . extractExp) (aStrip aexps)
+    lhsOfExp (ExpFunctionCall _ _ _ (Just aexps)) = concatMap (match . argExtractExpr) (aStrip aexps)
     lhsOfExp _ = []
-
-    extractExp (Argument _ _ _ exp) = exp
 
     -- Match and give the varname for LHS of statement
     match' v@(ExpValue _ _ ValVariable{}) = varName v

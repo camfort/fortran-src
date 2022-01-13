@@ -759,16 +759,19 @@ ARGUMENTS_LEVEL1 :: { AList Argument A0 }
 CALLABLE_EXPRESSION :: { Argument A0 }
 -- Explicitly parse special intrinsics for argument passing types
 : '%' id '(' EXPRESSION ')'
-  { let { args = AList () (getSpan $4) $ [Argument () (getSpan $4) Nothing $4];
+  { let { args = AList () (getSpan $4) $ [Argument () (getSpan $4) Nothing (ArgExpr $4)];
           TId _ name = $2;
           intr = ExpFunctionCall () (getTransSpan $1 $5)
                    (ExpValue () (getTransSpan $1 $2) (ValIntrinsic ('%':name)))
                    (Just args) }
-    in Argument () (getTransSpan $1 $5) Nothing intr }
+    in Argument () (getTransSpan $1 $5) Nothing (ArgExpr intr) }
 | id '=' EXPRESSION
   { let TId span keyword = $1
-    in Argument () (getTransSpan span $3) (Just keyword) $3 }
-| EXPRESSION  { Argument () (getSpan $1) Nothing $1 }
+    in Argument () (getTransSpan span $3) (Just keyword) (ArgExpr $3) }
+| '(' VARIABLE ')'
+  { let ExpValue _ _ (ValVariable v) = $2
+     in Argument () (getTransSpan $1 $3) Nothing (ArgExprVar () (getSpan $2) v) }
+| EXPRESSION  { Argument () (getSpan $1) Nothing (ArgExpr $1) }
 
 EXPRESSION :: { Expression A0 }
 : EXPRESSION '+' EXPRESSION { ExpBinary () (getTransSpan $1 $3) Addition $1 $3 }
@@ -786,8 +789,6 @@ EXPRESSION :: { Expression A0 }
 | EXPRESSION neqv EXPRESSION { ExpBinary () (getTransSpan $1 $3) NotEquivalent $1 $3 }
 | EXPRESSION RELATIONAL_OPERATOR EXPRESSION %prec RELATIONAL { ExpBinary () (getTransSpan $1 $3) $2 $1 $3 }
 | '(' EXPRESSION ')' { setSpan (getTransSpan $1 $3) $2 }
-| '(' VARIABLE ')'
-  { let ExpValue _ _ (ValVariable v) = $2 in ExpVarIndirect () (getTransSpan $1 $3) v }
 | NUMERIC_LITERAL                   { $1 }
 | '(' EXPRESSION ',' EXPRESSION ')' { ExpValue () (getTransSpan $1 $5) (ValComplex $2 $4) }
 | LOGICAL_LITERAL                   { $1 }
