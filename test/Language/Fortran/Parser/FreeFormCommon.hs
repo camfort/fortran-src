@@ -66,3 +66,19 @@ specFreeFormCommon sParser eParser =
               dims     = AList () u
                 [ DimensionDeclarator () u Nothing (Just (intGen 2)) ]
           sParser stStr `shouldBe'` expected
+
+      describe "Function call" $ do
+        it "parses a simple function call" $ do
+          let stStr    = "call double(i, i)"
+              expected = StCall () u (varGen "double") (Just args)
+              args     = AList () u [arg, arg]
+              arg      = Argument () u Nothing (ArgExpr (varGen "i"))
+          sParser stStr `shouldBe'` expected
+
+        it "parses a parenthesized variable as a special indirect/copied variable reference" $ do
+          let stStr    = "call double((i), i)"
+              expected = StCall () u (varGen "double") (Just args)
+              args     = AList () u [ genArg (ArgExprVar () u "i")
+                                    , genArg (ArgExpr (varGen "i")) ]
+              genArg   = Argument () u Nothing
+          sParser stStr `shouldBe'` expected
