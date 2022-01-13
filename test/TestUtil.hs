@@ -42,6 +42,9 @@ declVarGen str = Declarator () u (varGen str) ScalarDecl Nothing Nothing
 intGen :: Integer -> Expression ()
 intGen i = ExpValue () u $ ValInteger (show i) Nothing
 
+aintGen :: Integer -> ArgumentExpression ()
+aintGen = ArgExpr . intGen
+
 initGen :: [Expression ()] -> Expression ()
 initGen es = ExpInitialisation () u $ fromList () es
 

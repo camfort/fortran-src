@@ -148,7 +148,7 @@ expectedEx2pu1bs =
           (intGen 1)
           (ExpFunctionCall () u
             (ExpValue () u $ ValVariable "f")
-            (Just $ AList () u [ Argument () u Nothing (intGen 1) ])))) ]
+            (Just $ AList () u [ Argument () u Nothing (aintGen 1) ])))) ]
 
 
 ex3 :: ProgramFile ()
@@ -185,8 +185,8 @@ expectedEx3pu1bs =
       (StExpressionAssign () u (varGen "i")
         (ExpFunctionCall () u (ExpValue () u $ ValIntrinsic "abs")
           (Just $ AList () u [ Argument () u Nothing
-            (ExpFunctionCall () u (ExpValue () u $ ValVariable "f")
-                                  (Just $ AList () u [ Argument () u Nothing (intGen 1) ])) ]))) ]
+            (ArgExpr $ ExpFunctionCall () u (ExpValue () u $ ValVariable "f")
+                                  (Just $ AList () u [ Argument () u Nothing (aintGen 1) ])) ]))) ]
 
 
 {-
@@ -221,7 +221,7 @@ expectedEx4pu1bs =
   , BlStatement () u Nothing
       (StExpressionAssign () u (varGen "a")
        (ExpFunctionCall () u (ExpValue () u $ ValVariable "f")
-                                  (Just $ AList () u [ Argument () u Nothing (intGen 1) ] ))) ]
+                                  (Just $ AList () u [ Argument () u Nothing (aintGen 1) ] ))) ]
 
 {-
 - program Main
@@ -253,7 +253,7 @@ expectedEx5pu1bs =
   , BlStatement () u Nothing
       (StExpressionAssign () u (varGen "a")
        (ExpFunctionCall () u (ExpValue () u $ ValVariable "f")
-                                  (Just $ AList () u [ Argument () u Nothing (intGen 1) ] ))) ]
+                                  (Just $ AList () u [ Argument () u Nothing (aintGen 1) ] ))) ]
 
 {-
 - program Main

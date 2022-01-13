@@ -320,7 +320,7 @@ spec =
       it "parse special intrinsics to arguments" $ do
         let blStmt stmt = BlStatement () u Nothing stmt
             ext = blStmt $ StExternal () u $ AList () u [varGen "bar"]
-            arg = Just . AList () u . pure . Argument () u Nothing
+            arg = Just . AList () u . pure . Argument () u Nothing . ArgExpr
             valBar = ExpFunctionCall () u (ExpValue () u (ValIntrinsic "%val"))
                      $ arg $ varGen "baz"
             call = blStmt $ StCall () u (varGen "bar") $ arg valBar
