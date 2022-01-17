@@ -37,7 +37,6 @@ jobs:
     - name: Build and run tests
       run: stack --no-terminal haddock --test --no-haddock-deps --pedantic
 
-<<<<<<< HEAD
     - name: Install (to place executable at a known location)
       run: stack --no-terminal install
 
@@ -52,11 +51,6 @@ jobs:
     runs-on: ubuntu-latest
     name: Ubuntu / GHC ${{ matrix.ghc }}, Cabal / test
 
-=======
-  ubuntu-cabal-test:
-    runs-on: ubuntu-latest
-    name: Ubuntu / GHC ${{ matrix.ghc }}, Cabal ${{ matrix.cabal }} / test
->>>>>>> b360279 (add CI job for running benchmarks)
     strategy:
       fail-fast: false      # don't stop if one job (= GHC version) fails
       matrix:
