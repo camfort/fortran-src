@@ -1,40 +1,38 @@
-module Language.Fortran.Parser.Fortran90Spec (spec) where
+module Language.Fortran.Parser.Free.Fortran95Spec ( spec ) where
 
-import Prelude hiding (GT, exp, pred)
+import Prelude hiding (GT, EQ, exp, pred)
 
 import Test.Hspec
 import TestUtil
-import Language.Fortran.Parser.FreeFormCommon
+import Language.Fortran.Parser.Free.Common
 
 import Language.Fortran.AST
-import Language.Fortran.ParserMonad
-import Language.Fortran.Lexer.FreeForm
-import Language.Fortran.Parser.Fortran90
---import qualified Data.List as List
-import qualified Data.ByteString.Char8 as B
+import Language.Fortran.Version
+import Language.Fortran.Parser
+import Language.Fortran.Parser.Monad ( Parse )
+import qualified Language.Fortran.Parser.Free.Fortran95 as F95
+import qualified Language.Fortran.Parser.Free.Lexer     as Free
 
-{-# ANN module "HLint: ignore Reduce duplication" #-}
+import qualified Data.List as List
+import Data.Foldable(forM_)
+import qualified Data.ByteString.Char8 as B
+import Control.Exception (evaluate)
+
+parseWith :: Parse Free.AlexInput Free.Token a -> String -> a
+parseWith p = parseUnsafe (makeParserFree p Fortran95) . B.pack
 
 eParser :: String -> Expression ()
-eParser sourceCode =
-  case evalParse statementParser parseState of
-    (StExpressionAssign _ _ _ e) -> e
-    _ -> error "unhandled evalParse"
-  where
-    paddedSourceCode = B.pack $ "      a = " ++ sourceCode
-    parseState =  initParseState paddedSourceCode Fortran90 "<unknown>"
+eParser = parseUnsafe p . B.pack
+  where p = makeParser initParseStateFreeExpr F95.expressionParser Fortran95
 
 sParser :: String -> Statement ()
-sParser sourceCode =
-  evalParse statementParser $ initParseState (B.pack sourceCode) Fortran90 "<unknown>"
+sParser = parseWith F95.statementParser
 
-blParser :: String -> Block ()
-blParser sourceCode =
-  evalParse blockParser $ initParseState (B.pack sourceCode) Fortran90 "<unknown>"
+bParser :: String -> Block ()
+bParser = parseWith F95.blockParser
 
 fParser :: String -> ProgramUnit ()
-fParser sourceCode =
-  evalParse functionParser $ initParseState (B.pack sourceCode) Fortran95 "<unknown>"
+fParser = parseWith F95.functionParser
 
 {- Useful for parser debugging; Lexes the given source code.
 fTok :: String -> [Token]
@@ -45,19 +43,17 @@ fTok sourceCode = collectFreeTokens Fortran95 $ B.pack sourceCode
  - Given a list of values, find every combination of those values:
  - combination [1,2] = [[], [1], [2], [1,2], [2,1]]
  -}
---combination :: [a] -> [[a]]
---combination = foldr ((++) . List.permutations) [] . List.subsequences
+combination :: [a] -> [[a]]
+combination = foldr ((++) . List.permutations) [] . List.subsequences
 
 spec :: Spec
 spec =
-  describe "Fortran 90 Parser" $ do
+  describe "Fortran 95 Parser" $ do
     describe "Function" $ do
       let puFunction = PUFunction () u
           fType = Nothing
-          fPre = emptyPrefixes
-          fPreR = Just $ AList () u [PfxRecursive () u]
           fSuf = emptySuffixes
-          fPreSuf = (fPre, fSuf)
+          fPreSuf = emptyPrefixSuffix
           fName = "f"
           fArgs = Nothing
           fRes = Nothing
@@ -91,27 +87,44 @@ spec =
                                , "end function f" ]
           fParser fStr `shouldBe'` expected
 
-      it "parses recursive functions" $
-        let expected = puFunction fType (fPreR, fSuf) fName fArgs fRes fBody fSub
-            fStr = init $ unlines ["recursive function f()", "end"]
-        in fParser fStr `shouldBe'` expected
+      describe "parses function options (recursive, pure, elemental)" $ do
+        let options_list = map unzip $ combination
+                                        [ ("recursive ", PfxRecursive () u)
+                                        , ("pure ", PfxPure () u)
+                                        , ("elemental ", PfxElemental () u) ]
 
+        forM_ options_list (\(strs, opts) -> do
+          let isElem (PfxElemental {}) = True; isElem _ = False
+              isRec  (PfxRecursive {}) = True; isRec _  = False
+              str = concat strs
+              fStr = str ++ init (unlines ["function f()", "end"])
+              pfx = fromList' () opts
+          --let expected = puFunction fType
+          if any isElem opts && any isRec opts
+            then
+              it ("Shouldn't parse: " ++ show fStr ++ ": " ++ show opts) $
+                evaluate (fParser fStr) `shouldThrow` anyIOException
+            else
+              it ("Should parse: " ++ show fStr ++ ": " ++ show opts) $ do
+                let expected' = puFunction fType (pfx, fSuf) fName fArgs fRes fBody fSub
+                fParser fStr `shouldBe'` expected'
+          )
 
-      it "parses functions with a list of arguments" $
+      it "parses functions with a list of arguments" $ do
         let fArgs' = Just $ AList () u [ varGen "x", varGen "y", varGen "z" ]
             expected = puFunction fType fPreSuf fName fArgs' fRes fBody fSub
             fStr = init $ unlines ["function f(x, y, z)"
                              , "end function f" ]
-        in fParser fStr `shouldBe'` expected
+        fParser fStr `shouldBe'` expected
 
-      it "parses functions with a result variable" $
+      it "parses functions with a result variable" $ do
         let fRes' = Just $ varGen "i"
             expected = puFunction fType fPreSuf fName fArgs fRes' fBody fSub
             fStr = init $ unlines ["function f() result(i)"
                              , "end function f" ]
-        in fParser fStr `shouldBe'` expected
+        fParser fStr `shouldBe'` expected
 
-      it "parses functions with function bodies" $
+      it "parses functions with function bodies" $ do
         let decrementRHS = ExpBinary () u Subtraction (varGen "i") (intGen 1)
             f1 = StPrint () u starVal (Just $ AList () u [ varGen "i" ])
             f2 = StExpressionAssign () u (varGen "i") decrementRHS
@@ -121,9 +134,9 @@ spec =
                              , "  print *, i"
                              , "  i = (i - 1)"
                              , "end function f" ]
-        in fParser fStr `shouldBe'` expected
+        fParser fStr `shouldBe'` expected
 
-      it "parses complex functions" $
+      it "parses complex functions" $ do
         let fType' = Just $ TypeSpec () u TypeInteger Nothing
             fArgs' = Just $ AList () u [ varGen "x", varGen "y", varGen "z" ]
             fRes' = Just $ varGen "i"
@@ -136,7 +149,7 @@ spec =
                              , "  print *, i"
                              , "  i = (i - 1)"
                              , "end function f" ]
-        in fParser fStr `shouldBe'` expected
+        fParser fStr `shouldBe'` expected
 
     describe "Expression" $ do
       it "parses logical literal without kind parameter" $ do
@@ -188,15 +201,17 @@ spec =
             st = StExpressionAssign () u lhs (intGen 1)
         sParser "x(1) % y = 1" `shouldBe'` st
 
-      it "parses pause statements" $ do
-        let stPause = StPause () u Nothing
-            stStr = "PAUSE"
-        sParser stStr `shouldBe'` stPause
+      it "doesn't parse assign statements" $ do
+        let stStr = "ASSIGN 1 \"LABEL\""
+        evaluate (sParser stStr) `shouldThrow` anyIOException
 
-      it "parses pause statements with expression" $ do
-        let stPause = StPause () u (Just (strGen "MESSAGE"))
-            stStr = "PAUSE \"MESSAGE\""
-        sParser stStr `shouldBe'` stPause
+      it "doesn't parse pause statements" $ do
+        let stStr = "PAUSE"
+        evaluate (sParser stStr) `shouldThrow` anyIOException
+
+      it "doesn't parse pause statements with expression" $ do
+        let stStr = "PAUSE \"MESSAGE\""
+        evaluate (sParser stStr) `shouldThrow` anyIOException
 
       it "parses declaration with attributes" $ do
         let typeSpec = TypeSpec () u TypeReal Nothing
@@ -207,30 +222,35 @@ spec =
                                       (Just $ intGen 3) (Just $ intGen 10)
                                   ]
                                ]
-            declarators = AList () u [ declVarGen "x", declVarGen "y"]
+            declarators = AList () u
+              [ declVariable () u (varGen "x") Nothing Nothing
+              , declVariable () u (varGen "y") Nothing Nothing ]
             expected = StDeclaration () u typeSpec (Just attrs) declarators
             stStr = "real, external, intent (out), dimension (3:10) :: x, y"
         sParser stStr `shouldBe'` expected
 
       it "parses declaration with old syntax" $ do
         let typeSpec = TypeSpec () u TypeLogical Nothing
-            declarators = AList () u [ declVarGen "x", declVarGen "y"]
+            declarators = AList () u
+              [ declVariable () u (varGen "x") Nothing Nothing
+              , declVariable () u (varGen "y") Nothing Nothing ]
             expected = StDeclaration () u typeSpec Nothing declarators
             stStr = "logical x, y"
         sParser stStr `shouldBe'` expected
 
-      it "parses declaration with initialisation" $
+      it "parses declaration with initialisation" $ do
         let typeSpec = TypeSpec () u TypeComplex Nothing
             init' = ExpValue () u (ValComplex (intGen 24) (realGen (42.0::Double)))
             declarators = AList () u
               [ declVariable () u (varGen "x") Nothing (Just init') ]
             expected = StDeclaration () u typeSpec Nothing declarators
             stStr = "complex :: x = (24, 42.0)"
-        in sParser stStr `shouldBe'` expected
+        sParser stStr `shouldBe'` expected
 
       it "parses declaration of custom type" $ do
         let typeSpec = TypeSpec () u (TypeCustom "meinetype") Nothing
-            declarators = AList () u [declVarGen "x"]
+            declarators = AList () u
+              [ declVariable () u (varGen "x") Nothing Nothing ]
             expected = StDeclaration () u typeSpec Nothing declarators
             stStr = "type (MeineType) :: x"
         sParser stStr `shouldBe'` expected
@@ -238,7 +258,8 @@ spec =
       it "parses declaration type with kind selector" $ do
         let selector = Selector () u Nothing (Just $ varGen "hello")
             typeSpec = TypeSpec () u TypeInteger (Just selector)
-            declarators = AList () u [declVarGen "x"]
+            declarators = AList () u
+              [ declVariable () u (varGen "x") Nothing Nothing ]
             expected = StDeclaration () u typeSpec Nothing declarators
             stStr = "integer (hello) :: x"
         sParser stStr `shouldBe'` expected
@@ -280,6 +301,39 @@ spec =
             ass2 = declVariable () u (varGen "y") Nothing (Just $ intGen 20)
             expected = StParameter () u (fromList () [ ass1, ass2 ])
         sParser "parameter (x = 10, y = 20)" `shouldBe'` expected
+
+      describe "FORALL blocks" $ do
+        let stride = Just $ ExpBinary () u NE (varGen "i") (intGen 2)
+            tripletSpecList = [("i", intGen 1, varGen "n", stride)]
+
+        it "parses basic FORALL blocks" $ do
+          let stStr = "FORALL (I=1:N, I /= 2)"
+              expected = StForall () u Nothing (ForallHeader tripletSpecList Nothing)
+          sParser stStr `shouldBe'` expected
+
+      describe "FORALL statements" $ do
+        let stride = Just $ ExpBinary () u NE (varGen "i") (intGen 2)
+            tripletSpecList = [("i", intGen 1, varGen "n", stride)]
+        --let varI = IxSingle () u Nothing (varGen "i")
+        --let expSub1 = ExpSubscript () u (varGen "a") (AList () u [varI, varI])
+        --let expSub2 = ExpSubscript () u (varGen "x") (AList () u [varI])
+        --let eAssign = StExpressionAssign () u expSub1 expSub2
+
+        it "parses basic FORALL statements" $ do
+          let stStr = "FORALL (I=1:N, I /= 2)" -- A(I,I) = X(I)"
+              expected = StForall () u Nothing (ForallHeader tripletSpecList Nothing)-- eAssign
+          sParser stStr `shouldBe'` expected
+
+      describe "ENDFORALL statements" $ do
+        it "parses FORALL end statements" $ do
+          let stStr = "ENDFORALL"
+              expected = StEndForall () u Nothing
+          sParser stStr `shouldBe'` expected
+
+        it "parses FORALL end statements with label" $ do
+          let stStr = "ENDFORALL A"
+              expected = StEndForall () u $ Just "a"
+          sParser stStr `shouldBe'` expected
 
       describe "Implicit" $ do
         it "parses implicit none" $ do
@@ -381,7 +435,7 @@ spec =
                     in ExpSubscript () u (varGen "d") indicies
                   ]
               ]
-        let st = StEquivalence () u eqALists
+            st = StEquivalence () u eqALists
         sParser "equivalence (a(1), x), (y, z, d(1:42))" `shouldBe'` st
 
       describe "Dynamic allocation" $ do
@@ -391,19 +445,16 @@ spec =
                 [ varGen "x"
                 , ExpDataRef () u (varGen "st") (varGen "part")
                 ]
-          let s = StAllocate () u Nothing allocs (Just (AList () u [opt]))
+              s = StAllocate () u Nothing allocs (Just (AList () u [opt]))
           sParser "allocate (x, st % part, STAT = a)" `shouldBe'` s
 
         it "parses deallocate statement" $ do
-          let opt = AOStat () u (varGen "a")
-              allocs = fromList ()
+          let allocs = fromList ()
                 [ let indicies = fromList () [ IxSingle () u Nothing (intGen 20) ]
                   in ExpSubscript () u (varGen "smt") indicies
                 ]
               s = StDeallocate () u allocs Nothing
-              s' = StDeallocate () u allocs (Just (AList () u [opt]))
           sParser "deallocate (smt ( 20 ))" `shouldBe'` s
-          sParser "deallocate (smt ( 20 ), stat=a)" `shouldBe'` s'
 
         it "parses nullify statement" $ do
           let s = StNullify () u (fromList () [ varGen "x" ])
@@ -440,16 +491,16 @@ spec =
       let stPrint = StPrint () u starVal (Just $ fromList () [ ExpValue () u (ValString "foo")])
       it "parser if block" $
         let ifBlockSrc = unlines [ "if (.false.) then", "print *, 'foo'", "end if"]
-        in blParser ifBlockSrc `shouldBe'` BlIf () u Nothing Nothing [Just valFalse] [[BlStatement () u Nothing stPrint]] Nothing
+        in bParser ifBlockSrc `shouldBe'` BlIf () u Nothing Nothing [Just valFalse] [[BlStatement () u Nothing stPrint]] Nothing
 
       it "parses named if block" $ do
         let ifBlockSrc = unlines [ "mylabel : if (.true.) then", "print *, 'foo'", "end if mylabel"]
             ifBlock = BlIf () u Nothing (Just "mylabel") [Just valTrue] [[BlStatement () u Nothing stPrint]] Nothing
-        blParser ifBlockSrc `shouldBe'` ifBlock
+        bParser ifBlockSrc `shouldBe'` ifBlock
 
       it "parses if-else block with inline comments (stripped)" $
         let ifBlockSrc = unlines [ "if (.false.) then ! comment if", "print *, 'foo'", "else ! comment else", "print *, 'foo'", "end if ! comment end"]
-        in blParser ifBlockSrc `shouldBe'` BlIf () u Nothing Nothing [Just valFalse, Nothing] [[BlStatement () u Nothing stPrint], [BlStatement () u Nothing stPrint]] Nothing
+        in bParser ifBlockSrc `shouldBe'` BlIf () u Nothing Nothing [Just valFalse, Nothing] [[BlStatement () u Nothing stPrint], [BlStatement () u Nothing stPrint]] Nothing
 
       it "parses logical if statement" $ do
         let assignment = StExpressionAssign () u (varGen "a") (varGen "b")
@@ -482,7 +533,7 @@ spec =
                           ]
             blocks = (fmap . fmap) printBlock [["foo"], ["bar"], ["baz"]]
             block = BlCase () u Nothing Nothing (varGen "x") conds blocks Nothing
-        blParser src `shouldBe'` block
+        bParser src `shouldBe'` block
       it "labelled case block (with inline comments to be stripped" $ do
         let src = unlines [ "10 mylabel: select case (x) ! comment select"
                           , "20 case (2) ! comment case 1"
@@ -500,7 +551,7 @@ spec =
                            (Just $ intGen 10) (Just "mylabel") (varGen "x")
                            conds blocks
                            (Just $ intGen 80)
-        blParser src `shouldBe'` block
+        bParser src `shouldBe'` block
 
     describe "Do" $ do
       it "parses do statement with label" $ do
@@ -546,14 +597,11 @@ spec =
             st = StGotoComputed () u list (intGen 20)
         sParser "goto (10, 20, 30) 20" `shouldBe'` st
 
-      it "parses assigned goto" $ do
-        let list = fromList () [ intGen 10, intGen 20, intGen 30 ]
-            st = StGotoAssigned () u (varGen "i") (Just list)
-        sParser "goto i, (10, 20, 30)" `shouldBe'` st
+      it "doesn't parse assigned goto" $
+        evaluate (sParser "goto i, (10, 20, 30)") `shouldThrow` anyIOException
 
-      it "parses label assignment" $ do
-        let st = StLabelAssign () u (intGen 20) (varGen "l")
-        sParser "assign 20 to l" `shouldBe'` st
+      it "doesn't parse label assignment" $
+        evaluate (sParser "assign 20 to l") `shouldThrow` anyIOException
 
     describe "IO" $ do
       it "parses vanilla print" $ do
@@ -571,20 +619,37 @@ spec =
             st = StWrite () u ciList (Just outList)
         sParser "write (10, FORMAT = x) (i, j,  i = 1, 42, 2)" `shouldBe'` st
 
-    it "parses use statement with renames" $ do
+    it "parses use statement" $ do
       let renames = fromList ()
             [ UseRename () u (varGen "sprod") (varGen "prod")
             , UseRename () u (varGen "a") (varGen "b") ]
           st = StUse () u (varGen "stats_lib") Nothing Permissive (Just renames)
       sParser "use stats_lib, sprod => prod, a => b" `shouldBe'` st
 
-    it "parses use statement with only list" $ do
-      let onlys = fromList ()
-            [ UseID () u (varGen "a")
-            , UseRename () u (varGen "b") (varGen "c")
-            , UseID () u (ExpValue () u (ValOperator "+"))
-            , UseID () u (ExpValue () u ValAssignment) ]
-          st = StUse () u (varGen "stats_lib") Nothing Exclusive (Just onlys)
-      sParser "use stats_lib, only: a, b => c, operator(+), assignment(=)" `shouldBe'` st
+    it "parses value decl" $ do
+      let decls = [declVarGen "a", declVarGen "b"]
+          st = StValue () u (AList () u decls)
+      sParser "value a, b" `shouldBe'` st
+      sParser "value :: a, b" `shouldBe'` st
 
-    specFreeFormCommon sParser eParser
+    it "parses value attribute" $ do
+      let decls = [declVarGen "a", declVarGen "b"]
+          ty = TypeSpec () u TypeInteger Nothing
+          attrs = [AttrValue () u]
+          st = StDeclaration () u ty (Just (AList () u attrs)) (AList () u decls)
+      sParser "integer, value :: a, b" `shouldBe'` st
+
+    it "parses volatile decl" $ do
+      let decls = [declVarGen "a", declVarGen "b"]
+          st = StVolatile () u (AList () u decls)
+      sParser "volatile a, b" `shouldBe'` st
+      sParser "volatile :: a, b" `shouldBe'` st
+
+    it "parses volatile attribute" $ do
+      let decls = [declVarGen "a", declVarGen "b"]
+          ty = TypeSpec () u TypeInteger Nothing
+          attrs = [AttrVolatile () u]
+          st = StDeclaration () u ty (Just (AList () u attrs)) (AList () u decls)
+      sParser "integer, volatile :: a, b" `shouldBe'` st
+
+    specFreeCommon sParser eParser

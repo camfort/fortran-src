@@ -5,19 +5,22 @@ import Test.Hspec hiding (Selector)
 import TestUtil
 import Control.Exception (evaluate)
 import Control.DeepSeq (force)
-import Data.ByteString.Char8 (ByteString, pack)
+import Data.ByteString.Char8 (pack)
+import Data.Data
 
-import Language.Fortran.Transformer
+import Language.Fortran.Transformation.Monad
 import Language.Fortran.AST
 import Language.Fortran.Util.Position
-import Language.Fortran.ParserMonad
-import Language.Fortran.Parser.Fortran95
-import Language.Fortran.Parser.Fortran77
+import qualified Language.Fortran.Parser as Parser
+import           Language.Fortran.Parser ( Parser )
+import Language.Fortran.Transformation.Grouping
 
-groupDo :: ProgramFile () -> ProgramFile ()
-groupDo = transform [ GroupLabeledDo ]
-groupForall :: ProgramFile () -> ProgramFile ()
-groupForall = transform [ GroupForall ]
+transformWith :: Data a => Transform a () -> ProgramFile a -> ProgramFile a
+transformWith = runTransform mempty mempty
+
+groupDo', groupForall' :: Data a => ProgramFile a -> ProgramFile a
+groupDo'     = transformWith groupLabeledDo
+groupForall' = transformWith groupForall
 
 spec :: Spec
 spec = do
@@ -25,19 +28,19 @@ spec = do
   let endName = Just "endName"
   describe "Block FORALL statements" $ do
     it "groups unlabelled FORALL blocks" $
-      groupForall (exampleForall Nothing Nothing) `shouldBe'` expectedForall Nothing
+      groupForall' (exampleForall Nothing Nothing) `shouldBe'` expectedForall Nothing
     it "groups unlabelled FORALL blocks" $
-      groupForall (exampleForall name name) `shouldBe'` expectedForall name
+      groupForall' (exampleForall name name) `shouldBe'` expectedForall name
     it "groups unlabelled FORALL blocks" $ do
-      let lhs = (evaluate . force) (groupForall $ exampleForall name endName)
+      let lhs = (evaluate . force) (groupForall' $ exampleForall name endName)
       lhs `shouldThrow` anyErrorCall
 
   describe "Block DO statements" $ do
     it "do group example1" $
-      groupDo example1do `shouldBe` expectedExample1do
+      groupDo' example1do `shouldBe` expectedExample1do
 
     it "do group example2 with common end-point" $
-      groupDo example2do `shouldBe` expectedExample2do
+      groupDo' example2do `shouldBe` expectedExample2do
 
   describe "Block SrcSpan's" $ do
     it "Spans all a BlIf" $
@@ -127,20 +130,24 @@ expectedExample2doBlocks =
       [ ] label20
   ]
 
-getSingleParsedBlock :: Show b => (ByteString -> String -> ParseResult a b (ProgramFile A0)) -> String -> Block A0
+getSingleParsedBlock :: Parser (ProgramFile A0) -> String -> Block A0
 getSingleParsedBlock p c =
-  let pf = fromRight . fromParseResult $ p (pack c) "foobar.f"
-      ProgramFile _ ((PUSubroutine _ _ _ _ _ (b:_) _):_) = pf
-  in  b
+  case p "<unknown>" (pack c) of
+    Right (ProgramFile _ ((PUSubroutine _ _ _ _ _ (b:_) _):_)) -> b
+    e -> error $ show e
 
+-- TODO Runs internal transformations, which means we aren't explicitly asking
+-- for a grouping transformation. Bit weird.
 getSingleParsedBlock95 :: String -> Block A0
-getSingleParsedBlock95 = getSingleParsedBlock fortran95Parser
+getSingleParsedBlock95 = getSingleParsedBlock Parser.f95
 
+-- TODO Runs internal transformations, which means we aren't explicitly asking
+-- for a grouping transformation. Bit weird.
 getSingleParsedBlock77 :: String -> Block A0
-getSingleParsedBlock77 = getSingleParsedBlock fortran77Parser
+getSingleParsedBlock77 = getSingleParsedBlock Parser.f77
 
 getSingleParsedBlock77Legacy :: String -> Block A0
-getSingleParsedBlock77Legacy = getSingleParsedBlock legacy77Parser
+getSingleParsedBlock77Legacy = getSingleParsedBlock Parser.f77lNoTransform
 
 type SimpleSpan = (Int, Int, Int, Int)
 

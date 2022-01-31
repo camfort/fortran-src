@@ -1,6 +1,3 @@
-{-# LANGUAGE DeriveDataTypeable #-}
-{-# LANGUAGE DeriveGeneric #-}
-
 module Language.Fortran.Intrinsics
   ( getVersionIntrinsics, getIntrinsicReturnType, getIntrinsicNames, getIntrinsicDefsUses, isIntrinsic
   , IntrinsicType(..), IntrinsicsTable, allIntrinsics )
@@ -10,7 +7,7 @@ import qualified Data.Map.Strict as M
 import Data.Data
 import Data.List
 import GHC.Generics (Generic)
-import Language.Fortran.ParserMonad (FortranVersion(..))
+import Language.Fortran.Version
 
 
 data IntrinsicType = ITReal | ITInteger | ITComplex | ITDouble | ITLogical | ITCharacter | ITParam Int

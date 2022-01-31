@@ -1,57 +1,32 @@
 -- -*- Mode: Haskell -*-
 -- vim: ft=haskell
 {
-{-# LANGUAGE TupleSections #-}
-module Language.Fortran.Parser.Fortran77
-  ( expressionParser
-  , statementParser
+module Language.Fortran.Parser.Fixed.Fortran77
+  ( programParser
   , blockParser
-  , fortran77Parser
-  , fortran77ParserWithTransforms
-  , fortran77ParserWithModFiles
-  , fortran77ParserWithModFilesWithTransforms
-  , extended77Parser
-  , extended77ParserWithTransforms
-  , extended77ParserWithModFiles
-  , extended77ParserWithModFilesWithTransforms
-  , legacy77Parser
-  , legacy77ParserWithTransforms
-  , legacy77ParserWithModFiles
-  , legacy77ParserWithModFilesWithTransforms
-  , legacy77ParserWithIncludes
-  , legacy77ParserWithIncludesWithTransforms
-  , includeParser
-
+  , statementParser
+  , expressionParser
+  , includesParser
   ) where
 
-import Prelude hiding (EQ,LT,GT) -- Same constructors exist in the AST
-
-import Control.Monad.State
-import Data.List
-import Data.Maybe (isNothing, fromJust)
-import qualified Data.ByteString.Char8 as B
-import qualified Data.Map as M
+import Language.Fortran.Version
 import Language.Fortran.Util.Position
-import Language.Fortran.Util.ModFile
-import Language.Fortran.ParserMonad
-import Language.Fortran.Lexer.FixedForm hiding (Move(..))
-import Language.Fortran.Lexer.FixedForm.Utils
-import Language.Fortran.Transformer
+import Language.Fortran.Parser.Monad
+import Language.Fortran.Parser.Fixed.Lexer
+import Language.Fortran.Parser.Fixed.Utils
 import Language.Fortran.AST
 import Language.Fortran.AST.RealLit
 
-import Data.Generics.Uniplate.Operations
-import System.Directory
-import System.FilePath
-import Control.Exception
+import Prelude hiding ( EQ, LT, GT ) -- Same constructors exist in the AST
+import Data.Maybe ( isNothing, fromJust )
 
 }
 
-%name programParser PROGRAM
-%name includesParser INCLUDES
-%name blockParser BLOCK
-%name statementParser STATEMENT
+%name programParser    PROGRAM
+%name blockParser      BLOCK
+%name statementParser  STATEMENT
 %name expressionParser EXPRESSION
+%name includesParser   INCLUDES
 %monad { LexAction }
 %lexer { lexer } { TEOF _ }
 %tokentype { Token }
@@ -927,10 +902,10 @@ INTEGER_LITERAL :: { Expression A0 }
 | boz { let TBozLiteral s b = $1 in ExpValue () s $ ValBoz b }
 
 REAL_LITERAL :: { Expression A0 }
-: int EXPONENT { makeReal (Just $1) Nothing Nothing (Just $2) }
-| int '.' MAYBE_EXPONENT { makeReal (Just $1) (Just $2) Nothing $3 }
-| '.' int MAYBE_EXPONENT { makeReal Nothing (Just $1) (Just $2) $3 }
-| int '.' int MAYBE_EXPONENT { makeReal (Just $1) (Just $2) (Just $3) $4 }
+: int EXPONENT { makeRealLit (Just $1) Nothing Nothing (Just $2) }
+| int '.' MAYBE_EXPONENT { makeRealLit (Just $1) (Just $2) Nothing $3 }
+| '.' int MAYBE_EXPONENT { makeRealLit Nothing (Just $1) (Just $2) $3 }
+| int '.' int MAYBE_EXPONENT { makeRealLit (Just $1) (Just $2) (Just $3) $4 }
 
 MAYBE_EXPONENT :: { Maybe (SrcSpan, String) }
 : EXPONENT { Just $1 }
@@ -1000,156 +975,3 @@ IMP_TYPE_SPEC :: { TypeSpec A0 }
 
 STAR :: { Expression A0 }
 STAR : '*' { ExpValue () (getSpan $1) ValStar }
-
-{
-
-parse = runParse programParser
-
-defTransforms77  = defaultTransformations Fortran77
-defTransforms77e = defaultTransformations Fortran77Extended
-defTransforms77l = defaultTransformations Fortran77Legacy
-
-fortran77Parser
-    :: B.ByteString -> String -> ParseResult AlexInput Token (ProgramFile A0)
-fortran77Parser = fortran77ParserWithTransforms defTransforms77
-
-fortran77ParserWithTransforms
-    :: [Transformation]
-    -> B.ByteString -> String -> ParseResult AlexInput Token (ProgramFile A0)
-fortran77ParserWithTransforms =
-    flip fortran77ParserWithModFilesWithTransforms emptyModFiles
-
-fortran77ParserWithModFiles
-    :: ModFiles
-    -> B.ByteString -> String -> ParseResult AlexInput Token (ProgramFile A0)
-fortran77ParserWithModFiles =
-    fortran77ParserWithModFilesWithTransforms defTransforms77
-
-fortran77ParserWithModFilesWithTransforms
-    :: [Transformation] -> ModFiles
-    -> B.ByteString -> String -> ParseResult AlexInput Token (ProgramFile A0)
-fortran77ParserWithModFilesWithTransforms transforms mods sourceCode filename =
-    fmap (pfSetFilename filename . transform) $ parse parseState
-  where
-    transform  = transformWithModFiles mods transforms
-    parseState = initParseState sourceCode Fortran77Extended filename
-
-extended77Parser
-    :: B.ByteString -> String -> ParseResult AlexInput Token (ProgramFile A0)
-extended77Parser = extended77ParserWithTransforms defTransforms77e
-
-extended77ParserWithTransforms
-    :: [Transformation]
-    -> B.ByteString -> String -> ParseResult AlexInput Token (ProgramFile A0)
-extended77ParserWithTransforms =
-    flip extended77ParserWithModFilesWithTransforms emptyModFiles
-
-extended77ParserWithModFiles
-    :: ModFiles
-    -> B.ByteString -> String -> ParseResult AlexInput Token (ProgramFile A0)
-extended77ParserWithModFiles =
-    extended77ParserWithModFilesWithTransforms defTransforms77e
-
-extended77ParserWithModFilesWithTransforms
-    :: [Transformation] -> ModFiles
-    -> B.ByteString -> String -> ParseResult AlexInput Token (ProgramFile A0)
-extended77ParserWithModFilesWithTransforms transforms mods sourceCode filename =
-    fmap (pfSetFilename filename . transform) $ parse parseState
-  where
-    transform = transformWithModFiles mods transforms
-    parseState = initParseState sourceCode Fortran77Extended filename
-
-legacy77Parser
-    :: B.ByteString -> String -> ParseResult AlexInput Token (ProgramFile A0)
-legacy77Parser = legacy77ParserWithTransforms defTransforms77l
-
-legacy77ParserWithTransforms
-    :: [Transformation]
-    -> B.ByteString -> String -> ParseResult AlexInput Token (ProgramFile A0)
-legacy77ParserWithTransforms = flip legacy77ParserWithModFilesWithTransforms emptyModFiles
-
-legacy77ParserWithModFiles
-    :: ModFiles
-    -> B.ByteString -> String -> ParseResult AlexInput Token (ProgramFile A0)
-legacy77ParserWithModFiles =
-    legacy77ParserWithModFilesWithTransforms defTransforms77l
-
-legacy77ParserWithModFilesWithTransforms
-    :: [Transformation] -> ModFiles
-    -> B.ByteString -> String -> ParseResult AlexInput Token (ProgramFile A0)
-legacy77ParserWithModFilesWithTransforms transforms mods sourceCode filename =
-    fmap (pfSetFilename filename . transform) $ parse parseState
-  where
-    transform = transformWithModFiles mods transforms
-    parseState = initParseState sourceCode Fortran77Legacy filename
-
-legacy77ParserWithIncludes
-    :: [String]
-    -> B.ByteString -> String -> IO (ParseResult AlexInput Token (ProgramFile A0))
-legacy77ParserWithIncludes =
-    legacy77ParserWithIncludesWithTransforms defTransforms77l
-
-legacy77ParserWithIncludesWithTransforms
-    :: [Transformation] -> [String]
-    -> B.ByteString -> String -> IO (ParseResult AlexInput Token (ProgramFile A0))
-legacy77ParserWithIncludesWithTransforms transforms incs sourceCode filename =
-    fmap (pfSetFilename filename . transform) <$> doParse
-  where
-    doParse = case parse parseState of
-      ParseFailed e -> return (ParseFailed e)
-      ParseOk p x -> do
-        p' <- evalStateT (descendBiM (inlineInclude Fortran77Legacy incs []) p) M.empty
-        return (ParseOk p' x)
-    transform = transformWithModFiles emptyModFiles transforms
-    parseState = initParseState sourceCode Fortran77Legacy filename
-
-includeParser ::
-    FortranVersion -> B.ByteString -> String -> ParseResult AlexInput Token [Block A0]
-includeParser version sourceCode filename =
-    runParse includesParser parseState
-  where
-    -- ensure the file ends with a newline..
-    parseState = initParseState (sourceCode `B.snoc` '\n') version filename
-
-inlineInclude :: FortranVersion -> [String] -> [String] -> Statement A0 ->
-  StateT (M.Map String [Block A0]) IO (Statement A0)
-inlineInclude fv dirs seen st = case st of
-  StInclude a s e@(ExpValue _ _ (ValString path)) Nothing -> do
-    if notElem path seen then do
-      incMap <- get
-      case M.lookup path incMap of
-        Just blocks' -> pure $ StInclude a s e (Just blocks')
-        Nothing -> do
-          (fullPath, inc) <- liftIO $ readInDirs dirs path
-          case includeParser fv inc fullPath of
-            ParseOk blocks _ -> do
-              blocks' <- descendBiM (inlineInclude fv dirs (path:seen)) blocks
-              modify (M.insert path blocks')
-              return $ StInclude a s e (Just blocks')
-            ParseFailed e -> liftIO $ throwIO e
-    else return st
-  _ -> return st
-
-readInDirs :: [String] -> String -> IO (String, B.ByteString)
-readInDirs [] f = fail $ "cannot find file: " ++ f
-readInDirs (d:ds) f = do
-  let path = d</>f
-  b <- doesFileExist path
-  if b then
-    (path,) <$> B.readFile path
-  else
-    readInDirs ds f
-
-parseError :: Token -> LexAction a
-parseError _ = do
-    parseState <- get
-#ifdef DEBUG
-    tokens <- reverse <$> aiPreviousTokensInLine <$> getAlex
-#endif
-    fail $ psFilename parseState ++ ": parsing failed. "
-#ifdef DEBUG
-      ++ '\n' : show tokens
-#endif
-
-
-}

@@ -1,6 +1,6 @@
 -- | Analyse a program file and create basic blocks.
 
-{-# LANGUAGE TupleSections, FlexibleContexts, PatternGuards, ScopedTypeVariables #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 module Language.Fortran.Analysis.BBlocks
   ( analyseBBlocks, genBBlockMap, showBBGr, showAnalysedBBGr, showBBlocks, bbgrToDOT, BBlockMap, ASTBlockNode, ASTExprNode
   , genSuperBBGr, SuperBBGr(..), showSuperBBGr, superBBGrToDOT, findLabeledBBlock, showBlock )

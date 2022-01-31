@@ -1,43 +1,31 @@
 -- -*- Mode: Haskell -*-
 -- vim: ft=haskell
 {
--- Incomplete work-in-progress.
-module Language.Fortran.Parser.Fortran2003 ( functionParser
-                                           , statementParser
-                                           , blockParser
-                                           , fortran2003Parser
-                                           , fortran2003ParserWithTransforms
-                                           , fortran2003ParserWithModFiles
-                                           , fortran2003ParserWithModFilesWithTransforms
-                                           ) where
+module Language.Fortran.Parser.Free.Fortran95
+  ( programParser
+  , functionParser
+  , blockParser
+  , statementParser
+  , expressionParser
+  ) where
 
-import Prelude hiding (EQ,LT,GT) -- Same constructors exist in the AST
-import Control.Monad.State
-import Data.Maybe (fromMaybe, isJust)
-import Data.List (nub)
-import Data.Either (either, lefts, rights, partitionEithers)
-import Control.Applicative
-import qualified Data.ByteString.Char8 as B
-
-#ifdef DEBUG
-import Data.Data (toConstr)
-#endif
-
+import Language.Fortran.Version
 import Language.Fortran.Util.Position
-import Language.Fortran.Util.ModFile
-import Language.Fortran.ParserMonad
-import Language.Fortran.Lexer.FreeForm
+import Language.Fortran.Parser.Monad
+import Language.Fortran.Parser.Free.Lexer
+import Language.Fortran.Parser.Free.Utils
 import Language.Fortran.AST
-import Language.Fortran.Transformer
 
-import Debug.Trace
+import Prelude hiding ( EQ, LT, GT ) -- Same constructors exist in the AST
+import Data.Either ( partitionEithers )
 
 }
 
-%name programParser   PROGRAM
-%name functionParser  SUBPROGRAM_UNIT
-%name blockParser     BLOCK
-%name statementParser STATEMENT
+%name programParser    PROGRAM
+%name functionParser   SUBPROGRAM_UNIT
+%name blockParser      BLOCK
+%name statementParser  STATEMENT
+%name expressionParser EXPRESSION
 %monad { LexAction }
 %lexer { lexer } { TEOF _ }
 %tokentype { Token }
@@ -100,12 +88,9 @@ import Debug.Trace
   contains                    { TContains _ }
   use                         { TUse _ }
   only                        { TOnly _ }
-  import                      { TImport _ }
-  abstract                    { TAbstract _ }
   interface                   { TInterface _ }
   endInterface                { TEndInterface _ }
   moduleProcedure             { TModuleProcedure _ }
-  procedure                   { TProcedure _ }
   assignment                  { TAssignment _ }
   operator                    { TOperator _ }
   call                        { TCall _ }
@@ -114,24 +99,18 @@ import Debug.Trace
   include                     { TInclude _ }
   public                      { TPublic _ }
   private                     { TPrivate _ }
-  protected                   { TProtected _ }
   parameter                   { TParameter _ }
   allocatable                 { TAllocatable _ }
-  asynchronous                { TAsynchronous _ }
   dimension                   { TDimension _ }
   external                    { TExternal _ }
   intent                      { TIntent _ }
   intrinsic                   { TIntrinsic _ }
-  nonintrinsic                { TNonIntrinsic _ }
   optional                    { TOptional _ }
   pointer                     { TPointer _ }
   save                        { TSave _ }
   target                      { TTarget _ }
   value                       { TValue _ }
   volatile                    { TVolatile _ }
-  bind                        { TBind _ }
-  'c'                         { TC _ }
-  name                        { TName _ }
   in                          { TIn _ }
   out                         { TOut _ }
   inout                       { TInOut _ }
@@ -141,10 +120,8 @@ import Debug.Trace
   equivalence                 { TEquivalence _ }
   common                      { TCommon _ }
   allocate                    { TAllocate _ }
-  deallocate                  { TDeallocate _ }
   stat                        { TStat _ }
-  errmsg                      { TErrMsg _ }
-  source                      { TSource _ }
+  deallocate                  { TDeallocate _ }
   nullify                     { TNullify _ }
   none                        { TNone _ }
   goto                        { TGoto _ }
@@ -162,8 +139,6 @@ import Debug.Trace
   case                        { TCase _ }
   selectcase                  { TSelectCase _ }
   endselect                   { TEndSelect _ }
-  associate                   { TAssociate _ }
-  endassociate                { TEndAssociate _ }
   default                     { TDefault _ }
   cycle                       { TCycle _ }
   exit                        { TExit _ }
@@ -172,10 +147,6 @@ import Debug.Trace
   endwhere                    { TEndWhere _ }
   type                        { TType _ }
   endType                     { TEndType _ }
-  class                       { TClass _ }
-  enum                        { TEnum _ }
-  enumerator                  { TEnumerator _ }
-  endEnum                     { TEndEnum _ }
   sequence                    { TSequence _ }
   kind                        { TKind _ }
   len                         { TLen _ }
@@ -190,11 +161,6 @@ import Debug.Trace
   read                        { TRead _ }
   write                       { TWrite _ }
   print                       { TPrint _ }
-  flush                       { TFlush _ }
-  unit                        { TUnit _ }
-  iostat                      { TIOStat _ }
-  iomsg                       { TIOMsg _ }
-  err                         { TErr _ }
   backspace                   { TBackspace _ }
   rewind                      { TRewind _ }
   inquire                     { TInquire _ }
@@ -247,8 +213,8 @@ PROGRAM :: { ProgramFile A0 }
 | PROGRAM_INNER { $1 }
 
 PROGRAM_INNER :: { ProgramFile A0 }
-: PROGRAM_UNITS { ProgramFile (MetaInfo { miVersion = Fortran2003, miFilename = "" }) (reverse $1) }
-| {- empty -}   { ProgramFile (MetaInfo { miVersion = Fortran2003, miFilename = "" }) [] }
+: PROGRAM_UNITS { ProgramFile (MetaInfo { miVersion = Fortran95, miFilename = "" }) (reverse $1) }
+| {- empty -}   { ProgramFile (MetaInfo { miVersion = Fortran95, miFilename = "" }) [] }
 
 PROGRAM_UNITS :: { [ ProgramUnit A0 ] }
 : PROGRAM_UNITS PROGRAM_UNIT MAYBE_NEWLINE { $2 : $1 }
@@ -277,27 +243,26 @@ SUBPROGRAM_UNITS :: { [ ProgramUnit A0 ] }
 | {- EMPTY -} { [ ] }
 
 SUBPROGRAM_UNIT :: { ProgramUnit A0 }
-: PREFIXES function NAME MAYBE_ARGUMENTS FUNC_SUFFIX MAYBE_COMMENT NEWLINE BLOCKS MAYBE_SUBPROGRAM_UNITS FUNCTION_END
+: PREFIXES function NAME MAYBE_ARGUMENTS MAYBE_RESULT MAYBE_COMMENT NEWLINE BLOCKS MAYBE_SUBPROGRAM_UNITS FUNCTION_END
   {% do { unitNameCheck $10 $3;
           let (pfxs, typeSpec) = case partitionEithers $1 of
                                    { (ps, t:_) -> (fromReverseList' ps, Just t)
                                    ; (ps, [])  -> (fromReverseList' ps, Nothing) } in
-          let (sfx, result) = $5 in
-          let sfx' = fmap (\ s -> AList () (getSpan s) [s]) sfx in
+          let sfx = emptySuffixes in
           let ss = if null $1 then getTransSpan $2 $10 else getTransSpan (reverse $1) $10 in
-          if validPrefixSuffix (pfxs, sfx') then
-            return $ PUFunction () ss typeSpec (pfxs, sfx') $3 $4 result (reverse $8) $9
-          else fail "Cannot specify elemental along with recursive and/or bind." } }
-| PREFIXES subroutine NAME MAYBE_ARGUMENTS SUBR_SUFFIX MAYBE_COMMENT NEWLINE BLOCKS MAYBE_SUBPROGRAM_UNITS SUBROUTINE_END
-  {% do { unitNameCheck $10 $3;
+          if validPrefixSuffix (pfxs, sfx) then
+            return $ PUFunction () ss typeSpec (pfxs, sfx) $3 $4 $5 (reverse $8) $9
+          else fail "Cannot specify elemental along with recursive." } }
+| PREFIXES subroutine NAME MAYBE_ARGUMENTS MAYBE_COMMENT NEWLINE BLOCKS MAYBE_SUBPROGRAM_UNITS SUBROUTINE_END
+  {% do { unitNameCheck $9 $3;
           (pfxs, typeSpec) <- case partitionEithers $1 of
                                 { (ps, t:_) -> fail "Subroutines cannot have return types."
                                 ; (ps, [])  -> return (fromReverseList' ps, Nothing) };
-          let sfx' = fmap (\ s -> AList () (getSpan s) [s]) $5 in
-          let ss = if null $1 then getTransSpan $2 $10 else getTransSpan (reverse $1) $10 in
-          if validPrefixSuffix (pfxs, sfx') then
-            return $ PUSubroutine () ss (pfxs, sfx') $3 $4 (reverse $8) $9
-          else fail "Cannot specify elemental along with recursive and/or bind." } }
+          let sfx = emptySuffixes in
+          let ss = if null $1 then getTransSpan $2 $9 else getTransSpan (reverse $1) $9 in
+          if validPrefixSuffix (pfxs, sfx) then
+            return $ PUSubroutine () ss (pfxs, sfx) $3 $4 (reverse $7) $8
+          else fail "Cannot specify elemental along with recursive." } }
 | comment { let (TComment s c) = $1 in PUComment () s (Comment c) }
 
 -- (Fortran2003) R1227, Fortran95 (...)
@@ -312,33 +277,16 @@ PREFIX :: { Either (Prefix A0) (TypeSpec A0) }
 | pure      { Left $ PfxPure      () (getSpan $1) }
 | TYPE_SPEC { Right $1 }
 
-FUNC_SUFFIX :: { (Maybe (Suffix A0), Maybe (Expression A0)) }
-: SUFFIX RESULT { (Just $1, Just $2) }
-| RESULT SUFFIX { (Just $2, Just $1) }
-| SUFFIX        { (Just $1, Nothing) }
-| RESULT        { (Nothing, Just $1) }
-| {- empty -}   { (Nothing, Nothing) }
-
-SUBR_SUFFIX :: { Maybe (Suffix A0) }
-: SUFFIX        { Just $1 }
-| {- empty -}   { Nothing }
-
--- (Fortran2003) R1229
-SUFFIX :: { Suffix A0 }
--- (Fortran2003) R509
-: bind '(' 'c' ',' name '=' EXPRESSION ')' { SfxBind () (getTransSpan $1 $8) (Just $7) }
-| bind '(' 'c' ')'                         { SfxBind () (getTransSpan $1 $4) Nothing }
-
-MAYBE_ARGUMENTS :: { Maybe (AList Expression A0) }
-: '(' MAYBE_VARIABLES ')' { $2 }
-| {- Nothing -} { Nothing }
-
 RESULT :: { Expression A0 }
 : result '(' VARIABLE ')' { $3 }
 
 MAYBE_RESULT :: { Maybe (Expression A0) }
 : RESULT      { Just $1 }
 | {- empty -} { Nothing}
+
+MAYBE_ARGUMENTS :: { Maybe (AList Expression A0) }
+: '(' MAYBE_VARIABLES ')' { $2 }
+| {- Nothing -} { Nothing }
 
 PROGRAM_END :: { Token }
 : end { $1 } | endProgram { $1 } | endProgram id { $2 }
@@ -355,26 +303,22 @@ INTERFACE_END :: { Token }
 
 NAME :: { Name } : id { let (TId _ name) = $1 in name }
 
-IMPORT_NAME_LIST :: { [Expression A0] }
-: IMPORT_NAME_LIST ',' VARIABLE { $3 : $1 }
-| VARIABLE { [ $1 ] }
-
 BLOCKS :: { [ Block A0 ] } : BLOCKS BLOCK { $2 : $1 } | {- EMPTY -} { [ ] }
 
 BLOCK :: { Block A0 }
 : IF_BLOCK MAYBE_COMMENT NEWLINE { $1 }
 | CASE_BLOCK MAYBE_COMMENT NEWLINE { $1 }
-| ASSOCIATE_BLOCK MAYBE_COMMENT NEWLINE { $1 }
 | INTEGER_LITERAL STATEMENT MAYBE_COMMENT NEWLINE
   { BlStatement () (getTransSpan $1 $2) (Just $1) $2 }
 | STATEMENT MAYBE_COMMENT NEWLINE { BlStatement () (getSpan $1) Nothing $1 }
-| ABSTRACTP interface MAYBE_EXPRESSION MAYBE_COMMENT NEWLINE SUBPROGRAM_UNITS2 MODULE_PROCEDURES INTERFACE_END MAYBE_COMMENT NEWLINE
-  { BlInterface () (getTransSpan $2 $10) $3 $1 (reverse $6) (reverse $7) }
-| ABSTRACTP interface MAYBE_EXPRESSION MAYBE_COMMENT NEWLINE MODULE_PROCEDURES INTERFACE_END MAYBE_COMMENT NEWLINE
-  { BlInterface () (getTransSpan $2 $9) $3 $1 [ ] (reverse $6) }
+| interface MAYBE_EXPRESSION MAYBE_COMMENT NEWLINE SUBPROGRAM_UNITS2 MODULE_PROCEDURES INTERFACE_END MAYBE_COMMENT NEWLINE
+  { BlInterface () (getTransSpan $1 $9) $2 False (reverse $5) (reverse $6) }
+| interface MAYBE_EXPRESSION MAYBE_COMMENT NEWLINE MODULE_PROCEDURES INTERFACE_END MAYBE_COMMENT NEWLINE
+  { BlInterface () (getTransSpan $1 $8) $2 False [ ] (reverse $5) }
 | COMMENT_BLOCK { $1 }
 
 IF_BLOCK :: { Block A0 }
+IF_BLOCK
 :                        if '(' EXPRESSION ')' then MAYBE_COMMENT NEWLINE BLOCKS ELSE_BLOCKS
   { let { startSpan = getSpan $1;
           (endSpan, conds, blocks, endLabel) = $9;
@@ -400,6 +344,7 @@ IF_BLOCK :: { Block A0 }
      in BlIf () span startLabel (Just startName) ((Just $6):conds) ((reverse $11):blocks) endLabel }
 
 ELSE_BLOCKS :: { (SrcSpan, [Maybe (Expression A0)], [[Block A0]], Maybe (Expression A0)) }
+ELSE_BLOCKS
 : maybe(INTEGER_LITERAL) elsif '(' EXPRESSION ')' then MAYBE_COMMENT NEWLINE BLOCKS ELSE_BLOCKS
   { let (endSpan, conds, blocks, endLabel) = $10
     in (endSpan, Just $4 : conds, reverse $9 : blocks, endLabel) }
@@ -409,12 +354,14 @@ ELSE_BLOCKS :: { (SrcSpan, [Maybe (Expression A0)], [[Block A0]], Maybe (Express
 | END_IF { let (endSpan, endLabel) = $1 in (endSpan, [], [], endLabel) }
 
 END_IF :: { (SrcSpan, Maybe (Expression A0)) }
+END_IF
 : endif { (getSpan $1, Nothing) }
 | endif id { (getSpan $2, Nothing) }
 | INTEGER_LITERAL endif { (getSpan $2, Just $1) }
 | INTEGER_LITERAL endif id { (getSpan $3, Just $1) }
 
 CASE_BLOCK :: { Block A0 }
+CASE_BLOCK
 :                        selectcase '(' EXPRESSION ')' MAYBE_COMMENT NEWLINE CASES
   { let { (caseRanges, blocks, endLabel, endSpan) = $7;
           span = getTransSpan $1 endSpan }
@@ -456,65 +403,6 @@ CASES_ :: { ([Maybe (AList Index A0)], [[Block A0]], Maybe (Expression A0), SrcS
 END_SELECT :: { (Maybe (Expression A0), SrcSpan) }
 : maybe(INTEGER_LITERAL) endselect maybe(id)
   { ($1, maybe (getSpan $2) getSpan $3) }
-
-ASSOCIATE_BLOCK :: { Block A0 }
-: INTEGER_LITERAL id ':' associate '(' ABBREVIATIONS ')' MAYBE_COMMENT NEWLINE BLOCKS END_ASSOCIATE
-  { let { startSpan  = getSpan $1;
-          mLabel     = Just $1;
-          TId _ name = $2;
-          mName      = Just name;
-          abbrevs    = fromReverseList $6;
-          body       = reverse $10;
-          (endSpan, mEndLabel) = $11;
-          span       = getTransSpan startSpan endSpan }
-     in BlAssociate () span mLabel mName abbrevs body mEndLabel }
-| INTEGER_LITERAL        associate '(' ABBREVIATIONS ')' MAYBE_COMMENT NEWLINE BLOCKS END_ASSOCIATE
-  { let { startSpan  = getSpan $1;
-          mLabel     = Just $1;
-          mName      = Nothing;
-          abbrevs    = fromReverseList $4;
-          body       = reverse $8;
-          (endSpan, mEndLabel) = $9;
-          span       = getTransSpan startSpan endSpan }
-     in BlAssociate () span mLabel mName abbrevs body mEndLabel }
-|                 id ':' associate '(' ABBREVIATIONS ')' MAYBE_COMMENT NEWLINE BLOCKS END_ASSOCIATE
-  { let { startSpan  = getSpan $1;
-          TId _ name = $1;
-          mLabel     = Nothing;
-          mName      = Just name;
-          abbrevs    = fromReverseList $5;
-          body       = reverse $9;
-          (endSpan, mEndLabel) = $10;
-          span       = getTransSpan startSpan endSpan }
-     in BlAssociate () span mLabel mName abbrevs body mEndLabel }
-|                        associate '(' ABBREVIATIONS ')' MAYBE_COMMENT NEWLINE BLOCKS END_ASSOCIATE
-  { let { startSpan  = getSpan $1;
-          mLabel     = Nothing;
-          mName      = Nothing;
-          abbrevs    = fromReverseList $3;
-          body       = reverse $7;
-          (endSpan, mEndLabel) = $8;
-          span       = getTransSpan startSpan endSpan }
-     in BlAssociate () span mLabel mName abbrevs body mEndLabel }
-
--- TODO: Copied verbatim from END_IF. Should attempt to functionalise.
-END_ASSOCIATE :: { (SrcSpan, Maybe (Expression A0)) }
-: endassociate { (getSpan $1, Nothing) }
-| endassociate id { (getSpan $2, Nothing) }
-| INTEGER_LITERAL endassociate { (getSpan $2, Just $1) }
-| INTEGER_LITERAL endassociate id { (getSpan $3, Just $1) }
-
--- (var (ExpValue (ValVariable)), assoc. expr)
-ABBREVIATIONS :: { [(ATuple Expression Expression A0)] }
-: ABBREVIATIONS ',' ABBREVIATION { $3 : $1 }
-| ABBREVIATION { [ $1 ] }
-
-ABBREVIATION :: { ATuple Expression Expression A0 }
-: VARIABLE '=>' EXPRESSION { ATuple () (getTransSpan $1 $3) $1 $3 }
-
-ABSTRACTP :: { Bool }
-: abstract { True }
-| {- EMPTY -} { False }
 
 MAYBE_EXPRESSION :: { Maybe (Expression A0) }
 : EXPRESSION { Just $1 }
@@ -572,29 +460,16 @@ NONEXECUTABLE_STATEMENT :: { Statement A0 }
   { let expAList = fromReverseList $3
     in StPrivate () (getTransSpan $1 expAList) (Just expAList) }
 | private { StPrivate () (getSpan $1) Nothing }
-| protected MAYBE_DCOLON EXPRESSION_LIST
-  { let expAList = fromReverseList $3
-    in StProtected () (getTransSpan $1 expAList) (Just expAList) }
-| protected { StProtected () (getSpan $1) Nothing }
 | save MAYBE_DCOLON SAVE_ARGS
   { let saveAList = (fromReverseList $3)
     in StSave () (getTransSpan $1 saveAList) (Just saveAList) }
 | save { StSave () (getSpan $1) Nothing }
-| procedure '(' MAYBE_PROC_INTERFACE ')' ',' ATTRIBUTE_SPEC '::' PROC_DECLS
-  { let declAList = fromReverseList $8
-    in StProcedure () (getTransSpan $1 $8) $3 (Just $6) declAList }
-| procedure '(' MAYBE_PROC_INTERFACE ')' MAYBE_DCOLON PROC_DECLS
-  { let declAList = fromReverseList $6
-    in StProcedure () (getTransSpan $1 $6) $3 Nothing declAList }
 | dimension MAYBE_DCOLON INITIALIZED_DECLARATOR_LIST
   { let declAList = fromReverseList $3
     in StDimension () (getTransSpan $1 declAList) declAList }
 | allocatable MAYBE_DCOLON INITIALIZED_DECLARATOR_LIST
   { let declAList = fromReverseList $3
     in StAllocatable () (getTransSpan $1 declAList) declAList }
-| asynchronous MAYBE_DCOLON INITIALIZED_DECLARATOR_LIST
-  { let declAList = fromReverseList $3
-    in StAsynchronous () (getTransSpan $1 declAList) declAList }
 | pointer MAYBE_DCOLON INITIALIZED_DECLARATOR_LIST
   { let declAList = fromReverseList $3
     in StPointer () (getTransSpan $1 declAList) declAList }
@@ -632,12 +507,12 @@ NONEXECUTABLE_STATEMENT :: { Statement A0 }
 | intrinsic MAYBE_DCOLON VARIABLES
   { let alist = fromReverseList $3
     in StIntrinsic () (getTransSpan $1 alist) alist }
-| use MODULE_NATURE VARIABLE { StUse () (getTransSpan $1 $3) $3 $2 Permissive Nothing }
-| use MODULE_NATURE VARIABLE ',' RENAME_LIST
-  { let alist = fromReverseList $5
-    in StUse () (getTransSpan $1 alist) $3 $2 Permissive (Just alist) }
-| use MODULE_NATURE VARIABLE ',' only ':' MAYBE_RENAME_LIST
-  { StUse () (getTransSpan $1 ($6, $7)) $3 $2 Exclusive $7 }
+| use VARIABLE { StUse () (getTransSpan $1 $2) $2 Nothing Permissive Nothing }
+| use VARIABLE ',' RENAME_LIST
+  { let alist = fromReverseList $4
+    in StUse () (getTransSpan $1 alist) $2 Nothing Permissive (Just alist) }
+| use VARIABLE ',' only ':' MAYBE_RENAME_LIST
+  { StUse () (getTransSpan $1 ($5, $6)) $2 Nothing Exclusive $6 }
 | entry VARIABLE MAYBE_RESULT
   { StEntry () (getTransSpan $1 $ maybe (getSpan $2) getSpan $3) $2 Nothing $3 }
 | entry VARIABLE '(' ')' MAYBE_RESULT
@@ -654,50 +529,15 @@ NONEXECUTABLE_STATEMENT :: { Statement A0 }
 | endType { StEndType () (getSpan $1) Nothing }
 | endType id
   { let TId span id = $2 in StEndType () (getTransSpan $1 span) (Just id) }
--- R461-R464
-| enum ',' bind '(' 'c' ')' { StEnum () (getTransSpan $1 $6) }
-| enumerator MAYBE_DCOLON ENUMERATOR_LIST { StEnumerator () (getTransSpan $1 $3) (fromReverseList $3) }
-| endEnum { StEndEnum () (getSpan $1) }
 | include STRING { StInclude () (getTransSpan $1 $2) $2 Nothing }
--- R1209
-| import '::' IMPORT_NAME_LIST { StImport () (getTransSpan $1 $3) (fromReverseList $3) }
-| import IMPORT_NAME_LIST      { StImport () (getTransSpan $1 $2) (fromReverseList $2) }
 -- Following is a fake node to make arbitrary FORMAT statements parsable.
 -- Must be fixed in the future. TODO
 | format blob
   { let TBlob s blob = $2 in StFormatBogus () (getTransSpan $1 s) blob }
 
-ENUMERATOR_LIST :: { [Declarator A0] }
-: ENUMERATOR_LIST ',' ENUMERATOR { $3:$1 }
-| ENUMERATOR { [$1] }
-
--- R463
-ENUMERATOR :: { Declarator A0 }
-: PARAMETER_ASSIGNMENT { $1 }
-| VARIABLE { Declarator () (getSpan $1) $1 ScalarDecl Nothing Nothing }
-
-MAYBE_PROC_INTERFACE :: { Maybe (ProcInterface A0) }
-: TYPE_SPEC             { Just $ ProcInterfaceType () (getSpan $1) $1 }
-| VARIABLE              { Just $ ProcInterfaceName () (getSpan $1) $1 }
-| {- EMPTY -}           { Nothing }
-
-PROC_DECLS :: { [ProcDecl A0] }
-: PROC_DECLS ',' PROC_DECL { $3 : $1 }
-| PROC_DECL                { [ $1 ]  }
-
-PROC_DECL :: { ProcDecl A0 }
-: VARIABLE '=>' EXPRESSION { ProcDecl () (getTransSpan $1 $3) $1 (Just $3) }
-| VARIABLE                 { ProcDecl () (getSpan $1) $1 Nothing }
-
-MODULE_NATURE :: { Maybe ModuleNature }
-: ',' intrinsic    '::' { Just ModIntrinsic }
-| ',' nonintrinsic '::' { Just ModNonIntrinsic }
-| '::'                  { Nothing }
-| {- empty -}           { Nothing }
-
 EXECUTABLE_STATEMENT :: { Statement A0 }
-: allocate '(' MAYBE_TYPE_SPEC DATA_REFS MAYBE_ALLOC_OPT_LIST ')'
-  { StAllocate () (getTransSpan $1 $6) $3 (fromReverseList $4) $5 }
+: allocate '(' DATA_REFS MAYBE_ALLOC_OPT_LIST ')'
+  { StAllocate () (getTransSpan $1 $5) Nothing (fromReverseList $3) $4 }
 | nullify '(' DATA_REFS ')'
   { StNullify () (getTransSpan $1 $4) (fromReverseList $3) }
 | deallocate '(' DATA_REFS MAYBE_ALLOC_OPT_LIST ')'
@@ -706,13 +546,9 @@ EXECUTABLE_STATEMENT :: { Statement A0 }
 | POINTER_ASSIGNMENT_STMT { $1 }
 | where '(' EXPRESSION ')' EXPRESSION_ASSIGNMENT_STATEMENT
   { StWhere () (getTransSpan $1 $5) $3 $5 }
-| id ':' where '(' EXPRESSION ')' { let (TId s1 id) = $1 in StWhereConstruct () (getTransSpan $1 $6) (Just id) $5 }
 | where '(' EXPRESSION ')' { StWhereConstruct () (getTransSpan $1 $4) Nothing $3 }
-| elsewhere '(' EXPRESSION ')' id { let TId _ id = $5 in StElsewhere () (getTransSpan $1 $5) (Just id) (Just $3) }
 | elsewhere '(' EXPRESSION ')' { StElsewhere () (getTransSpan $1 $4) Nothing (Just $3) }
-| elsewhere id { let TId _ id = $2 in StElsewhere () (getTransSpan $1 $2) (Just id) Nothing }
 | elsewhere { StElsewhere () (getSpan $1) Nothing Nothing }
-| endwhere id { let TId _ id = $2 in StEndWhere () (getTransSpan $1 $2) (Just id) }
 | endwhere { StEndWhere () (getSpan $1) Nothing }
 | if '(' EXPRESSION ')' INTEGER_LITERAL ',' INTEGER_LITERAL ',' INTEGER_LITERAL
   { StIfArithmetic () (getTransSpan $1 $9) $3 $5 $7 $9 }
@@ -775,8 +611,6 @@ EXECUTABLE_STATEMENT :: { Statement A0 }
 | endfile UNIT { StEndfile2 () (getTransSpan $1 $2) $2 }
 | backspace CILIST { StBackspace () (getTransSpan $1 $2) $2 }
 | backspace UNIT { StBackspace2 () (getTransSpan $1 $2) $2 }
-| flush INTEGER_LITERAL { StFlush () (getTransSpan $1 $2) (AList () (getSpan $2) [FSUnit () (getSpan $2) $2]) }
-| flush '(' FLUSH_SPEC_LIST ')' { StFlush () (getTransSpan $1 $4) (fromReverseList $3) }
 | call VARIABLE { StCall () (getTransSpan $1 $2) $2 Nothing }
 | call VARIABLE '(' ')' { StCall () (getTransSpan $1 $4) $2 Nothing }
 | call VARIABLE '(' ARGUMENTS ')'
@@ -831,19 +665,6 @@ UNIT :: { Expression A0 }
 : INTEGER_LITERAL { $1 }
 | DATA_REF { $1 }
 | '*' { ExpValue () (getSpan $1) ValStar }
-
-{- R928 -}
-FLUSH_SPEC_LIST :: { [ FlushSpec A0 ] }
-: FLUSH_SPEC_LIST ',' FLUSH_SPEC { $3 : $1 }
-| FLUSH_SPEC { [ $1 ] }
-
-{- R928 -}
-FLUSH_SPEC :: { FlushSpec A0 }
-: EXPRESSION { FSUnit () (getSpan $1) $1 }
-| unit '=' EXPRESSION   { FSUnit () (getTransSpan $1 $3) $3 }
-| iostat '=' EXPRESSION { FSIOStat () (getTransSpan $1 $3) $3 }
-| iomsg '=' EXPRESSION  { FSIOMsg () (getTransSpan $1 $3) $3 }
-| err '=' EXPRESSION    { FSErr () (getTransSpan $1 $3) $3 }
 
 CILIST :: { AList ControlPair A0 }
 : '(' CILIST_ELEMENT ',' FORMAT_ID ',' CILIST_PAIRS ')'
@@ -915,19 +736,10 @@ CI_EXPRESSION :: { Expression A0 }
 | STRING { $1 }
 | DATA_REF { $1 }
 
+{- p67 ALLOCATE statement -}
 MAYBE_ALLOC_OPT_LIST :: { Maybe (AList AllocOpt A0) }
-: ',' ALLOC_OPT_LIST { Just $ fromReverseList $2 }
-| {- empty -}        { Nothing }
-
-ALLOC_OPT_LIST :: { [ AllocOpt A0 ] }
-: ALLOC_OPT_LIST ',' ALLOC_OPT { $3 : $1 }
-| ALLOC_OPT                    { [ $1 ] }
-
-{- R624 -}
-ALLOC_OPT :: { AllocOpt A0 }
-: stat '=' EXPRESSION   { AOStat () (getTransSpan $1 $3) $3 }
-| errmsg '=' EXPRESSION { AOErrMsg () (getTransSpan $1 $3) $3 }
-| source '=' EXPRESSION { AOSource () (getTransSpan $1 $3) $3 }
+: ',' stat '=' EXPRESSION { Just (fromReverseList [AOStat () (getTransSpan $2 $4) $4]) }
+| {- empty -}             { Nothing }
 
 IN_IOLIST :: { [ Expression A0 ] }
 : IN_IOLIST ',' IN_IO_ELEMENT { $3 : $1}
@@ -1039,9 +851,7 @@ ATTRIBUTE_LIST :: { [ Attribute A0 ] }
 ATTRIBUTE_SPEC :: { Attribute A0 }
 : public { AttrPublic () (getSpan $1) }
 | private { AttrPrivate () (getSpan $1) }
-| protected { AttrProtected () (getSpan $1) }
 | allocatable { AttrAllocatable () (getSpan $1) }
-| asynchronous { AttrAsynchronous () (getSpan $1) }
 | dimension '(' DIMENSION_DECLARATORS ')'
   { AttrDimension () (getTransSpan $1 $4) (aReverse $3) }
 | external { AttrExternal () (getSpan $1) }
@@ -1054,7 +864,6 @@ ATTRIBUTE_SPEC :: { Attribute A0 }
 | target { AttrTarget () (getSpan $1) }
 | value { AttrValue () (getSpan $1) }
 | volatile { AttrVolatile () (getSpan $1) }
-| SUFFIX { AttrSuffix () (getSpan $1) $1 }
 
 INTENT_CHOICE :: { Intent } : in { In } | out { Out } | inout { InOut }
 
@@ -1142,28 +951,16 @@ DIMENSION_DECLARATOR :: { DimensionDeclarator A0 }
   { let span = getSpan $1
     in DimensionDeclarator () span Nothing Nothing }
 
-MAYBE_TYPE_SPEC :: { Maybe (TypeSpec A0) }
-: TYPE_SPEC '::' { Just $1 }
-| {- empty -}    { Nothing }
-
 TYPE_SPEC :: { TypeSpec A0 }
-: integer KIND_SELECTOR   { TypeSpec () (getSpan ($1, $2)) TypeInteger $2 }
-| real    KIND_SELECTOR   { TypeSpec () (getSpan ($1, $2)) TypeReal $2 }
+: integer   KIND_SELECTOR { TypeSpec () (getSpan ($1, $2)) TypeInteger $2 }
+| real      KIND_SELECTOR { TypeSpec () (getSpan ($1, $2)) TypeReal $2 }
 | doublePrecision         { TypeSpec () (getSpan $1)       TypeDoublePrecision Nothing }
-| complex KIND_SELECTOR   { TypeSpec () (getSpan ($1, $2)) TypeComplex $2 }
+| complex   KIND_SELECTOR { TypeSpec () (getSpan ($1, $2)) TypeComplex $2 }
 | character CHAR_SELECTOR { TypeSpec () (getSpan ($1, $2)) TypeCharacter $2 }
-| logical KIND_SELECTOR   { TypeSpec () (getSpan ($1, $2)) TypeLogical $2 }
-| type '(' id ')'
+| logical   KIND_SELECTOR { TypeSpec () (getSpan ($1, $2)) TypeLogical $2 }
+| type      '(' id ')'
   { let TId _ id = $3
     in TypeSpec () (getTransSpan $1 $4) (TypeCustom id) Nothing }
--- R502
-| class '(' '*' ')'       { TypeSpec () (getSpan ($1, $4)) ClassStar Nothing }
--- FIXME: this (and TypeCustom) can accept parameterised types. See type-param-value.
--- Needs refactoring as this is used in various parts of the spec to consolidate
--- uses of ':', '*' and scalar-int-exp.
-| class '(' id ')'
-  { let TId _ id = $3
-    in TypeSpec () (getSpan ($1, $4)) (ClassCustom id) Nothing }
 
 KIND_SELECTOR :: { Maybe (Selector A0) }
 : '(' EXPRESSION ')'
@@ -1199,11 +996,9 @@ CHAR_SELECTOR :: { Maybe (Selector A0) }
   { Just $ Selector () (getTransSpan $1 $9) (Just $8) (Just $4) }
 | {- EMPTY -} { Nothing }
 
-{- R402 -}
 LEN_EXPRESSION :: { Expression A0 }
 : EXPRESSION { $1 }
 | '*' { ExpValue () (getSpan $1) ValStar }
-| ':' { ExpValue () (getSpan $1) ValColon }
 
 EXPRESSION :: { Expression A0 }
 : EXPRESSION '+' EXPRESSION
@@ -1331,38 +1126,45 @@ FORALL :: { Statement A0 }
   StForallStatement () (getTransSpan $1 $3) h $3
 }
 
-FORALL_HEADER :: { (ForallHeader A0, SrcSpan) }
--- Standard simple forall header
-: '(' FORALL_TRIPLET_SPEC ')'   { (ForallHeader [$2] Nothing, getTransSpan $1 $3) }
--- forall header with scale expression
-| '(' '(' FORALL_TRIPLET_SPEC ')' ',' EXPRESSION ')'
-                              { (ForallHeader [$3] (Just $6), getTransSpan $1 $7) }
--- multi forall header
-| '(' FORALL_TRIPLET_SPEC_LIST_PLUS_STRIDE ')'
-                              { (ForallHeader $2 Nothing, getTransSpan $1 $3) }
--- multi forall header with scale
-| '(' FORALL_TRIPLET_SPEC_LIST_PLUS_STRIDE ',' EXPRESSION ')'
-                              { (ForallHeader $2 (Just $4), getTransSpan $1 $5) }
+FORALL_HEADER
+  :: { (ForallHeader A0, SrcSpan) }
+FORALL_HEADER :
+  -- Standard simple forall header
+    '(' FORALL_TRIPLET_SPEC ')'   { (ForallHeader [$2] Nothing, getTransSpan $1 $3) }
+  -- forall header with scale expression
+  | '(' '(' FORALL_TRIPLET_SPEC ')' ',' EXPRESSION ')'
+                                  { (ForallHeader [$3] (Just $6), getTransSpan $1 $7) }
+  -- multi forall header
+  | '(' FORALL_TRIPLET_SPEC_LIST_PLUS_STRIDE ')'
+                                  { (ForallHeader $2 Nothing, getTransSpan $1 $3) }
+  -- multi forall header with scale
+  | '(' FORALL_TRIPLET_SPEC_LIST_PLUS_STRIDE ',' EXPRESSION ')'
+                                  { (ForallHeader $2 (Just $4), getTransSpan $1 $5) }
 
 FORALL_TRIPLET_SPEC_LIST_PLUS_STRIDE
   :: { [(Name, Expression A0, Expression A0, Maybe (Expression A0))] }
+FORALL_TRIPLET_SPEC_LIST_PLUS_STRIDE
 : '(' FORALL_TRIPLET_SPEC ')' ',' FORALL_TRIPLET_SPEC_LIST_PLUS_STRIDE { $2 : $5 }
 | {- empty -}                                                          { [] }
 
 FORALL_TRIPLET_SPEC :: { (Name, Expression A0, Expression A0, Maybe (Expression A0)) }
+FORALL_TRIPLET_SPEC
 : NAME '=' EXPRESSION ':' EXPRESSION { ($1, $3, $5, Nothing) }
 | NAME '=' EXPRESSION ':' EXPRESSION ',' EXPRESSION { ($1, $3, $5, Just $7) }
 
 FORALL_ASSIGNMENT_STMT :: { Statement A0 }
-: EXPRESSION_ASSIGNMENT_STATEMENT { $1 }
-| POINTER_ASSIGNMENT_STMT { $1 }
+FORALL_ASSIGNMENT_STMT :
+    EXPRESSION_ASSIGNMENT_STATEMENT { $1 }
+  | POINTER_ASSIGNMENT_STMT { $1 }
 
 POINTER_ASSIGNMENT_STMT :: { Statement A0 }
-: DATA_REF '=>' EXPRESSION { StPointerAssign () (getTransSpan $1 $3) $1 $3 }
+POINTER_ASSIGNMENT_STMT :
+ DATA_REF '=>' EXPRESSION { StPointerAssign () (getTransSpan $1 $3) $1 $3 }
 
 END_FORALL :: { Statement A0 }
-: endforall    { StEndForall () (getSpan $1) Nothing }
-| endforall id { let (TId s id) = $2 in StEndForall () (getTransSpan $1 s) (Just id)}
+END_FORALL :
+   endforall    { StEndForall () (getSpan $1) Nothing }
+ | endforall id { let (TId s id) = $2 in StEndForall () (getTransSpan $1 s) (Just id)}
 
 EXPRESSION_LIST :: { [ Expression A0 ] }
 : EXPRESSION_LIST ',' EXPRESSION { $3 : $1 }
@@ -1427,54 +1229,3 @@ cIMPLICIT :: { () } : {% pushContext ConImplicit }
 cNAMELIST :: { () } : {% pushContext ConNamelist }
 cCOMMON :: { () } : {% pushContext ConCommon }
 cPOP :: { () } : {% popContext }
-
-{
-
-unitNameCheck :: Token -> String -> Parse AlexInput Token ()
-unitNameCheck (TId _ name1) name2
-  | name1 == name2 = return ()
-  | otherwise = fail "Unit name does not match the corresponding END statement."
-unitNameCheck _ _ = return ()
-
-parse = runParse programParser
-defTransforms = defaultTransformations Fortran2003
-
-fortran2003Parser
-    :: B.ByteString -> String -> ParseResult AlexInput Token (ProgramFile A0)
-fortran2003Parser = fortran2003ParserWithTransforms defTransforms
-
-fortran2003ParserWithTransforms
-    :: [Transformation]
-    -> B.ByteString -> String -> ParseResult AlexInput Token (ProgramFile A0)
-fortran2003ParserWithTransforms =
-    flip fortran2003ParserWithModFilesWithTransforms emptyModFiles
-
-fortran2003ParserWithModFiles
-    :: ModFiles
-    -> B.ByteString -> String -> ParseResult AlexInput Token (ProgramFile A0)
-fortran2003ParserWithModFiles = fortran2003ParserWithModFilesWithTransforms defTransforms
-
-fortran2003ParserWithModFilesWithTransforms
-    :: [Transformation] -> ModFiles
-    -> B.ByteString -> String -> ParseResult AlexInput Token (ProgramFile A0)
-fortran2003ParserWithModFilesWithTransforms transforms mods sourceCode filename =
-    fmap (pfSetFilename filename . transformWithModFiles mods transforms) $ parse parseState
-  where
-    parseState = initParseState sourceCode Fortran2003 filename
-
-parseError :: Token -> LexAction a
-parseError token = do
-    parseState <- get
-#ifdef DEBUG
-    tokens <- reverse <$> aiPreviousTokensInLine <$> getAlex
-#endif
-    fail $ psFilename parseState ++ ": parsing failed. "
-      ++ specifics token
-#ifdef DEBUG
-      ++ '\n' : show tokens
-#endif
-  where specifics (TPause _) = "\nPAUSE statements are not supported in Fortran 2003 or later. "
-        specifics (TAssign _) = "\nASSIGN statements are not supported in Fortran 2003 or later. "
-        specifics _ = ""
-
-}

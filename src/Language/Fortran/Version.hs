@@ -1,6 +1,3 @@
-{-# LANGUAGE DeriveDataTypeable #-}
-{-# LANGUAGE DeriveGeneric #-}
-
 -- | Fortran version enum and tools for selecting version for a given file.
 
 module Language.Fortran.Version

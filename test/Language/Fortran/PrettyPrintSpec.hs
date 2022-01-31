@@ -1,5 +1,4 @@
 {-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE OverloadedStrings #-}
 
 module Language.Fortran.PrettyPrintSpec where
@@ -12,7 +11,7 @@ import Data.Maybe (catMaybes)
 
 import Language.Fortran.AST as LFA
 import Language.Fortran.AST.Boz
-import Language.Fortran.ParserMonad
+import Language.Fortran.Version
 import Language.Fortran.PrettyPrint
 
 import Text.PrettyPrint hiding ((<>))

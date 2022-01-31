@@ -1,16 +1,31 @@
-module Language.Fortran.Lexer.FixedFormSpec where
-
-import Language.Fortran.ParserMonad
---import Language.Fortran.Version (required when ParserMonad stops exporting it)
-import Language.Fortran.Lexer.FixedForm
-import Language.Fortran.AST.Boz
+module Language.Fortran.Parser.Fixed.LexerSpec where
 
 import Test.Hspec
 import Test.Hspec.QuickCheck
 import TestUtil
 
+import Language.Fortran.Parser.Fixed.Lexer
+import Language.Fortran.Parser
+import Language.Fortran.Parser.Monad ( ParseState, getAlex, evalParse )
+import Language.Fortran.AST.Boz
+import Language.Fortran.Version
+
 import Data.List (isPrefixOf)
 import qualified Data.ByteString.Char8 as B
+
+initState :: FortranVersion -> B.ByteString -> ParseState AlexInput
+initState = initParseStateFixed "<unknown>"
+
+collectFixedTokens :: FortranVersion -> B.ByteString -> [Token]
+collectFixedTokens fv bs =
+    collectTokens lexer' $ initState fv bs
+
+collectFixedTokens' :: FortranVersion -> String -> [Token]
+collectFixedTokens' v = collectFixedTokens v . B.pack
+
+collectFixedTokensSafe :: FortranVersion -> B.ByteString -> Maybe [Token]
+collectFixedTokensSafe fv bs =
+    collectTokensSafe lexer' $ initState fv bs
 
 lex66 :: String -> Maybe Token
 lex66 = collectToLex Fortran66
@@ -35,9 +50,6 @@ collectToLexSafe version srcInput = dropUntil2 $ collectFixedTokensSafe version 
     dropUntil2 (Just [a,_]) = Just a
     dropUntil2 (Just (_:xs)) = dropUntil2 $ Just xs
     dropUntil2 _ = Nothing
-
-collectFixedTokens' :: FortranVersion -> String -> [Token]
-collectFixedTokens' v = collectFixedTokens v . B.pack
 
 spec :: Spec
 spec =
@@ -130,7 +142,7 @@ spec =
 
     describe "lexN" $
       it "`lexN 5` parses lexes next five characters" $
-        (lexemeMatch . aiLexeme) (evalParse (lexN 5 >> getAlex) (initParseState (B.pack "helloWorld") Fortran66 "")) `shouldBe` reverse "hello"
+        (lexemeMatch . aiLexeme) (evalParse (lexN 5 >> getAlex) (initState Fortran66 (B.pack "helloWorld"))) `shouldBe` reverse "hello"
 
     describe "lexHollerith" $ do
       it "lexes Hollerith '7hmistral'" $

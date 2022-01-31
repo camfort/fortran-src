@@ -1,11 +1,4 @@
-{-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE DeriveDataTypeable #-}
-{-# LANGUAGE DeriveGeneric #-}
-{-# LANGUAGE DeriveFunctor #-}
 {-# LANGUAGE DefaultSignatures #-}
-{-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE LambdaCase #-}
 
 -- |
 --
@@ -119,19 +112,17 @@ module Language.Fortran.AST
 
   ) where
 
-import Prelude hiding (init)
+import Prelude hiding ( init )
 
 import Language.Fortran.AST.AList
 import Language.Fortran.AST.RealLit
-import Language.Fortran.AST.Boz (Boz)
+import Language.Fortran.AST.Boz ( Boz )
 import Language.Fortran.Util.Position
 import Language.Fortran.Util.FirstParameter
 import Language.Fortran.Util.SecondParameter
-import Language.Fortran.Version (FortranVersion(..))
+import Language.Fortran.Version
 
 import Data.Data
-import Data.Generics.Uniplate.Data ()
-import Data.Typeable ()
 import Data.Binary
 import Control.DeepSeq
 import Text.PrettyPrint.GenericPretty

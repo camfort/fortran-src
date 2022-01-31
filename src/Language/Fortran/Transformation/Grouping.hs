@@ -1,3 +1,7 @@
+{-|
+Note that labeled (nonblock) DO grouping must be done before block DO grouping.
+-}
+
 module Language.Fortran.Transformation.Grouping ( groupForall
                                                 , groupDo
                                                 , groupLabeledDo
@@ -6,7 +10,7 @@ module Language.Fortran.Transformation.Grouping ( groupForall
 import Language.Fortran.AST
 import Language.Fortran.Util.Position
 import Language.Fortran.Analysis
-import Language.Fortran.Transformation.TransformMonad
+import Language.Fortran.Transformation.Monad
 
 import Data.Data
 import Data.List (intercalate)

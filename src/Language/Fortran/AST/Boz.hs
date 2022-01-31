@@ -15,9 +15,6 @@ converting to a numeric type and using something like 'showIntAtBase', or a
 'Bits' instance.
 -}
 
-{-# LANGUAGE DerivingStrategies, DeriveDataTypeable, DeriveGeneric, DeriveAnyClass #-}
-{-# LANGUAGE LambdaCase #-}
-
 module Language.Fortran.AST.Boz where
 
 import           GHC.Generics
@@ -28,7 +25,6 @@ import           Text.PrettyPrint.GenericPretty ( Out )
 import qualified Data.List as List
 import qualified Data.Char as Char
 import qualified Numeric   as Num
-import           Data.Maybe ( isJust, fromJust )
 
 -- | A Fortran BOZ literal constant.
 --
@@ -44,9 +40,9 @@ data Boz = Boz
     deriving anyclass (NFData, Out)
 
 data BozPrefix
-  = BozPrefixB
-  | BozPrefixO
-  | BozPrefixZ -- also @x@
+  = BozPrefixB  -- ^ binary (bitstring)
+  | BozPrefixO  -- ^ octal
+  | BozPrefixZ  -- ^ hex (also with prefix @x@)
     deriving stock    (Eq, Show, Generic, Data, Typeable, Ord)
     deriving anyclass (NFData, Out)
 
@@ -78,24 +74,25 @@ parseBoz s =
 --   @x@ for hexadecimal.
 prettyBoz :: Boz -> String
 prettyBoz b = prettyBozPrefix (bozPrefix b) : '\'' : bozString b <> "'"
-  where prettyBozPrefix = \case
-          BozPrefixB -> 'b'
-          BozPrefixO -> 'o'
-          BozPrefixZ -> 'z'
+  where prettyBozPrefix = \case BozPrefixB -> 'b'
+                                BozPrefixO -> 'o'
+                                BozPrefixZ -> 'z'
 
 -- | Resolve a BOZ constant as a natural (positive integer).
 --
 -- Is actually polymorphic over the output type, but you probably want to
 -- resolve to 'Integer' or 'Natural' usually.
+--
+-- We assume the 'Boz' is well-formed, thus don't bother with digit predicates.
 bozAsNatural :: (Num a, Eq a) => Boz -> a
 bozAsNatural (Boz pfx str) = runReadS $ parser str
   where
     runReadS = fst . head
     parser = case pfx of
                BozPrefixB -> -- TODO on GHC 9.2, 'Num.readBin'
-                 Num.readInt 2 (isJust . binCharFunc) (fromJust . binCharFunc)
+                 Num.readInt 2 (const True) binDigitVal
                BozPrefixO -> Num.readOct
                BozPrefixZ -> Num.readHex
-    binCharFunc = \case '0' -> Just 0
-                        '1' -> Just 1
-                        _   -> Nothing
+    binDigitVal = \case '0' -> 0
+                        '1' -> 1
+                        _   -> error "Language.Fortran.AST.BOZ.bozAsNatural: invalid BOZ string"

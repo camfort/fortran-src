@@ -1,40 +1,31 @@
 -- -*- Mode: Haskell -*-
+-- vim: ft=haskell
 {
-module Language.Fortran.Parser.Fortran90 ( statementParser
-                                         , functionParser
-                                         , blockParser
-                                         , fortran90Parser
-                                         , fortran90ParserWithTransforms
-                                         , fortran90ParserWithModFiles
-                                         , fortran90ParserWithModFilesWithTransforms
-                                         ) where
+module Language.Fortran.Parser.Free.Fortran90
+  ( programParser
+  , functionParser
+  , blockParser
+  , statementParser
+  , expressionParser
+  ) where
 
-import Prelude hiding (EQ,LT,GT) -- Same constructors exist in the AST
-import Control.Monad.State (get)
-import Data.Maybe (fromMaybe)
-import Data.Either (partitionEithers)
-import qualified Data.ByteString.Char8 as B
-
-import Control.Monad.State
-#ifdef DEBUG
-import Data.Data (toConstr)
-#endif
-
+import Language.Fortran.Version
 import Language.Fortran.Util.Position
-import Language.Fortran.Util.ModFile
-import Language.Fortran.ParserMonad
-import Language.Fortran.Lexer.FreeForm
+import Language.Fortran.Parser.Monad
+import Language.Fortran.Parser.Free.Lexer
+import Language.Fortran.Parser.Free.Utils
 import Language.Fortran.AST
-import Language.Fortran.Transformer
 
-import Debug.Trace
+import Prelude hiding ( EQ, LT, GT ) -- Same constructors exist in the AST
+import Data.Either ( partitionEithers )
 
 }
 
-%name programParser PROGRAM
-%name functionParser SUBPROGRAM_UNIT
-%name statementParser STATEMENT
-%name blockParser BLOCK
+%name programParser    PROGRAM
+%name functionParser   SUBPROGRAM_UNIT
+%name blockParser      BLOCK
+%name statementParser  STATEMENT
+%name expressionParser EXPRESSION
 %monad { LexAction }
 %lexer { lexer } { TEOF _ }
 %tokentype { Token }
@@ -1168,50 +1159,3 @@ cIMPLICIT :: { () } : {% pushContext ConImplicit }
 cNAMELIST :: { () } : {% pushContext ConNamelist }
 cCOMMON :: { () } : {% pushContext ConCommon }
 cPOP :: { () } : {% popContext }
-
-{
-
-unitNameCheck :: Token -> String -> Parse AlexInput Token ()
-unitNameCheck (TId _ name1) name2
-  | name1 == name2 = return ()
-  | otherwise = fail "Unit name does not match the corresponding END statement."
-unitNameCheck _ _ = return ()
-
-parse = runParse programParser
-defTransforms = defaultTransformations Fortran90
-
-fortran90Parser ::
-    B.ByteString -> String -> ParseResult AlexInput Token (ProgramFile A0)
-fortran90Parser = fortran90ParserWithTransforms defTransforms
-
-fortran90ParserWithTransforms
-    :: [Transformation]
-    -> B.ByteString -> String -> ParseResult AlexInput Token (ProgramFile A0)
-fortran90ParserWithTransforms =
-    flip fortran90ParserWithModFilesWithTransforms emptyModFiles
-
-fortran90ParserWithModFiles
-    :: ModFiles
-    -> B.ByteString -> String -> ParseResult AlexInput Token (ProgramFile A0)
-fortran90ParserWithModFiles = fortran90ParserWithModFilesWithTransforms defTransforms
-
-fortran90ParserWithModFilesWithTransforms
-    :: [Transformation] -> ModFiles
-    -> B.ByteString -> String -> ParseResult AlexInput Token (ProgramFile A0)
-fortran90ParserWithModFilesWithTransforms transforms mods sourceCode filename =
-    fmap (pfSetFilename filename . transformWithModFiles mods transforms) $ parse parseState
-  where
-    parseState = initParseState sourceCode Fortran90 filename
-
-parseError :: Token -> LexAction a
-parseError _ = do
-    parseState <- get
-#ifdef DEBUG
-    tokens <- reverse <$> aiPreviousTokensInLine <$> getAlex
-#endif
-    fail $ psFilename parseState ++ ": parsing failed. "
-#ifdef DEBUG
-      ++ '\n' : show tokens
-#endif
-
-}

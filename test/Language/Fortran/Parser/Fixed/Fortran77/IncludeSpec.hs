@@ -1,18 +1,16 @@
-module Language.Fortran.Parser.Fortran77.IncludeSpec where
+module Language.Fortran.Parser.Fixed.Fortran77.IncludeSpec where
 
 import System.FilePath
 import Test.Hspec
 import TestUtil
 
-import Language.Fortran.Parser.Fortran77
-import qualified Data.ByteString.Char8 as B
-import Language.Fortran.ParserMonad
-import Language.Fortran.Lexer.FixedForm
+import Language.Fortran.Parser ( f77lIncludes )
 import Language.Fortran.AST
 import Language.Fortran.Util.Position
+import qualified Data.ByteString.Char8 as B
 
-iParser :: [String] -> String -> IO (ParseResult AlexInput Token (ProgramFile A0))
-iParser incs src = legacy77ParserWithIncludes incs (B.pack src) "<unknown>"
+iParser :: [String] -> String -> IO (ProgramFile A0)
+iParser incs = f77lIncludes incs mempty "<unknown>" . B.pack
 
 makeSrcR :: (Int, Int, Int, String) -> (Int, Int, Int, String) -> SrcSpan
 makeSrcR (i1, i2, i3, s) (j1, j2, j3, s') = SrcSpan (Position i1 i2 i3 s Nothing) (Position j1 j2 j3 s' Nothing)
@@ -26,7 +24,7 @@ spec =
                          ]
         inc = "./test-data/f77-include"
         name = "bar"
-        pf = ProgramFile mi77 [pu]
+        pf = ProgramFile mi77' [pu]
         puSpan = makeSrcR (6,7,1,"<unknown>") (48,9,3,"<unknown>")
         st1Span = makeSrcR (24,7,2,"<unknown>") (38,21,2,"<unknown>")
         expSpan = makeSrcR (32,15,2,"<unknown>") (38,21,2,"<unknown>")
@@ -50,6 +48,5 @@ spec =
         ex = ExpValue () expSpan (ValString "foo.f")
         bl2 = BlStatement () declSpan Nothing st2
     it "includes some files and expands them" $ do
-      ps <- iParser [inc] source
-      let pr = fromParseResultUnsafe ps
-      pr `shouldBe` pf
+      pfParsed <- iParser [inc] source
+      pfParsed `shouldBe` pf

@@ -1,11 +1,10 @@
-module Language.Fortran.Transformation.TransformMonad
+module Language.Fortran.Transformation.Monad
   ( getProgramFile
   , putProgramFile
   , modifyProgramFile
   , runTransform
-  , Transform)
-
-where
+  , Transform
+  ) where
 
 import Prelude hiding (lookup)
 import Control.Monad.State.Lazy hiding (state)
@@ -21,8 +20,11 @@ data TransformationState a = TransformationState
 
 type Transform a = State (TransformationState a)
 
-runTransform :: Data a => TypeEnv -> ModuleMap -> Transform a () -> ProgramFile a -> ProgramFile a
-runTransform env mmap trans pf = stripAnalysis . transProgramFile . execState trans $ initState
+runTransform
+    :: Data a
+    => TypeEnv -> ModuleMap -> Transform a () -> ProgramFile a -> ProgramFile a
+runTransform env mmap trans pf =
+    stripAnalysis . transProgramFile . execState trans $ initState
   where
     (pf', _) = analyseTypesWithEnv env . analyseRenamesWithModuleMap mmap . initAnalysis $ pf
     initState = TransformationState

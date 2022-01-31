@@ -6,14 +6,13 @@ import TestUtil
 import Test.Hspec.QuickCheck
 import Test.QuickCheck (Positive(..))
 
-import Language.Fortran.Parser.Fortran77
-import qualified Language.Fortran.Parser.Fortran90 as F90
-import Language.Fortran.ParserMonad (fromParseResultUnsafe)
 import Language.Fortran.AST
 import Language.Fortran.Analysis
 import Language.Fortran.Analysis.Renaming
 import Language.Fortran.Analysis.BBlocks
 import Language.Fortran.Analysis.DataFlow
+import qualified Language.Fortran.Parser as Parser
+
 import qualified Data.Map as M
 import qualified Data.Set as S
 import qualified Data.IntMap as IM
@@ -26,24 +25,22 @@ import Data.Generics.Uniplate.Operations
 import qualified Data.ByteString.Char8 as B
 import Control.Arrow ((&&&))
 
-{-# ANN module "HLint: ignore Reduce duplication" #-}
-
 data F77 = F77
 data F90 = F90
 
 class Parser t where
-    parser :: t -> String -> String -> ProgramFile A0
+    parser :: t -> String -> ProgramFile A0
 instance Parser F77 where
-    parser F77 src file = fromParseResultUnsafe $ extended77Parser (B.pack src) file
+    parser F77 = Parser.parseUnsafe Parser.f77e . B.pack
 instance Parser F90 where
-    parser F90 src file = fromParseResultUnsafe $ F90.fortran90Parser (B.pack src) file
+    parser F90 = Parser.parseUnsafe Parser.f90 . B.pack
 
 pParser :: Parser t => t -> String -> ProgramFile (Analysis ())
 pParser version source = rename . analyseBBlocks . analyseRenames . initAnalysis
-                                . resetSrcSpan $ parser version source "<unknown>"
+                                . resetSrcSpan $ parser version source
 
 withParse :: Data a => Parser t => t -> String -> (ProgramFile (Analysis A0) -> a) -> a
-withParse version source f = underRenaming (f . analyseBBlocks) (parser version source "<unknown>")
+withParse version source f = underRenaming (f . analyseBBlocks) (parser version source)
 
 testGraph :: Parser t => t -> String -> String -> BBGr (Analysis A0)
 testGraph version f p = fromJust . M.lookup (Named f) . withParse version p $ genBBlockMap

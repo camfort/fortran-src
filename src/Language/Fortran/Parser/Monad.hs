@@ -1,16 +1,11 @@
-{-# LANGUAGE DeriveGeneric #-}
-{-# LANGUAGE DeriveDataTypeable #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE FlexibleContexts #-}
+{-| Parser/lexer monad, plus common functionality and definitions. -}
+
 {-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE CPP #-}
 
-module Language.Fortran.ParserMonad
-  ( module Language.Fortran.ParserMonad
-  , module Language.Fortran.Version -- TODO: temporary plug to avoid API change
-  ) where
+module Language.Fortran.Parser.Monad where
 
 #if !MIN_VERSION_base(4,13,0)
 -- Control.Monad.Fail import is redundant since GHC 8.8.1
@@ -19,15 +14,13 @@ import Control.Monad.Fail (MonadFail)
 #endif
 
 import Language.Fortran.Version
+import Language.Fortran.Util.Position
 
-import GHC.IO.Exception
 import Control.Exception
-
+import GHC.IO.Exception ( IOException(..), IOErrorType(..) )
 import Control.Monad.State hiding (state)
 import Control.Monad.Except
-
 import Data.Typeable
-import Language.Fortran.Util.Position
 
 -------------------------------------------------------------------------------
 -- Helper datatype definitions
@@ -61,52 +54,35 @@ data ParseError a b = ParseError
   , errFilename   :: String
   , errMsg        :: String }
 
-
 instance Show b => Show (ParseError a b) where
   show err = show (errPos err) ++ ": " ++ errMsg err ++ lastTokenMsg
-    where
-      lastTokenMsg = tokenMsg (errLastToken err)
+    where lastTokenMsg = tokenMsg (errLastToken err)
 
 tokenMsg :: Show a => Maybe a -> String
 tokenMsg (Just a) = "Last parsed token: " ++ show a ++ "."
 tokenMsg Nothing = "No token had been lexed."
 
-instance Functor (ParseResult b c) where
-    fmap f (ParseOk a s) = ParseOk (f a) s
-    fmap _ (ParseFailed err) = ParseFailed err
+data ParseResult b c a = ParseOk a (ParseState b) | ParseFailed (ParseError b c)
+    deriving stock (Functor)
 
 instance (Typeable a, Typeable b, Show a, Show b) => Exception (ParseError a b)
-
-data ParseResult b c a = ParseOk a (ParseState b) | ParseFailed (ParseError b c)
 
 -- Provides a way to aggregate errors that come
 -- from parses with different token types
 data ParseErrorSimple = ParseErrorSimple
   { errorPos      :: Position
   , errorFilename :: String
-  , errorMsg      :: String }
-
-fromParseResultUnsafe :: (Show c) => ParseResult b c a -> a
-fromParseResultUnsafe (ParseOk a _) = a
-fromParseResultUnsafe (ParseFailed err) = throwIOerror $ show err
-
-fromRight :: Show a => Either a b -> b
-fromRight (Left x)  = throwIOerror . show $ x
-fromRight (Right x) = x
-
-fromParseResult :: (Show c) => ParseResult b c a -> Either ParseErrorSimple a
-fromParseResult (ParseOk a _)     = Right a
-fromParseResult (ParseFailed err) =
-    Left ParseErrorSimple
-      { errorPos = errPos err
-      , errorFilename = errFilename err
-      , errorMsg = errMsg err ++ "\n" ++ tokenMsg (errLastToken err)  }
+  , errorMsg      :: String
+  } deriving (Exception)
 
 instance Show ParseErrorSimple where
   show err = errorFilename err ++ ", " ++ show (errorPos err) ++ ": " ++ errorMsg err
 
 class LastToken a b | a -> b where
   getLastToken :: (Show b) => a -> Maybe b
+
+class Tok a where
+  eofToken :: a -> Bool
 
 -------------------------------------------------------------------------------
 -- Parser Monad definition
@@ -152,6 +128,39 @@ instance (Loc b, LastToken b c, Show c) => MonadError (ParseError b c) (Parse b 
     case m s of
       ParseFailed e -> unParse (f e) s
       m' -> m'
+
+
+runParse
+    :: (Loc b, LastToken b c, Show c)
+    => Parse b c a -> ParseState b -> ParseResult b c a
+runParse = unParse
+
+runParseUnsafe
+    :: (Loc b, LastToken b c, Show c)
+    => Parse b c a -> ParseState b -> (a, ParseState b)
+runParseUnsafe lexer initState =
+  case unParse lexer initState of
+    ParseOk a s -> (a, s)
+    ParseFailed e -> throwIOError $ show e
+
+throwIOError :: String -> a
+throwIOError s = throw
+  IOError { ioe_handle      = Nothing
+          , ioe_type        = UserError
+          , ioe_location    = "fortran-src"
+          , ioe_description = s
+          , ioe_errno       = Nothing
+          , ioe_filename    = Nothing }
+
+evalParse
+    :: (Loc b, LastToken b c, Show c)
+    => Parse b c a -> ParseState b -> a
+evalParse m s = fst (runParseUnsafe m s)
+
+execParse
+    :: (Loc b, LastToken b c, Show c)
+    => Parse b c a -> ParseState b -> ParseState b
+execParse m s = snd (runParseUnsafe m s)
 
 -------------------------------------------------------------------------------
 -- Parser helper functions
@@ -213,64 +222,3 @@ decPar = do
   let newCount = pcActual pc - 1
   let reached0 = pcHasReached0 pc || newCount == 0
   put $ ps { psParanthesesCount = ParanthesesCount newCount reached0 }
-
--------------------------------------------------------------------------------
--- Generic token collection and functions
--------------------------------------------------------------------------------
-
-throwIOerror :: String -> a
-throwIOerror s = throw
-  IOError { ioe_handle      = Nothing
-          , ioe_type        = UserError
-          , ioe_location    = "fortran-src"
-          , ioe_description = s
-          , ioe_errno       = Nothing
-          , ioe_filename    = Nothing }
-
-runParse :: (Loc b, LastToken b c, Show c) => Parse b c a -> ParseState b -> ParseResult b c a
-runParse = unParse
-
-runParseUnsafe :: (Loc b, LastToken b c, Show c) => Parse b c a -> ParseState b -> (a, ParseState b)
-runParseUnsafe lexer initState =
-  case unParse lexer initState of
-    ParseOk a s -> (a, s)
-    ParseFailed e -> throwIOerror $ show e
-
-evalParse :: (Loc b, LastToken b c, Show c) => Parse b c a -> ParseState b -> a
-evalParse m s = fst (runParseUnsafe m s)
-
-execParse :: (Loc b, LastToken b c, Show c) => Parse b c a -> ParseState b -> ParseState b
-execParse m s = snd (runParseUnsafe m s)
-
-class Tok a where
-  eofToken :: a -> Bool
-
-collectTokens :: forall a b . (Loc b, Tok a, LastToken b a, Show a) => Parse b a a -> ParseState b -> [a]
-collectTokens lexer initState =
-    evalParse (_collectTokens initState) undefined
-  where
-    _collectTokens :: (Loc b, Tok a, LastToken b a, Show a) => ParseState b -> Parse b a [a]
-    _collectTokens state = do
-      let (_token, _state) = runParseUnsafe lexer state
-      if eofToken _token
-      then return [_token]
-      else do
-        _tokens <- _collectTokens _state
-        return $ _token:_tokens
-
-collectTokensSafe :: forall a b . (Loc b, Tok a, LastToken b a, Show a) => Parse b a a -> ParseState b -> Maybe [a]
-collectTokensSafe lexer initState =
-    evalParse (_collectTokens initState) undefined
-  where
-    _collectTokens :: (Loc b, Tok a, LastToken b a, Show a) => ParseState b -> Parse b a (Maybe [a])
-    _collectTokens state =
-      case unParse lexer state of
-        ParseOk _token _state ->
-          if eofToken _token
-          then return $ Just [_token]
-          else do
-            _mTokens <- _collectTokens _state
-            case _mTokens of
-              Just _tokens -> return $ Just $ _token:_tokens
-              _ -> return Nothing
-        _ -> return Nothing

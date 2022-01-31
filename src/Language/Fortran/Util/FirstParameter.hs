@@ -1,7 +1,5 @@
 {-# LANGUAGE DefaultSignatures #-}
 {-# LANGUAGE TypeOperators #-}
-{-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE FunctionalDependencies #-}
 
 module Language.Fortran.Util.FirstParameter(FirstParameter(..), GFirstParameter(..)) where

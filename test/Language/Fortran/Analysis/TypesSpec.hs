@@ -12,9 +12,7 @@ import Language.Fortran.Analysis
 import Language.Fortran.Analysis.Types
 import Language.Fortran.Analysis.SemanticTypes
 import Language.Fortran.Analysis.Renaming
-import qualified Language.Fortran.Parser.Fortran77 as F77
-import qualified Language.Fortran.Parser.Fortran90 as F90
-import Language.Fortran.ParserMonad
+import qualified Language.Fortran.Parser as Parser
 import qualified Data.ByteString.Char8 as B
 
 inferTable :: Data a => ProgramFile a -> TypeEnv
@@ -23,11 +21,11 @@ inferTable = underRenaming (snd . analyseTypes)
 typedProgramFile :: Data a => ProgramFile a -> ProgramFile (Analysis a)
 typedProgramFile = fst . analyseTypes . analyseRenames . initAnalysis
 
-legacy77Parser :: String -> String -> ProgramFile A0
-legacy77Parser src file = fromParseResultUnsafe $ F77.legacy77Parser (B.pack src) file
+legacy77Parser :: String -> ProgramFile A0
+legacy77Parser = Parser.parseUnsafe Parser.f77l . B.pack
 
-fortran90Parser :: String -> String -> ProgramFile A0
-fortran90Parser src file = fromParseResultUnsafe $ F90.fortran90Parser (B.pack src) file
+fortran90Parser :: String -> ProgramFile A0
+fortran90Parser = Parser.parseUnsafe Parser.f90 . B.pack
 
 uniExpr :: ProgramFile (Analysis A0) -> [Expression (Analysis A0)]
 uniExpr = universeBi
@@ -386,11 +384,11 @@ fProgStr progContents = unlines prog
 
 -- | Parse a string as an F90 program with initialized 'SrcSpan's.
 parseStrF90 :: String -> ProgramFile A0
-parseStrF90 = resetSrcSpan . flip fortran90Parser ""
+parseStrF90 = resetSrcSpan . fortran90Parser
 
 commonTransform :: [String] -> String -> [String] -> Bool -> ProgramFile A0
 commonTransform front cdecl back common =
-  resetSrcSpan . flip legacy77Parser "" . unlines . (++) front $
+  resetSrcSpan . legacy77Parser . unlines . (++) front $
     if common then cdecl : back else back
 
 structArray :: Bool -> ProgramFile A0

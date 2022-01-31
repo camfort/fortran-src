@@ -1,39 +1,35 @@
-module Language.Fortran.Parser.Fortran2003Spec where
-
+module Language.Fortran.Parser.Free.Fortran2003Spec ( spec ) where
 
 import Prelude hiding (GT, EQ, exp, pred)
 
 import Test.Hspec
 import TestUtil
-import Language.Fortran.Parser.FreeFormCommon
+import Language.Fortran.Parser.Free.Common
 
 import Language.Fortran.AST
-import Language.Fortran.ParserMonad
-import Language.Fortran.Lexer.FreeForm
-import Language.Fortran.Parser.Fortran2003
+import Language.Fortran.Version
+import Language.Fortran.Parser
+import Language.Fortran.Parser.Monad ( Parse )
+import qualified Language.Fortran.Parser.Free.Fortran2003 as F2003
+import qualified Language.Fortran.Parser.Free.Lexer       as Free
+
 import qualified Data.ByteString.Char8 as B
 
-eParser :: String -> Expression ()
-eParser sourceCode =
-  case evalParse statementParser parseState of
-    (StExpressionAssign _ _ _ e) -> e
-    _ -> error "unhandled evalParse"
-  where
-    paddedSourceCode = B.pack $ "      a = " ++ sourceCode
-    parseState =  initParseState paddedSourceCode Fortran2003 "<unknown>"
+parseWith :: Parse Free.AlexInput Free.Token a -> String -> a
+parseWith p = parseUnsafe (makeParserFree p Fortran2003) . B.pack
 
-simpleParser :: Parse AlexInput Token a -> String -> a
-simpleParser p sourceCode =
-  evalParse p $ initParseState (B.pack sourceCode) Fortran2003 "<unknown>"
+eParser :: String -> Expression ()
+eParser = parseUnsafe p . B.pack
+  where p = makeParser initParseStateFreeExpr F2003.expressionParser Fortran2003
 
 sParser :: String -> Statement ()
-sParser = simpleParser statementParser
-
-fParser :: String -> ProgramUnit ()
-fParser = simpleParser functionParser
+sParser = parseWith F2003.statementParser
 
 bParser :: String -> Block ()
-bParser = simpleParser blockParser
+bParser = parseWith F2003.blockParser
+
+fParser :: String -> ProgramUnit ()
+fParser = parseWith F2003.functionParser
 
 spec :: Spec
 spec =
@@ -177,4 +173,4 @@ spec =
             expBinVars op x1 x2 = ExpBinary () u op (expValVar x1) (expValVar x2)
         bParser text `shouldBe'` expected
 
-    specFreeFormCommon sParser eParser
+    specFreeCommon sParser eParser

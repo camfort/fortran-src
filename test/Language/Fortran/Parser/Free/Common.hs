@@ -1,9 +1,12 @@
--- | Fortran standards F90 and beyond are a lot more consistent than the
---   previous 2. As such, there is lots of shared parsing, and lots of shared
---   tests. This module encodes such shared/common tests, where no difference
---   in behaviour between parsers is be expected.
+{-| Common tests for free-form Fortran.
 
-module Language.Fortran.Parser.FreeFormCommon ( specFreeFormCommon ) where
+Fortran standards F90 and beyond are a lot more consistent than the
+previous 2. As such, there is lots of shared parsing, and lots of shared
+tests. This module encodes such shared/common tests, where no difference
+in behaviour between parsers is be expected.
+-}
+
+module Language.Fortran.Parser.Free.Common ( specFreeCommon ) where
 
 import           TestUtil
 import           Test.Hspec
@@ -11,8 +14,8 @@ import           Test.Hspec
 import           Language.Fortran.AST
 import           Language.Fortran.AST.RealLit
 
-specFreeFormCommon :: (String -> Statement A0) -> (String -> Expression A0) -> Spec
-specFreeFormCommon sParser eParser =
+specFreeCommon :: (String -> Statement A0) -> (String -> Expression A0) -> Spec
+specFreeCommon sParser eParser =
   describe "Common Fortran 90+ tests" $ do
     describe "Literals" $ do
       describe "Logical" $ do

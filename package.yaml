@@ -22,6 +22,30 @@ extra-source-files:
 - CHANGELOG.md
 - test-data/**/*
 
+# 2022-01-25: raehik: the essentials + handful of syntax (most in GHC2021)
+default-extensions:
+# essential
+- EmptyCase
+- FlexibleContexts
+- FlexibleInstances
+- InstanceSigs
+- MultiParamTypeClasses
+- PolyKinds
+- LambdaCase
+# deriving-related
+- DerivingStrategies
+- StandaloneDeriving
+- DeriveAnyClass
+- DeriveGeneric
+- DeriveDataTypeable
+- DeriveFunctor
+- DeriveFoldable
+- DeriveTraversable
+- DeriveLift
+# less essential but still gimmes
+- BangPatterns
+- TupleSections
+
 dependencies:
 - base >=4.6 && <5
 - mtl >=2.2 && <3
@@ -39,6 +63,7 @@ dependencies:
 - deepseq >=1.4 && <1.5
 - filepath >=1.4 && <1.5
 - temporary >=1.2 && <1.4
+- either # TODO
 
 # --pedantic for building (not used for stack ghci)
 ghc-options:
@@ -51,50 +76,11 @@ library:
   build-tools:
   - alex >=3.1
   - happy >=1.19
-  other-modules: []
-  exposed-modules:
-  - Language.Fortran.Analysis.SemanticTypes
-  - Language.Fortran.Analysis
-  - Language.Fortran.Analysis.Renaming
-  - Language.Fortran.Analysis.ModGraph
-  - Language.Fortran.Analysis.Types
-  - Language.Fortran.Analysis.BBlocks
-  - Language.Fortran.Analysis.DataFlow
-  - Language.Fortran.AST
-  - Language.Fortran.AST.AList
-  - Language.Fortran.AST.RealLit
-  - Language.Fortran.AST.Boz
-  - Language.Fortran.Version
-  - Language.Fortran.LValue
-  - Language.Fortran.Intrinsics
-  - Language.Fortran.Lexer.FixedForm
-  - Language.Fortran.Lexer.FixedForm.Utils
-  - Language.Fortran.Lexer.FreeForm
-  - Language.Fortran.ParserMonad
-  - Language.Fortran.Parser.Any
-  - Language.Fortran.Parser.Fortran66
-  - Language.Fortran.Parser.Fortran77
-  - Language.Fortran.Parser.Fortran90
-  - Language.Fortran.Parser.Fortran95
-  - Language.Fortran.Parser.Fortran2003
-  - Language.Fortran.Parser.Utils
-  - Language.Fortran.PrettyPrint
-  - Language.Fortran.Transformation.Disambiguation.Function
-  - Language.Fortran.Transformation.Disambiguation.Intrinsic
-  - Language.Fortran.Transformation.Grouping
-  - Language.Fortran.Transformation.TransformMonad
-  - Language.Fortran.Transformer
-  - Language.Fortran.Util.Position
-  - Language.Fortran.Util.FirstParameter
-  - Language.Fortran.Util.SecondParameter
-  - Language.Fortran.Util.ModFile
-  - Language.Fortran.Util.Files
-  - Language.Fortran.Rewriter
-  - Language.Fortran.Rewriter.Internal
 
 executables:
   fortran-src:
-    main: src/Main.hs
+    source-dirs: app
+    main: Main.hs
     ghc-options: -fno-warn-tabs
     dependencies:
     - fortran-src
