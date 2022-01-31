@@ -1,12 +1,11 @@
-{-# LANGUAGE FlexibleContexts, FlexibleInstances, ScopedTypeVariables, OverloadedStrings #-}
+{-# LANGUAGE ScopedTypeVariables, OverloadedStrings #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
 
-module Main where
+module Main ( main ) where
 
 import Prelude hiding (readFile, mod)
 import qualified Data.ByteString.Char8 as B
 import qualified Data.ByteString.Lazy.Char8 as LB
-import Language.Fortran.Util.Files
 
 import Text.PrettyPrint (render)
 
@@ -23,17 +22,19 @@ import Data.Char (toLower)
 import Data.Maybe (listToMaybe, fromMaybe, maybeToList)
 import Data.Data
 import Data.Generics.Uniplate.Data
+import Data.Graph.Inductive hiding (trc, mf, version)
+import Data.Either.Combinators ( fromRight' )
 
-import Language.Fortran.Version (FortranVersion(..), selectFortranVersion, deduceFortranVersion)
-import Language.Fortran.ParserMonad (fromRight)
-import qualified Language.Fortran.Lexer.FixedForm as FixedForm (collectFixedTokens, Token(..))
-import qualified Language.Fortran.Lexer.FreeForm as FreeForm (collectFreeTokens, Token(..))
+import qualified Data.IntMap as IM
+import qualified Data.Map as M
+import Control.Monad
+import Text.Printf
 
-import Language.Fortran.Parser.Any (parserWithModFilesVersions)
-
+import Language.Fortran.Parser
+import Language.Fortran.Version
 import Language.Fortran.Util.ModFile
 import Language.Fortran.Util.Position
-
+import Language.Fortran.Util.Files
 import Language.Fortran.PrettyPrint
 import Language.Fortran.Analysis
 import Language.Fortran.AST
@@ -42,12 +43,9 @@ import Language.Fortran.Analysis.ModGraph
 import Language.Fortran.Analysis.BBlocks
 import Language.Fortran.Analysis.DataFlow
 import Language.Fortran.Analysis.Renaming
-import Data.Graph.Inductive hiding (trc, mf, version)
-
-import qualified Data.IntMap as IM
-import qualified Data.Map as M
-import Control.Monad
-import Text.Printf
+import qualified Language.Fortran.Parser as Parser
+import qualified Language.Fortran.Parser.Fixed.Lexer as Fixed
+import qualified Language.Fortran.Parser.Free.Lexer  as Free
 
 programName :: String
 programName = "fortran-src"
@@ -104,14 +102,13 @@ main = do
       mapM_ (\ p -> compileFileToMod (fortranVersion opts) mods p (outputFile opts)) paths
     (path:_, actionOpt) -> do
       contents <- flexReadFile path
-      let version = fromMaybe (deduceFortranVersion path) (fortranVersion opts)
-      let parserF0 = parserWithModFilesVersions version
-      let parserF m b s = fromRight (parserF0 m b s)
-      let outfmt = outputFormat opts
       mods <- decodeModFiles $ includeDirs opts
-      let mmap = combinedModuleMap mods
-      let tenv = combinedTypeEnv mods
-      let pvm = combinedParamVarMap mods
+      let version   = fromMaybe (deduceFortranVersion path) (fortranVersion opts)
+          parsedPF  = fromRight' $ (Parser.byVerWithMods mods version) path contents
+          outfmt    = outputFormat opts
+          mmap      = combinedModuleMap mods
+          tenv      = combinedTypeEnv mods
+          pvm       = combinedParamVarMap mods
 
       let runTypes = analyseAndCheckTypesWithEnv tenv . analyseRenamesWithModuleMap mmap . initAnalysis
       let runRenamer = stripAnalysis . rename . analyseRenamesWithModuleMap mmap . initAnalysis
@@ -129,18 +126,18 @@ main = do
                  , insLabel (getAnnotation b) == Just astBlockId ]
       case actionOpt of
         Lex | version `elem` [ Fortran66, Fortran77, Fortran77Extended, Fortran77Legacy ] ->
-          print $ FixedForm.collectFixedTokens version contents
+          print $ Parser.collectTokens Fixed.lexer' $ initParseStateFixed "<unknown>" version contents
         Lex | version `elem` [Fortran90, Fortran2003, Fortran2008] ->
-          print $ FreeForm.collectFreeTokens version contents
+          print $ Parser.collectTokens Free.lexer'  $ initParseStateFree "<unknown>" version contents
         Lex        -> ioError $ userError $ usageInfo programName options
-        Parse      -> pp $ parserF mods contents path
-        Typecheck  -> let (pf, _, errs) = runTypes (parserF mods contents path) in
+        Parse      -> pp parsedPF
+        Typecheck  -> let (pf, _, errs) = runTypes parsedPF in
                         printTypeErrors errs >> printTypes (extractTypeEnv pf)
-        Rename     -> pp . runRenamer $ parserF mods contents path
-        BBlocks    -> putStrLn . runBBlocks $ parserF mods contents path
-        SuperGraph -> putStrLn . runSuperGraph $ parserF mods contents path
+        Rename     -> pp $ runRenamer parsedPF
+        BBlocks    -> putStrLn $ runBBlocks parsedPF
+        SuperGraph -> putStrLn $ runSuperGraph parsedPF
         Reprint    ->
-          let prettyContents = render . flip (pprint version) (Just 0) $ parserF mods contents path
+          let prettyContents = render . flip (pprint version) (Just 0) $ parsedPF
            in putStrLn $
                 if   useContinuationReformatter opts
                 then reformatMixedFormInsertContinuations prettyContents
@@ -162,7 +159,7 @@ main = do
           let pf = analyseParameterVars pvm .
                    analyseBBlocks .
                    analyseRenamesWithModuleMap mmap .
-                   initAnalysis $ parserF mods contents path
+                   initAnalysis $ parsedPF
           let bbm = genBBlockMap pf
           case (isSuper, findBlockPU pf astBlockId) of
             (False, Nothing) -> fail "Couldn't find given AST block ID number."
@@ -178,7 +175,7 @@ main = do
         ShowBlocks mlinenum -> do
           let pf = analyseBBlocks .
                    analyseRenamesWithModuleMap mmap .
-                   initAnalysis $ parserF mods contents path
+                   initAnalysis $ parsedPF
           let f :: ([ASTBlockNode], Int) -> ([ASTBlockNode], Int) -> ([ASTBlockNode], Int)
               f (nodes1, len1) (nodes2, len2)
                 | len1 < len2 = (nodes1, len1)
@@ -244,13 +241,12 @@ compileFileToMod :: Maybe FortranVersion -> ModFiles -> FilePath -> Maybe FilePa
 compileFileToMod mvers mods path moutfile = do
   contents <- flexReadFile path
   let version = fromMaybe (deduceFortranVersion path) mvers
-  let parserF0 = parserWithModFilesVersions version
-  let parserF m b s = fromRight (parserF0 m b s)
-  let mmap = combinedModuleMap mods
-  let tenv = combinedTypeEnv mods
-  let runCompile = genModFile . fst . analyseTypesWithEnv tenv . analyseRenamesWithModuleMap mmap . initAnalysis
-  let mod = runCompile $ parserF mods contents path
-  let fspath = path -<.> modFileSuffix `fromMaybe` moutfile
+      mmap = combinedModuleMap mods
+      tenv = combinedTypeEnv mods
+      runCompile = genModFile . fst . analyseTypesWithEnv tenv . analyseRenamesWithModuleMap mmap . initAnalysis
+      parsedPF  = fromRight' $ (Parser.byVerWithMods mods version) path contents
+      mod = runCompile parsedPF
+      fspath = path -<.> modFileSuffix `fromMaybe` moutfile
   LB.writeFile fspath $ encodeModFile [mod]
   return mod
 
@@ -457,26 +453,26 @@ compileArgs args =
   where
     header = "Usage: " ++ programName ++ " [OPTION...] <file...>"
 
-instance {-# OVERLAPPING #-} Show [ FixedForm.Token ] where
+instance {-# OVERLAPPING #-} Show [ Fixed.Token ] where
   show = unlines . lines'
     where
       lines' [] = []
       lines' xs =
         let (x, xs') = break isNewline xs
         in case xs' of
-             (nl@(FixedForm.TNewline _):xs'') -> ('\t' : (intercalate ", " . map show $ x ++ [nl])) : lines' xs''
+             (nl@(Fixed.TNewline _):xs'') -> ('\t' : (intercalate ", " . map show $ x ++ [nl])) : lines' xs''
              xs'' -> [ show xs'' ]
-      isNewline (FixedForm.TNewline _) = True
+      isNewline (Fixed.TNewline _) = True
       isNewline _ = False
 
-instance {-# OVERLAPPING #-} Show [ FreeForm.Token ] where
+instance {-# OVERLAPPING #-} Show [ Free.Token ] where
   show = unlines . lines'
     where
       lines' [] = []
       lines' xs =
         let (x, xs') = break isNewline xs
         in case xs' of
-             (nl@(FreeForm.TNewline _):xs'') -> ('\t' : (intercalate ", " . map show $ x ++ [nl])) : lines' xs''
+             (nl@(Free.TNewline _):xs'') -> ('\t' : (intercalate ", " . map show $ x ++ [nl])) : lines' xs''
              xs'' -> [ show xs'' ]
-      isNewline (FreeForm.TNewline _) = True
+      isNewline (Free.TNewline _) = True
       isNewline _ = False

@@ -1,4 +1,4 @@
-module Language.Fortran.Parser.Fortran2008Spec where
+module Language.Fortran.Parser.Free.Fortran2008Spec ( spec ) where
 
 import Test.Hspec
 

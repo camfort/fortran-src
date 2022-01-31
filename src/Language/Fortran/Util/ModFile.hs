@@ -15,10 +15,6 @@
 -}
 
 {-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE PatternGuards #-}
-{-# LANGUAGE TupleSections #-}
-{-# LANGUAGE DeriveGeneric #-}
-{-# LANGUAGE DeriveDataTypeable #-}
 
 {-|
 

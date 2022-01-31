@@ -4,41 +4,48 @@ import Test.Hspec
 import TestUtil
 
 import Language.Fortran.AST
-import Language.Fortran.Transformer
+import Language.Fortran.Transformation.Monad
+import Language.Fortran.Transformation.Disambiguation.Function
+import Language.Fortran.Transformation.Disambiguation.Intrinsic
+import Data.Data
 
-disambiguateFunction :: ProgramFile () -> ProgramFile ()
-disambiguateFunction = transform [ DisambiguateIntrinsic, DisambiguateFunction ]
+disambiguateFunction' :: Data a => ProgramFile a -> ProgramFile a
+disambiguateFunction' = transformWith $ sequence_ [ disambiguateIntrinsic
+                                                  , disambiguateFunction ]
+
+transformWith :: Data a => Transform a () -> ProgramFile a -> ProgramFile a
+transformWith = runTransform mempty mempty
 
 spec :: Spec
 spec = do
   describe "Function statement disambiguation" $
     it "disambiguates function statements in example 1" $ do
-      let pf = disambiguateFunction $ resetSrcSpan ex1
+      let pf = disambiguateFunction' $ resetSrcSpan ex1
       pf `shouldBe'` expectedEx1
 
   describe "Function call disambiguation" $
     it "disambiguates function calls in example 2" $ do
-      let pf = disambiguateFunction $ resetSrcSpan ex2
+      let pf = disambiguateFunction' $ resetSrcSpan ex2
       pf `shouldBe'` expectedEx2
 
   describe "Function call / Intrinsic disambiguation" $
     it "disambiguates function calls / intrinsics in example 3" $ do
-      let pf = disambiguateFunction $ resetSrcSpan ex3
+      let pf = disambiguateFunction' $ resetSrcSpan ex3
       pf `shouldBe'` expectedEx3
 
   describe "Function call / Variable disambiguation" $
     it "disambiguates function calls in example 4" $ do
-      let pf = disambiguateFunction $ resetSrcSpan ex4
+      let pf = disambiguateFunction' $ resetSrcSpan ex4
       pf `shouldBe'` expectedEx4
 
   describe "Implicit Function call / Variable disambiguation" $
     it "disambiguates function calls in example 5" $ do
-      let pf = disambiguateFunction $ resetSrcSpan ex5
+      let pf = disambiguateFunction' $ resetSrcSpan ex5
       pf `shouldBe'` expectedEx5
 
   describe "Implicit array declaration with dimension disambiguation" $
     it "Should not disambiguation to a function call in example 6" $ do
-      let pf = disambiguateFunction $ resetSrcSpan ex6
+      let pf = disambiguateFunction' $ resetSrcSpan ex6
       pf `shouldBe'` expectedEx6
 
 {-

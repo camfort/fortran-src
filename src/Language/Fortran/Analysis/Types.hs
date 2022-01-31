@@ -1,6 +1,4 @@
 {-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE LambdaCase          #-}
-{-# LANGUAGE FlexibleContexts    #-}
 
 module Language.Fortran.Analysis.Types
   ( analyseTypes

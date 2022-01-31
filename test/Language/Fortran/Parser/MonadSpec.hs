@@ -1,12 +1,11 @@
-{-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
 
-module Language.Fortran.ParserMonadSpec where
+module Language.Fortran.Parser.MonadSpec where
 
 import Test.Hspec
 
-import Language.Fortran.ParserMonad
+import Language.Fortran.Parser.Monad
+import Language.Fortran.Version
 import Language.Fortran.Util.Position
 
 vanillaParseState :: ParseState String

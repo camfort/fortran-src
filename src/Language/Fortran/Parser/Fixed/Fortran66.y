@@ -1,32 +1,28 @@
 -- -*- Mode: Haskell -*-
 -- vim: ft=haskell
 {
-module Language.Fortran.Parser.Fortran66 ( expressionParser
-                                         , statementParser
-                                         , fortran66Parser
-                                         , fortran66ParserWithTransforms
-                                         , fortran66ParserWithModFiles
-                                         , fortran66ParserWithModFilesWithTransforms
-                                         ) where
+module Language.Fortran.Parser.Fixed.Fortran66
+  ( programParser
+  , blockParser
+  , statementParser
+  , expressionParser
+  ) where
 
-import Prelude hiding (EQ,LT,GT) -- Same constructors exist in the AST
-
-import Control.Monad.State
-import Data.Maybe (isNothing, fromJust)
-import qualified Data.ByteString.Char8 as B
+import Language.Fortran.Version
 import Language.Fortran.Util.Position
-import Language.Fortran.Util.ModFile
-import Language.Fortran.ParserMonad
-import Language.Fortran.Lexer.FixedForm
-import Language.Fortran.Lexer.FixedForm.Utils
-import Language.Fortran.Transformer
+import Language.Fortran.Parser.Monad
+import Language.Fortran.Parser.Fixed.Lexer
+import Language.Fortran.Parser.Fixed.Utils
 import Language.Fortran.AST
 import Language.Fortran.AST.RealLit
 
+import Prelude hiding ( EQ, LT, GT ) -- Same constructors exist in the AST
+
 }
 
-%name programParser PROGRAM
-%name statementParser STATEMENT
+%name programParser    PROGRAM
+%name blockParser      BLOCK
+%name statementParser  STATEMENT
 %name expressionParser EXPRESSION
 %monad { LexAction }
 %lexer { lexer } { TEOF _ }
@@ -421,10 +417,10 @@ SIGNED_REAL_LITERAL :: { Expression A0 }
 | REAL_LITERAL { $1 }
 
 REAL_LITERAL :: { Expression A0 }
-: int EXPONENT { makeReal (Just $1) Nothing Nothing (Just $2) }
-| int '.' MAYBE_EXPONENT { makeReal (Just $1) (Just $2) Nothing $3 }
-| '.' int MAYBE_EXPONENT { makeReal Nothing (Just $1) (Just $2) $3 }
-| int '.' int MAYBE_EXPONENT { makeReal (Just $1) (Just $2) (Just $3) $4 }
+: int EXPONENT { makeRealLit (Just $1) Nothing Nothing (Just $2) }
+| int '.' MAYBE_EXPONENT { makeRealLit (Just $1) (Just $2) Nothing $3 }
+| '.' int MAYBE_EXPONENT { makeRealLit Nothing (Just $1) (Just $2) $3 }
+| int '.' int MAYBE_EXPONENT { makeRealLit (Just $1) (Just $2) (Just $3) $4 }
 
 MAYBE_EXPONENT :: { Maybe (SrcSpan, String) }
 : EXPONENT { Just $1 }
@@ -467,49 +463,3 @@ TYPE_SPEC :: { TypeSpec A0 }
 | doublePrecision   { TypeSpec () (getSpan $1) TypeDoublePrecision Nothing }
 | logical           { TypeSpec () (getSpan $1) TypeLogical Nothing }
 | complex           { TypeSpec () (getSpan $1) TypeComplex Nothing }
-
-{
-
-parse = runParse programParser
-defTransforms = defaultTransformations Fortran66
-
-fortran66Parser
-    :: B.ByteString -> String -> ParseResult AlexInput Token (ProgramFile A0)
-fortran66Parser = fortran66ParserWithTransforms defTransforms
-
-fortran66ParserWithTransforms
-    :: [Transformation]
-    -> B.ByteString -> String -> ParseResult AlexInput Token (ProgramFile A0)
-fortran66ParserWithTransforms =
-    flip fortran66ParserWithModFilesWithTransforms emptyModFiles
-
-fortran66ParserWithModFiles
-    :: ModFiles
-    -> B.ByteString -> String -> ParseResult AlexInput Token (ProgramFile A0)
-fortran66ParserWithModFiles =
-    fortran66ParserWithModFilesWithTransforms defTransforms
-
-fortran66ParserWithModFilesWithTransforms
-    :: [Transformation] -> ModFiles
-    -> B.ByteString -> String -> ParseResult AlexInput Token (ProgramFile A0)
-fortran66ParserWithModFilesWithTransforms transforms mods sourceCode filename =
-    fmap (pfSetFilename filename . transformWithModFiles mods transforms) $ parse parseState
-  where
-    parseState = initParseState sourceCode Fortran66 filename
-
-parseError :: Token -> LexAction a
-parseError _ = do
-    parseState <- get
-#ifdef DEBUG
-    tokens <- reverse <$> aiPreviousTokensInLine <$> getAlex
-#endif
-    fail $ psFilename parseState ++ ": parsing failed. "
-#ifdef DEBUG
-      ++ '\n' : show tokens
-#endif
-
-convCmts = map convCmt
-convCmt (BlComment a s c) = PUComment a s c
-convCmt _ = error "convCmt applied to something that is not a comment"
-
-}

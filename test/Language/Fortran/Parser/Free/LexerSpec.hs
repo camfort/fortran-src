@@ -1,20 +1,26 @@
-module Language.Fortran.Lexer.FreeFormSpec where
+module Language.Fortran.Parser.Free.LexerSpec ( spec ) where
 
 import Test.Hspec
 import TestUtil
 
+import Language.Fortran.Parser.Free.Lexer ( Token(..), lexer' )
+import Language.Fortran.Parser ( collectTokens )
+import Language.Fortran.Parser ( initParseStateFree )
 import Language.Fortran.AST.RealLit
 import Language.Fortran.Version
-import Language.Fortran.Lexer.FreeForm (collectFreeTokens, Token(..))
 import Language.Fortran.Util.Position (SrcSpan)
+
 import qualified Data.ByteString.Char8 as B
 
-collectF90 :: String -> [ Token ]
+collectFreeTokens :: FortranVersion -> B.ByteString -> [Token]
+collectFreeTokens fv bs =
+    collectTokens lexer' $ initParseStateFree "<unknown>" fv bs
+
+collectF90 :: String -> [Token]
 collectF90 = collectFreeTokens Fortran90 . B.pack
 
-collectF03 :: String -> [ Token ]
+collectF03 :: String -> [Token]
 collectF03 = collectFreeTokens Fortran2003 . B.pack
-
 
 pseudoAssign :: (SrcSpan -> Token) -> [Token]
 pseudoAssign token = fmap ($u) [ flip TId "i", TOpAssign, token, TEOF ]

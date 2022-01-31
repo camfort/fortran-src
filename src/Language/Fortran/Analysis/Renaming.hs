@@ -1,4 +1,4 @@
-{-# LANGUAGE ScopedTypeVariables, PatternGuards, TupleSections #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 
 -- |
 -- Analyse variables/function names and produce unique names that can
@@ -14,7 +14,7 @@ where
 import Language.Fortran.AST hiding (fromList)
 import Language.Fortran.Intrinsics
 import Language.Fortran.Analysis
-import Language.Fortran.ParserMonad (FortranVersion(..))
+import Language.Fortran.Version
 
 import Prelude hiding (lookup)
 import Data.Maybe (mapMaybe, fromMaybe)

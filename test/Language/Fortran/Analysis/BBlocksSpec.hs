@@ -2,8 +2,7 @@ module Language.Fortran.Analysis.BBlocksSpec where
 
 import Test.Hspec
 
-import Language.Fortran.Parser.Fortran77
-import Language.Fortran.ParserMonad (fromParseResultUnsafe)
+import qualified Language.Fortran.Parser as Parser
 import Language.Fortran.AST
 import Language.Fortran.Analysis
 import Language.Fortran.Analysis.BBlocks
@@ -15,8 +14,10 @@ import Data.Maybe
 import qualified Data.ByteString.Char8 as B
 
 pParser :: String -> ProgramFile (Analysis ())
-pParser source = rename . analyseBBlocks . analyseRenames . initAnalysis . fromParseResultUnsafe
-               $ extended77Parser (B.pack source) "<unknown>"
+pParser source =
+    case Parser.f77e "<unknown>" (B.pack source) of
+      Left err -> error $ show err
+      Right pf -> rename . analyseBBlocks . analyseRenames . initAnalysis $ pf
 
 spec :: Spec
 spec =

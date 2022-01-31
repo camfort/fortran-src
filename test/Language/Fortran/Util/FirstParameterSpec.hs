@@ -1,7 +1,3 @@
-{-# LANGUAGE DeriveGeneric #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE FlexibleInstances #-}
-
 module Language.Fortran.Util.FirstParameterSpec(spec) where
 
 import Test.Hspec

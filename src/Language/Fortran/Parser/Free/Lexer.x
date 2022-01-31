@@ -1,14 +1,19 @@
 -- -*- Mode: Haskell -*-
+-- vim: ft=haskell
 {
-{-# LANGUAGE DeriveDataTypeable #-}
-{-# LANGUAGE BangPatterns #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE UndecidableInstances #-}
-{-# LANGUAGE DeriveGeneric #-}
 
-module Language.Fortran.Lexer.FreeForm where
+module Language.Fortran.Parser.Free.Lexer
+  (
+  -- * Main interface
+    lexer, Token(..), vanillaAlexInput, AlexInput(..), LexAction
+
+  -- * Internals
+  , lexer'
+  , StartCode(..)
+  , StartCodeStatus(..)
+  , scN
+  ) where
 
 import Prelude hiding (span)
 import Data.Data
@@ -23,13 +28,13 @@ import Control.Monad.State (get)
 
 import GHC.Generics
 
-import Language.Fortran.ParserMonad
---import Language.Fortran.Version (required when ParserMonad stops exporting it)
+import Language.Fortran.Parser.Monad
+import Language.Fortran.Version
 import Language.Fortran.Util.Position
 import Language.Fortran.Util.FirstParameter
-import Language.Fortran.Parser.Utils (readInteger)
 import Language.Fortran.AST.RealLit (RealLit, parseRealLit)
 import Language.Fortran.AST.Boz
+import Language.Fortran.Parser.LexerUtils ( readIntOrBoz )
 
 }
 
@@ -885,11 +890,11 @@ instance LastToken AlexInput Token where
 
 type LexAction a = Parse AlexInput Token a
 
-vanillaAlexInput :: AlexInput
-vanillaAlexInput = AlexInput
-  { aiSourceBytes          = B.empty
-  , aiPosition             = initPosition
-  , aiEndOffset            = 0
+vanillaAlexInput :: String -> B.ByteString -> AlexInput
+vanillaAlexInput fn bs = AlexInput
+  { aiSourceBytes          = bs
+  , aiPosition             = initPosition { filePath = fn }
+  , aiEndOffset            = B.length bs
   , aiPreviousChar         = '\n'
   , aiLexeme               = initLexeme
   , aiStartCode            = StartCode 0 Return
@@ -1096,7 +1101,7 @@ lexHash = do
   case words (drop 1 m) of
     -- 'line' pragma - rewrite the current line and filename
     "line":lineStr:_
-      | Just line <- readInteger lineStr -> do
+      | line <- readIntOrBoz lineStr -> do
         let revdropWNQ = reverse . drop 1 . dropWhile (flip notElem "'\"")
         let file       = revdropWNQ . revdropWNQ $ m
         let lineOffs   = fromIntegral line - posLine (aiPosition ai) - 1
@@ -1368,28 +1373,5 @@ instance SpecifiesType [ Token ] where
         (TLeftPar{}:rest') | TRightPar{} <- last rest' -> True
         _ -> False
     | otherwise = False
-
---------------------------------------------------------------------------------
--- Functions to help testing & output
---------------------------------------------------------------------------------
-
-initParseState :: B.ByteString -> FortranVersion -> String -> ParseState AlexInput
-initParseState srcBytes fortranVersion filename =
-  _vanillaParseState { psAlexInput = _vanillaAlexInput }
-  where
-    _vanillaParseState = ParseState
-      { psAlexInput = undefined
-      , psVersion = fortranVersion
-      , psFilename = filename
-      , psParanthesesCount = ParanthesesCount 0 False
-      , psContext = [ ConStart ] }
-    _vanillaAlexInput = vanillaAlexInput
-      { aiSourceBytes = srcBytes
-      , aiEndOffset   = B.length srcBytes
-      , aiPosition    = initPosition {filePath = filename} }
-
-collectFreeTokens :: FortranVersion -> B.ByteString -> [Token]
-collectFreeTokens version srcInput =
-    collectTokens lexer' $ initParseState srcInput version "<unknown>"
 
 }

@@ -1,43 +1,39 @@
-module Language.Fortran.Parser.Fortran77.ParserSpec where
+module Language.Fortran.Parser.Fixed.Fortran77.ParserSpec where
 
 import Test.Hspec
 import TestUtil
 
-import Prelude hiding (exp)
-import Language.Fortran.Parser.Fortran77
-import Language.Fortran.Lexer.FixedForm (initParseState)
-import Language.Fortran.ParserMonad (FortranVersion(..), evalParse, fromParseResultUnsafe)
 import Language.Fortran.AST
+import Language.Fortran.Version
+import Language.Fortran.Parser
+import Language.Fortran.Parser.Monad ( Parse )
+import qualified Language.Fortran.Parser.Fixed.Fortran77 as F77
+import qualified Language.Fortran.Parser.Fixed.Lexer     as Fixed
+
+import Prelude hiding ( exp )
 import qualified Data.ByteString.Char8 as B
 
-{-# ANN module "HLint: ignore Reduce duplication" #-}
-
-eParser :: String -> Expression ()
-eParser sourceCode =
-  case evalParse statementParser parseState of
-    (StExpressionAssign _ _ _ e) -> e
-    _ -> error "unhandled evalParse"
-  where
-    paddedSourceCode = B.pack $ "      a = " ++ sourceCode
-    parseState =  initParseState paddedSourceCode Fortran77 "<unknown>"
-
-sParser :: String -> Statement ()
-sParser sourceCode =
-  evalParse statementParser $ initParseState (B.pack sourceCode) Fortran77 "<unknown>"
-
-slParser :: String -> Statement ()
-slParser sourceCode =
-  evalParse statementParser $ initParseState (B.pack sourceCode) Fortran77Legacy "<unknown>"
-
-blParser :: String -> Block ()
-blParser src = evalParse blockParser $ initParseState (B.pack src) Fortran77Legacy "<unknown>"
-
-iParser :: String -> [Block ()]
-iParser sourceCode =
-  fromParseResultUnsafe $ includeParser Fortran77Legacy (B.pack sourceCode) "<unknown>"
+parseWith :: FortranVersion -> Parse Fixed.AlexInput Fixed.Token a -> String -> a
+parseWith fv p = parseUnsafe (makeParserFixed p fv) . B.pack
 
 pParser :: String -> ProgramFile ()
-pParser source = fromParseResultUnsafe $ legacy77Parser (B.pack source) "<unknown>"
+pParser = parseWith Fortran77 F77.programParser
+
+bParser :: String -> Block ()
+bParser = parseWith Fortran77Legacy F77.blockParser
+
+sParser :: String -> Statement ()
+sParser = parseWith Fortran77 F77.statementParser
+
+eParser :: String -> Expression ()
+eParser = parseUnsafe p . B.pack
+  where p = makeParser initParseStateFixedExpr F77.expressionParser Fortran77
+
+plParser :: String -> ProgramFile ()
+plParser = parseWith Fortran77Legacy F77.programParser
+
+slParser :: String -> Statement ()
+slParser = parseWith Fortran77Legacy F77.statementParser
 
 spec :: Spec
 spec =
@@ -213,13 +209,6 @@ spec =
           st = StDeclaration () u typeSpec Nothing (AList () u [ decl ])
       sParser "      character c*(ichar('A'))" `shouldBe'` st
 
-    it "parses included files" $ do
-      let decl = declVariable () u (varGen "a") Nothing Nothing
-          typeSpec = TypeSpec () u TypeInteger Nothing
-          st = StDeclaration () u typeSpec Nothing (AList () u [ decl ])
-          bl = BlStatement () u Nothing st
-      iParser "      integer a" `shouldBe'` [bl]
-
     describe "parses if blocks" $ do
       let printArgs  = Just $ AList () u [ExpValue () u $ ValString "foo"]
           printStmt  = StPrint () u (ExpValue () u ValStar) printArgs
@@ -232,7 +221,7 @@ spec =
                           , "        print *, 'foo'"
                           , "       endif ! comment end"
                           ]
-        blParser src `shouldBe'` bl
+        bParser src `shouldBe'` bl
       it "labelled" $ do
         let label = Just . intGen
             bl = BlIf () u (label 10)  Nothing [Just valTrue, Nothing] [[printBlock], [printBlock]] (label 30)
@@ -242,7 +231,7 @@ spec =
                           , "        print *, 'foo'"
                           , "30     endif ! comment end"
                           ]
-        blParser src `shouldBe'` bl
+        bParser src `shouldBe'` bl
 
     describe "Legacy Extensions" $ do
       it "parses structure/union/map blocks" $ do
@@ -310,12 +299,11 @@ spec =
         resetSrcSpan (slParser src) `shouldBe` st
 
       it "parses structure data references " $ do
-        let src = init $ unlines [ "      print *, foo % bar"
-                                 , "      print *, foo.bar" ]
+        let st      = StPrint () u expStar $ Just $ AList () u [foobar]
+            foobar  = ExpDataRef () u (varGen "foo") (varGen "bar")
             expStar = ExpValue () u ValStar
-            foobar = ExpDataRef () u (varGen "foo") (varGen "bar")
-            blStmt = BlStatement () u Nothing $ StPrint () u expStar $ Just $ AList () u [foobar]
-        resetSrcSpan (iParser src) `shouldBe` [ blStmt, blStmt ]
+        sParser "      print *, foo % bar" `shouldBe'` st
+        sParser "      print *, foo.bar"   `shouldBe'` st
 
       it "parse special intrinsics to arguments" $ do
         let blStmt stmt = BlStatement () u Nothing stmt
@@ -326,7 +314,7 @@ spec =
             call = blStmt $ StCall () u (varGen "bar") $ arg valBar
             pu = ProgramFile mi77 [ PUSubroutine () u (Nothing, Nothing) "foo"
                                    (Just $ AList () u [varGen "baz"]) [ ext, call ] Nothing ]
-        resetSrcSpan (pParser exampleProgram3) `shouldBe` pu
+        resetSrcSpan (plParser exampleProgram3) `shouldBe` pu
 
       it "parses character declarations with unspecfied lengths" $ do
         let src = "      character s*(*)"

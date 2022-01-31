@@ -1,9 +1,15 @@
-{-# LANGUAGE DeriveDataTypeable, ScopedTypeVariables, PatternGuards, TupleSections #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 
 -- | Generate a module use-graph.
 module Language.Fortran.Analysis.ModGraph
   (genModGraph, ModGraph(..), ModOrigin(..), modGraphToDOT, takeNextMods, delModNodes)
 where
+
+import Language.Fortran.AST hiding (setName)
+import qualified Language.Fortran.Parser as Parser
+import Language.Fortran.Version
+import Language.Fortran.Util.ModFile
+import Language.Fortran.Util.Files
 
 import Prelude hiding (mod)
 import Control.Monad
@@ -12,12 +18,7 @@ import Data.Data
 import Data.Generics.Uniplate.Data
 import Data.Graph.Inductive hiding (version)
 import Data.Maybe
-import Language.Fortran.AST hiding (setName)
-import Language.Fortran.Version (FortranVersion(..), deduceFortranVersion)
-import Language.Fortran.Parser.Any (parserWithModFilesVersions)
-import Language.Fortran.ParserMonad (fromRight)
-import Language.Fortran.Util.ModFile
-import Language.Fortran.Util.Files
+import Data.Either.Combinators ( fromRight' )
 import qualified Data.ByteString.Lazy.Char8 as LB
 import qualified Data.Map as M
 import System.IO
@@ -85,16 +86,16 @@ genModGraph mversion includeDirs paths = do
   let iter :: FilePath -> ModGrapher ()
       iter path = do
         contents <- liftIO $ flexReadFile path
-        let version = fromMaybe (deduceFortranVersion path) mversion
-        let parserF0 = parserWithModFilesVersions version
-        let parserF m b s = fromRight (parserF0 m b s)
         fileMods <- liftIO $ decodeModFiles includeDirs
-        let mods = map snd fileMods
+        let version = fromMaybe (deduceFortranVersion path) mversion
+            mods = map snd fileMods
+            parserF0 = Parser.byVerWithMods mods version
+            parserF fn bs = fromRight' $ parserF0 fn bs
         forM_ fileMods $ \ (fileName, mod) -> do
           forM_ [ name | Named name <- M.keys (combinedModuleMap [mod]) ] $ \ name -> do
             _ <- maybeAddModName name . Just $ MOFSMod fileName
             pure ()
-        let pf = parserF mods contents path
+        let pf = parserF path contents
         mapM_ (perModule path) (childrenBi pf :: [ProgramUnit ()])
         pure ()
   execStateT (mapM_ iter paths) modGraph0

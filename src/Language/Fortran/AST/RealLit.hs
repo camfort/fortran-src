@@ -12,8 +12,7 @@ that can be easily exported with full precision later. Things we do:
     Haskell literals do not support this.)
 -}
 
-{-# LANGUAGE DeriveDataTypeable, DeriveGeneric, DeriveAnyClass #-}
-{-# LANGUAGE RecordWildCards, LambdaCase #-}
+{-# LANGUAGE RecordWildCards #-}
 
 module Language.Fortran.AST.RealLit where
 

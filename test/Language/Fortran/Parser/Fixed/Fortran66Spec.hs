@@ -1,28 +1,27 @@
-module Language.Fortran.Parser.Fortran66Spec(spec) where
+module Language.Fortran.Parser.Fixed.Fortran66Spec ( spec ) where
 
 import Test.Hspec
 import TestUtil
 
-import Prelude hiding (LT)
-
-import Language.Fortran.Parser.Fortran66
-import Language.Fortran.Lexer.FixedForm
-import Language.Fortran.ParserMonad
 import Language.Fortran.AST
+import Language.Fortran.Version
+import Language.Fortran.Parser
+import Language.Fortran.Parser.Monad ( Parse )
+import qualified Language.Fortran.Parser.Fixed.Fortran66 as F66
+import qualified Language.Fortran.Parser.Fixed.Lexer     as Fixed
+
+import Prelude hiding ( LT )
 import qualified Data.ByteString.Char8 as B
 
+parseWith :: Parse Fixed.AlexInput Fixed.Token a -> String -> a
+parseWith p = parseUnsafe (makeParserFixed p Fortran66) . B.pack
+
 eParser :: String -> Expression ()
-eParser sourceCode =
-  case evalParse statementParser parseState of
-    (StExpressionAssign _ _ _ e) -> e
-    _ -> error "unhandled evalParse"
-  where
-    paddedSourceCode = B.pack $ "      a = " ++ sourceCode
-    parseState =  initParseState paddedSourceCode Fortran66 "<unknown>"
+eParser = parseUnsafe p . B.pack
+  where p = makeParser initParseStateFixedExpr F66.expressionParser Fortran66
 
 sParser :: String -> Statement ()
-sParser sourceCode =
-  evalParse statementParser $ initParseState (B.pack sourceCode) Fortran66 "<unknown>"
+sParser = parseWith F66.statementParser
 
 spec :: Spec
 spec =

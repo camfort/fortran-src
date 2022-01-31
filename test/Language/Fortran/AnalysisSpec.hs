@@ -3,16 +3,14 @@ module Language.Fortran.AnalysisSpec where
 import Test.Hspec
 import TestUtil
 
-import Language.Fortran.Parser.Fortran77
-import Language.Fortran.ParserMonad (fromParseResultUnsafe)
-import Language.Fortran.AST
 import Language.Fortran.Analysis
+import Language.Fortran.AST
+import qualified Language.Fortran.Parser as Parser
+
 import qualified Data.ByteString.Char8 as B
 
-pParser :: String -> ProgramFile (Analysis ())
-pParser source = initAnalysis
-               . fromParseResultUnsafe
-               $ extended77Parser (B.pack source) "<unknown>"
+pParser :: String -> ProgramFile (Analysis A0)
+pParser = initAnalysis . Parser.parseUnsafe Parser.f77e . B.pack
 
 spec :: Spec
 spec =

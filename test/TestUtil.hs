@@ -1,6 +1,3 @@
-{-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
-
 module TestUtil where
 
 import Test.Hspec
@@ -9,7 +6,7 @@ import Data.Generics.Uniplate.Data
 
 import Language.Fortran.AST
 import Language.Fortran.AST.RealLit
-import Language.Fortran.ParserMonad
+import Language.Fortran.Version
 import Language.Fortran.Util.Position
 
 import Language.Fortran.Analysis
@@ -20,10 +17,15 @@ import Data.Maybe
 u :: SrcSpan
 u = initSrcSpan
 
-mi77 :: MetaInfo
-mi77 = MetaInfo { miVersion = Fortran77, miFilename = "<unknown>" }
-mi90 :: MetaInfo
-mi90 = MetaInfo { miVersion = Fortran90, miFilename = "<unknown>" }
+-- TODO Filename only gets set with transformations (defaults to the empty
+-- string). @Parser.parseUnsafe@ uses @"<unknown>"@. So we have to define two
+-- different versions.
+--
+-- Better would be to make an equality checker that ignores 'MetaInfo'.
+mi77, mi77', mi90 :: MetaInfo
+mi77  = MetaInfo { miVersion = Fortran77, miFilename = "" }
+mi77' = MetaInfo { miVersion = Fortran77, miFilename = "<unknown>" }
+mi90  = MetaInfo { miVersion = Fortran90, miFilename = "" }
 
 valTrue, valFalse :: Expression ()
 valTrue  = ExpValue () u $ ValLogical True  Nothing

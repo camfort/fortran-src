@@ -1,5 +1,4 @@
 {-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE PatternGuards #-}
 
 module Language.Fortran.Transformation.Disambiguation.Function (disambiguateFunction) where
 
@@ -9,7 +8,7 @@ import Data.Data
 
 import Language.Fortran.Analysis
 import Language.Fortran.AST
-import Language.Fortran.Transformation.TransformMonad
+import Language.Fortran.Transformation.Monad
 
 
 disambiguateFunction :: Data a => Transform a ()
