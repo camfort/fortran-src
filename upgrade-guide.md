@@ -1,4 +1,18 @@
 # fortran-src upgrade guide
+## Unreleased
+### Parser restructure
+***Necessitates changes.***
+
+Instead of grabbing parsers directly from `Language.Fortran.Parser.FortranXYZ`,
+import `Language.Fortran.Parser` qualified and use one of the many provided
+functions. If you need to do more complex parser incantations, we recommend
+using the combinators in `Parser`.
+
+In general, `parserVersions` and the parsers exported from respective parser
+modules can be replaced by `Parser.byVer`, `Parser.f77e` etc. The filepath
+argument now comes before the contents bytestring, so you may have to swap
+argument order (done to match other parsing libraries and most common usage).
+
 ## Release 0.8.0
 ### Declarator constructor refactor
 ***Necessitates changes.***
