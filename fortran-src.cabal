@@ -277,6 +277,25 @@ benchmark bench
       Paths_fortran_src
   hs-source-dirs:
       bench
+  default-extensions:
+      EmptyCase
+      FlexibleContexts
+      FlexibleInstances
+      InstanceSigs
+      MultiParamTypeClasses
+      PolyKinds
+      LambdaCase
+      DerivingStrategies
+      StandaloneDeriving
+      DeriveAnyClass
+      DeriveGeneric
+      DeriveDataTypeable
+      DeriveFunctor
+      DeriveFoldable
+      DeriveTraversable
+      DeriveLift
+      BangPatterns
+      TupleSections
   ghc-options: -Wall
   build-depends:
       GenericPretty >=1.2.2 && <2
@@ -288,6 +307,7 @@ benchmark bench
     , criterion ==1.5.*
     , deepseq ==1.4.*
     , directory >=1.2 && <2
+    , either >=5.0.1.1 && <5.1
     , fgl ==5.*
     , filepath ==1.4.*
     , fortran-src
