@@ -88,11 +88,10 @@ bozAsNatural :: (Num a, Eq a) => Boz -> a
 bozAsNatural (Boz pfx str) = runReadS $ parser str
   where
     runReadS = fst . head
-    parser = case pfx of
-               BozPrefixB -> -- TODO on GHC 9.2, 'Num.readBin'
-                 Num.readInt 2 (const True) binDigitVal
-               BozPrefixO -> Num.readOct
-               BozPrefixZ -> Num.readHex
+    parser = case pfx of BozPrefixB -> Num.readInt 2 (const True) binDigitVal
+                         -- (on GHC >=9.2, 'Num.readBin')
+                         BozPrefixO -> Num.readOct
+                         BozPrefixZ -> Num.readHex
     binDigitVal = \case '0' -> 0
                         '1' -> 1
                         _   -> error "Language.Fortran.AST.BOZ.bozAsNatural: invalid BOZ string"

@@ -136,7 +136,7 @@ library
     , containers >=0.5 && <0.7
     , deepseq ==1.4.*
     , directory >=1.2 && <2
-    , either
+    , either >=5.0.1.1 && <5.1
     , fgl ==5.*
     , filepath ==1.4.*
     , mtl >=2.2 && <3
@@ -181,7 +181,7 @@ executable fortran-src
     , containers >=0.5 && <0.7
     , deepseq ==1.4.*
     , directory >=1.2 && <2
-    , either
+    , either >=5.0.1.1 && <5.1
     , fgl ==5.*
     , filepath ==1.4.*
     , fortran-src
@@ -258,7 +258,7 @@ test-suite spec
     , containers >=0.5 && <0.7
     , deepseq ==1.4.*
     , directory >=1.2 && <2
-    , either
+    , either >=5.0.1.1 && <5.1
     , fgl ==5.*
     , filepath ==1.4.*
     , fortran-src

@@ -1,3 +1,12 @@
+### Unreleased
+  * Restructure parsing-related modules for code deduplication and better user
+    experience.
+    * Now all user-facing parsers and the combinators to create them are in a
+      single module at `Language.Fortran.Parser`.
+    * The Happy parsers have fewer dependencies, so should no longer require a
+      recompile due to apparently unrelated changes.
+  * Remove some deprecated shims (from the restructured modules).
+
 ### 0.8.0 (Jan 04, 2022)
   * Merge declarator constructors. Now you differentiate between array and
     scalar declarators by looking at the relevant field. See

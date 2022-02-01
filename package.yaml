@@ -63,7 +63,7 @@ dependencies:
 - deepseq >=1.4 && <1.5
 - filepath >=1.4 && <1.5
 - temporary >=1.2 && <1.4
-- either # TODO
+- either ^>=5.0.1.1
 
 # --pedantic for building (not used for stack ghci)
 ghc-options:
