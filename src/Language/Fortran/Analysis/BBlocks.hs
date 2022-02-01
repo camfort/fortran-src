@@ -349,7 +349,7 @@ perBlock :: Data a => Block (Analysis a) -> BBlocker (Analysis a) ()
 -- invariant: curBB is in reverse order
 perBlock b@(BlIf _ _ _ _ exps bss _) = do
   processLabel b
-  _ <- forM (catMaybes . filter isJust $ exps) processFunctionCalls
+  _ <- forM (catMaybes exps) processFunctionCalls
   addToBBlock $ stripNestedBlocks b
   (ifN, _) <- closeBBlock
 
