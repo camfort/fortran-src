@@ -8,7 +8,7 @@ module Language.Fortran.Analysis
   , varName, srcName, lvVarName, lvSrcName, isNamedExpression
   , genVar, puName, puSrcName, blockRhsExprs, rhsExprs
   , ModEnv, NameType(..), IDType(..), ConstructType(..)
-  , lhsExprs, isLExpr, allVars, analyseAllLhsVars, analyseAllLhsVars1, allLhsVars
+  , lhsExprs, isLExpr, isLExpr', allVars, analyseAllLhsVars, analyseAllLhsVars1, allLhsVars
   , blockVarUses, blockVarDefs
   , BB, BBNode, BBGr(..), bbgrMap, bbgrMapM, bbgrEmpty
   , TransFunc, TransFuncM )
@@ -261,6 +261,10 @@ isLExpr :: Expression a -> Bool
 isLExpr (ExpValue _ _ ValVariable {}) = True
 isLExpr ExpSubscript{}                = True
 isLExpr _                             = False
+
+isLExpr' :: ArgumentExpression a -> Bool
+isLExpr' = \case ArgExprVar{} -> False
+                 ArgExpr e    -> isLExpr e
 
 -- | Set of names found in an AST node.
 allVars :: forall a b. (Data a, Data (b (Analysis a))) => b (Analysis a) -> [Name]

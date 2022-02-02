@@ -428,7 +428,8 @@ perBlock b@(BlStatement _ _ _ (StCall _ _ ExpValue{} Nothing)) = do
   createEdges [ (prevN, callN, ()), (callN, nextN, ()) ]
 perBlock (BlStatement a s l (StCall a' s' cn@ExpValue{} (Just aargs))) = do
   let a0 = head . initAnalysis $ [prevAnnotation a]
-  let exps = map argExtractExpr . aStrip $ aargs
+      exps' = map (\(Argument _ _ _ ae) -> ae) $ aStrip aargs
+      exps  = map argExprNormalize exps'
   (prevN, formalN) <- closeBBlock
 
   -- create bblock that assigns formal parameters (n[1], n[2], ...)
@@ -457,9 +458,14 @@ perBlock (BlStatement a s l (StCall a' s' cn@ExpValue{} (Just aargs))) = do
 
   -- re-assign the variables using the values of the formal parameters, if possible
   -- (because call-by-reference)
-  forM_ (zip exps [(1::Integer)..]) $ \ (e, i) ->
+  -- TODO however, doing @call( (a) )@ essentially turns that parameter into a
+  --      call-by-value. Not fully sure on the semantics here or how formalized
+  --      they are, but checked with gfortran. We handle this by further
+  --      wrapping parameters in the AST, and using another l-expr check.
+  forM_ (zip exps' [(1::Integer)..]) $ \ (arg, i) -> do
     -- this is only possible for l-expressions
-    (when (isLExpr e) $
+    let e = argExprNormalize arg
+    (when (isLExpr' arg) $
       addToBBlock . analyseAllLhsVars1 $
         BlStatement a{ insLabel = Nothing } s l (StExpressionAssign a' s' e (formal e i)))
   (_, nextN) <- closeBBlock
