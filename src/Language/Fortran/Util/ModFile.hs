@@ -42,14 +42,35 @@ One typical usage might look like:
 -}
 
 module Language.Fortran.Util.ModFile
-  ( modFileSuffix, ModFile, ModFiles, emptyModFile, emptyModFiles
-  , lookupModFileData, getLabelsModFileData, alterModFileData -- , alterModFileDataF
-  , genModFile, regenModFile, encodeModFile, decodeModFile
-  , StringMap, DeclMap, ParamVarMap, DeclContext(..), extractModuleMap, extractDeclMap
-  , moduleFilename, combinedStringMap, combinedDeclMap, combinedModuleMap, combinedTypeEnv, combinedParamVarMap
+  (
+  -- * Main defitions
+    ModFile, ModFiles, emptyModFile, emptyModFiles, modFileSuffix
+  , lookupModFileData, getLabelsModFileData, alterModFileData, alterModFileDataF
+
+  -- * Creation
+  , genModFile, regenModFile
+
+  -- * En/decoding
+  , encodeModFile, decodeModFile, decodeModFiles, decodeModFiles'
+
+  -- * Operations
+  , moduleFilename
+  , StringMap, extractStringMap, combinedStringMap
+  , DeclContext(..), DeclMap, extractDeclMap, combinedDeclMap
+  , extractModuleMap, combinedModuleMap, combinedTypeEnv
+  , ParamVarMap, extractParamVarMap, combinedParamVarMap
   , genUniqNameToFilenameMap
-  , TimestampStatus(..), checkTimestamps )
-where
+  , TimestampStatus(..), checkTimestamps
+  ) where
+
+import qualified Language.Fortran.AST               as F
+import qualified Language.Fortran.Analysis          as FA
+import qualified Language.Fortran.Analysis.BBlocks  as FAB
+import qualified Language.Fortran.Analysis.DataFlow as FAD
+import qualified Language.Fortran.Analysis.Renaming as FAR
+import qualified Language.Fortran.Analysis.Types    as FAT
+import qualified Language.Fortran.Util.Position     as P
+import           Language.Fortran.Util.Files ( getDirContents )
 
 import Control.Monad.State
 import Data.Binary (Binary, encode, decodeOrFail)
@@ -59,21 +80,21 @@ import Data.Generics.Uniplate.Operations
 import qualified Data.Map.Strict as M
 import Data.Maybe
 import GHC.Generics (Generic)
-import qualified Language.Fortran.AST as F
-import qualified Language.Fortran.Analysis as FA
-import qualified Language.Fortran.Analysis.BBlocks as FAB
-import qualified Language.Fortran.Analysis.DataFlow as FAD
-import qualified Language.Fortran.Analysis.Renaming as FAR
-import qualified Language.Fortran.Analysis.Types as FAT
-import qualified Language.Fortran.Util.Position as P
-import System.Directory
-import System.FilePath
+import System.Directory ( doesFileExist, getModificationTime )
+import qualified System.FilePath
+import System.FilePath ( (-<.>), (</>) )
+import System.IO ( hPutStrLn, stderr )
 
 --------------------------------------------------
 
 -- | Standard ending of fortran-src-format "mod files"
 modFileSuffix :: String
 modFileSuffix = ".fsmod"
+
+-- | Returns 'true' for filepaths with an extension that identifies them as a
+--   mod file.
+isModFile :: FilePath -> Bool
+isModFile = System.FilePath.isExtensionOf modFileSuffix
 
 -- | Context of a declaration: the ProgramUnit where it was declared.
 data DeclContext = DCMain | DCBlockData | DCModule F.ProgramUnitName
@@ -149,9 +170,12 @@ getLabelsModFileData = M.keys . mfOtherData
 alterModFileData :: (Maybe LB.ByteString -> Maybe LB.ByteString) -> String -> ModFile -> ModFile
 alterModFileData f k mf = mf { mfOtherData = M.alter f k . mfOtherData $ mf }
 
--- For when stackage gets containers-0.5.8.1:
--- alterModFileDataF :: Functor f => (Maybe B.ByteString -> f (Maybe B.ByteString)) -> String -> ModFile -> f ModFile
--- alterModFileDataF f k mf = (\ od -> mf { mfOtherData = od }) <$> M.alterF f k (mfOtherData mf)
+alterModFileDataF
+    :: Functor f
+    => (Maybe LB.ByteString -> f (Maybe LB.ByteString)) -> String -> ModFile
+    -> f ModFile
+alterModFileDataF f k mf =
+    (\od -> mf { mfOtherData = od }) <$> M.alterF f k (mfOtherData mf)
 
 -- | Convert ModFiles to a strict ByteString for writing to file.
 encodeModFile :: [ModFile] -> LB.ByteString
@@ -170,6 +194,25 @@ decodeModFile bs = case decodeOrFail bs of
     where
       each mf = (revertStringMap sm mf { mfStringMap = M.empty }) { mfStringMap = sm }
         where sm = mfStringMap mf
+
+decodeModFiles :: [FilePath] -> IO [(FilePath, ModFile)]
+decodeModFiles = foldM (\ modFiles d -> do
+      -- Figure out the camfort mod files and parse them.
+      modFileNames <- filter isModFile `fmap` getDirContents d
+      addedModFiles <- fmap concat . forM modFileNames $ \ modFileName -> do
+        contents <- LB.readFile (d </> modFileName)
+        case decodeModFile contents of
+          Left msg -> do
+            hPutStrLn stderr $ modFileName ++ ": Error: " ++ msg
+            return [(modFileName, emptyModFile)]
+          Right mods -> do
+            hPutStrLn stderr $ modFileName ++ ": successfully parsed precompiled file."
+            return $ map (modFileName,) mods
+      return $ addedModFiles ++ modFiles
+    ) [] -- can't use emptyModFiles
+
+decodeModFiles' :: [FilePath] -> IO ModFiles
+decodeModFiles' = fmap (map snd) . decodeModFiles
 
 -- | Extract the combined module map from a set of ModFiles. Useful
 -- for parsing a Fortran file in a large context of other modules.

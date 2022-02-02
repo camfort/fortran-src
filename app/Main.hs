@@ -66,7 +66,7 @@ main = do
       -- Build the graph of module dependencies
       mg0 <- genModGraph mvers (includeDirs opts) paths'
       -- Start the list of mods with those from the command line
-      mods0 <- decodeModFiles $ includeDirs opts
+      mods0 <- decodeModFiles' $ includeDirs opts
       -- Loop through the dependency graph until it is empty
       let loop mg mods
             | nxt <- takeNextMods mg
@@ -98,11 +98,11 @@ main = do
         Just f  -> LB.writeFile f $ encodeModFile allMods
 
     (paths, Compile) -> do
-      mods <- decodeModFiles $ includeDirs opts
+      mods <- decodeModFiles' $ includeDirs opts
       mapM_ (\ p -> compileFileToMod (fortranVersion opts) mods p (outputFile opts)) paths
     (path:_, actionOpt) -> do
       contents <- flexReadFile path
-      mods <- decodeModFiles $ includeDirs opts
+      mods <- decodeModFiles' $ includeDirs opts
       let version   = fromMaybe (deduceFortranVersion path) (fortranVersion opts)
           parsedPF  = fromRight' $ (Parser.byVerWithMods mods version) path contents
           outfmt    = outputFormat opts
@@ -250,13 +250,6 @@ compileFileToMod mvers mods path moutfile = do
   LB.writeFile fspath $ encodeModFile [mod]
   return mod
 
-decodeModFiles :: [String] -> IO ModFiles
-decodeModFiles = flip foldM emptyModFiles $ \ modFiles d -> do
-  -- Figure out the camfort mod files and parse them.
-  modFileNames <- filter isModFile `fmap` getDirContents d
-  addedModFiles <- concat <$> mapM (decodeOneModFile . (d </>)) modFileNames
-  return $ addedModFiles ++ modFiles
-
 decodeOneModFile :: FilePath -> IO ModFiles
 decodeOneModFile path = do
   contents <- LB.readFile path
@@ -268,9 +261,7 @@ decodeOneModFile path = do
       hPutStrLn stderr $ path ++ ": successfully parsed summary file."
       return modFiles
 
-isModFile :: FilePath -> Bool
-isModFile = (== modFileSuffix) . takeExtension
-
+-- TODO almost replicated at Analysis.DataFlow.showDataFlow
 superGraphDataFlow :: forall a. (Out a, Data a) => ProgramFile (Analysis a) -> SuperBBGr (Analysis a) -> String
 superGraphDataFlow pf sgr = showBBGr (bbgrMap (nmap (map (fmap insLabel))) gr') ++ "\n\n" ++ replicate 50 '-' ++ "\n\n" ++
                             show entries ++ "\n\n" ++ replicate 50 '-' ++ "\n\n" ++

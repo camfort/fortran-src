@@ -6,6 +6,8 @@
     * The Happy parsers have fewer dependencies, so should no longer require a
       recompile due to apparently unrelated changes.
   * Remove some deprecated shims (from the restructured modules).
+  * Merge fortran-src-extras `Language.Fortran.Extras.ModFiles.Extras` module
+    into `Language.Fortran.Util.ModFile`.
 
 ### 0.8.0 (Jan 04, 2022)
   * Merge declarator constructors. Now you differentiate between array and

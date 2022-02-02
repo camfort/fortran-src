@@ -19,10 +19,7 @@ import Data.Generics.Uniplate.Data
 import Data.Graph.Inductive hiding (version)
 import Data.Maybe
 import Data.Either.Combinators ( fromRight' )
-import qualified Data.ByteString.Lazy.Char8 as LB
 import qualified Data.Map as M
-import System.IO
-import System.FilePath
 
 --------------------------------------------------
 
@@ -124,24 +121,3 @@ delModNodes :: [Node] -> ModGraph -> ModGraph
 delModNodes ns mg@ModGraph { mgGraph = gr } = mg'
   where
     mg' = mg { mgGraph = delNodes ns gr }
-
---------------------------------------------------
-
-decodeModFiles :: [FilePath] -> IO [(FilePath, ModFile)]
-decodeModFiles = foldM (\ modFiles d -> do
-      -- Figure out the camfort mod files and parse them.
-      modFileNames <- filter isModFile `fmap` getDirContents d
-      addedModFiles <- fmap concat . forM modFileNames $ \ modFileName -> do
-        contents <- LB.readFile (d </> modFileName)
-        case decodeModFile contents of
-          Left msg -> do
-            hPutStrLn stderr $ modFileName ++ ": Error: " ++ msg
-            return [(modFileName, emptyModFile)]
-          Right mods -> do
-            hPutStrLn stderr $ modFileName ++ ": successfully parsed precompiled file."
-            return $ map (modFileName,) mods
-      return $ addedModFiles ++ modFiles
-    ) [] -- can't use emptyModFiles
-
-isModFile :: FilePath -> Bool
-isModFile = (== modFileSuffix) . takeExtension
