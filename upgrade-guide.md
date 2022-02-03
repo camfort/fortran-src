@@ -13,6 +13,19 @@ modules can be replaced by `Parser.byVer`, `Parser.f77e` etc. The filepath
 argument now comes before the contents bytestring, so you may have to swap
 argument order (done to match other parsing libraries and most common usage).
 
+### `Argument` encodes "call-by-value" variables
+***May necessitate changes.***
+
+`Argument` now stores an `ArgumentExpression` instead of an `Expression`. The
+former is a thin wrapper over the latter to allow tracking when a variable is
+used like "call-by-value" as in `call func( (x) )`.
+
+If you work with `Argument`s instead of the `Expressions`s they used to wrap,
+you'll need to update your code. Use `argExtractExpr :: Argument a -> Expression
+a` to easily recover original behaviour. Or case on the `ArgumentExpression` to
+handle it directly. See the `StCall` match in `Analysis.BBlocks.perBlock`, and
+`Analysis.isLExpr` for related code.
+
 ## Release 0.8.0
 ### Declarator constructor refactor
 ***Necessitates changes.***
