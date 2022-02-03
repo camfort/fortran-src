@@ -780,14 +780,16 @@ ARGUMENTS :: { [ Argument A0 ] }
 | ARGUMENT { [ $1 ] }
 
 ARGUMENT :: { Argument A0 }
-: id '=' EXPRESSION
+: id '=' ARGUMENT_EXPRESSION
   { let TId span keyword = $1
-     in Argument () (getTransSpan span $3) (Just keyword) (ArgExpr $3) }
-| '(' VARIABLE ')'
+     in Argument () (getTransSpan span $3) (Just keyword) $3 }
+| ARGUMENT_EXPRESSION { Argument () (getSpan $1) Nothing $1 }
+
+ARGUMENT_EXPRESSION :: { ArgumentExpression A0 }
+: '(' VARIABLE ')'
   { let ExpValue _ _ (ValVariable v) = $2
-     in Argument () (getTransSpan $1 $3) Nothing (ArgExprVar () (getSpan $2) v) }
-| EXPRESSION
-  { Argument () (getSpan $1) Nothing (ArgExpr $1) }
+     in ArgExprVar () (getTransSpan $1 $3) v }
+| EXPRESSION { ArgExpr $1 }
 
 MAYBE_RENAME_LIST :: { Maybe (AList Use A0) }
 : RENAME_LIST { Just $ fromReverseList $1 }

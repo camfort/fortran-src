@@ -485,14 +485,23 @@ data Use a =
   | UseID a SrcSpan (Expression a)
   deriving (Eq, Show, Data, Typeable, Generic, Functor)
 
--- TODO potentially should throw Maybe String into ArgumentExpression too?
-data Argument a = Argument a SrcSpan (Maybe String) (ArgumentExpression a)
+data Argument a = Argument a SrcSpan
+                           (Maybe Name)             -- ^ optional @var = ...@
+                           (ArgumentExpression a)   -- ^ expression (wrapped)
   deriving (Eq, Show, Data, Typeable, Generic, Functor)
 
 data ArgumentExpression a
   = ArgExpr              (Expression a)
   | ArgExprVar a SrcSpan Name
   deriving (Eq, Show, Data, Typeable, Generic, Functor)
+
+instance Spanned (ArgumentExpression a) where
+    getSpan = \case
+      ArgExpr            e -> getSpan e
+      ArgExprVar _a  ss _v -> ss
+    setSpan ss = \case
+      ArgExpr            e -> ArgExpr $ setSpan ss e
+      ArgExprVar  a _ss  v -> ArgExprVar a ss v
 
 argExprNormalize :: ArgumentExpression a -> Expression a
 argExprNormalize = \case ArgExpr         e -> e
