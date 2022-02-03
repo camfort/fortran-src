@@ -2,16 +2,15 @@
 
 import           Criterion.Main
 
-import qualified Language.Fortran.Parser        as Parser
+import qualified Language.Fortran.Parser                as Parser
 import           Language.Fortran.Version
 import           Language.Fortran.AST
+import qualified Language.Fortran.Parser.Free.Fortran90 as F90
 
 import           Data.ByteString (ByteString)
 import qualified Data.Text                      as Text
 import qualified Data.Text.Encoding             as Text
 import           Data.List (intercalate)
-
-import qualified Language.Fortran.Parser.Free.Fortran90 as F90
 
 main :: IO ()
 main = defaultMain
