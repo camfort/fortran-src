@@ -343,11 +343,14 @@ ARGUMENTS_LEVEL1 :: { AList Argument A0 }
 
 -- Expression all by itself subsumes all other callable expressions.
 CALLABLE_EXPRESSION :: { Argument A0 }
-: HOLLERITH   { Argument () (getSpan $1) Nothing (ArgExpr $1) }
-| '(' VARIABLE ')'
+: HOLLERITH           { Argument () (getSpan $1) Nothing (ArgExpr $1) }
+| ARGUMENT_EXPRESSION { Argument () (getSpan $1) Nothing $1 }
+
+ARGUMENT_EXPRESSION :: { ArgumentExpression A0 }
+: '(' VARIABLE ')'
   { let ExpValue _ _ (ValVariable v) = $2
-     in Argument () (getTransSpan $1 $3) Nothing (ArgExprVar () (getSpan $2) v) }
-| EXPRESSION  { Argument () (getSpan $1) Nothing (ArgExpr $1) }
+     in ArgExprVar () (getTransSpan $1 $3) v }
+| EXPRESSION { ArgExpr $1 }
 
 EXPRESSION :: { Expression A0 }
 : EXPRESSION '+' EXPRESSION { ExpBinary () (getTransSpan $1 $3) Addition $1 $3 }

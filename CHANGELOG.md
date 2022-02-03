@@ -6,6 +6,13 @@
     * The Happy parsers have fewer dependencies, so should no longer require a
       recompile due to apparently unrelated changes.
   * Remove some deprecated shims (from the restructured modules).
+  * `Argument`s now store an `ArgumentExpression` instead of an `Expression`, in
+    order to allow differentiating between regular call-by-reference variables
+    `call func(x)`, and call-by-value ones `call func( (x) )`.
+    * gfortran has this behaviour, and it's (minimally) documented online
+      ([tweet](https://twitter.com/fortrantip/status/1479071485859962880),
+      [StackOverflow](https://stackoverflow.com/q/40700499))
+    * The behaviour is reflected in the basic block/flow graph.
 
 ### 0.8.0 (Jan 04, 2022)
   * Merge declarator constructors. Now you differentiate between array and
