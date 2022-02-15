@@ -1,5 +1,5 @@
 # fortran-src upgrade guide
-## Unreleased
+## Release 0.9.0
 ### Parser restructure
 ***Necessitates changes.***
 
@@ -12,6 +12,10 @@ In general, `parserVersions` and the parsers exported from respective parser
 modules can be replaced by `Parser.byVer`, `Parser.f77e` etc. The filepath
 argument now comes before the contents bytestring, so you may have to swap
 argument order (done to match other parsing libraries and most common usage).
+
+Also, some shims have been removed, primarily the `FortranVersion` re-export
+from `ParserMonad`. If you need `FortranVersion`, import
+`Language.Fortran.Version`.
 
 ## Release 0.8.0
 ### Declarator constructor refactor

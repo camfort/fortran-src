@@ -1,4 +1,4 @@
-### Unreleased
+### 0.9.0 (Feb 14, 2022)
   * Restructure parsing-related modules for code deduplication and better user
     experience.
     * Now all user-facing parsers and the combinators to create them are in a
