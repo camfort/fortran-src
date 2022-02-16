@@ -1217,9 +1217,12 @@ LOGICAL_LITERAL :: { Expression A0 }
   { let TLogicalLiteral s b = $1
      in ExpValue () s (ValLogical b (Just $3)) }
 
-KIND_PARAM :: { Expression A0 }
-: INTEGER_LITERAL { $1 }
-| VARIABLE        { $1 }
+KIND_PARAM :: { KindParam A0 }
+: INTEGER_LITERAL_PLAIN { let (i, ss)                        = $1 in KindParamInt () ss i }
+| VARIABLE              { let ExpValue () ss (ValVariable v) = $1 in KindParamVar () ss v }
+
+INTEGER_LITERAL_PLAIN :: { (String, SrcSpan) }
+: int { let TIntegerLiteral s i = $1 in (i, s) }
 
 STRING :: { Expression A0 }
 : string { let TString s c = $1 in ExpValue () s $ ValString c }

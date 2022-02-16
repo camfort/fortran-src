@@ -969,18 +969,17 @@ instance Pretty (Value a) where
       | otherwise = tooOld v "Operator" Fortran90
     pprint' v (ValComplex e1 e2) = parens $ commaSep [pprint' v e1, pprint' v e2]
     pprint' _ (ValString str) = quotes $ text str
-    pprint' v (ValLogical b kp) = text litStr <> kpPretty v kp
+    pprint' v (ValLogical b kp) = text litStr <> pprint' v kp
       where litStr = if b then ".true." else ".false."
-    pprint' v (ValInteger i kp) = text i <> kpPretty v kp
-    pprint' v (ValReal r kp) = text (prettyHsRealLit r) <> kpPretty v kp
+    pprint' v (ValInteger i kp) = text i <> pprint' v kp
+    pprint' v (ValReal r kp) = text (prettyHsRealLit r) <> pprint' v kp
     pprint' _ (ValBoz b) = text $ prettyBoz b
     pprint' _ valLit = text . getFirstParameter $ valLit
 
--- | Helper for pretty printing an optional kind parameter 'Expression'.
-kpPretty :: FortranVersion -> Maybe (Expression a) -> Doc
-kpPretty v = \case
-  Nothing -> empty
-  Just kp -> text "_" <> pprint' v kp
+instance Pretty (KindParam a) where
+    pprint' _ kp = text "_" <> text kp'
+      where kp' = case kp of KindParamInt _ _ i -> i
+                             KindParamVar _ _ v -> v
 
 instance IndentablePretty (StructureItem a) where
   pprint v (StructFields a s spec mAttrs decls) _ = pprint' v (StDeclaration a s spec mAttrs decls)

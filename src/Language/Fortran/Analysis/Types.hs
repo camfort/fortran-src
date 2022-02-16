@@ -297,14 +297,14 @@ annotateProgramUnit pu                        = return pu
 --
 -- Logic taken from HP's F90 reference pg.33, written to gfortran's behaviour.
 -- Stays in the 'Infer' monad so it can report type errors
-deriveRealLiteralKind :: SrcSpan -> RealLit -> Maybe (Expression a) -> Infer Kind
+deriveRealLiteralKind :: SrcSpan -> RealLit -> Maybe (KindParam a) -> Infer Kind
 deriveRealLiteralKind ss r mkp =
     case mkp of
       Nothing -> case exponentLetter (realLitExponent r) of
                    ExpLetterE -> return  4
                    ExpLetterD -> return  8
                    ExpLetterQ -> return 16
-      Just _ {- kp -} -> case exponentLetter (realLitExponent r) of
+      Just _kp -> case exponentLetter (realLitExponent r) of
                    ExpLetterE -> return 0 -- TODO return k
                    _          -> do
                      -- badly formed literal, but we'll allow and use the
