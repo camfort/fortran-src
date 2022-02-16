@@ -1,3 +1,10 @@
+### Unreleased
+  * Fix parsing kind parameters like `a_1` on literals. Previously, that would
+    be parsed as a kind parameter on a kind parameter. Now we don't do that,
+    following gfortran's behaviour.
+    * Kind parameter representation is changed to explicitly say if it's an
+      integer kind or named constant kind, rather than reusing `Expression`.
+
 ### 0.9.0 (Feb 14, 2022)
   * Restructure parsing-related modules for code deduplication and better user
     experience.
