@@ -135,13 +135,6 @@ spec =
         in fParser fStr `shouldBe'` expected
 
     describe "Expression" $ do
-      it "parses logical literal without kind parameter" $ do
-        eParser ".true." `shouldBe'` valTrue
-
-      it "parses logical literal with kind parameter" $ do
-        let kp = ExpValue () u (ValVariable "kind")
-        eParser ".false._kind" `shouldBe'` valFalse' kp
-
       it "parses array initialisation exp" $ do
         let list = AList () u [ intGen 1, intGen 2, intGen 3, intGen 4 ]
         eParser "(/ 1, 2, 3, 4 /)" `shouldBe'` ExpInitialisation () u list

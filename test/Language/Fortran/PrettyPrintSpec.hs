@@ -104,8 +104,8 @@ spec =
         pprint Fortran77 lit Nothing `shouldBe` ".true."
 
       it "prints logical literal with kind parameter (>=F90)" $ do
-        let lit    = ValLogical False (Just kpExpr)
-            kpExpr = intGen 8
+        let lit = ValLogical False (Just kp)
+            kp  = KindParamInt () u "8"
         pprint Fortran90 lit Nothing `shouldBe` ".false._8"
 
       it "prints BOZ constant with prefix" $ do

@@ -23,7 +23,7 @@ specFreeCommon sParser eParser =
           eParser ".true." `shouldBe'` valTrue
 
         it "parses logical literal with kind parameter" $ do
-          let kp = ExpValue () u (ValVariable "kind")
+          let kp = KindParamVar () u "kind"
           eParser ".false._kind" `shouldBe'` valFalse' kp
 
         it "parses mixed-case logical literal" $ do
@@ -35,10 +35,26 @@ specFreeCommon sParser eParser =
         let realLitExp r mkp = ExpValue () u (ValReal (parseRealLit r) mkp)
         it "parses various REAL literals" $ do
           eParser "1."      `shouldBe'` realLitExp "1."    Nothing
-          eParser ".1e20_8" `shouldBe'` realLitExp ".1e20" (Just (intGen 8))
+          eParser ".1e20_8" `shouldBe'` realLitExp ".1e20" (Just (KindParamInt () u "8"))
 
         it "parses \"negative\" real literal (unary op)" $ do
-          eParser "-1.0d-1_k8" `shouldBe'` ExpUnary () u Minus (realLitExp "1.0d-1" (Just (varGen "k8")))
+          let lit = "-1.0d-1_k8"
+              kp  = KindParamVar () u "k8"
+           in eParser lit `shouldBe'` ExpUnary () u Minus (realLitExp "1.0d-1" (Just kp))
+
+      describe "Kind parameters" $ do
+        it "parses var kind parameter with underscore" $ do
+          let lit = "123_a_1"
+              kp  = KindParamVar () u "a_1"
+           in eParser lit `shouldBe'` ExpValue () u (ValInteger "123" (Just kp))
+
+        it "fails to parse invalid kind parameter with underscore after numeric" $ do
+          -- TODO can't test here because we push parse errors into runtime ones
+          {-
+          let lit = "123_4_8"
+           in eParser lit `shouldBe'` undefined -- should be "last parsed was the 2nd underscore"
+          -}
+          pending
 
     describe "Statement" $ do
       describe "Declaration" $ do
