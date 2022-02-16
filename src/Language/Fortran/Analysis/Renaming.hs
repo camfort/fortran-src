@@ -1,11 +1,13 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 
--- |
--- Analyse variables/function names and produce unique names that can
--- be used to replace the original names while maintaining program
--- equivalence (a.k.a. alpha-conversion). The advantage of the unique
--- names is that scoping issues can be ignored when doing further
--- analysis.
+{-|
+Analyse variables/function names and produce unique names that can be used to
+replace the original names while maintaining program equivalence (a.k.a.
+alpha-conversion). The advantage of the unique names is that scoping issues can
+be ignored when doing further analysis.
+
+Analysing renames does not use any existing analysis.
+-}
 
 module Language.Fortran.Analysis.Renaming
   ( analyseRenames, analyseRenamesWithModuleMap, rename, unrename, ModuleMap )
@@ -13,7 +15,7 @@ where
 
 import Language.Fortran.AST hiding (fromList)
 import Language.Fortran.Intrinsics
-import Language.Fortran.Analysis
+import Language.Fortran.Analysis ( Analysis(..), NameType(..), ModEnv, varName, srcName )
 import Language.Fortran.Version
 
 import Prelude hiding (lookup)
@@ -55,9 +57,10 @@ analyseRenamesWithModuleMap mmap (ProgramFile mi pus) = cleanupUseRenames $ Prog
   where
     (Just pus', _) = runRenamer (renameSubPUs (Just pus)) (renameState0 (miVersion mi)) { moduleMap = mmap }
 
--- | Take the unique name annotations and substitute them into the actual AST.
+-- | For an annotated 'ProgramFile', apply the renaming by substituting in the
+--   unique names.
 rename :: Data a => ProgramFile (Analysis a) -> ProgramFile (Analysis a)
-rename pf = trPU fPU (trE fE pf)
+rename = trPU fPU . trE fE
   where
     trE :: Data a => (Expression a -> Expression a) -> ProgramFile a -> ProgramFile a
     trE = transformBi
@@ -75,7 +78,8 @@ rename pf = trPU fPU (trE fE pf)
       PUSubroutine a s r (fromMaybe n (uniqueName a)) args b subs
     fPU x = x
 
--- | Take a renamed program and undo the renames.
+-- | For an annotated 'ProgramFile', undo the renaming by substituting in the
+--   original names.
 unrename :: Data a => ProgramFile (Analysis a) -> ProgramFile (Analysis a)
 unrename = trPU fPU . trE fE
   where
@@ -482,8 +486,6 @@ cleanupUseRenames :: forall a. Data a => ProgramFile (Analysis a) -> ProgramFile
 cleanupUseRenames = transformBi (\ u -> case u :: Use (Analysis a) of
   UseRename a s e1 e2@(ExpValue _ _ (ValVariable v)) -> UseRename a s e1 $ setUniqueName (varName e1) (setSourceName v e2)
   _                                                  -> u)
-
-
 
 
 -- Local variables:

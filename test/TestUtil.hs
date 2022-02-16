@@ -32,7 +32,7 @@ valTrue, valFalse :: Expression ()
 valTrue  = ExpValue () u $ ValLogical True  Nothing
 valFalse = ExpValue () u $ ValLogical False Nothing
 
-valTrue', valFalse' :: KindParam () -> Expression ()
+valTrue', valFalse' :: KindParam' () -> Expression ()
 valTrue'  kp = ExpValue () u $ ValLogical True  (Just kp)
 valFalse' kp = ExpValue () u $ ValLogical False (Just kp)
 

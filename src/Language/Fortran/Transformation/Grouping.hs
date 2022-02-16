@@ -1,5 +1,9 @@
+{-# LANGUAGE RankNTypes, TypeApplications, ScopedTypeVariables #-}
+
 {-|
 Note that labeled (nonblock) DO grouping must be done before block DO grouping.
+
+Doesn't use analysis output.
 -}
 
 module Language.Fortran.Transformation.Grouping ( groupForall
@@ -9,19 +13,24 @@ module Language.Fortran.Transformation.Grouping ( groupForall
 
 import Language.Fortran.AST
 import Language.Fortran.Util.Position
-import Language.Fortran.Analysis
+import Language.Fortran.Analysis ( Analysis )
 import Language.Fortran.Transformation.Monad
 
 import Data.Data
 import Data.List (intercalate)
 import Data.Generics.Uniplate.Operations
 
-type ABlocks a = [ Block (Analysis a) ]
-
-genericGroup :: Data a => (ABlocks a -> ABlocks a) -> (Statement (Analysis a) -> Bool) -> Transform a ()
+-- | Without 'Analysis' in the types, 'transformBi' will look for the wrong
+--   type. I'm not sure how to solve this nicely, so I just make the weirdness
+--   explicit.
+genericGroup
+    :: forall a. Data a
+    => (forall a'. Data a' => [Block a'] -> [Block a'])
+    -> (Statement a -> Bool)
+    -> Transform a ()
 genericGroup groupingFunction checkingFunction = do
     pf <- getProgramFile
-    let pf' = transformBi groupingFunction pf
+    let pf' = transformBi (groupingFunction @(Analysis a)) pf
         bad = filter checkingFunction $ universeBi pf'
     if null bad
       then putProgramFile pf'
@@ -34,8 +43,7 @@ genericGroup groupingFunction checkingFunction = do
 groupForall :: Data a => Transform a ()
 groupForall = genericGroup groupForall' isForall
 
-
-groupForall' :: ABlocks a -> ABlocks a
+groupForall' :: [Block a] -> [Block a]
 groupForall' [] = []
 groupForall' (b:bs) = b' : bs'
   where
@@ -49,15 +57,13 @@ groupForall' (b:bs) = b' : bs'
         | StForallStatement _ _ header st' <- st ->
           let block = BlStatement a (getSpan st') Nothing st' in
           ( BlForall a (getTransSpan s st') label Nothing header [block] Nothing, groupedBlocks )
-      b'' | containsGroups b'' ->
-        ( applyGroupingToSubblocks groupForall' b'', groupedBlocks )
-      _ -> (b, groupedBlocks)
+      _ -> (applyGroupingToSubblocks groupForall' b, groupedBlocks)
     groupedBlocks = groupForall' bs
 
-collectNonForallBlocks :: ABlocks a -> Maybe String
-                          -> ( ABlocks a
-                             , ABlocks a
-                             , Maybe (Expression (Analysis a)) )
+collectNonForallBlocks :: [Block a] -> Maybe String
+                          -> ( [Block a]
+                             , [Block a]
+                             , Maybe (Expression a) )
 collectNonForallBlocks blocks mNameTarget =
   case blocks of
     BlStatement _ _ mLabel (StEndForall _ _ mName):rest
@@ -82,7 +88,7 @@ isForall _ = False
 groupDo :: Data a => Transform a ()
 groupDo = genericGroup groupDo' isDo
 
-groupDo' :: ABlocks a -> ABlocks a
+groupDo' :: [Block a] -> [Block a]
 groupDo' [ ] = [ ]
 groupDo' (b:bs) = b' : bs'
   where
@@ -100,16 +106,14 @@ groupDo' (b:bs) = b' : bs'
                 collectNonDoBlocks groupedBlocks mName
           in ( BlDo a (getTransSpan s stEnd) label mName Nothing doSpec blocks endLabel
              , leftOverBlocks)
-      b'' | containsGroups b'' ->
-        ( applyGroupingToSubblocks groupDo' b'', groupedBlocks )
-      _ -> ( b, groupedBlocks )
+      _ -> (applyGroupingToSubblocks groupDo' b, groupedBlocks)
     groupedBlocks = groupDo' bs -- Assume everything to the right is grouped.
 
-collectNonDoBlocks :: ABlocks a -> Maybe String
-                   -> ( ABlocks a
-                      , ABlocks a
-                      , Maybe (Expression (Analysis a))
-                      , Statement (Analysis a) )
+collectNonDoBlocks :: [Block a] -> Maybe String
+                   -> ( [Block a]
+                      , [Block a]
+                      , Maybe (Expression a)
+                      , Statement a )
 collectNonDoBlocks blocks mNameTarget =
   case blocks of
     BlStatement _ _ mLabel st@(StEnddo _ _ mName):rest
@@ -135,7 +139,7 @@ isDo s = case s of
 groupLabeledDo :: Data a => Transform a ()
 groupLabeledDo = genericGroup groupLabeledDo' isLabeledDo
 
-groupLabeledDo' :: ABlocks a -> ABlocks a
+groupLabeledDo' :: [Block a] -> [Block a]
 groupLabeledDo' [ ] = [ ]
 groupLabeledDo' (b:bs) = b' : bs'
   where
@@ -152,16 +156,14 @@ groupLabeledDo' (b:bs) = b' : bs'
                 collectNonLabeledDoBlocks tl groupedBlocks
           in ( BlDoWhile a (getTransSpan s blocks) label mn tl cond blocks lastLabel
              , leftOverBlocks )
-      b'' | containsGroups b'' ->
-        ( applyGroupingToSubblocks groupLabeledDo' b'', groupedBlocks )
-      _ -> (b, groupedBlocks)
+      _ -> (applyGroupingToSubblocks groupLabeledDo' b, groupedBlocks)
 
     -- Assume everything to the right is grouped.
     groupedBlocks = groupLabeledDo' bs
 
 
-collectNonLabeledDoBlocks :: Maybe (Expression (Analysis a)) -> ABlocks a
-                          -> (ABlocks a, ABlocks a, Maybe (Expression (Analysis a)))
+collectNonLabeledDoBlocks :: Maybe (Expression a) -> [Block a]
+                          -> ([Block a], [Block a], Maybe (Expression a))
 collectNonLabeledDoBlocks targetLabel blocks =
   case blocks of
     -- Didn't find a statement with matching label; don't group
@@ -193,20 +195,7 @@ isLabeledDo s = case s of
 -- Helpers for grouping of structured blocks with more blocks inside.
 --------------------------------------------------------------------------------
 
-containsGroups :: Block (Analysis a) -> Bool
-containsGroups b =
-  case b of
-    BlStatement{} -> False
-    BlIf{}        -> True
-    BlCase{}      -> True
-    BlDo{}        -> True
-    BlDoWhile{}   -> True
-    BlInterface{} -> False
-    BlComment{}   -> False
-    BlForall{}    -> True
-    BlAssociate{} -> True
-
-applyGroupingToSubblocks :: (ABlocks a -> ABlocks a) -> Block (Analysis a) -> Block (Analysis a)
+applyGroupingToSubblocks :: ([Block a] -> [Block a]) -> Block a -> Block a
 applyGroupingToSubblocks f b
   | BlStatement{} <- b =
       error "Individual statements do not have subblocks. Must not occur."

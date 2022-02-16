@@ -27,6 +27,7 @@ import           GHC.Generics
 import           Data.Data
 import           Control.DeepSeq                ( NFData )
 import           Text.PrettyPrint.GenericPretty ( Out )
+import           Data.Binary                    ( Binary )
 
 import qualified Data.List as List
 import qualified Data.Char as Char
@@ -35,6 +36,8 @@ import qualified Numeric   as Num
 import           Data.Bits
 
 -- | A Fortran BOZ literal constant.
+--
+-- You should not create values of this type directly
 --
 -- The prefix defines the characters allowed in the string:
 --
@@ -49,7 +52,7 @@ data Boz = Boz
   -- ^ Was the prefix actually postfix i.e. @'123'z@? This is non-standard
   --   syntax, disabled by default in gfortran. Syntactic info.
   } deriving stock    (Show, Generic, Data, Typeable, Ord)
-    deriving anyclass (NFData, Out)
+    deriving anyclass (NFData, Out, Binary)
 
 -- | Tests prefix & strings match, ignoring conforming/nonconforming flags.
 instance Eq Boz where
@@ -61,7 +64,7 @@ data BozPrefix
   | BozPrefixO              -- ^ octal
   | BozPrefixZ Conforming   -- ^ hex, including nonstandard @x@
     deriving stock    (Show, Generic, Data, Typeable, Ord)
-    deriving anyclass (NFData, Out)
+    deriving anyclass (NFData, Out, Binary)
 
 -- | Ignores conforming/nonconforming flags.
 instance Eq BozPrefix where
@@ -72,14 +75,18 @@ instance Eq BozPrefix where
 
 data Conforming = Conforming | Nonconforming
     deriving stock    (Eq, Show, Generic, Data, Typeable, Ord)
-    deriving anyclass (NFData, Out)
+    deriving anyclass (NFData, Out, Binary)
 
--- | UNSAFE. Parses a BOZ literal constant string.
+-- | Parse a BOZ literal constant string, throwing a runtime error on parse
+--   failure.
 --
 -- Looks for prefix or postfix. Strips the quotes from the string (single quotes
 -- only).
-parseBoz :: String -> Boz
-parseBoz s =
+--
+-- This is written to be used internally in the lexer where it's already been
+-- matched to a regex, so we don't re-parse. Be careful using it elsewhere.
+unsafeParseBoz :: String -> Boz
+unsafeParseBoz s =
     case List.uncons s of
       Nothing -> errInvalid
       Just (pc, ps) -> case parsePrefix pc of
@@ -107,14 +114,23 @@ prettyBoz b = prettyBozPrefix (bozPrefix b) : '\'' : bozString b <> "'"
                                 BozPrefixO   -> 'o'
                                 BozPrefixZ{} -> 'z'
 
--- | Resolve a BOZ constant as a natural (positive integer).
+-- | Resolve a BOZ constant as as integer.
 --
--- Is actually polymorphic over the output type, but you probably want to
--- resolve to 'Integer' or 'Natural' usually.
+-- Note that the type requested may alter the value returned due to overflow
+-- behaviour.
 --
--- We assume the 'Boz' is well-formed, thus don't bother with digit predicates.
-bozAsNatural :: (Num a, Eq a) => Boz -> a
-bozAsNatural (Boz pfx str _) = runReadS $ parser str
+-- >>> bozAsInteger @Natural (parseBoz "z'80'")
+-- 128
+-- >>> bozAsInteger @Int8    (parseBoz "z'80'")
+-- -128
+-- >>> bozAsInteger @Int16   (parseBoz "z'80'")
+-- 128
+--
+-- For correct negative handling, we rely on Haskell's signed integer types
+-- using two's complement and wrapping operations in the regular manner, which
+-- should - though I haven't checked - match your average Fortran compiler.
+bozAsInteger :: (Num a, Eq a) => Boz -> a
+bozAsInteger (Boz pfx str _) = runReadS $ parser str
   where
     runReadS = fst . head
     parser = case pfx of BozPrefixB   -> Num.readInt 2 (const True) binDigitVal
@@ -124,16 +140,3 @@ bozAsNatural (Boz pfx str _) = runReadS $ parser str
     binDigitVal = \case '0' -> 0
                         '1' -> 1
                         _   -> error "Language.Fortran.AST.BOZ.bozAsNatural: invalid BOZ string"
-
--- | Resolve a BOZ constant as a two's complement integer.
---
--- Note that the value will depend on the size of the output type.
-bozAsTwosComp :: (Num a, Eq a, FiniteBits a) => Boz -> a
-bozAsTwosComp boz =
-    if   msbIsSet
-    then asNat - (2 ^ bitCount)
-    else asNat
-  where
-    msbIsSet = testBit asNat (bitCount - 1)
-    asNat    = bozAsNatural boz
-    bitCount = finiteBitSize asNat

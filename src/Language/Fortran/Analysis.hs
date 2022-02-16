@@ -11,13 +11,15 @@ module Language.Fortran.Analysis
   , lhsExprs, isLExpr, allVars, analyseAllLhsVars, analyseAllLhsVars1, allLhsVars
   , blockVarUses, blockVarDefs
   , BB, BBNode, BBGr(..), bbgrMap, bbgrMapM, bbgrEmpty
-  , TransFunc, TransFuncM )
+  , TransFunc, TransFuncM, prettyIDType )
 where
 
 import           Language.Fortran.AST
 import           Language.Fortran.LValue
 import           Language.Fortran.Intrinsics    ( getIntrinsicDefsUses
                                                 , allIntrinsics )
+import           Language.Fortran.Repr.Type.Scalar
+import           Language.Fortran.Repr.Type.Array
 import           Language.Fortran.Repr.Type
 import           Language.Fortran.Util.Position ( SrcSpan )
 
@@ -27,7 +29,7 @@ import Data.Data
 import Data.Graph.Inductive (Node, empty)
 import Data.Graph.Inductive.PatriciaTree (Gr)
 import Text.PrettyPrint.GenericPretty
-import Text.PrettyPrint hiding (empty, isEmpty)
+import Text.PrettyPrint hiding (empty, isEmpty, (<>) )
 import qualified Data.Map.Strict as M
 import Data.Maybe
 import Data.Binary
@@ -91,21 +93,30 @@ data ConstructType =
   | CTSubroutine
   | CTExternal
   | CTVariable
-  | CTArray [(Maybe Int, Maybe Int)]
-  | CTParameter
+  | CTParameter -- ^ Fortran PARAMETER (a named constant).
   | CTIntrinsic
+  | CTDummy
   deriving (Ord, Eq, Show, Data, Typeable, Generic)
 
 instance Out    ConstructType
 instance Binary ConstructType
 
 data IDType = IDType
-  { idVType :: Maybe FTypeScalar
+  { idScalarType :: Maybe FTypeScalar
+  , idArrayInfo  :: Maybe ArrayShape
   , idCType :: Maybe ConstructType }
   deriving (Ord, Eq, Show, Data, Typeable, Generic)
 
 instance Out    IDType
 instance Binary IDType
+
+prettyIDType :: IDType -> String
+prettyIDType (IDType msty maty mct) =
+    case (msty, maty, mct) of
+      (Nothing, Nothing, Nothing)           -> "<no type info>"
+      (Just sty, Nothing,  Just CTVariable) -> prettyScalarType sty
+      (Just sty, Just aty, Just CTVariable) -> prettyType (FType sty (Just aty))
+      _ -> show msty <> " | " <> show maty <> " | " <> show mct
 
 -- | Information about potential / actual constant expressions.
 data Constant

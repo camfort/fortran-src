@@ -300,7 +300,7 @@ tokens :-
 <scN> "_"                                         { addSpan TUnderscore }
 <0> @label                                        { toSC 0 >> addSpanAndMatch TIntegerLiteral }
 <scN,scI> @digitString                            { addSpanAndMatch TIntegerLiteral }
-<scN> @bozLiteralConst                            { addSpanAndMatch $ \ss s -> TBozLiteral ss (parseBoz s) }
+<scN> @bozLiteralConst                            { addSpanAndMatch $ \ss s -> TBozLiteral ss (unsafeParseBoz s) }
 
 <scN> @realLiteral                                { addSpanAndMatch $ \ss s -> TRealLiteral ss (parseRealLit s) }
 <scN> @altRealLiteral / { notPrecedingDotP }      { addSpanAndMatch $ \ss s -> TRealLiteral ss (parseRealLit s) }
@@ -1104,7 +1104,7 @@ lexHash = do
       | line <- readIntOrBoz lineStr -> do
         let revdropWNQ = reverse . drop 1 . dropWhile (flip notElem "'\"")
         let file       = revdropWNQ . revdropWNQ $ m
-        let lineOffs   = fromIntegral line - posLine (aiPosition ai) - 1
+        let lineOffs   = line - posLine (aiPosition ai) - 1
         let newP       = (aiPosition ai) { posPragmaOffset = Just (lineOffs, file)
                                          , posColumn = 1 }
         putAlex $ ai { aiPosition = newP }

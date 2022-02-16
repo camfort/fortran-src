@@ -849,7 +849,7 @@ showValue (ValVariable v)       = v
 showValue (ValIntrinsic v)      = v
 showValue (ValInteger v _)      = v
 showValue (ValReal v _)         = prettyHsRealLit v
-showValue v@ValComplex{}        = render $ pprint' undefined v
+showValue v@ValComplex{}        = render $ pprint' undefined v -- safe, printing COMPLEXs doesn't look at version
 showValue (ValString s)         = "\\\"" ++ escapeStr s ++ "\\\""
 showValue v                     = "<unhandled value: " ++ show (toConstr (fmap (const ()) v)) ++ ">"
 

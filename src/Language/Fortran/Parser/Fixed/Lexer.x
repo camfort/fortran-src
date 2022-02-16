@@ -212,7 +212,7 @@ tokens :-
   <st,iif> @integerConst                      { addSpanAndMatch TInt }
     -- can be part (end) of function type declaration
   <keyword> @integerConst                     { typeSCChange >> addSpanAndMatch TInt }
-  <st,iif,keyword> @bozLiteralConst / { legacy77P } { addSpanAndMatch $ \ss s -> TBozLiteral ss (parseBoz s) }
+  <st,iif,keyword> @bozLiteralConst / { legacy77P } { addSpanAndMatch $ \ss s -> TBozLiteral ss (unsafeParseBoz s) }
 
   -- String
   <st,iif> \' / { fortran77P }                { strAutomaton '\'' 0 }
@@ -581,7 +581,7 @@ lexHash = do
         | line <- readIntOrBoz lineStr -> do
           let revdropWNQ = reverse . drop 1 . dropWhile (flip notElem "'\"")
           let file       = revdropWNQ . revdropWNQ $ m
-          let lineOffs   = fromIntegral line - posLine (aiPosition ai) - 1
+          let lineOffs   = line - posLine (aiPosition ai) - 1
           let newP       = (aiPosition ai) { posPragmaOffset = Just (lineOffs, file)
                                            , posColumn = 1 }
           putAlex $ ai { aiPosition = newP }

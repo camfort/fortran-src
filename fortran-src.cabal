@@ -69,10 +69,12 @@ library
       Language.Fortran.Analysis.DataFlow
       Language.Fortran.Analysis.ModGraph
       Language.Fortran.Analysis.Renaming
+      Language.Fortran.Analysis.SemanticTypes
       Language.Fortran.Analysis.Types
-      Language.Fortran.Analysis.Types.Derive
+      Language.Fortran.Analysis.Types.Annotate
       Language.Fortran.Analysis.Types.FortranVars
       Language.Fortran.Analysis.Types.Internal
+      Language.Fortran.Analysis.Types.Resolve
       Language.Fortran.Analysis.Types.Traverse
       Language.Fortran.Analysis.Types.Util
       Language.Fortran.Analysis.Util
@@ -101,9 +103,14 @@ library
       Language.Fortran.Parser.ParserUtils
       Language.Fortran.PrettyPrint
       Language.Fortran.Repr.Coerce
-      Language.Fortran.Repr.Eval.Scalar
+      Language.Fortran.Repr.Eval
+      Language.Fortran.Repr.Kind
       Language.Fortran.Repr.Type
+      Language.Fortran.Repr.Type.Array
+      Language.Fortran.Repr.Type.Scalar
       Language.Fortran.Repr.Value
+      Language.Fortran.Repr.Value.Array
+      Language.Fortran.Repr.Value.Scalar
       Language.Fortran.Rewriter
       Language.Fortran.Rewriter.Internal
       Language.Fortran.Transformation.Disambiguation.Function
@@ -139,7 +146,7 @@ library
       DeriveLift
       BangPatterns
       TupleSections
-  ghc-options: -Wall -fno-warn-tabs
+  ghc-options: -Wall
   build-tools:
       alex >=3.1
     , happy >=1.19
@@ -160,6 +167,7 @@ library
     , temporary >=1.2 && <1.4
     , text >=1.2 && <2
     , uniplate >=1.6 && <2
+    , vector
   if os(windows)
     cpp-options: -DFS_DISABLE_WIN_BROKEN_TESTS
   default-language: Haskell2010
@@ -189,7 +197,7 @@ executable fortran-src
       DeriveLift
       BangPatterns
       TupleSections
-  ghc-options: -Wall -fno-warn-tabs
+  ghc-options: -Wall
   build-depends:
       GenericPretty >=1.2.2 && <2
     , array ==0.5.*
@@ -208,6 +216,7 @@ executable fortran-src
     , temporary >=1.2 && <1.4
     , text >=1.2 && <2
     , uniplate >=1.6 && <2
+    , vector
   if os(windows)
     cpp-options: -DFS_DISABLE_WIN_BROKEN_TESTS
   default-language: Haskell2010
@@ -219,7 +228,6 @@ test-suite spec
       Language.Fortran.Analysis.BBlocksSpec
       Language.Fortran.Analysis.DataFlowSpec
       Language.Fortran.Analysis.RenamingSpec
-      Language.Fortran.Analysis.TypesSpec
       Language.Fortran.AnalysisSpec
       Language.Fortran.AST.Literal.BozSpec
       Language.Fortran.AST.Literal.RealSpec
@@ -235,7 +243,7 @@ test-suite spec
       Language.Fortran.Parser.Free.LexerSpec
       Language.Fortran.Parser.MonadSpec
       Language.Fortran.PrettyPrintSpec
-      Language.Fortran.ReprSpec
+      Language.Fortran.Repr.TypeSpec
       Language.Fortran.Rewriter.InternalSpec
       Language.Fortran.RewriterSpec
       Language.Fortran.Transformation.Disambiguation.FunctionSpec
@@ -288,6 +296,7 @@ test-suite spec
     , temporary >=1.2 && <1.4
     , text >=1.2 && <2
     , uniplate >=1.6 && <2
+    , vector
   if os(windows)
     cpp-options: -DFS_DISABLE_WIN_BROKEN_TESTS
   default-language: Haskell2010

@@ -8,7 +8,7 @@ import Data.Map ((!))
 import Data.Data
 import Data.Generics.Uniplate.Data
 import Language.Fortran.AST
-import Language.Fortran.Repr
+import Language.Fortran.Repr.Type
 import Language.Fortran.Analysis
 import Language.Fortran.Analysis.Types
 import Language.Fortran.Analysis.Renaming

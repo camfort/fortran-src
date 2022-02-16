@@ -872,7 +872,7 @@ data Index a =
 
 -- | Values and literals.
 data Value a
-  = ValInteger           String  (Maybe (KindParam a))
+  = ValInteger      String  (Maybe (KindParam a))
   -- ^ The string representation of an integer literal
   | ValReal         RealLit (Maybe (KindParam a))
   -- ^ The string representation of a real literal
@@ -881,7 +881,8 @@ data Value a
   | ValString       String
   -- ^ A string literal
   | ValBoz          Boz
-  -- ^ A BOZ literal constant
+  -- ^ A BOZ literal constant. Note that these are untyped. Where convenient, we
+  --   default to typing them as @INTEGER*4@.
   | ValHollerith    String
   -- ^ A Hollerith literal
   | ValVariable     Name

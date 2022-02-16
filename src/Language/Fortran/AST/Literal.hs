@@ -14,7 +14,7 @@ import Text.PrettyPrint.GenericPretty ( Out )
 data KindParam a
   = KindParamInt a SrcSpan String -- ^ @[0-9]+@
   | KindParamVar a SrcSpan Name   -- ^ @[a-z][a-z0-9]+@ (case insensitive)
-    deriving stock    (Eq, Show, Data, Typeable, Generic, Functor)
+    deriving stock    (Generic, Data, Functor, Show, Eq)
     deriving anyclass (NFData, Out)
 
 instance FirstParameter  (KindParam a) a

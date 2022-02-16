@@ -1,4 +1,4 @@
-{-# LANGUAGE FlexibleContexts, RankNTypes #-}
+{-# LANGUAGE RankNTypes #-}
 
 module Language.Fortran.Analysis.Util where
 
@@ -38,3 +38,10 @@ isAttrExternal _               = False
 isIxSingle :: Index a -> Bool
 isIxSingle IxSingle {} = True
 isIxSingle _           = False
+
+traverseM
+    :: (Traversable t, Applicative f, Monad m)
+    => (v -> m (f v'))
+    -> t v
+    -> m (f (t v'))
+traverseM f xs = sequenceA <$> traverse f xs

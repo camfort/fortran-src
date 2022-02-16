@@ -69,10 +69,15 @@ dependencies:
 - filepath >=1.4 && <1.5
 - temporary >=1.2 && <1.4
 - either ^>=5.0.1.1
+#- vector-sized # TODO
+- vector
+
+# --pedantic for building (not used for stack ghci)
+ghc-options:
+- -Wall
 
 library:
   source-dirs: src
-  ghc-options: -fno-warn-tabs
   build-tools:
   - alex >=3.1
   - happy >=1.19
@@ -81,7 +86,6 @@ executables:
   fortran-src:
     source-dirs: app
     main: Main.hs
-    ghc-options: -fno-warn-tabs
     dependencies:
     - fortran-src
 

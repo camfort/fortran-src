@@ -1,12 +1,14 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 
+-- | Uses 'ConstructType' from analysis.
+
 module Language.Fortran.Transformation.Disambiguation.Function (disambiguateFunction) where
 
 import Prelude hiding (lookup)
 import Data.Generics.Uniplate.Data
 import Data.Data
 
-import Language.Fortran.Analysis
+import Language.Fortran.Analysis ( IDType(..), idType, ConstructType(..), TransFunc )
 import Language.Fortran.AST
 import Language.Fortran.Transformation.Monad
 
@@ -21,13 +23,11 @@ disambiguateFunctionStatements = modifyProgramFile (trans statement)
   where
     trans = transformBi :: Data a => TransFunc Statement ProgramFile a
     statement (StExpressionAssign a1 s (ExpSubscript _ _ v@(ExpValue a _ (ValVariable _)) indicies) e2)
-      | Just (IDType _ (Just CTFunction)) <- idType a
+      | Just (IDType _ _ (Just CTFunction)) <- idType a
       , indiciesRangeFree indicies = StFunction a1 s v (aMap fromIndex indicies) e2
     -- nullary statement function
-    statement st@(StExpressionAssign a1 s1 (ExpFunctionCall _ _ v@(ExpValue a s (ValVariable _)) args) e2) =
-        case alistList args of
-          []  -> StFunction a1 s1 v (AList a s []) e2
-          _:_ -> st
+    statement (StExpressionAssign a1 s1 (ExpFunctionCall _ _ v@(ExpValue a s (ValVariable _)) Nothing) e2)
+      = StFunction a1 s1 v (AList a s []) e2
     statement st                                      = st
 
 disambiguateFunctionCalls :: Data a => Transform a ()
@@ -35,17 +35,17 @@ disambiguateFunctionCalls = modifyProgramFile (trans expression)
   where
     trans = transformBi :: Data a => TransFunc Expression ProgramFile a
     expression (ExpSubscript a1 s v@(ExpValue a _ (ValVariable _)) indicies)
-      | Just (IDType _ (Just CTFunction)) <- idType a
-      , indiciesRangeFree indicies = ExpFunctionCall a1 s v (aMap fromIndex indicies)
-      | Just (IDType _ (Just CTExternal)) <- idType a
-      , indiciesRangeFree indicies = ExpFunctionCall a1 s v (aMap fromIndex indicies)
-      | Just (IDType _ (Just CTVariable)) <- idType a
-      , indiciesRangeFree indicies = ExpFunctionCall a1 s v (aMap fromIndex indicies)
+      | Just (IDType _ _ (Just CTFunction)) <- idType a
+      , indiciesRangeFree indicies = ExpFunctionCall a1 s v (Just $ aMap fromIndex indicies)
+      | Just (IDType _ _ (Just CTExternal)) <- idType a
+      , indiciesRangeFree indicies = ExpFunctionCall a1 s v (Just $ aMap fromIndex indicies)
+      | Just (IDType _ _ (Just CTVariable)) <- idType a
+      , indiciesRangeFree indicies = ExpFunctionCall a1 s v (Just $ aMap fromIndex indicies)
       | Nothing <- idType a
-      , indiciesRangeFree indicies = ExpFunctionCall a1 s v (aMap fromIndex indicies)
+      , indiciesRangeFree indicies = ExpFunctionCall a1 s v (Just $ aMap fromIndex indicies)
     expression (ExpSubscript a1 s v@(ExpValue a _ (ValIntrinsic _)) indicies)
-      | Just (IDType _ (Just CTIntrinsic)) <- idType a
-      , indiciesRangeFree indicies = ExpFunctionCall a1 s v (aMap fromIndex indicies)
+      | Just (IDType _ _ (Just CTIntrinsic)) <- idType a
+      , indiciesRangeFree indicies = ExpFunctionCall a1 s v (Just $ aMap fromIndex indicies)
     expression e                                      = e
 
 -- BEGIN: TODO STRICTLY TO BE REMOVED LATER TODO

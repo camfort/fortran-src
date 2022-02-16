@@ -4,14 +4,14 @@ module Language.Fortran.Parser.LexerUtils ( readIntOrBoz ) where
 import Language.Fortran.AST.Literal.Boz
 import Numeric
 
--- | Read a string as either a signed integer, or a BOZ constant (positive).
+-- | Read a string as either a signed integer, or a BOZ constant.
 --
 -- Useful in manual lexing.
-readIntOrBoz :: String -> Integer
+readIntOrBoz :: String -> Int
 readIntOrBoz s = do
     case readSToMaybe $ readSigned readDec s of
       Just int -> int
-      Nothing  -> bozAsNatural $ parseBoz s
+      Nothing  -> bozAsInteger $ unsafeParseBoz s
 
 readSToMaybe :: [(a, b)] -> Maybe a
 readSToMaybe = \case (x, _):_ -> Just x

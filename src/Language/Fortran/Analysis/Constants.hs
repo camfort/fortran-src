@@ -1,25 +1,36 @@
--- TODO dislike having to use String
--- TODO unlike fortran-src, we're not using each expression's unique label.
--- would be good for efficiency
---
--- SymValMap has to be built up via Statements (parameter declarations,
--- assignments). Then can be used in expressions. fortran-src currently does
--- these the other way round -- unclear if swapping them will impact anything
--- (appears unlikely?)
---
--- The overall approach here is rewriting the fortran-vars eval story (some
--- constructors in SymbolTable, an Eval module) into a classy interface that
--- provides the eval function, which SymbolTable can implement, and we can
--- improve fortran-src to also do similar work.
---
--- F90 ISO spec is great for this. See pg.38.
+{- | Explicit constant evaluation.
 
-{-# LANGUAGE OverloadedStrings   #-}
-{-# LANGUAGE LambdaCase          #-}
-{-# LANGUAGE DeriveGeneric       #-}
-{-# LANGUAGE DeriveDataTypeable  #-}
+Fortran has the concept of constants, which are defined at the start of a
+procedure and not redefined during. These are confusingly referred to as
+"parameters". This module holds definitions for evaluating these, intended to
+run before the main analysis to build up a list of constants to use during it.
+This is required, because using constants in type information -- specifically,
+kinds and array dimensions -- is permitted.
+
+Note that this isn't constant folding. We are evaluating constant expressions
+(expressions required by the language specification to be constant). This module
+Is concerned with traversing the AST to obtain the statements containing
+constant declarations. Evaluation is handled in 'Language.Fortran.Repr.Eval'.
+
+Fortran specs (at least F90 and F2008) restrict constants to scalars, not
+arrays, so we do the same.
+-}
+
+{-
+SymValMap has to be built up via Statements (parameter declarations,
+assignments). Then can be used in expressions. fortran-src currently does these
+the other way round -- unclear if swapping them will impact anything (appears
+unlikely?)
+
+TODO
+  * unlike fortran-src, we're not using each expression's unique label.
+    would be good for efficiency
+  * could be safer, more efficient if we separated initial non-exec
+    statements from following exec statements (since this analysis is only
+    interested in those initial declarations)
+-}
+
 {-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE FlexibleContexts    #-}
 
 module Language.Fortran.Analysis.Constants where
 
@@ -27,7 +38,9 @@ import           Language.Fortran.AST
 import           Language.Fortran.Analysis
 import           Language.Fortran.Analysis.Util
 import           Language.Fortran.Repr.Value
-import qualified Language.Fortran.Repr.Eval.Scalar  as Eval
+import           Language.Fortran.Repr.Value.Scalar
+import           Language.Fortran.Repr.Value.Array
+import qualified Language.Fortran.Repr.Eval as Eval
 
 import           Data.Data
 import qualified Data.Map                   as Map
@@ -38,12 +51,13 @@ import           Data.Function              ( on )
 import qualified Data.List                          as List
 import           Data.Maybe                         ( catMaybes )
 
-type ConstMap          = Map Name FValScalar
-type IntrinsicsEvalMap = Map Name ()
+type ConstMap = Map Name FValScalar
+type OpMap    = Map Name (Eval.Op FVal)
 
 data Error
   = ErrorParameterReassigned Name
   | ErrorEval Eval.Error
+  | ErrorEvalReturnedArray FValArray
     deriving (Eq, Show)
 
 -- | Gather labeled constants (PARAMETERS).
@@ -58,7 +72,7 @@ data Error
 -- TODO: F90 ISO pg.193 init expr. Their definition appears a little wider than
 -- params, but it's pretty much what we're going for?
 gatherConsts
-    :: (MonadReader IntrinsicsEvalMap m, Data a)
+    :: (MonadReader OpMap m, Data a)
     => ProgramFile (Analysis a) -> m (Either Error ConstMap)
 gatherConsts pf = do
     let decls = extractParamDecls (allStatements pf)
@@ -70,6 +84,7 @@ gatherConsts pf = do
 extractParamDecls :: Data a => [Statement (Analysis a)] -> [Declarator (Analysis a)]
 extractParamDecls = concat . catMaybes . map tryExtractParamDecl
 
+-- shortcut via 'sameConstructor' using 'Data' instance
 tryExtractParamDecl :: Data a => Statement (Analysis a) -> Maybe [Declarator (Analysis a)]
 tryExtractParamDecl = \case
   StParameter _ _ decls -> ret decls
@@ -81,12 +96,11 @@ tryExtractParamDecl = \case
   where
     ret = Just . aStrip
     fakeAttrParam = AttrParameter undefined undefined
-
-sameConstructor :: Data a => a -> a -> Bool
-sameConstructor = (==) `on` toConstr
+    sameConstructor :: Data a => a -> a -> Bool
+    sameConstructor = (==) `on` toConstr
 
 handleParamDecl
-    :: (MonadState ConstMap m, MonadReader IntrinsicsEvalMap m, Data a)
+    :: (MonadState ConstMap m, MonadReader OpMap m, Data a)
     => Declarator (Analysis a) -> m (Either Error FValScalar)
 handleParamDecl (Declarator _ _ varExpr declType _ mInitExpr) =
     case declType of
@@ -98,13 +112,17 @@ handleParamDecl (Declarator _ _ varExpr declType _ mInitExpr) =
   where
     go initExpr = do
         evalEnv <- makeEvalEnv
-        case Eval.eval evalEnv initExpr of
+        case Eval.evalExpr evalEnv initExpr of
           Left  err -> return $ Left $ ErrorEval err
-          Right val -> assignConst (varName varExpr) val >> return (Right val)
+          Right val ->
+            case val of
+              FValScalar sval -> assignConst (varName varExpr) sval >> return (Right sval)
+              FValArray' aval -> return $ Left $ ErrorEvalReturnedArray aval
     makeEvalEnv = do
-        cm <- get
-        im <- ask
-        return $ Eval.Env cm im
+        scm <- get
+        let cm = Map.map FValScalar scm
+        ops <- ask
+        return $ Eval.Env cm ops
 
 assignConst :: MonadState ConstMap m => Name -> FValScalar -> m (Either Error ())
 assignConst var val = do
@@ -114,11 +132,3 @@ assignConst var val = do
       False -> do
         modify $ Map.insert var val
         return $ Right ()
-
--- lol. ty hw-kafka-client
-traverseM
-    :: (Traversable t, Applicative f, Monad m)
-    => (v -> m (f v'))
-    -> t v
-    -> m (f (t v'))
-traverseM f xs = sequenceA <$> traverse f xs

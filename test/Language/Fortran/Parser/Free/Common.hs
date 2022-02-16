@@ -23,7 +23,7 @@ specFreeCommon bParser sParser eParser =
           eParser ".true." `shouldBe'` valTrue
 
         it "parses logical literal with kind parameter" $ do
-          let kp = KindParamVar () u "kind"
+          let kp = KindParam () u $ KindParamVar "kind"
           eParser ".false._kind" `shouldBe'` valFalse' kp
 
         it "parses mixed-case logical literal" $ do
@@ -34,18 +34,19 @@ specFreeCommon bParser sParser eParser =
       describe "Real" $ do
         let realLitExp r mkp = ExpValue () u (ValReal (parseRealLit r) mkp)
         it "parses various REAL literals" $ do
+          let kp8 = KindParam () u $ KindParamInt "8"
           eParser "1."      `shouldBe'` realLitExp "1."    Nothing
-          eParser ".1e20_8" `shouldBe'` realLitExp ".1e20" (Just (KindParamInt () u "8"))
+          eParser ".1e20_8" `shouldBe'` realLitExp ".1e20" (Just kp8)
 
         it "parses \"negative\" real literal (unary op)" $ do
           let lit = "-1.0d-1_k8"
-              kp  = KindParamVar () u "k8"
+              kp  = KindParam () u $ KindParamVar "k8"
            in eParser lit `shouldBe'` ExpUnary () u Minus (realLitExp "1.0d-1" (Just kp))
 
       describe "Kind parameters" $ do
         it "parses var kind parameter with underscore" $ do
           let lit = "123_a_1"
-              kp  = KindParamVar () u "a_1"
+              kp  = KindParam () u $ KindParamVar "a_1"
            in eParser lit `shouldBe'` ExpValue () u (ValInteger "123" (Just kp))
 
         it "fails to parse invalid kind parameter with underscore after numeric" $ do
@@ -57,7 +58,7 @@ specFreeCommon bParser sParser eParser =
 
       -- Check various real/int literal forms and some kind parameters.
       describe "Complex" $ do
-        let kp = Just . KindParamInt () u
+        let kp = Just . KindParam () u . KindParamInt
         it "parses a complex literal via positive reals" $ do
           let cr = ComplexPartReal () u (parseRealLit "1.0E0") (kp "8")
               ci = ComplexPartReal () u (parseRealLit "0.2E1") Nothing

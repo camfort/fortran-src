@@ -1,12 +1,11 @@
-{-# LANGUAGE DerivingStrategies, DeriveAnyClass, DeriveGeneric, DeriveDataTypeable #-}
-{-# LANGUAGE LambdaCase #-}
-
 module Language.Fortran.Analysis.Types.FortranVars where
 
 import           Language.Fortran.AST
 import           Language.Fortran.Analysis
 import           Language.Fortran.Repr.Type
+import           Language.Fortran.Repr.Type.Scalar
 import           Language.Fortran.Repr.Value
+import           Language.Fortran.Repr.Value.Scalar
 
 import           GHC.Generics
 import           Data.Data
@@ -63,9 +62,11 @@ st1 mc v idt =
       _ -> SVariable fvt (v, 0) -- TODO loc???
   where
     fvt =
-        case idVType idt of
-          Nothing -> error "typeenv stored a var with no scalar type"
-          Just st -> scalarTypeToFortranVarsType st
+        case (idScalarType idt, idArrayInfo idt) of
+          (Nothing,   _)         -> error "typeenv stored a var with no scalar type"
+          (Just sty,  Nothing)   -> scalarTypeToFortranVarsType sty
+          (Just _sty, Just _aty) ->
+            error "can't convert array types to fortran-vars repr yet"
 
 scalarTypeToFortranVarsType :: FTypeScalar -> FVType
 scalarTypeToFortranVarsType = \case
