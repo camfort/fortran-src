@@ -35,6 +35,7 @@ module Language.Fortran.AST
   , Expression(..)
   , Index(..)
   , Value(..)
+  , KindParam(..)
   , UnaryOp(..)
   , BinaryOp(..)
 
@@ -618,9 +619,9 @@ data Index a =
 
 -- All recursive Values
 data Value a
-  = ValInteger           String (Maybe (Expression a))
+  = ValInteger           String (Maybe (KindParam a))
   -- ^ The string representation of an integer literal
-  | ValReal              RealLit (Maybe (Expression a))
+  | ValReal              RealLit (Maybe (KindParam a))
   -- ^ The string representation of a real literal
   | ValComplex           (Expression a) (Expression a)
   -- ^ The real and imaginary parts of a complex value
@@ -634,7 +635,7 @@ data Value a
   -- ^ The name of a variable
   | ValIntrinsic         Name
   -- ^ The name of a built-in function
-  | ValLogical           Bool (Maybe (Expression a))
+  | ValLogical           Bool (Maybe (KindParam a))
   -- ^ A boolean value
   | ValOperator          String
   -- ^ User-defined operators in interfaces
@@ -644,6 +645,12 @@ data Value a
   | ValStar
   | ValColon                   -- see R402 / C403 in Fortran2003 spec.
   deriving (Eq, Show, Data, Typeable, Generic, Functor)
+
+data KindParam a
+  = KindParamInt a SrcSpan String -- ^ @[0-9]+@
+  | KindParamVar a SrcSpan Name   -- ^ @[a-z][a-z0-9]+@ (case insensitive)
+    deriving stock    (Eq, Show, Data, Typeable, Generic, Functor)
+    deriving anyclass (NFData, Out)
 
 -- | Declarators. R505 entity-decl from F90 ISO spec.
 --
