@@ -1,4 +1,13 @@
 # fortran-src upgrade guide
+## Unreleased
+### Kind parameter change
+Necessitates changes, but is a new feature. Where relevant, replace
+
+  * `ExpValue _ _ (ValVariable v)`  with `KindParamVar _ _ v`, and
+  * `ExpValue _ _ (ValInteger i _)` with `KindParamInt _ _ i`
+
+and you should be good.
+
 ## Release 0.9.0
 ### Parser restructure
 ***Necessitates changes.***
