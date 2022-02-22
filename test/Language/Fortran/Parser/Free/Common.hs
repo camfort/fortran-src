@@ -49,12 +49,17 @@ specFreeCommon sParser eParser =
            in eParser lit `shouldBe'` ExpValue () u (ValInteger "123" (Just kp))
 
         it "fails to parse invalid kind parameter with underscore after numeric" $ do
-          -- TODO can't test here because we push parse errors into runtime ones
-          {-
+          {- TODO can't test here because we push parse errors into runtime ones
           let lit = "123_4_8"
-           in eParser lit `shouldBe'` undefined -- should be "last parsed was the 2nd underscore"
+           in eParser lit `shouldBe'` undefined -- should error "last parsed was the 2nd underscore"
           -}
           pending
+
+      describe "Complex" $ do
+        it "parses a basic complex literal" $ do
+          let cr = ComplexPartReal () u (parseRealLit "1.0")  Nothing
+              ci = ComplexPartReal () u (parseRealLit "-1.0") Nothing
+          eParser "(1.0, -1.0)" `shouldBe'` complexGen cr ci
 
     describe "Statement" $ do
       describe "Declaration" $ do

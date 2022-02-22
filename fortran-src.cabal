@@ -87,6 +87,7 @@ library
       Language.Fortran.Parser.Free.Utils
       Language.Fortran.Parser.LexerUtils
       Language.Fortran.Parser.Monad
+      Language.Fortran.Parser.ParserUtils
       Language.Fortran.PrettyPrint
       Language.Fortran.Rewriter
       Language.Fortran.Rewriter.Internal

@@ -7,6 +7,7 @@ import TestUtil
 import Language.Fortran.Parser.Free.Common
 
 import Language.Fortran.AST
+import Language.Fortran.AST.RealLit ( parseRealLit )
 import Language.Fortran.Version
 import Language.Fortran.Parser
 import Language.Fortran.Parser.Monad ( Parse )
@@ -233,7 +234,8 @@ spec =
 
       it "parses declaration with initialisation" $ do
         let typeSpec = TypeSpec () u TypeComplex Nothing
-            init' = ExpValue () u (ValComplex (intGen 24) (realGen (42.0::Double)))
+            init' = complexGen (ComplexPartInt () u "24" Nothing)
+                               (ComplexPartReal () u (parseRealLit "42.0") Nothing)
             declarators = AList () u
               [ declVariable () u (varGen "x") Nothing (Just init') ]
             expected = StDeclaration () u typeSpec Nothing declarators

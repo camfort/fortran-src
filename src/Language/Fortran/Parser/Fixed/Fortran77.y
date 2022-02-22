@@ -12,6 +12,7 @@ module Language.Fortran.Parser.Fixed.Fortran77
 import Language.Fortran.Version
 import Language.Fortran.Util.Position
 import Language.Fortran.Parser.Monad
+import Language.Fortran.Parser.ParserUtils
 import Language.Fortran.Parser.Fixed.Lexer
 import Language.Fortran.Parser.Fixed.Utils
 import Language.Fortran.AST
@@ -591,7 +592,8 @@ DATA_ITEM_LEVEL1 :: { Expression A0 }
 : SIGNED_NUMERIC_LITERAL  { $1 }
 -- | COMPLEX_LITERAL         { $1 }
 | VARIABLE                { $1 }
-| '(' SIGNED_NUMERIC_LITERAL ',' SIGNED_NUMERIC_LITERAL ')' { ExpValue () (getTransSpan $1 $5) (ValComplex $2 $4)}
+| '(' SIGNED_NUMERIC_LITERAL ',' SIGNED_NUMERIC_LITERAL ')'
+  {% complexLit (getTransSpan $1 $5) $2 $4 }
 | LOGICAL_LITERAL         { $1 }
 | STRING                  { $1 }
 | HOLLERITH               { $1 }
@@ -765,7 +767,7 @@ EXPRESSION :: { Expression A0 }
 | EXPRESSION RELATIONAL_OPERATOR EXPRESSION %prec RELATIONAL { ExpBinary () (getTransSpan $1 $3) $2 $1 $3 }
 | '(' EXPRESSION ')' { setSpan (getTransSpan $1 $3) $2 }
 | NUMERIC_LITERAL                   { $1 }
-| '(' EXPRESSION ',' EXPRESSION ')' { ExpValue () (getTransSpan $1 $5) (ValComplex $2 $4) }
+| '(' EXPRESSION ',' EXPRESSION ')' {% complexLit (getTransSpan $1 $5) $2 $4 }
 | LOGICAL_LITERAL                   { $1 }
 | HOLLERITH                         { $1 }
 -- There should be FUNCTION_CALL here but as far as the parser is concerned it is same as SUBSCRIPT,
@@ -816,7 +818,8 @@ CONSTANT_EXPRESSION :: { Expression A0 }
 | CONSTANT_EXPRESSION RELATIONAL_OPERATOR CONSTANT_EXPRESSION %prec RELATIONAL { ExpBinary () (getTransSpan $1 $3) $2 $1 $3 }
 | '(' CONSTANT_EXPRESSION ')' { setSpan (getTransSpan $1 $3) $2 }
 | NUMERIC_LITERAL               { $1 }
-| '(' CONSTANT_EXPRESSION ',' CONSTANT_EXPRESSION ')' { ExpValue () (getTransSpan $1 $5) (ValComplex $2 $4)}
+| '(' CONSTANT_EXPRESSION ',' CONSTANT_EXPRESSION ')'
+  {% complexLit (getTransSpan $1 $5) $2 $4 }
 | LOGICAL_LITERAL               { $1 }
 | SUBSCRIPT                    { $1 }
 | HOLLERITH                    { $1 }
@@ -835,7 +838,8 @@ ARITHMETIC_CONSTANT_EXPRESSION :: { Expression A0 }
 | ARITHMETIC_SIGN ARITHMETIC_CONSTANT_EXPRESSION %prec NEGATION { ExpUnary () (getTransSpan (fst $1) $2) (snd $1) $2 }
 | '(' ARITHMETIC_CONSTANT_EXPRESSION ')' { setSpan (getTransSpan $1 $3) $2 }
 | NUMERIC_LITERAL               { $1 }
-| '(' ARITHMETIC_CONSTANT_EXPRESSION ',' ARITHMETIC_CONSTANT_EXPRESSION ')' { ExpValue () (getTransSpan $1 $5) (ValComplex $2 $4)}
+| '(' ARITHMETIC_CONSTANT_EXPRESSION ',' ARITHMETIC_CONSTANT_EXPRESSION ')'
+  {% complexLit (getTransSpan $1 $5) $2 $4 }
 | VARIABLE                     { $1 }
 | SUBSCRIPT                    { $1 }
 

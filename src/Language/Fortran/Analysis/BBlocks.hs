@@ -15,10 +15,12 @@ import Control.Monad
 import Control.Monad.State.Lazy hiding (fix)
 import Control.Monad.Writer hiding (fix)
 import Text.PrettyPrint.GenericPretty (pretty, Out)
+import Text.PrettyPrint               (render)
 import Language.Fortran.Analysis
 import Language.Fortran.AST hiding (setName)
 import Language.Fortran.AST.RealLit
 import Language.Fortran.Util.Position
+import Language.Fortran.PrettyPrint
 import qualified Data.Map as M
 import qualified Data.IntMap as IM
 import Data.Graph.Inductive
@@ -824,12 +826,12 @@ showLab a =
     Just (ExpValue _ _ (ValInteger l _)) -> ' ':l ++ replicate (5 - length l) ' '
     _ -> error "unhandled showLab"
 
-showValue :: Value a -> Name
+showValue :: Value a -> String
 showValue (ValVariable v)       = v
 showValue (ValIntrinsic v)      = v
 showValue (ValInteger v _)      = v
 showValue (ValReal v _)         = prettyHsRealLit v
-showValue (ValComplex e1 e2)    = "( " ++ showExpr e1 ++ " , " ++ showExpr e2 ++ " )"
+showValue v@ValComplex{}        = render $ pprint' undefined v
 showValue (ValString s)         = "\\\"" ++ escapeStr s ++ "\\\""
 showValue v                     = "<unhandled value: " ++ show (toConstr (fmap (const ()) v)) ++ ">"
 
