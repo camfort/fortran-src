@@ -36,6 +36,7 @@ module Language.Fortran.AST
   , Index(..)
   , Value(..)
   , KindParam(..)
+  , ComplexPart(..)
   , UnaryOp(..)
   , BinaryOp(..)
 
@@ -617,14 +618,14 @@ data Index a =
             (Maybe (Expression a)) -- ^ Stride
   deriving (Eq, Show, Data, Typeable, Generic, Functor)
 
--- All recursive Values
+-- | Values and literals.
 data Value a
-  = ValInteger           String (Maybe (KindParam a))
+  = ValInteger           String  (Maybe (KindParam a))
   -- ^ The string representation of an integer literal
   | ValReal              RealLit (Maybe (KindParam a))
   -- ^ The string representation of a real literal
-  | ValComplex           (Expression a) (Expression a)
-  -- ^ The real and imaginary parts of a complex value
+  | ValComplex SrcSpan   (ComplexPart a) (ComplexPart a)
+  -- ^ The real and imaginary parts of a complex literal @(real, imag)@.
   | ValString            String
   -- ^ A string literal
   | ValBoz               Boz
@@ -644,11 +645,19 @@ data Value a
   | ValType              String
   | ValStar
   | ValColon                   -- see R402 / C403 in Fortran2003 spec.
-  deriving (Eq, Show, Data, Typeable, Generic, Functor)
+    deriving stock    (Eq, Show, Data, Typeable, Generic, Functor)
+    deriving anyclass (NFData, Out)
 
 data KindParam a
   = KindParamInt a SrcSpan String -- ^ @[0-9]+@
   | KindParamVar a SrcSpan Name   -- ^ @[a-z][a-z0-9]+@ (case insensitive)
+    deriving stock    (Eq, Show, Data, Typeable, Generic, Functor)
+    deriving anyclass (NFData, Out)
+
+-- | A part (either real or imaginary) of a complex literal.
+data ComplexPart a
+  = ComplexPartReal a SrcSpan RealLit (Maybe (KindParam a)) -- ^ signed real lit
+  | ComplexPartInt  a SrcSpan String  (Maybe (KindParam a)) -- ^ signed int  lit
     deriving stock    (Eq, Show, Data, Typeable, Generic, Functor)
     deriving anyclass (NFData, Out)
 
@@ -951,7 +960,6 @@ instance Out a => Out (Expression a)
 instance Out a => Out (Index a)
 instance Out a => Out (DoSpecification a)
 instance Out a => Out (FlushSpec a)
-instance Out a => Out (Value a)
 instance Out a => Out (TypeSpec a)
 instance Out a => Out (Selector a)
 instance Out BaseType
@@ -1023,7 +1031,6 @@ instance NFData a => NFData (Block a)
 instance NFData a => NFData (Expression a)
 instance NFData a => NFData (TypeSpec a)
 instance NFData a => NFData (Index a)
-instance NFData a => NFData (Value a)
 instance NFData a => NFData (Comment a)
 instance NFData a => NFData (Statement a)
 instance NFData a => NFData (ProcDecl a)

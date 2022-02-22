@@ -11,6 +11,7 @@ module Language.Fortran.Parser.Fixed.Fortran66
 import Language.Fortran.Version
 import Language.Fortran.Util.Position
 import Language.Fortran.Parser.Monad
+import Language.Fortran.Parser.ParserUtils
 import Language.Fortran.Parser.Fixed.Lexer
 import Language.Fortran.Parser.Fixed.Utils
 import Language.Fortran.AST
@@ -434,7 +435,8 @@ SIGNED_NUMERIC_LITERAL :: { Expression A0 }
 | SIGNED_REAL_LITERAL    { $1 }
 
 COMPLEX_LITERAL :: { Expression A0 }
-:  '(' SIGNED_NUMERIC_LITERAL ',' SIGNED_NUMERIC_LITERAL ')' { ExpValue () (getTransSpan $1 $5) (ValComplex $2 $4)}
+: '(' SIGNED_NUMERIC_LITERAL ',' SIGNED_NUMERIC_LITERAL ')'
+  {% complexLit (getTransSpan $1 $5) $2 $4 }
 
 LOGICAL_LITERAL :: { Expression A0 }
 : bool { let TBool s b = $1 in ExpValue () s $ ValLogical b Nothing }

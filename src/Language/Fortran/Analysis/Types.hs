@@ -273,9 +273,9 @@ annotateExpression e@(ExpValue _ _ (ValIntrinsic _))   = maybe e (`setIDType` e)
 annotateExpression e@(ExpValue _ ss (ValReal r mkp))        = do
     k <- deriveRealLiteralKind ss r mkp
     return $ setSemType (TReal k) e
-annotateExpression e@(ExpValue _ ss (ValComplex e1 e2)) = do
-    st <- complexLiteralType ss e1 e2
-    return $ setSemType st e
+annotateExpression e@(ExpValue _ _ (ValComplex _ss _cr _ci)) = do
+    -- TODO check F90 standard for complex lit typing rules (kind params)
+    return e
 annotateExpression e@(ExpValue _ _ ValInteger{})     =
     -- FIXME: in >F90, int lits can have kind info on end @_8@, same as real
     -- lits. We do parse this into the lit string, it is available to us.
@@ -312,15 +312,6 @@ deriveRealLiteralKind ss r mkp =
                      typeError ("only real literals with exponent letter 'e'"
                              <> "can specify explicit kind parameter") ss
                      return 0 -- TODO return k
-
--- | Get the type of a COMPLEX literal constant.
---
--- The kind is derived only from the first expression, the second is ignored.
-complexLiteralType :: SrcSpan -> Expression a -> Expression a -> Infer SemType
-complexLiteralType ss (ExpValue _ _ (ValReal r mkp)) _ = do
-    k1 <- deriveRealLiteralKind ss r mkp
-    return $ TComplex k1
-complexLiteralType _ _ _ = return $ deriveSemTypeFromBaseType TypeComplex
 
 binaryOpType :: Data a => SrcSpan -> BinaryOp -> Expression (Analysis a) -> Expression (Analysis a) -> Infer IDType
 binaryOpType ss op e1 e2 = do

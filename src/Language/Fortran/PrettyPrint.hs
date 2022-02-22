@@ -967,12 +967,12 @@ instance Pretty (Value a) where
       | v >= Fortran90 = "operator" <+> parens (text op)
       -- TODO better error message is needed. Operator is too vague.
       | otherwise = tooOld v "Operator" Fortran90
-    pprint' v (ValComplex e1 e2) = parens $ commaSep [pprint' v e1, pprint' v e2]
+    pprint' v (ValComplex _ e1 e2) = parens $ commaSep [pprint' v e1, pprint' v e2]
     pprint' _ (ValString str) = quotes $ text str
-    pprint' v (ValLogical b kp) = text litStr <> pprint' v kp
+    pprint' v (ValLogical b mkp) = text litStr <> pprint' v mkp
       where litStr = if b then ".true." else ".false."
-    pprint' v (ValInteger i kp) = text i <> pprint' v kp
-    pprint' v (ValReal r kp) = text (prettyHsRealLit r) <> pprint' v kp
+    pprint' v (ValInteger i mkp) = text i <> pprint' v mkp
+    pprint' v (ValReal rl mkp) = text (prettyHsRealLit rl) <> pprint' v mkp
     pprint' _ (ValBoz b) = text $ prettyBoz b
     pprint' _ valLit = text . getFirstParameter $ valLit
 
@@ -980,6 +980,11 @@ instance Pretty (KindParam a) where
     pprint' _ kp = text "_" <> text kp'
       where kp' = case kp of KindParamInt _ _ i -> i
                              KindParamVar _ _ v -> v
+
+instance Pretty (ComplexPart a) where
+    pprint' v = \case
+      ComplexPartReal _ _ rl mkp -> pprint' v (ValReal    rl mkp)
+      ComplexPartInt  _ _ i  mkp -> pprint' v (ValInteger i  mkp)
 
 instance IndentablePretty (StructureItem a) where
   pprint v (StructFields a s spec mAttrs decls) _ = pprint' v (StDeclaration a s spec mAttrs decls)

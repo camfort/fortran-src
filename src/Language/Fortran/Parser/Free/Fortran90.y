@@ -12,6 +12,7 @@ module Language.Fortran.Parser.Free.Fortran90
 import Language.Fortran.Version
 import Language.Fortran.Util.Position
 import Language.Fortran.Parser.Monad
+import Language.Fortran.Parser.ParserUtils ( complexLit )
 import Language.Fortran.Parser.Free.Lexer
 import Language.Fortran.Parser.Free.Utils
 import Language.Fortran.AST
@@ -1020,8 +1021,7 @@ EXPRESSION :: { Expression A0 }
     in ExpBinary () (getTransSpan $1 $3) (BinCustom str) $1 $3 }
 | '(' EXPRESSION ')' { setSpan (getTransSpan $1 $3) $2 }
 | NUMERIC_LITERAL                   { $1 }
-| '(' EXPRESSION ',' EXPRESSION ')'
-  { ExpValue () (getTransSpan $1 $5) (ValComplex $2 $4) }
+| '(' EXPRESSION ',' EXPRESSION ')' {% complexLit (getTransSpan $1 $5) $2 $4 }
 | LOGICAL_LITERAL                   { $1 }
 | STRING                            { $1 }
 | DATA_REF                          { $1 }

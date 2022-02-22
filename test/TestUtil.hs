@@ -53,6 +53,9 @@ initGen es = ExpInitialisation () u $ fromList () es
 realGen :: (Fractional a, Show a) => a -> Expression ()
 realGen i = ExpValue () u $ ValReal (parseRealLit (show i)) Nothing
 
+complexGen :: ComplexPart () -> ComplexPart () -> Expression ()
+complexGen cr ci = ExpValue () u $ ValComplex u cr ci
+
 strGen :: String -> Expression ()
 strGen str = ExpValue () u $ ValString str
 
