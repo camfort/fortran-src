@@ -10,6 +10,8 @@ that can be easily exported with full precision later. Things we do:
   * Make exponent explicit by adding the default exponent @E0@ if not present.
   * Make implicit zeroes explicit. @.123 -> 0.123@, @123. -> 123.0@. (Again,
     Haskell literals do not support this.)
+
+For example, the Fortran REAL literal @1D0@ will be parsed into @1.0D0@.
 -}
 
 {-# LANGUAGE RecordWildCards #-}
