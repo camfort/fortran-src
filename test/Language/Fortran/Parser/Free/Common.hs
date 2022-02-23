@@ -55,11 +55,25 @@ specFreeCommon sParser eParser =
           -}
           pending
 
+      -- Check various real/int literal forms and some kind parameters.
       describe "Complex" $ do
-        it "parses a basic complex literal" $ do
-          let cr = ComplexPartReal () u (parseRealLit "1.0")  Nothing
-              ci = ComplexPartReal () u (parseRealLit "-1.0") Nothing
-          eParser "(1.0, -1.0)" `shouldBe'` complexGen cr ci
+        let kp = Just . KindParamInt () u
+        it "parses a complex literal via positive reals" $ do
+          let cr = ComplexPartReal () u (parseRealLit "1.0E0") (kp "8")
+              ci = ComplexPartReal () u (parseRealLit "0.2E1") Nothing
+          eParser "(1.0E0_8, 0.2E1)" `shouldBe'` complexGen cr ci
+        it "parses a complex literal via positive mixed lits" $ do
+          let cr = ComplexPartInt  () u "1"                  Nothing
+              ci = ComplexPartReal () u (parseRealLit "2D0") Nothing
+          eParser "(1, 2D0)" `shouldBe'` complexGen cr ci
+        it "parses a complex literal via negative ints" $ do
+          let cr = ComplexPartInt  () u "-1" Nothing
+              ci = ComplexPartInt  () u "-2" Nothing
+          eParser "(-1, -2)" `shouldBe'` complexGen cr ci
+        it "parses a complex literal via mixed sign mixed lits with kind parameters" $ do
+          let cr = ComplexPartReal () u (parseRealLit "-1.2") (kp "8")
+              ci = ComplexPartInt  () u "0"                    Nothing
+          eParser "(-1.2_8, 0)" `shouldBe'` complexGen cr ci
 
     describe "Statement" $ do
       describe "Declaration" $ do
