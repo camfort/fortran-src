@@ -242,8 +242,7 @@ f77lIncludes
     :: [FilePath] -> ModFiles -> String -> B.ByteString
     -> IO (ProgramFile A0)
 f77lIncludes incs mods fn bs = do
-    -- includes files have to end with 2 newlines (unknown why, parser related)
-    case f77lNoTransform fn (B.snoc bs '\n') of
+    case f77lNoTransform fn bs of
       Left e -> liftIO $ throwIO e
       Right pf -> do
         let pf' = pfSetFilename fn pf
@@ -268,7 +267,9 @@ f77lIncludesInline dirs seen st = case st of
         Just blocks' -> pure $ StInclude a s e (Just blocks')
         Nothing -> do
           (fullPath, inc) <- liftIO $ readInDirs dirs path
-          case f77lIncludesInner fullPath inc of
+          -- Append newline to include, as grammar is defined to expect a
+          -- newline at the end of most blocks
+          case f77lIncludesInner fullPath (B.snoc inc '\n') of
             Right blocks -> do
               blocks' <- descendBiM (f77lIncludesInline dirs (path:seen)) blocks
               modify (Map.insert path blocks')
