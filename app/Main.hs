@@ -104,7 +104,9 @@ main = do
       contents <- flexReadFile path
       mods <- decodeModFiles' $ includeDirs opts
       let version   = fromMaybe (deduceFortranVersion path) (fortranVersion opts)
-          parsedPF  = fromRight' $ (Parser.byVerWithMods mods version) path contents
+          parsedPF  = case (Parser.byVerWithMods mods version) path contents of
+                        Left  a -> error $ show a
+                        Right a -> a
           outfmt    = outputFormat opts
           mmap      = combinedModuleMap mods
           tenv      = combinedTypeEnv mods
