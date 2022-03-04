@@ -109,8 +109,17 @@ spec =
         pprint Fortran90 lit Nothing `shouldBe` ".false._8"
 
       it "prints BOZ constant with prefix" $ do
-        let lit = ValBoz $ Boz BozPrefixZ "123abc"
+        let lit = ValBoz $ Boz (BozPrefixZ Conforming) "123abc" Conforming
         pprint Fortran90 lit Nothing `shouldBe` "z'123abc'"
+
+      -- Note that we can't test printing nonconforming BOZs, because the
+      -- 'Boz.prettyBoz' that gets used in the 'Pretty' instance refuses to
+      -- pretty print nonconforming syntax.
+      {-
+      it "prints BOZ constant with nonconforming postfix" $ do
+        let lit = ValBoz $ Boz (BozPrefixZ Nonconforming) "123abc" Nonconforming
+        pprint Fortran90 lit Nothing `shouldBe` "'123abc'x"
+      -}
 
     describe "Statement" $ do
       describe "Declaration" $ do
