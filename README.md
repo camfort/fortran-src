@@ -56,9 +56,11 @@ Usage: fortran-src [OPTION...] <file>
 ```
 
 ## Building
-fortran-src supports building with Stack or Cabal. You should be able to build
-and use without any system dependencies other than GHC itself. Haskell library
-dependencies are listed in `package.yaml`.
+You will need the GMP library plus header files: on many platforms, this will be
+via the package `libgmp-dev`.
+
+Haskell library dependencies are listed in `package.yaml`. fortran-src supports
+building with Stack or Cabal.
 
 fortran-src supports **GHC 8.4 through GHC 9.0**. We regularly test at least the
 minimum and maximum supported GHCs. Releases prior to/newer than those may have
