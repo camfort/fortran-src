@@ -10,7 +10,8 @@ such utilities that match that form here.
 module Language.Fortran.Parser.ParserUtils where
 
 import Language.Fortran.AST
-import Language.Fortran.AST.RealLit
+import Language.Fortran.AST.Literal.Real
+import Language.Fortran.AST.Literal.Complex
 import Language.Fortran.Util.Position
 
 #if !MIN_VERSION_base(4,13,0)
@@ -20,16 +21,10 @@ import Control.Monad.Fail ( MonadFail )
 
 {- $complex-lit-parsing
 
-Complex literals use a potentially misleading tuple syntax. The things allowed
-in each part are highly restricted, where you might otherwise be used to writing
-expressions. The actual allowed forms (taken from the F90 standard and
-gfortran's behaviour) are specified by the structure, but parsing them
-unambiguously is a pain.
-
-We parse any @(expr, expr)@, then case on each expression to determine where it
-was in fact valid for a complex literal -- and if so, push it into a
-'ComplexPart' constructor. This may cause unexpected behaviour if more
-bracketing/tuple rules are added!
+Parsing complex literal parts unambiguously is a pain, so instead, we parse any
+expression, then case on it to determine if it's valid for a complex literal
+part -- and if so, push it into a 'ComplexPart' constructor. This may cause
+unexpected behaviour if more bracketing/tuple rules are added!
 -}
 
 -- | Try to validate an expression as a COMPLEX literal part.
@@ -38,12 +33,13 @@ bracketing/tuple rules are added!
 exprToComplexLitPart :: MonadFail m => Expression a -> m (ComplexPart a)
 exprToComplexLitPart e =
     case e' of
-      ExpValue a ss v ->
-        case v of
+      ExpValue a ss val ->
+        case val of
           ValReal    r mkp ->
             let r' = r { realLitSignificand = sign <> realLitSignificand r }
              in return $ ComplexPartReal a ss r' mkp
           ValInteger i mkp -> return $ ComplexPartInt a ss (sign<>i) mkp
+          ValVariable var  -> return $ ComplexPartNamed a ss var
           _                -> fail $ "Invalid COMPLEX literal @ " <> show ss
       _ -> fail $ "Invalid COMPLEX literal @ " <> show (getSpan e')
   where
@@ -58,4 +54,4 @@ complexLit
 complexLit ss e1 e2 = do
     compReal <- exprToComplexLitPart e1
     compImag <- exprToComplexLitPart e2
-    return $ ExpValue () ss $ ValComplex ss compReal compImag
+    return $ ExpValue () ss $ ValComplex $ ComplexLit () ss compReal compImag

@@ -7,7 +7,7 @@ import TestUtil
 import Language.Fortran.Parser.Free.Common
 
 import Language.Fortran.AST
-import Language.Fortran.AST.RealLit ( parseRealLit )
+import Language.Fortran.AST.Literal.Real ( parseRealLit )
 import Language.Fortran.Version
 import Language.Fortran.Parser
 import Language.Fortran.Parser.Monad ( Parse )

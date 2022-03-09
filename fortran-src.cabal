@@ -71,8 +71,12 @@ library
       Language.Fortran.Analysis.Types
       Language.Fortran.AST
       Language.Fortran.AST.AList
-      Language.Fortran.AST.Boz
-      Language.Fortran.AST.RealLit
+      Language.Fortran.AST.Annotated
+      Language.Fortran.AST.Common
+      Language.Fortran.AST.Literal
+      Language.Fortran.AST.Literal.Boz
+      Language.Fortran.AST.Literal.Complex
+      Language.Fortran.AST.Literal.Real
       Language.Fortran.Intrinsics
       Language.Fortran.LValue
       Language.Fortran.Parser
@@ -203,8 +207,8 @@ test-suite spec
       Language.Fortran.Analysis.SemanticTypesSpec
       Language.Fortran.Analysis.TypesSpec
       Language.Fortran.AnalysisSpec
-      Language.Fortran.AST.BozSpec
-      Language.Fortran.AST.RealLitSpec
+      Language.Fortran.AST.Literal.BozSpec
+      Language.Fortran.AST.Literal.RealSpec
       Language.Fortran.Parser.Fixed.Fortran66Spec
       Language.Fortran.Parser.Fixed.Fortran77.IncludeSpec
       Language.Fortran.Parser.Fixed.Fortran77.ParserSpec

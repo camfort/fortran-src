@@ -1,7 +1,7 @@
 {-| Utils for both lexers. -}
 module Language.Fortran.Parser.LexerUtils ( readIntOrBoz ) where
 
-import Language.Fortran.AST.Boz
+import Language.Fortran.AST.Literal.Boz
 import Numeric
 
 -- | Read a string as either a signed integer, or a BOZ constant (positive).

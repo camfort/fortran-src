@@ -3,6 +3,7 @@ module Language.Fortran.AST.AList where
 import Language.Fortran.Util.FirstParameter
 import Language.Fortran.Util.SecondParameter
 import Language.Fortran.Util.Position (Spanned, SrcSpan(..), getSpan)
+import Language.Fortran.AST.Annotated ( Annotated )
 
 import Data.Data    (Data, Typeable)
 import GHC.Generics (Generic)
@@ -22,6 +23,7 @@ instance Functor t => Functor (AList t) where
 
 instance FirstParameter (AList t a) a
 instance SecondParameter (AList t a) SrcSpan
+instance Annotated (AList t)
 instance Spanned (AList t a)
 instance (Out a, Out (t a)) => Out (AList t a)
 instance (NFData a, NFData (t a)) => NFData (AList t a)

@@ -1,5 +1,3 @@
-{-# LANGUAGE DefaultSignatures #-}
-
 -- |
 --
 -- This module holds the data types used to represent Fortran code of various
@@ -116,12 +114,16 @@ module Language.Fortran.AST
 
 import Prelude hiding ( init )
 
+import Language.Fortran.AST.Common ( Name )
 import Language.Fortran.AST.AList
-import Language.Fortran.AST.RealLit
-import Language.Fortran.AST.Boz ( Boz )
+import Language.Fortran.AST.Literal
+import Language.Fortran.AST.Literal.Real
+import Language.Fortran.AST.Literal.Boz ( Boz )
+import Language.Fortran.AST.Literal.Complex
 import Language.Fortran.Util.Position
 import Language.Fortran.Util.FirstParameter
 import Language.Fortran.Util.SecondParameter
+import Language.Fortran.AST.Annotated
 import Language.Fortran.Version
 
 import Data.Data
@@ -131,8 +133,6 @@ import Text.PrettyPrint.GenericPretty
 
 -- | The empty annotation.
 type A0 = ()
-
-type Name = String
 
 --------------------------------------------------------------------------------
 -- Basic AST nodes
@@ -622,42 +622,29 @@ data Index a =
 data Value a
   = ValInteger           String  (Maybe (KindParam a))
   -- ^ The string representation of an integer literal
-  | ValReal              RealLit (Maybe (KindParam a))
+  | ValReal         RealLit (Maybe (KindParam a))
   -- ^ The string representation of a real literal
-  | ValComplex SrcSpan   (ComplexPart a) (ComplexPart a)
+  | ValComplex      (ComplexLit a)
   -- ^ The real and imaginary parts of a complex literal @(real, imag)@.
-  | ValString            String
+  | ValString       String
   -- ^ A string literal
-  | ValBoz               Boz
+  | ValBoz          Boz
   -- ^ A BOZ literal constant
-  | ValHollerith         String
+  | ValHollerith    String
   -- ^ A Hollerith literal
-  | ValVariable          Name
+  | ValVariable     Name
   -- ^ The name of a variable
-  | ValIntrinsic         Name
+  | ValIntrinsic    Name
   -- ^ The name of a built-in function
-  | ValLogical           Bool (Maybe (KindParam a))
+  | ValLogical      Bool (Maybe (KindParam a))
   -- ^ A boolean value
-  | ValOperator          String
+  | ValOperator     String
   -- ^ User-defined operators in interfaces
   | ValAssignment
   -- ^ Overloaded assignment in interfaces
-  | ValType              String
+  | ValType         String
   | ValStar
   | ValColon                   -- see R402 / C403 in Fortran2003 spec.
-    deriving stock    (Eq, Show, Data, Typeable, Generic, Functor)
-    deriving anyclass (NFData, Out)
-
-data KindParam a
-  = KindParamInt a SrcSpan String -- ^ @[0-9]+@
-  | KindParamVar a SrcSpan Name   -- ^ @[a-z][a-z0-9]+@ (case insensitive)
-    deriving stock    (Eq, Show, Data, Typeable, Generic, Functor)
-    deriving anyclass (NFData, Out)
-
--- | A part (either real or imaginary) of a complex literal.
-data ComplexPart a
-  = ComplexPartReal a SrcSpan RealLit (Maybe (KindParam a)) -- ^ signed real lit
-  | ComplexPartInt  a SrcSpan String  (Maybe (KindParam a)) -- ^ signed int  lit
     deriving stock    (Eq, Show, Data, Typeable, Generic, Functor)
     deriving anyclass (NFData, Out)
 
@@ -734,19 +721,6 @@ data BinaryOp =
 
 instance Binary BinaryOp
 
--- Retrieving SrcSpan and Annotation from nodes
-class Annotated f where
-  getAnnotation :: f a -> a
-  setAnnotation :: a -> f a -> f a
-  modifyAnnotation :: (a -> a) -> f a -> f a
-  default getAnnotation :: (FirstParameter (f a) a) => f a -> a
-  getAnnotation = getFirstParameter
-
-  default setAnnotation :: (FirstParameter (f a) a) => a -> f a -> f a
-  setAnnotation = setFirstParameter
-
-  modifyAnnotation f x = setAnnotation (f (getAnnotation x)) x
-
 instance FirstParameter (ProgramUnit a) a
 instance FirstParameter (Prefix a) a
 instance FirstParameter (Suffix a) a
@@ -805,7 +779,6 @@ instance SecondParameter (DimensionDeclarator a) SrcSpan
 instance SecondParameter (ControlPair a) SrcSpan
 instance SecondParameter (AllocOpt a) SrcSpan
 
-instance Annotated (AList t)
 instance Annotated ProgramUnit
 instance Annotated Block
 instance Annotated Statement

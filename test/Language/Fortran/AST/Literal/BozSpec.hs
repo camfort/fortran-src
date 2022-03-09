@@ -1,10 +1,10 @@
 {-# LANGUAGE TypeApplications #-}
 
-module Language.Fortran.AST.BozSpec where
+module Language.Fortran.AST.Literal.BozSpec where
 
 import Test.Hspec
 
-import Language.Fortran.AST.Boz
+import Language.Fortran.AST.Literal.Boz
 import Numeric.Natural ( Natural )
 
 spec :: Spec

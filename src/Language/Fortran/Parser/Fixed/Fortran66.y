@@ -15,7 +15,7 @@ import Language.Fortran.Parser.ParserUtils
 import Language.Fortran.Parser.Fixed.Lexer
 import Language.Fortran.Parser.Fixed.Utils
 import Language.Fortran.AST
-import Language.Fortran.AST.RealLit
+import Language.Fortran.AST.Literal.Real
 
 import Prelude hiding ( EQ, LT, GT ) -- Same constructors exist in the AST
 

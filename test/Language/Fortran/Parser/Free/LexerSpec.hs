@@ -6,7 +6,7 @@ import TestUtil
 import Language.Fortran.Parser.Free.Lexer ( Token(..), lexer' )
 import Language.Fortran.Parser ( collectTokens )
 import Language.Fortran.Parser ( initParseStateFree )
-import Language.Fortran.AST.RealLit
+import Language.Fortran.AST.Literal.Real
 import Language.Fortran.Version
 import Language.Fortran.Util.Position (SrcSpan)
 

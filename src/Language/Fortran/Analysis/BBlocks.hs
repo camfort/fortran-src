@@ -18,7 +18,7 @@ import Text.PrettyPrint.GenericPretty (pretty, Out)
 import Text.PrettyPrint               (render)
 import Language.Fortran.Analysis
 import Language.Fortran.AST hiding (setName)
-import Language.Fortran.AST.RealLit
+import Language.Fortran.AST.Literal.Real
 import Language.Fortran.Util.Position
 import Language.Fortran.PrettyPrint
 import qualified Data.Map as M

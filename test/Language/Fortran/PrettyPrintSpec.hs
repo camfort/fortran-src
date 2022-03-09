@@ -10,7 +10,7 @@ import Data.Generics.Uniplate.Operations
 import Data.Maybe (catMaybes)
 
 import Language.Fortran.AST as LFA
-import Language.Fortran.AST.Boz
+import Language.Fortran.AST.Literal.Boz
 import Language.Fortran.Version
 import Language.Fortran.PrettyPrint
 

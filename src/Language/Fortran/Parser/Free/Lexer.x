@@ -32,8 +32,8 @@ import Language.Fortran.Parser.Monad
 import Language.Fortran.Version
 import Language.Fortran.Util.Position
 import Language.Fortran.Util.FirstParameter
-import Language.Fortran.AST.RealLit (RealLit, parseRealLit)
-import Language.Fortran.AST.Boz
+import Language.Fortran.AST.Literal.Real (RealLit, parseRealLit)
+import Language.Fortran.AST.Literal.Boz
 import Language.Fortran.Parser.LexerUtils ( readIntOrBoz )
 
 }
