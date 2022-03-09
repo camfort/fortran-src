@@ -1,10 +1,10 @@
-module Language.Fortran.AST.RealLitSpec where
+module Language.Fortran.AST.Literal.RealSpec where
 
-import           Prelude hiding ( exp )
+import Prelude hiding ( exp )
 
-import           Test.Hspec
+import Test.Hspec
 
-import           Language.Fortran.AST.RealLit
+import Language.Fortran.AST.Literal.Real
 
 spec :: Spec
 spec = do

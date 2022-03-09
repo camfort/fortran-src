@@ -12,7 +12,7 @@ import           TestUtil
 import           Test.Hspec
 
 import           Language.Fortran.AST
-import           Language.Fortran.AST.RealLit
+import           Language.Fortran.AST.Literal.Real
 
 specFreeCommon :: (String -> Statement A0) -> (String -> Expression A0) -> Spec
 specFreeCommon sParser eParser =
@@ -74,6 +74,10 @@ specFreeCommon sParser eParser =
           let cr = ComplexPartReal () u (parseRealLit "-1.2") (kp "8")
               ci = ComplexPartInt  () u "0"                    Nothing
           eParser "(-1.2_8, 0)" `shouldBe'` complexGen cr ci
+        it "parses a complex literal via named constants" $ do
+          let cr = ComplexPartNamed () u "a"
+              ci = ComplexPartNamed () u "b_something"
+          eParser "(a, b_something)" `shouldBe'` complexGen cr ci
 
     describe "Statement" $ do
       describe "Declaration" $ do

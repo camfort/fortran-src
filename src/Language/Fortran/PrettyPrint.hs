@@ -10,8 +10,9 @@ import Data.List (foldl')
 import Prelude hiding (EQ,LT,GT,pred,exp,(<>))
 
 import Language.Fortran.AST
-import Language.Fortran.AST.RealLit
-import Language.Fortran.AST.Boz
+import Language.Fortran.AST.Literal.Real
+import Language.Fortran.AST.Literal.Boz
+import Language.Fortran.AST.Literal.Complex
 import Language.Fortran.Version
 import Language.Fortran.Util.FirstParameter
 
@@ -967,7 +968,7 @@ instance Pretty (Value a) where
       | v >= Fortran90 = "operator" <+> parens (text op)
       -- TODO better error message is needed. Operator is too vague.
       | otherwise = tooOld v "Operator" Fortran90
-    pprint' v (ValComplex _ e1 e2) = parens $ commaSep [pprint' v e1, pprint' v e2]
+    pprint' v (ValComplex c) = pprint' v c
     pprint' _ (ValString str) = quotes $ text str
     pprint' v (ValLogical b mkp) = text litStr <> pprint' v mkp
       where litStr = if b then ".true." else ".false."
@@ -976,6 +977,11 @@ instance Pretty (Value a) where
     pprint' _ (ValBoz b) = text $ prettyBoz b
     pprint' _ valLit = text . getFirstParameter $ valLit
 
+instance Pretty (ComplexLit a) where
+    pprint' v c = parens $ commaSep [realPart, imagPart]
+      where realPart = pprint' v (complexLitRealPart c)
+            imagPart = pprint' v (complexLitImagPart c)
+
 instance Pretty (KindParam a) where
     pprint' _ kp = text "_" <> text kp'
       where kp' = case kp of KindParamInt _ _ i -> i
@@ -983,8 +989,9 @@ instance Pretty (KindParam a) where
 
 instance Pretty (ComplexPart a) where
     pprint' v = \case
-      ComplexPartReal _ _ rl mkp -> pprint' v (ValReal    rl mkp)
-      ComplexPartInt  _ _ i  mkp -> pprint' v (ValInteger i  mkp)
+      ComplexPartReal   _ _ rl mkp -> pprint' v (ValReal    rl mkp)
+      ComplexPartInt    _ _ i  mkp -> pprint' v (ValInteger i  mkp)
+      ComplexPartNamed  _ _ var    -> text var
 
 instance IndentablePretty (StructureItem a) where
   pprint v (StructFields a s spec mAttrs decls) _ = pprint' v (StDeclaration a s spec mAttrs decls)

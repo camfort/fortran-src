@@ -3,7 +3,7 @@ module Language.Fortran.Parser.Fixed.Utils where
 
 import Language.Fortran.Parser.Fixed.Lexer
 import Language.Fortran.AST
-import Language.Fortran.AST.RealLit
+import Language.Fortran.AST.Literal.Real
 import Language.Fortran.Util.Position
 import Language.Fortran.Parser.Monad
 import Control.Monad.State

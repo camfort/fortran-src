@@ -7,7 +7,7 @@ import TestUtil
 import Language.Fortran.Parser.Fixed.Lexer
 import Language.Fortran.Parser
 import Language.Fortran.Parser.Monad ( ParseState, getAlex, evalParse )
-import Language.Fortran.AST.Boz
+import Language.Fortran.AST.Literal.Boz
 import Language.Fortran.Version
 
 import Data.List (isPrefixOf)

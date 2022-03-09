@@ -33,7 +33,7 @@ import Text.PrettyPrint.GenericPretty (Out)
 import Language.Fortran.Analysis
 import Language.Fortran.Analysis.BBlocks (showBlock, ASTBlockNode, ASTExprNode)
 import Language.Fortran.AST
-import Language.Fortran.AST.RealLit
+import Language.Fortran.AST.Literal.Real
 import qualified Data.Map as M
 import qualified Data.IntMap.Lazy as IM
 import qualified Data.IntMap.Strict as IMS

@@ -5,7 +5,8 @@ import Data.Data
 import Data.Generics.Uniplate.Data
 
 import Language.Fortran.AST
-import Language.Fortran.AST.RealLit
+import Language.Fortran.AST.Literal.Real
+import Language.Fortran.AST.Literal.Complex
 import Language.Fortran.Version
 import Language.Fortran.Util.Position
 
@@ -54,7 +55,7 @@ realGen :: (Fractional a, Show a) => a -> Expression ()
 realGen i = ExpValue () u $ ValReal (parseRealLit (show i)) Nothing
 
 complexGen :: ComplexPart () -> ComplexPart () -> Expression ()
-complexGen cr ci = ExpValue () u $ ValComplex u cr ci
+complexGen cr ci = ExpValue () u $ ValComplex $ ComplexLit () u cr ci
 
 strGen :: String -> Expression ()
 strGen str = ExpValue () u $ ValString str

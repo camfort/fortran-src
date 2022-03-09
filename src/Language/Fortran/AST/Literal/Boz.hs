@@ -21,7 +21,7 @@ that not all info is retained -- which of single or double quotes were used is
 not recorded, for example.
 -}
 
-module Language.Fortran.AST.Boz where
+module Language.Fortran.AST.Literal.Boz where
 
 import           GHC.Generics
 import           Data.Data

@@ -15,7 +15,8 @@ module Language.Fortran.Analysis.Types
   ) where
 
 import Language.Fortran.AST
-import Language.Fortran.AST.RealLit
+import Language.Fortran.AST.Literal.Real
+import Language.Fortran.AST.Literal.Complex
 
 import Prelude hiding (lookup, EQ, LT, GT)
 import Data.Map (insert)
@@ -273,7 +274,7 @@ annotateExpression e@(ExpValue _ _ (ValIntrinsic _))   = maybe e (`setIDType` e)
 annotateExpression e@(ExpValue _ ss (ValReal r mkp))        = do
     k <- deriveRealLiteralKind ss r mkp
     return $ setSemType (TReal k) e
-annotateExpression e@(ExpValue _ _ (ValComplex _ss _cr _ci)) = do
+annotateExpression e@(ExpValue _ _ (ValComplex (ComplexLit _a _ss _cr _ci))) = do
     -- TODO check F90 standard for complex lit typing rules (kind params)
     return e
 annotateExpression e@(ExpValue _ _ ValInteger{})     =

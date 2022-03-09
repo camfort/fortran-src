@@ -16,7 +16,7 @@ For example, the Fortran REAL literal @1D0@ will be parsed into @1.0D0@.
 
 {-# LANGUAGE RecordWildCards #-}
 
-module Language.Fortran.AST.RealLit where
+module Language.Fortran.AST.Literal.Real where
 
 import qualified Data.Char as Char
 import           GHC.Generics
@@ -94,4 +94,4 @@ parseRealLit r =
                                'e' -> ExpLetterE
                                'd' -> ExpLetterD
                                'q' -> ExpLetterQ
-                               _   -> error $ "Language.Fortran.AST.RealLit.parseRealLit: invalid exponent letter: " <> [ch]
+                               _   -> error $ "Language.Fortran.AST.Literal.Real.parseRealLit: invalid exponent letter: " <> [ch]

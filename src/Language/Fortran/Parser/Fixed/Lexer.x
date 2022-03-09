@@ -31,7 +31,7 @@ import Language.Fortran.Version
 import Language.Fortran.Util.FirstParameter
 import Language.Fortran.Util.Position
 import Language.Fortran.Parser.LexerUtils ( readIntOrBoz )
-import Language.Fortran.AST.Boz
+import Language.Fortran.AST.Literal.Boz
 
 }
 
