@@ -607,7 +607,9 @@ POINTER_LIST :: { [ Declarator A0 ] }
 | POINTER                  { [ $1 ] }
 
 POINTER :: { Declarator A0 }
-: '(' VARIABLE ',' VARIABLE ')'
+: '(' VARIABLE ',' VARIABLE '(' DIMENSION_DECLARATORS ')' ')'
+  { Declarator () (getTransSpan $1 $8) $2 (ArrayDecl (aReverse $6)) Nothing (Just $4) }
+| '(' VARIABLE ',' VARIABLE ')'
   { Declarator () (getTransSpan $1 $5) $2 ScalarDecl Nothing (Just $4) }
 
 COMMON_GROUPS :: { AList CommonGroup A0 }
