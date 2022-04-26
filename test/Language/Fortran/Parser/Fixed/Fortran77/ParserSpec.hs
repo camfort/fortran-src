@@ -387,6 +387,20 @@ spec =
         resetSrcSpan (slParser autoSrc) `shouldBe` autoStmt
         resetSrcSpan (slParser staticSrc) `shouldBe` staticStmt
 
+    describe "Cray Pointer Extension" $ do
+      it "parses simple pointee decleration" $ do
+        let pointerStmt = StPointer () u (AList () u [p])
+            p = Declarator () u (varGen "y") ScalarDecl Nothing (Just (varGen "x"))
+            pointerSrc = "      pointer (x, y)"
+        resetSrcSpan (slParser pointerSrc) `shouldBe` pointerStmt
+      it "parses array pointee decleration" $ do
+        let pointerStmt = StPointer () u (AList () u [p])
+            p = Declarator () u (varGen "y") arrayDecl Nothing (Just (varGen "x"))
+            arrayDecl = ArrayDecl (AList () u [dim])
+            dim = DimensionDeclarator () u Nothing (Just $ intGen 3)
+            pointerSrc = "      pointer (x, y(3))"
+        resetSrcSpan (slParser pointerSrc) `shouldBe` pointerStmt
+
 exampleProgram1 :: String
 exampleProgram1 = unlines
   [ "      program hello"

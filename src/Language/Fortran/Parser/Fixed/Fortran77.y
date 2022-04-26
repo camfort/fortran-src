@@ -606,11 +606,12 @@ POINTER_LIST :: { [ Declarator A0 ] }
 : POINTER_LIST ',' POINTER { $3 : $1 }
 | POINTER                  { [ $1 ] }
 
+-- Cray pointers as of https://gcc.gnu.org/onlinedocs/gfortran/Cray-pointers.html
 POINTER :: { Declarator A0 }
 : '(' VARIABLE ',' VARIABLE '(' DIMENSION_DECLARATORS ')' ')'
-  { Declarator () (getTransSpan $1 $8) $2 (ArrayDecl (aReverse $6)) Nothing (Just $4) }
+  { Declarator () (getTransSpan $1 $8) $4 (ArrayDecl (aReverse $6)) Nothing (Just $2) }
 | '(' VARIABLE ',' VARIABLE ')'
-  { Declarator () (getTransSpan $1 $5) $2 ScalarDecl Nothing (Just $4) }
+  { Declarator () (getTransSpan $1 $5) $4 ScalarDecl Nothing (Just $2) }
 
 COMMON_GROUPS :: { AList CommonGroup A0 }
 : COMMON_GROUPS COMMON_GROUP { setSpan (getTransSpan $1 $2) $ $2 `aCons` $1 }
