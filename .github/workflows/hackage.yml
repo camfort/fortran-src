@@ -1,3 +1,10 @@
+# GitHub Actions worflow to build Hackage artifacts for a project: an sdist
+# archive, and Haddock docs for uploading to Hackage.
+#
+# I would love to do this in the same testing workflows, so we're not wasting
+# GitHub's resources, but workflow syntax is debilitating and they strip docs in
+# their provided GHCs, so there's too much complexity to handle it in one place.
+#
 # This workflow is based on the expectation that GitHub's runners install GHC
 # using ghcup with default settings (installs GHCs to `~/.ghcup/ghc/$VERSION`).
 
@@ -10,8 +17,8 @@ on:
 
 env:
   # ghcup needs full version string (e.g. 9.0.1, not 9.0)
-  ghc: "9.0.1"
-  EXE_NAME: fortran-src
+  ghc: "9.2.2"
+  package_name: fortran-src
 
 jobs:
   hackage:
@@ -44,7 +51,7 @@ jobs:
       uses: actions/cache@v2
       with:
         path: ~/.ghcup/ghc/${{ env.ghc }}
-        key: haddock-${{ env.ghc }}-ghc
+        key: hackage-ghc-${{ runner.os }}-ghc_${{ env.ghc }}
 
     - name: Install GHC ${{ env.ghc }} if not present from cache
       run: |
@@ -64,27 +71,30 @@ jobs:
         path: |
           ~/.cabal/store
           dist-newstyle
-        key:          haddock-${{ env.ghc }}-cabal-${{ hashFiles('cabal.project.freeze') }}
-        restore-keys: haddock-${{ env.ghc }}-cabal
+        key:          hackage-deps-${{ runner.os }}-ghc_${{ env.ghc }}-${{ hashFiles('cabal.project.freeze') }}
+        restore-keys: hackage-deps-${{ runner.os }}-ghc_${{ env.ghc }}
 
-    - run: cabal haddock --haddock-for-hackage --enable-documentation
+    # TODO 2022-04-22: --haddock-options=--quickjump fixes a bug with not
+    # propagating --haddock-quickjump to building dependency Haddocks
+    - run: cabal build --enable-documentation --haddock-for-hackage --haddock-options=--quickjump
+
     - run: cabal sdist
 
     - name: Upload Hackage sdist
       uses: actions/upload-artifact@v2
       with:
-        path: dist-newstyle/sdist/${{ env.EXE_NAME }}-*.tar.gz
-        name: ${{ env.EXE_NAME }}-sdist-${{ github.sha }}.tar.gz
+        path: dist-newstyle/sdist/${{ env.package_name }}-*.tar.gz
+        name: ${{ env.package_name }}-sdist-${{ github.sha }}.tar.gz
         if-no-files-found: error
 
     - name: Upload Hackage Haddock docs
       uses: actions/upload-artifact@v2
       with:
-        path: dist-newstyle/${{ env.EXE_NAME }}-*-docs.tar.gz
-        name: ${{ env.EXE_NAME }}-hackage-haddocks-${{ github.sha }}.tar.gz
+        path: dist-newstyle/${{ env.package_name }}-*-docs.tar.gz
+        name: ${{ env.package_name }}-hackage-haddocks-${{ github.sha }}.tar.gz
         if-no-files-found: error
 
     - name: Delete prepared tarballs (else can't extract just newest next time)
       run: |
-        rm dist-newstyle/${{ env.EXE_NAME }}-*-docs.tar.gz
-        rm dist-newstyle/sdist/${{ env.EXE_NAME }}-*.tar.gz
+        rm dist-newstyle/${{ env.package_name }}-*-docs.tar.gz
+        rm dist-newstyle/sdist/${{ env.package_name }}-*.tar.gz
