@@ -249,22 +249,21 @@ BLOCK :: { Block A0 }
 | COMMENT_BLOCK { $1 }
 
 IF_BLOCK :: { Block A0 }
-: if '(' EXPRESSION ')' then NEWLINE BLOCKS ELSE_BLOCKS {
-    let (endSpan, endLabel, conds, blocks) = $8
-    in BlIf () (getTransSpan $1 endSpan) Nothing Nothing ((Just $3):conds) ((reverse $7):blocks) endLabel
-  }
-| LABEL_IN_6COLUMN if '(' EXPRESSION ')' then NEWLINE BLOCKS ELSE_BLOCKS {
-    let (endSpan, endLabel, conds, blocks) = $9
-    in BlIf () (getTransSpan $1 endSpan) (Just $1) Nothing ((Just $4):conds) ((reverse $8):blocks) endLabel
-  }
+:                  if '(' EXPRESSION ')' then NEWLINE BLOCKS ELSE_BLOCKS
+  { let (clauses, elseBlock, endSpan, endLabel) = $8
+    in  BlIf () (getTransSpan $1 endSpan) Nothing   Nothing (($3, reverse $7) :| clauses) elseBlock endLabel }
+| LABEL_IN_6COLUMN if '(' EXPRESSION ')' then NEWLINE BLOCKS ELSE_BLOCKS
+  { let (clauses, elseBlock, endSpan, endLabel) = $9
+    in  BlIf () (getTransSpan $1 endSpan) (Just $1) Nothing (($4, reverse $8) :| clauses) elseBlock endLabel }
 
-ELSE_BLOCKS :: { (SrcSpan, Maybe (Expression A0), [Maybe (Expression A0)], [[Block A0]]) }
+ELSE_BLOCKS :: { ([(Expression A0, [Block A0])], Maybe [Block A0], SrcSpan, Maybe (Expression A0)) }
 : maybe(LABEL_IN_6COLUMN) elsif '(' EXPRESSION ')' then NEWLINE BLOCKS ELSE_BLOCKS
-  { let (endSpan, endLabel, conds, blocks) = $9
-    in (endSpan, endLabel, Just $4 : conds, reverse $8 : blocks) }
+  { let (clauses, elseBlock, endSpan, endLabel) = $9
+    in (($4, reverse $8) : clauses, elseBlock, endSpan, endLabel) }
 | maybe(LABEL_IN_6COLUMN) else NEWLINE BLOCKS maybe(LABEL_IN_6COLUMN) endif
-  { (getSpan $6, $5, [Nothing], [reverse $4]) }
-| maybe(LABEL_IN_6COLUMN) endif { (getSpan $2, $1, [], []) }
+  { ([], Just (reverse $4), getSpan $6, $5) }
+| maybe(LABEL_IN_6COLUMN) endif
+  { ([], Nothing,           getSpan $2, $1) }
 
 COMMENT_BLOCK :: { Block A0 }
 : comment NEWLINE { let (TComment s c) = $1 in BlComment () s (Comment c) }

@@ -7,6 +7,7 @@ import Text.PrettyPrint.GenericPretty
 import Text.PrettyPrint
 import Data.Binary
 import Control.DeepSeq
+import Data.List.NonEmpty ( NonEmpty(..) )
 
 import Language.Fortran.Util.SecondParameter
 
@@ -99,6 +100,11 @@ instance (Spanned a) => Spanned [a] where
   getSpan [x]   = getSpan x
   getSpan (x:xs) = getTransSpan x (last xs)
   setSpan _ _ = error "Cannot set span to an array"
+
+instance (Spanned a) => Spanned (NonEmpty a) where
+  getSpan (x :| [])     = getSpan x
+  getSpan (x :| (y:ys)) = getTransSpan x (last (y:ys))
+  setSpan _ _ = error "Cannot set span to a non-empty list"
 
 instance (Spanned a, Spanned b) => Spanned (a, Maybe b) where
   getSpan (x, Just y) = getTransSpan x y

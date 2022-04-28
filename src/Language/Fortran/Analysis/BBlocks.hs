@@ -27,6 +27,7 @@ import Data.Graph.Inductive
 import Data.List (intercalate)
 import Data.Maybe
 import Data.Functor.Identity
+import qualified Data.List.NonEmpty as NE
 
 --------------------------------------------------
 
@@ -95,15 +96,19 @@ labelWithinBlocks = perBlock'
     perBlock' b =
       case b of
         BlStatement a s e st               -> BlStatement a s (mfill i e) (fill i st)
-        BlIf        a s e1 mn e2 bss el    -> BlIf        a s (mfill i e1) mn (mmfill i e2) bss el
-        BlCase      a s e1 mn e2 is bss el -> BlCase      a s (mfill i e1) mn (fill i e2) (mmfill i is) bss el
+        BlIf        a s e1 mn bs mb el  ->
+          BlIf      a s (mfill i e1) mn (fmap (fillIf i) bs) mb el
+        BlCase      a s e1 mn e2 bs mb el ->
+          BlCase    a s (mfill i e1) mn (fill i e2) (fmap (fillCaseClause i) bs) mb el
         BlDo        a s e1 mn tl e2 bs el  -> BlDo        a s (mfill i e1) mn tl (mfill i e2) bs el
         BlDoWhile   a s e1 n tl e2 bs el   -> BlDoWhile   a s (mfill i e1) n tl (fill i e2) bs el
         _                             -> b
       where i = insLabel $ getAnnotation b
 
     mfill i  = fmap (fill i)
-    mmfill i = fmap (fmap (fill i))
+
+    fillCaseClause i (rs, b) = (fill i rs, b)
+    fillIf i (e, b) = (fill i e, b)
 
     fill :: forall f. (Data (f (Analysis a))) => Maybe ASTBlockNode -> f (Analysis a) -> f (Analysis a)
     fill Nothing  = id
@@ -345,17 +350,22 @@ processBlocks bs = do
 
 --------------------------------------------------
 
+msnoc :: Maybe a -> [a] -> [a]
+msnoc Nothing  xs = xs
+msnoc (Just x) xs = xs <> [x]
+
 -- Handle an AST-block element
 perBlock :: Data a => Block (Analysis a) -> BBlocker (Analysis a) ()
 -- invariant: curNode corresponds to curBB, and is not yet in the graph
 -- invariant: curBB is in reverse order
-perBlock b@(BlIf _ _ _ _ exps bss _) = do
+perBlock b@(BlIf _ _ _ _ clauses elseBlock _) = do
   processLabel b
-  _ <- forM (catMaybes . filter isJust $ exps) processFunctionCalls
+  _ <- forM (fmap fst clauses) processFunctionCalls
   addToBBlock $ stripNestedBlocks b
   (ifN, _) <- closeBBlock
 
   -- go through nested AST-blocks
+  let bss = msnoc elseBlock $ map snd $ NE.toList clauses
   startEnds <- forM bss $ \ bs -> do
     (thenN, endN) <- processBlocks bs
     _ <- genBBlock
@@ -365,14 +375,16 @@ perBlock b@(BlIf _ _ _ _ exps bss _) = do
   nxtN   <- gets curNode
   let es  = startEnds >>= \ (thenN, endN) -> [(ifN, thenN, ()), (endN, nxtN, ())]
   -- if there is no "Else"-statement then we need an edge from ifN -> nxtN
-  createEdges $ if any isNothing exps then es else (ifN, nxtN, ()):es
+  createEdges $ case elseBlock of Nothing -> (ifN, nxtN, ()):es -- es
+                                  Just{}  -> es
 
-perBlock b@(BlCase _ _ _ _ _ inds bss _) = do
+perBlock b@(BlCase _ _ _ _ _ clauses defCase _) = do
   processLabel b
   addToBBlock $ stripNestedBlocks b
   (selectN, _) <- closeBBlock
 
   -- go through nested AST-blocks
+  let bss = msnoc defCase $ map snd clauses
   startEnds <- forM bss $ \ bs -> do
     (caseN, endN) <- processBlocks bs
     _ <- genBBlock
@@ -382,7 +394,8 @@ perBlock b@(BlCase _ _ _ _ _ inds bss _) = do
   nxtN   <- gets curNode
   let es  = startEnds >>= \ (caseN, endN) -> [(selectN, caseN, ()), (endN, nxtN, ())]
   -- if there is no "CASE DEFAULT"-statement then we need an edge from selectN -> nxtN
-  createEdges $ if any isNothing inds then es else (selectN, nxtN, ()):es
+  createEdges $ case defCase of Nothing -> (selectN, nxtN, ()):es
+                                Just{}  -> es
 
 perBlock b@(BlStatement _ _ _ (StGotoComputed _ _ _ exp)) = do
   processLabel b
@@ -561,8 +574,10 @@ genTemp str = do
 stripNestedBlocks :: Block a -> Block a
 stripNestedBlocks (BlDo a s l mn tl ds _ el)     = BlDo a s l mn tl ds [] el
 stripNestedBlocks (BlDoWhile a s l tl n e _ el)  = BlDoWhile a s l tl n e [] el
-stripNestedBlocks (BlIf a s l mn exps _ el)      = BlIf a s l mn exps [] el
-stripNestedBlocks (BlCase a s l mn sc inds _ el) = BlCase a s l mn sc inds [] el
+stripNestedBlocks (BlIf a s l mn clauses elseBlock el) =
+    BlIf a s l mn (fmap (\(e, _bs) -> (e, [])) clauses) (fmap (const []) elseBlock) el
+stripNestedBlocks (BlCase a s l mn sc clauses caseDef el) =
+    BlCase a s l mn sc (fmap (\(r, _bs) -> (r, [])) clauses) (fmap (const []) caseDef) el
 stripNestedBlocks b                              = b
 
 -- Flatten out function calls within the expression, returning an
@@ -785,7 +800,8 @@ showBlock (BlStatement _ _ mlab st)
         StDimension _ _ adecls       -> "dimension " ++ aIntercalate ", " showDecl adecls
         StExit{}                     -> "exit"
         _                            -> "<unhandled statement: " ++ show (toConstr (fmap (const ()) st)) ++ ">"
-showBlock (BlIf _ _ mlab _ (Just e1:_) _ _) = showLab mlab ++ "if " ++ showExpr e1 ++ "\\l"
+showBlock (BlIf _ _ mlab _ ((e1, _) :| _) _ _) =
+    showLab mlab ++ "if " ++ showExpr e1 ++ "\\l"
 showBlock (BlDo _ _ mlab _ _ (Just spec) _ _) =
     showLab mlab ++ "do " ++ showExpr e1 ++ " <- " ++
       showExpr e2 ++ ", " ++

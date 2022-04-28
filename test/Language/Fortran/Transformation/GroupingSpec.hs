@@ -208,7 +208,7 @@ ifInnerBlockSpanRaw = unlines [
   , "      end" ]
 ifInnerBlockSpan :: (String -> Block A0) -> SimpleSpan
 ifInnerBlockSpan p =
-  let BlIf _ _ _ _ _ bs _ = p ifInnerBlockSpanRaw
-  in  simplifySpan $ getSpan bs
+  let BlIf _ _ _ _ clauses elseBlock _ = p ifInnerBlockSpanRaw
+  in  simplifySpan $ getSpan (fmap snd clauses, elseBlock)
 expectedIfInnerBlockSpan :: SimpleSpan
 expectedIfInnerBlockSpan = (3, 1, 5, 35)
