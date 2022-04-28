@@ -376,18 +376,19 @@ spec =
 
       describe "If" $ do
         it "prints vanilla structured if" $ do
-          let bl = BlIf () u Nothing Nothing [ Just valTrue ] [ body ] Nothing
-          let expect = unlines [ "if (.true.) then"
+          let bl = BlIf () u Nothing Nothing clauses Nothing Nothing
+              clauses = (valTrue, body) :| []
+              expect = unlines [ "if (.true.) then"
                                , "print *, i"
                                , "i = (i - 1)"
                                , "end if" ]
           pprint Fortran90 bl Nothing `shouldBe` text expect
 
         it "prints multiple condition named structured if" $ do
-          let conds = [ Just valTrue, Just valFalse, Just valTrue, Nothing ]
-          let bodies = replicate 4 body
-          let bl = BlIf () u Nothing (Just "mistral") conds bodies Nothing
-          let expect = unlines [ "mistral: if (.true.) then"
+          let clauses = (valTrue, body) :| [ (valFalse, body), (valTrue, body) ]
+              elseBlock = Just body
+              bl = BlIf () u Nothing (Just "mistral") clauses elseBlock Nothing
+              expect = unlines [ "mistral: if (.true.) then"
                                , "  print *, i"
                                , "  i = (i - 1)"
                                , "else if (.false.) then"
@@ -403,35 +404,14 @@ spec =
           pprint Fortran90 bl (Just 0) `shouldBe` text expect
 
       describe "Case" $
-        it "prints complicated structured if" $ do
-          let range = IxRange () u (Just $ intGen 2) (Just $ intGen 4) Nothing
-          let cases = [ Just (AList () u [range])
-                      , Just (AList () u [ IxSingle () u Nothing (intGen 7) ])
-                      , Nothing ]
-          let bodies = replicate 3 body
-          let bl = BlCase () u Nothing Nothing (varGen "x") cases bodies (Just (intGen 42))
-          let expect = unlines [ "select case (x)"
-                               , "  case (2:4)"
-                               , "    print *, i"
-                               , "    i = (i - 1)"
-                               , "  case (7)"
-                               , "    print *, i"
-                               , "    i = (i - 1)"
-                               , "  case default"
-                               , "    print *, i"
-                               , "    i = (i - 1)"
-                               , "42 end select" ]
-          pprint Fortran90 bl (Just 0) `shouldBe` text expect
-
-      describe "Case" $
         it "prints multi-case select case construct" $ do
           let range = IxRange () u (Just $ intGen 2) (Just $ intGen 4) Nothing
-          let cases = [ Just (AList () u [range])
-                      , Just (AList () u [ IxSingle () u Nothing (intGen 7) ])
-                      , Nothing ]
-          let bodies = replicate 3 body
-          let bl = BlCase () u Nothing Nothing (varGen "x") cases bodies (Just (intGen 42))
-          let expect = unlines [ "select case (x)"
+              clauses = [ ( AList () u [range] , body )
+                        , ( AList () u [ IxSingle () u Nothing (intGen 7) ] , body )
+                        ]
+              caseDef = Just body
+              bl = BlCase () u Nothing Nothing (varGen "x") clauses caseDef (Just (intGen 42))
+              expect = unlines [ "select case (x)"
                                , "  case (2:4)"
                                , "    print *, i"
                                , "    i = (i - 1)"

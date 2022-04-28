@@ -8,15 +8,15 @@ in behaviour between parsers is be expected.
 
 module Language.Fortran.Parser.Free.Common ( specFreeCommon ) where
 
-import           TestUtil
-import           Test.Hspec
+import TestUtil
+import Test.Hspec
 
-import           Language.Fortran.AST
-import           Language.Fortran.AST.Literal.Real
+import Language.Fortran.AST
+import Language.Fortran.AST.Literal.Real
 
-specFreeCommon :: (String -> Statement A0) -> (String -> Expression A0) -> Spec
-specFreeCommon sParser eParser =
-  describe "Common Fortran 90+ tests" $ do
+specFreeCommon :: (String -> Block A0) -> (String -> Statement A0) -> (String -> Expression A0) -> Spec
+specFreeCommon bParser sParser eParser =
+  describe "Common Fortran 90+ (free form) tests" $ do
     describe "Literals" $ do
       describe "Logical" $ do
         it "parses logical literal without kind parameter" $ do
@@ -124,3 +124,75 @@ specFreeCommon sParser eParser =
                                     , genArg (ArgExpr (varGen "i")) ]
               genArg   = Argument () u Nothing
           sParser stStr `shouldBe'` expected
+
+    describe "Block" $ do
+      describe "Case" $ do
+        let printArgs str = Just $ AList () u [ExpValue () u $ ValString str]
+            printStmt = StPrint () u (ExpValue () u ValStar) . printArgs
+            ind2 = AList () u . pure $ IxSingle () u Nothing $ intGen 2
+            ind3Plus = AList () u . pure $ IxRange () u (Just $ intGen 3) Nothing Nothing
+
+        it "unlabelled case block (with inline comments to be stripped)" $ do
+          let printBlock = BlStatement () u Nothing . printStmt
+              clauses = [(ind2, [printBlock "foo"]), (ind3Plus, [printBlock "bar"])]
+              caseDef = Just [printBlock "baz"]
+          let src = unlines [ "select case (x) ! comment select"
+                            , "! full line before first case (unrepresentable)"
+                            , "case (2) ! comment case 1"
+                            , "print *, 'foo'"
+                            , "case (3:) ! comment case 2"
+                            , "print *, 'bar'"
+                            , "case default ! comment case 3"
+                            , "print *, 'baz'"
+                            , "end select ! comment end"
+                            ]
+              block = BlCase () u Nothing Nothing (varGen "x") clauses caseDef Nothing
+          bParser src `shouldBe'` block
+
+        it "labelled case block (with inline comments to be stripped" $ do
+          let printBlock label = BlStatement () u (Just $ intGen label) . printStmt
+              clauses = [(ind2, [printBlock 30 "foo"]), (ind3Plus, [printBlock 50 "bar"])]
+              caseDef = Just [printBlock 70 "baz"]
+          let src = unlines [ "10 mylabel: select case (x) ! comment select"
+                            , "20 case (2) ! comment case 1"
+                            , "30 print *, 'foo'"
+                            , "40 case (3:) ! comment case 2"
+                            , "50 print *, 'bar'"
+                            , "60 case default ! comment case 3"
+                            , "70 print *, 'baz'"
+                            , "80 end select mylabel ! comment end"
+                            ]
+              block = BlCase () u
+                             (Just $ intGen 10) (Just "mylabel") (varGen "x")
+                             clauses caseDef
+                             (Just $ intGen 80)
+          bParser src `shouldBe'` block
+
+      describe "If" $ do
+        let stPrint = StPrint () u starVal (Just $ fromList () [ ExpValue () u (ValString "foo")])
+            inner   = [BlStatement () u Nothing stPrint]
+        it "parser if block" $
+          let ifBlockSrc = unlines [ "if (.false.) then", "print *, 'foo'", "end if"]
+              ifBlock = BlIf () u Nothing Nothing ((valFalse, inner) :| []) Nothing Nothing
+          in  bParser ifBlockSrc `shouldBe'` ifBlock
+
+        it "parses named if block" $ do
+          let ifBlockSrc = unlines [ "mylabel : if (.true.) then", "print *, 'foo'", "end if mylabel"]
+              ifBlock = BlIf () u Nothing (Just "mylabel") ((valTrue, inner) :| []) Nothing Nothing
+          bParser ifBlockSrc `shouldBe'` ifBlock
+
+        it "parses if-else block with inline comments (stripped)" $
+          let ifBlockSrc = unlines [ "if (.false.) then ! comment if", "print *, 'foo'", "else ! comment else", "print *, 'foo'", "end if ! comment end"]
+              ifBlock = BlIf () u Nothing Nothing ((valFalse, inner) :| []) (Just inner) Nothing
+          in  bParser ifBlockSrc `shouldBe'` ifBlock
+
+        it "parses logical if statement" $ do
+          let assignment = StExpressionAssign () u (varGen "a") (varGen "b")
+              stIf = StIfLogical () u valTrue assignment
+          sParser "if (.true.) a = b" `shouldBe'` stIf
+
+        it "parses arithmetic if statement" $ do
+          let stIf = StIfArithmetic () u (varGen "x") (intGen 1)
+                                                      (intGen 2)
+                                                      (intGen 3)
+          sParser "if (x) 1, 2, 3" `shouldBe'` stIf

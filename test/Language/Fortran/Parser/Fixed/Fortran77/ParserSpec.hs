@@ -213,8 +213,10 @@ spec =
       let printArgs  = Just $ AList () u [ExpValue () u $ ValString "foo"]
           printStmt  = StPrint () u (ExpValue () u ValStar) printArgs
           printBlock = BlStatement () u Nothing printStmt
+          inner      = [printBlock]
+
       it "unlabelled" $ do
-        let bl = BlIf () u Nothing Nothing [ Just valTrue, Nothing ] [[printBlock], [printBlock]]  Nothing
+        let bl = BlIf () u Nothing Nothing ((valTrue, inner) :| []) (Just inner) Nothing
             src = unlines [ "      if (.true.) then ! comment if"
                           , "        print *, 'foo'"
                           , "      else ! comment else"
@@ -222,9 +224,10 @@ spec =
                           , "       endif ! comment end"
                           ]
         bParser src `shouldBe'` bl
+
       it "labelled" $ do
         let label = Just . intGen
-            bl = BlIf () u (label 10)  Nothing [Just valTrue, Nothing] [[printBlock], [printBlock]] (label 30)
+            bl = BlIf () u (label 10)  Nothing ((valTrue, inner) :| []) (Just inner) (label 30)
             src = unlines [ "10    if (.true.) then ! comment if"
                           , "        print *, 'foo'"
                           , "20    else ! comment else"

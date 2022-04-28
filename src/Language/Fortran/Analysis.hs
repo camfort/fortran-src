@@ -368,7 +368,8 @@ blockVarUses (BlStatement _ _ _ (StCall _ _ f@(ExpValue _ _ (ValIntrinsic _)) _)
   | Just uses <- intrinsicUses f = uses
 blockVarUses (BlStatement _ _ _ (StCall _ _ _ (Just aexps))) = allVars aexps
 blockVarUses (BlDoWhile _ _ e1 _ _ e2 _ _) = maybe [] allVars e1 ++ allVars e2
-blockVarUses (BlIf _ _ e1 _ e2 _ _)        = maybe [] allVars e1 ++ concatMap (maybe [] allVars) e2
+blockVarUses (BlIf _ _ eLabel _ clauses _ _) =
+    maybe [] allVars eLabel ++ concatMap allVars (fmap fst clauses)
 blockVarUses b                             = allVars b
 
 -- | Set of names defined by an AST-block.

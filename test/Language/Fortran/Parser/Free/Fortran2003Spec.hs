@@ -173,4 +173,4 @@ spec =
             expBinVars op x1 x2 = ExpBinary () u op (expValVar x1) (expValVar x2)
         bParser text `shouldBe'` expected
 
-    specFreeCommon sParser eParser
+    specFreeCommon bParser sParser eParser

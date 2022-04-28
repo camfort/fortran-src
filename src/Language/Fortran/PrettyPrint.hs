@@ -41,6 +41,16 @@ infixl 7 <?>
 doc1 <?+> doc2 = if doc1 == empty || doc2 == empty then empty else doc1 <+> doc2
 infixl 7 <?+>
 
+-- Helpers
+printMaybe :: (a -> Doc) -> Maybe a -> Doc
+printMaybe f = \case Just a  -> f a
+                     Nothing -> empty
+
+printIndentedBlockWithPre
+    :: FortranVersion -> Indentation -> Doc -> [Block a] -> Doc
+printIndentedBlockWithPre v i doc b =
+    doc <> newline <> pprint v b (incIndentation i)
+
 newline :: Doc
 newline = char '\n'
 
@@ -241,48 +251,49 @@ instance IndentablePretty (Block a) where
         then indent i (pprint' v mLabel <+> pprint' v st <> newline)
         else pprint' v mLabel `overlay` indent i (pprint' v st <> newline)
 
-    pprint v (BlIf _ _ mLabel mName conds bodies el) i
+    pprint v (BlIf _ _ mLabel mName ((ifPred, thenBlock) :| elseIfs) mElseBlock el) i
       | v >= Fortran77 =
-        labeledIndent mLabel
-          (pprint' v mName <?> colon <+>
-          "if" <+> parens (pprint' v firstCond) <+> "then" <> newline) <>
-        pprint v firstBody nextI <>
-        foldl' (<>) empty (map displayCondBlock restCondsBodies) <>
-        labeledIndent el ("end if" <+> pprint' v mName <> newline)
+               labeledIndent mLabel displayIfThen
+            <> foldl' (<>) empty (map displayElseIf elseIfs)
+            <> printMaybe displayElse mElseBlock
+            <> labeledIndent el ("end if" <+> pprint' v mName)
+            <> newline
       | otherwise = tooOld v "Structured if" Fortran77
       where
-        ((firstCond, firstBody): restCondsBodies) = zip conds bodies
-        displayCondBlock (mCond, block) =
-          indent i
-            (case mCond of {
-              Just cond -> "else if" <+> parens (pprint' v cond) <+> "then";
-              Nothing -> "else"
-            } <> newline) <>
-          pprint v block nextI
-        nextI = incIndentation i
+        displayIfThen =
+            displayClause displayIfPred thenBlock
+        displayIfPred =
+            pprint' v mName <?> colon <+> displayPred "if" ifPred
+        displayPred str pred =
+            indent i str <+> parens (pprint' v pred) <+> "then"
+        displayElseIf (pred, block) =
+            displayClause (displayPred "else if" pred) block
+        displayElse block =
+            displayClause (indent i "else") block
+        displayClause = printIndentedBlockWithPre v i
         labeledIndent label stDoc =
           if v >= Fortran90
             then indent i (pprint' v label <+> stDoc)
             else pprint' v mLabel `overlay` indent i stDoc
 
-    pprint v (BlCase _ _ mLabel mName scrutinee ranges bodies el) i
+    pprint v (BlCase _ _ mLabel mName scrutinee clauses mDefaultCase el) i
       | v >= Fortran90 =
-        indent i
-          (pprint' v mLabel <+>
-          pprint' v mName <?> colon <+>
-          "select case" <+> parens (pprint' v scrutinee) <> newline) <>
-        foldl' (<>) empty (zipWith (curry displayRangeBlock) ranges bodies) <>
-        indent i (pprint' v el <+> "end select" <+> pprint' v mName <> newline)
+             indent i (pre <+> "select case" <+> parens (pprint' v scrutinee))
+          <> newline
+          <> foldl' (<>) empty (map displayCase clauses)
+          <> printMaybe displayCaseDefault mDefaultCase
+          <> indent i (pprint' v el <+> "end select" <+> pprint' v mName)
+          <> newline
       | otherwise = tooOld v "Select case" Fortran90
       where
-        displayRangeBlock (mRanges, block) =
-          indent nextI
-            ("case" <+>
-            case mRanges of {
-              Just ranges' -> parens (pprint' v ranges');
-              Nothing -> "default" } <> newline) <>
-          pprint v block (incIndentation nextI)
         nextI = incIndentation i
+        pre = pprint' v mLabel <+> pprint' v mName <?> colon
+        displayCaseDefault =
+            displayClause (indent nextI "case default")
+        displayCase (ranges, block) =
+            displayClause (indent nextI $ "case" <+> displayRanges ranges) block
+        displayRanges = parens . pprint' v
+        displayClause = printIndentedBlockWithPre v nextI
 
     pprint v (BlInterface _ _ mLabel abstractp pus moduleProcs) i
       | v >= Fortran90 =

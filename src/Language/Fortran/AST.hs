@@ -1,3 +1,5 @@
+{-# OPTIONS_GHC -fno-warn-orphans #-} -- for Out (NonEmpty a)
+
 -- |
 --
 -- This module holds the data types used to represent Fortran code of various
@@ -110,6 +112,9 @@ module Language.Fortran.AST
   , updateProgramUnitBody
   , programUnitSubprograms
 
+  -- * Re-exports
+  , NonEmpty(..)
+
   ) where
 
 import Prelude hiding ( init )
@@ -130,6 +135,7 @@ import Data.Data
 import Data.Binary
 import Control.DeepSeq
 import Text.PrettyPrint.GenericPretty
+import Data.List.NonEmpty ( NonEmpty(..) )
 
 -- | The empty annotation.
 type A0 = ()
@@ -320,16 +326,16 @@ data Block a =
   | BlIf        a SrcSpan
                 (Maybe (Expression a))       -- ^ Label
                 (Maybe String)               -- ^ Construct name
-                [ Maybe (Expression a) ]     -- ^ Conditions
-                [ [ Block a ] ]              -- ^ Bodies
+                (NonEmpty (Expression a, [Block a])) -- ^ IF, ELSE IF clauses
+                (Maybe [Block a])            -- ^ ELSE block
                 (Maybe (Expression a))       -- ^ Label to END IF
 
   | BlCase      a SrcSpan
                 (Maybe (Expression a))       -- ^ Label
                 (Maybe String)               -- ^ Construct name
                 (Expression a)               -- ^ Scrutinee
-                [ Maybe (AList Index a) ]    -- ^ Case ranges
-                [ [ Block a ] ]              -- ^ Bodies
+                [(AList Index a, [Block a])] -- ^ CASE clauses
+                (Maybe [Block a])            -- ^ CASE default
                 (Maybe (Expression a))       -- ^ Label to END SELECT
 
   | BlDo        a SrcSpan
@@ -866,7 +872,7 @@ instance Labeled Block where
   getLastLabel _ = Nothing
 
   setLabel (BlStatement a s _ st) l = BlStatement a s (Just l) st
-  setLabel (BlIf a s _ mn conds bs el) l = BlIf a s (Just l) mn conds bs el
+  setLabel (BlIf a s _ mn clauses elseBlock el) l = BlIf a s (Just l) mn clauses elseBlock el
   setLabel (BlDo a s _ mn tl spec bs el) l = BlDo a s (Just l) mn tl spec bs el
   setLabel (BlDoWhile a s _ n tl spec bs el) l = BlDoWhile a s (Just l) n tl spec bs el
   setLabel b _ = b
@@ -1040,3 +1046,5 @@ instance NFData BinaryOp
 instance NFData Only
 instance NFData ModuleNature
 instance NFData Intent
+
+instance Out a => Out (NonEmpty a)

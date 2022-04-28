@@ -210,10 +210,10 @@ applyGroupingToSubblocks :: (ABlocks a -> ABlocks a) -> Block (Analysis a) -> Bl
 applyGroupingToSubblocks f b
   | BlStatement{} <- b =
       error "Individual statements do not have subblocks. Must not occur."
-  | BlIf a s l mn conds blocks         el <- b =
-    BlIf a s l mn conds (map f blocks) el
-  | BlCase a s l mn scrutinee conds blocks         el <- b =
-    BlCase a s l mn scrutinee conds (map f blocks) el
+  | BlIf a s l mn clauses elseBlock el <- b =
+    BlIf a s l mn (fmap (\(cond, block) -> (cond, f block)) clauses) (fmap f elseBlock) el
+  | BlCase a s l mn scrutinee clauses caseDefault el <- b =
+    BlCase a s l mn scrutinee (map (\(range, block) -> (range, f block)) clauses) (fmap f caseDefault) el
   | BlDo a s l n tl doSpec blocks     el <- b =
     BlDo a s l n tl doSpec (f blocks) el
   | BlDoWhile a s l n tl doSpec blocks     el <- b =
