@@ -1,4 +1,8 @@
-resolver: lts-16.28
+resolver: lts-19.6
 packages:
 - '.'
 save-hackage-creds: false
+
+extra-deps:
+- generic-optics-2.2.1.0@sha256:738a87c90070dccebf643dda93773aa6f4819eb5df8be3ceaefbec1542ac14bc,3744
+- optics-0.4.1@sha256:0b85afb3c88a474da9db2986b4ff9d15195f6b220cc4c557968cfb0fdb915526,7560

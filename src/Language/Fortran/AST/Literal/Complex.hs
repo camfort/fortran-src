@@ -31,7 +31,7 @@ data ComplexLit a = ComplexLit
     deriving anyclass (NFData, Out)
 
 instance FirstParameter  (ComplexLit a) a
-instance SecondParameter (ComplexLit a) a
+instance SecondParameter (ComplexLit a) SrcSpan
 instance Annotated       ComplexLit
 
 -- | A part (either real or imaginary) of a complex literal.

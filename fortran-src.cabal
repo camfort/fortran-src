@@ -144,7 +144,9 @@ library
     , either >=5.0.1.1 && <5.1
     , fgl ==5.*
     , filepath ==1.4.*
+    , generic-optics >=2.2.1.0 && <2.3
     , mtl >=2.2 && <3
+    , optics-core >=0.4.1 && <0.5
     , pretty >=1.1 && <2
     , temporary >=1.2 && <1.4
     , text >=1.2 && <2
@@ -190,7 +192,9 @@ executable fortran-src
     , fgl ==5.*
     , filepath ==1.4.*
     , fortran-src
+    , generic-optics >=2.2.1.0 && <2.3
     , mtl >=2.2 && <3
+    , optics-core >=0.4.1 && <0.5
     , pretty >=1.1 && <2
     , temporary >=1.2 && <1.4
     , text >=1.2 && <2
@@ -267,8 +271,10 @@ test-suite spec
     , fgl ==5.*
     , filepath ==1.4.*
     , fortran-src
+    , generic-optics >=2.2.1.0 && <2.3
     , hspec >=2.2 && <3
     , mtl >=2.2 && <3
+    , optics-core >=0.4.1 && <0.5
     , pretty >=1.1 && <2
     , temporary >=1.2 && <1.4
     , text >=1.2 && <2

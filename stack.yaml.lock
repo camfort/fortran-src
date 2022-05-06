@@ -3,10 +3,24 @@
 # For more information, please see the documentation at:
 #   https://docs.haskellstack.org/en/stable/lock_files
 
-packages: []
+packages:
+- completed:
+    hackage: generic-optics-2.2.1.0@sha256:738a87c90070dccebf643dda93773aa6f4819eb5df8be3ceaefbec1542ac14bc,3744
+    pantry-tree:
+      size: 2173
+      sha256: 55628691fc178bbba0fea0c6637a2e304113d0d0e48cb2580222cc2f13398325
+  original:
+    hackage: generic-optics-2.2.1.0@sha256:738a87c90070dccebf643dda93773aa6f4819eb5df8be3ceaefbec1542ac14bc,3744
+- completed:
+    hackage: optics-0.4.1@sha256:0b85afb3c88a474da9db2986b4ff9d15195f6b220cc4c557968cfb0fdb915526,7560
+    pantry-tree:
+      size: 1157
+      sha256: 1e011868453a8c81e6635fb664900287798f2bacb4eeafb2229c13cdd21aea4a
+  original:
+    hackage: optics-0.4.1@sha256:0b85afb3c88a474da9db2986b4ff9d15195f6b220cc4c557968cfb0fdb915526,7560
 snapshots:
 - completed:
-    size: 533053
-    url: https://raw.githubusercontent.com/commercialhaskell/stackage-snapshots/master/lts/16/28.yaml
-    sha256: a9c01d860ac8dfb3a1b6f7ec4a36dd9504a95392b89c99b0877da63fa36a8e97
-  original: lts-16.28
+    size: 618876
+    url: https://raw.githubusercontent.com/commercialhaskell/stackage-snapshots/master/lts/19/6.yaml
+    sha256: fb634b19f31da06684bb07ce02a20c75a3162138f279b388905b03ebd57bb50f
+  original: lts-19.6

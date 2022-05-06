@@ -1,48 +1,26 @@
-{-# LANGUAGE DefaultSignatures #-}
-{-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE FunctionalDependencies #-}
+{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE DefaultSignatures #-}
+{-# LANGUAGE TypeApplications #-}
 
-module Language.Fortran.Util.FirstParameter(FirstParameter(..), GFirstParameter(..)) where
+module Language.Fortran.Util.FirstParameter
+  ( FirstParameter(..)
+  , getFirstParameter, setFirstParameter
+  ) where
 
-import GHC.Generics
+import Data.Generics.Product.Positions ( HasPosition(position) )
+import Optics.Lens ( Lens )
+import Optics.Getter ( view )
+import Optics.Setter ( set )
 
-class FirstParameter a e | a -> e where
-  getFirstParameter :: a -> e
-  setFirstParameter :: e -> a -> a
+class FirstParameter s a | s -> a where
+  lensFirstParameter :: Lens s s a a
 
-  default getFirstParameter :: (Generic a, GFirstParameter (Rep a) e) => a -> e
-  getFirstParameter = getFirstParameter' . from
+  default lensFirstParameter :: HasPosition 1 s s a a => Lens s s a a
+  lensFirstParameter = position @1
 
-  default setFirstParameter :: (Generic a, GFirstParameter (Rep a) e) => e -> a -> a
-  setFirstParameter e = to . setFirstParameter' e . from
+getFirstParameter :: FirstParameter s a => s -> a
+getFirstParameter = view lensFirstParameter
 
-class GFirstParameter f e where
-  getFirstParameter' :: f a -> e
-  setFirstParameter' :: e -> f a -> f a
-
-instance {-# OVERLAPPING #-} GFirstParameter (K1 i e) e where
-  getFirstParameter' (K1 a) = a
-  setFirstParameter' e (K1 _)  = K1 e
-
-instance {-# OVERLAPPABLE #-} GFirstParameter (K1 i a) e where
-  getFirstParameter' _ = undefined
-  setFirstParameter' _ _ = undefined
-
-instance GFirstParameter a e => GFirstParameter (M1 i c a) e where
-  getFirstParameter' (M1 a) = getFirstParameter' a
-  setFirstParameter' e (M1 a) = M1 $ setFirstParameter' e a
-
-instance (GFirstParameter a e, GFirstParameter b e) => GFirstParameter (a :+: b) e where
-  getFirstParameter' (L1 a) = getFirstParameter' a
-  getFirstParameter' (R1 a) = getFirstParameter' a
-
-  setFirstParameter' e (L1 a) = L1 $ setFirstParameter' e a
-  setFirstParameter' e (R1 a) = R1 $ setFirstParameter' e a
-
-instance (GFirstParameter a e, GFirstParameter b e) => GFirstParameter (a :*: b) e where
-  getFirstParameter' (a :*: _) = getFirstParameter' a
-  setFirstParameter' e (a :*: b) = setFirstParameter' e a :*: b
-
-instance (GFirstParameter U1 String) where
-  getFirstParameter' _ = ""
-  setFirstParameter' _ e = e
+setFirstParameter :: FirstParameter s a => a -> s -> s
+setFirstParameter = set lensFirstParameter
