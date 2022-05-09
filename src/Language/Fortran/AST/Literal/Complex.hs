@@ -5,7 +5,7 @@ module Language.Fortran.AST.Literal.Complex where
 import Language.Fortran.AST.Common ( Name )
 import Language.Fortran.AST.Literal ( KindParam )
 import Language.Fortran.AST.Literal.Real
-import Language.Fortran.Util.Position ( SrcSpan )
+import Language.Fortran.Util.Position ( SrcSpan, Spanned )
 
 import GHC.Generics                   ( Generic )
 import Data.Data                      ( Data, Typeable )
@@ -31,8 +31,9 @@ data ComplexLit a = ComplexLit
     deriving anyclass (NFData, Out)
 
 instance FirstParameter  (ComplexLit a) a
-instance SecondParameter (ComplexLit a) a
 instance Annotated       ComplexLit
+instance SecondParameter (ComplexLit a) SrcSpan
+instance Spanned         (ComplexLit a)
 
 -- | A part (either real or imaginary) of a complex literal.
 --
@@ -52,3 +53,8 @@ data ComplexPart a
   | ComplexPartNamed  a SrcSpan Name                          -- ^ named constant
     deriving stock    (Eq, Show, Data, Typeable, Generic, Functor)
     deriving anyclass (NFData, Out)
+
+instance FirstParameter  (ComplexPart a) a
+instance Annotated       ComplexPart
+instance SecondParameter (ComplexPart a) SrcSpan
+instance Spanned         (ComplexPart a)

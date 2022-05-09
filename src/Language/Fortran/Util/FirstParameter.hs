@@ -1,3 +1,18 @@
+{-|
+A convenience class for retrieving the first field of any constructor in a
+datatype.
+
+The primary usage for this class is generic derivation:
+
+    data D a = D a () String deriving Generic
+    instance FirstParameter (D a) a
+
+Note that _the deriver does not check you are requesting a valid/safe instance._
+Invalid instances propagate the error to runtime. Fixing this requires a lot
+more type-level work. (The generic-lens library has a general solution, but it's
+slow and memory-consuming.)
+-}
+
 {-# LANGUAGE DefaultSignatures #-}
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE FunctionalDependencies #-}

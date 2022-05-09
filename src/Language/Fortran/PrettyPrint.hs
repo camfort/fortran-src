@@ -1,6 +1,5 @@
 {-# LANGUAGE OverloadedStrings     #-}
 {-# LANGUAGE UndecidableInstances  #-}
-{-# OPTIONS_GHC -Wno-orphans #-}
 
 module Language.Fortran.PrettyPrint where
 
@@ -14,7 +13,6 @@ import Language.Fortran.AST.Literal.Real
 import Language.Fortran.AST.Literal.Boz
 import Language.Fortran.AST.Literal.Complex
 import Language.Fortran.Version
-import Language.Fortran.Util.FirstParameter
 
 import Text.PrettyPrint
 
@@ -955,8 +953,6 @@ instance Pretty (Index a) where
     pprint' v (IxRange _ _ low up stride) =
        pprint' v low <> colon <> pprint' v up <> colon <?> pprint' v stride
 
--- A subset of Value permit the 'FirstParameter' operation
-instance FirstParameter (Value a) String
 instance Pretty (Value a) where
     pprint' _ ValStar       = char '*'
     pprint' _ ValColon      = char ':'
@@ -975,7 +971,11 @@ instance Pretty (Value a) where
     pprint' v (ValInteger i mkp) = text i <> pprint' v mkp
     pprint' v (ValReal rl mkp) = text (prettyHsRealLit rl) <> pprint' v mkp
     pprint' _ (ValBoz b) = text $ prettyBoz b
-    pprint' _ valLit = text . getFirstParameter $ valLit
+
+    pprint' _ (ValHollerith s) = text s
+    pprint' _ (ValVariable  s) = text s
+    pprint' _ (ValIntrinsic s) = text s
+    pprint' _ (ValType      s) = text s
 
 instance Pretty (ComplexLit a) where
     pprint' v c = parens $ commaSep [realPart, imagPart]
