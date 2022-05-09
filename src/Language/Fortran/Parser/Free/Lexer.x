@@ -893,7 +893,7 @@ type LexAction a = Parse AlexInput Token a
 vanillaAlexInput :: String -> B.ByteString -> AlexInput
 vanillaAlexInput fn bs = AlexInput
   { aiSourceBytes          = bs
-  , aiPosition             = initPosition { filePath = fn }
+  , aiPosition             = initPosition { posFilePath = fn }
   , aiEndOffset            = B.length bs
   , aiPreviousChar         = '\n'
   , aiLexeme               = initLexeme

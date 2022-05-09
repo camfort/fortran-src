@@ -888,7 +888,7 @@ vanillaAlexInput :: String -> FortranVersion -> B.ByteString -> AlexInput
 vanillaAlexInput fn fv bs = AlexInput
   { aiSourceBytes = bs
   , aiEndOffset = B.length bs
-  , aiPosition = initPosition { filePath = fn }
+  , aiPosition = initPosition { posFilePath = fn }
   , aiBytes = []
   , aiPreviousChar = '\n'
   , aiLexeme = initLexeme

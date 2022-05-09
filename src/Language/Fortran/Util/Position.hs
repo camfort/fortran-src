@@ -17,7 +17,7 @@ data Position = Position
   { posAbsoluteOffset   :: Int
   , posColumn           :: Int
   , posLine             :: Int
-  , filePath            :: String
+  , posFilePath         :: String
   , posPragmaOffset     :: Maybe (Int, String)  -- ^ line-offset and filename as given by a pragma.
   } deriving (Eq, Ord, Data, Typeable, Generic)
 
@@ -32,7 +32,7 @@ initPosition = Position
   { posAbsoluteOffset = 0
   , posColumn = 1
   , posLine = 1
-  , filePath = ""
+  , posFilePath = ""
   , posPragmaOffset = Nothing
   }
 
@@ -47,9 +47,12 @@ apparentLineCol (Position _ c l _ _)             = (l, c)
 -- | Path of file taking into account any specified line pragmas.
 apparentFilePath :: Position -> String
 apparentFilePath p | Just (_, f) <- posPragmaOffset p = f
-                   | otherwise                        = filePath p
+                   | otherwise                        = posFilePath p
 
-data SrcSpan = SrcSpan Position Position deriving (Eq, Ord, Typeable, Data, Generic)
+data SrcSpan = SrcSpan
+  { ssFrom :: Position
+  , ssTo   :: Position
+  } deriving (Eq, Ord, Typeable, Data, Generic)
 
 instance Binary SrcSpan
 instance NFData SrcSpan
