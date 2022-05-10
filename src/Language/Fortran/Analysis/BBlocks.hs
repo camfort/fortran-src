@@ -411,7 +411,7 @@ perBlock b@(BlStatement _ _ _ StIfArithmetic{}) =
   -- Treat an arithmetic if similarly to a goto
   processLabel b >> addToBBlock b >> closeBBlock_
 perBlock b@(BlDo _ _ _ _ _ (Just spec) bs _) = do
-  let DoSpecification _ _ (StExpressionAssign _ _ _ e1) e2 me3 = spec
+  let DoSpecification _ _ _ e1 e2 me3 = spec
   _  <- processFunctionCalls e1
   _  <- processFunctionCalls e2
   _  <- case me3 of Just e3 -> Just `fmap` processFunctionCalls e3; Nothing -> return Nothing
@@ -791,7 +791,7 @@ showBlock (BlDo _ _ mlab _ _ (Just spec) _ _) =
       showExpr e2 ++ ", " ++
       showExpr e3 ++ ", " ++
       maybe "1" showExpr me4 ++ "\\l"
-  where DoSpecification _ _ (StExpressionAssign _ _ e1 e2) e3 me4 = spec
+  where DoSpecification _ _ e1 e2 e3 me4 = spec
 showBlock (BlDo _ _ _ _ _ Nothing _ _) = "do"
 showBlock (BlComment{})                = ""
 showBlock b = "<unhandled block: " ++ show (toConstr (fmap (const ()) b)) ++ ">"

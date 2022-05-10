@@ -124,3 +124,47 @@ specFreeCommon sParser eParser =
                                     , genArg (ArgExpr (varGen "i")) ]
               genArg   = Argument () u Nothing
           sParser stStr `shouldBe'` expected
+
+      describe "Do" $ do
+        it "parses do statement with label" $ do
+          let doSpec = DoSpecification () u (varGen "i") (intGen 0) (intGen 42) Nothing
+              st = StDo () u Nothing (Just $ intGen 24) (Just doSpec)
+          sParser "do 24, i = 0, 42" `shouldBe'` st
+
+        it "parses do statement without label" $ do
+          let doSpec = DoSpecification () u (varGen "i") (intGen 0) (intGen 42) Nothing
+              st = StDo () u Nothing Nothing (Just doSpec)
+          sParser "do i = 0, 42" `shouldBe'` st
+
+        it "parses infinite do" $ do
+          let st = StDo () u Nothing Nothing Nothing
+          sParser "do" `shouldBe'` st
+
+        it "parses end do statement" $ do
+          let st = StEnddo () u (Just "constructor")
+          sParser "end do constructor" `shouldBe'` st
+
+      describe "DO WHILE" $ do
+        it "parses unnamed do while statement" $ do
+          let st = StDoWhile () u Nothing Nothing valTrue
+          sParser "do while (.true.)" `shouldBe'` st
+
+        it "parses named do while statement" $ do
+          let st = StDoWhile () u (Just "name") Nothing valTrue
+          sParser "name: do while (.true.)" `shouldBe'` st
+
+        it "parses unnamed labelled do while statement" $ do
+          let st = StDoWhile () u Nothing (Just (intGen 999)) valTrue
+          sParser "do 999 while (.true.)" `shouldBe'` st
+
+    describe "Expression" $ do
+      describe "Implied DO loop" $ do
+        it "parses write with implied do" $ do
+          let cp1 = ControlPair () u Nothing (intGen 10)
+              cp2 = ControlPair () u (Just "format") (varGen "x")
+              ciList = fromList () [ cp1, cp2 ]
+              doSpec = DoSpecification () u (varGen "i") (intGen 1) (intGen 42) (Just $ intGen 2)
+              alist = fromList () [ varGen "i", varGen "j" ]
+              outList = fromList () [ ExpImpliedDo () u alist doSpec ]
+              st = StWrite () u ciList (Just outList)
+          sParser "write (10, FORMAT = x) (i, j,  i = 1, 42, 2)" `shouldBe'` st

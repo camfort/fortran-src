@@ -89,7 +89,8 @@ dospec = Just $
   DoSpecification
     ()
     u
-    (StExpressionAssign () u (varGen "i") (intGen 0))
+    (varGen "i")
+    (intGen 0)
     (intGen 10)
     Nothing
 

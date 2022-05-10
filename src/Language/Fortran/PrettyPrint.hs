@@ -870,15 +870,10 @@ instance Pretty (FlushSpec a) where
   pprint' v (FSErr _ _ e)    = "err=" <> pprint' v e
 
 instance Pretty (DoSpecification a) where
-    pprint' v (DoSpecification _ _ s@StExpressionAssign{} limit mStride) =
-      pprint' v s <> comma
-      <+> pprint' v limit
+    pprint' v (DoSpecification _ _ lhs rhs limit mStride) =
+      (pprint' v lhs <+> equals <+> pprint' v rhs)
+      <> comma <+>  pprint' v limit
       <> comma <?+> pprint' v mStride
-
-    -- Given DoSpec. has a single constructor, the only way for pattern
-    -- match above to fail is to have the wrong type of statement embedded
-    -- in it.
-    pprint' _ _ = error "Incorrect initialisation in DO specification."
 
 instance Pretty (ControlPair a) where
     pprint' v (ControlPair _ _ mStr exp)

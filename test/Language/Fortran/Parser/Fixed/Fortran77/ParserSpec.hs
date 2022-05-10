@@ -53,8 +53,7 @@ spec =
         sParser "      endfile i" `shouldBe'` StEndfile2 () u (varGen "i")
 
       it "parses 'read *, (x, y(i), i = 1, 10, 2)'" $ do
-        let stAssign = StExpressionAssign () u (varGen "i") (intGen 1)
-            doSpec = DoSpecification () u stAssign (intGen 10) (Just $ intGen 2)
+        let doSpec = DoSpecification () u (varGen "i") (intGen 1) (intGen 10) (Just $ intGen 2)
             impliedDoVars = AList () u [ varGen "x", ExpSubscript () u (varGen "y") (AList () u [ IxSingle () u Nothing $ varGen "i" ])]
             impliedDo = ExpImpliedDo () u impliedDoVars doSpec
             iolist = AList () u [ impliedDo ]
@@ -62,8 +61,7 @@ spec =
         sParser "      read *, (x, y(i), i = 1, 10, 2)" `shouldBe'` expectedSt
 
     it "parses '(x, y(i), i = 1, 10, 2)'" $ do
-      let stAssign = StExpressionAssign () u (varGen "i") (intGen 1)
-          doSpec = DoSpecification () u stAssign (intGen 10) (Just $ intGen 2)
+      let doSpec = DoSpecification () u (varGen "i") (intGen 1) (intGen 10) (Just $ intGen 2)
           impliedDoVars = AList () u [ varGen "x", ExpSubscript () u (varGen "y") (AList () u [ IxSingle () u Nothing $ varGen "i" ])]
           impliedDo = ExpImpliedDo () u impliedDoVars doSpec
       eParser "(x, y(i), i = 1, 10, 2)" `shouldBe'` impliedDo

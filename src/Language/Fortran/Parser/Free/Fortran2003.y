@@ -1287,10 +1287,10 @@ RANGE :: { Index A0 }
   { IxRange () (getTransSpan $1 $3) (Just $1) (Just $3) Nothing }
 
 DO_SPECIFICATION :: { DoSpecification A0 }
-: EXPRESSION_ASSIGNMENT_STATEMENT ',' EXPRESSION ',' EXPRESSION
-  { DoSpecification () (getTransSpan $1 $5) $1 $3 (Just $5) }
-| EXPRESSION_ASSIGNMENT_STATEMENT ',' EXPRESSION
-  { DoSpecification () (getTransSpan $1 $3) $1 $3 Nothing }
+: DATA_REF '=' EXPRESSION ',' EXPRESSION ',' EXPRESSION
+  { DoSpecification () (getTransSpan $1 $7) $1 $3 $5 (Just $7) }
+| DATA_REF '=' EXPRESSION ',' EXPRESSION
+  { DoSpecification () (getTransSpan $1 $5) $1 $3 $5 Nothing }
 
 IMPLIED_DO :: { Expression A0 }
 : '(' EXPRESSION ',' DO_SPECIFICATION ')'
