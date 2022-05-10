@@ -241,6 +241,7 @@ lhsExprs x = concatMap lhsOfStmt (universeBi x)
     lhsOfStmt (StExpressionAssign _ _ e e') = e : onExprs e'
     lhsOfStmt (StCall _ _ _ (Just aexps)) = filter isLExpr argExps ++ concatMap onExprs argExps
        where argExps = map argExtractExpr . aStrip $ aexps
+    lhsOfStmt (StDo _ _ _ _ (Just dospec)) = lhsOfStmt $ dospecAsStmt dospec
     lhsOfStmt s =  onExprs s
 
     onExprs :: (Data a, Data (c a)) => c a -> [Expression a]
@@ -273,10 +274,13 @@ allVars b = [ varName v | v@(ExpValue _ _ (ValVariable _)) <- uniBi b ]
 analyseAllLhsVars :: forall a . Data a => ProgramFile (Analysis a) -> ProgramFile (Analysis a)
 analyseAllLhsVars = (transformBi :: TransFunc Block ProgramFile a) analyseAllLhsVars1 .
                     (transformBi :: TransFunc Statement ProgramFile a) analyseAllLhsVars1 .
-                    (transformBi :: TransFunc DoSpecification ProgramFile a) analyseAllLhsVars1
+                    (transformBi :: TransFunc DoSpecification ProgramFile a) analyseAllLhsVarsDoSpec
 
 analyseAllLhsVars1 :: (Annotated f, Data (f (Analysis a)), Data a) => f (Analysis a) -> f (Analysis a)
 analyseAllLhsVars1 x = modifyAnnotation (\ a -> a { allLhsVarsAnn = computeAllLhsVars x }) x
+
+analyseAllLhsVarsDoSpec :: Data a => DoSpecification (Analysis a) -> DoSpecification (Analysis a)
+analyseAllLhsVarsDoSpec x = modifyAnnotation (\ a -> a { allLhsVarsAnn = allLhsVarsDoSpec x }) x
 
 -- | Set of names found in the parts of an AST that are the target of
 -- an assignment statement.
@@ -284,8 +288,9 @@ analyseAllLhsVars1 x = modifyAnnotation (\ a -> a { allLhsVarsAnn = computeAllLh
 allLhsVars :: Data a => Block (Analysis a) -> [Name]
 allLhsVars = allLhsVarsAnn . getAnnotation
 
-allLhsVarsDoSpec :: Data a => DoSpecification (Analysis a) -> [Name]
-allLhsVarsDoSpec = computeAllLhsVars
+dospecAsStmt :: DoSpecification a -> Statement a
+dospecAsStmt (DoSpecification    a ss lhs rhs _e1 _me2) =
+              StExpressionAssign a ss lhs rhs
 
 -- | Set of names found in the parts of an AST that are the target of
 -- an assignment statement.
@@ -298,6 +303,7 @@ computeAllLhsVars = concatMap lhsOfStmt . universeBi
     lhsOfStmt (StCall _ _ f@(ExpValue _ _ (ValIntrinsic _)) _)
       | Just defs <- intrinsicDefs f = defs
     lhsOfStmt (StCall _ _ _ (Just aexps)) = concatMap (match'' . argExtractExpr) (aStrip aexps)
+    lhsOfStmt (StDo _ _ _ _ (Just dospec)) = lhsOfStmt $ dospecAsStmt dospec
     lhsOfStmt s = onExprs s
 
     lhsOfDecls (Declarator _ _ e _ _ (Just e')) = match' e : onExprs e'
@@ -331,7 +337,7 @@ computeAllLhsVars = concatMap lhsOfStmt . universeBi
 -- | Set of expressions used -- not defined -- by an AST-block.
 blockRhsExprs :: Data a => Block a -> [Expression a]
 blockRhsExprs (BlStatement _ _ _ s) = statementRhsExprs s
-blockRhsExprs (BlDo _ _ _ _ _ (Just (DoSpecification _ _ (StExpressionAssign _ _ lhs rhs) e1 e2)) _ _)
+blockRhsExprs (BlDo _ _ _ _ _ (Just (DoSpecification _ _ lhs rhs e1 e2)) _ _)
   | ExpSubscript _ _ _ subs <- lhs = universeBi (rhs, e1, e2) ++ universeBi subs
   | otherwise                      = universeBi (rhs, e1, e2)
 blockRhsExprs (BlDoWhile _ _ e1 _ _ e2 _ _) = universeBi (e1, e2)
@@ -346,8 +352,8 @@ statementRhsExprs (StExpressionAssign _ _ lhs rhs)
 statementRhsExprs StDeclaration{} = []
 statementRhsExprs (StIfLogical _ _ _ s) = statementRhsExprs s
 statementRhsExprs (StDo _ _ _ l s') = universeBi l ++ doSpecRhsExprs s'
-  where doSpecRhsExprs (Just (DoSpecification _ _ s e1 e2)) =
-           (e1 : universeBi e2) ++ statementRhsExprs s
+  where doSpecRhsExprs (Just dospec@(DoSpecification _ _ _lhs _rhs e1 e2)) =
+           (e1 : universeBi e2) ++ statementRhsExprs (dospecAsStmt dospec)
         doSpecRhsExprs Nothing = []
 statementRhsExprs s = universeBi s
 
@@ -356,7 +362,7 @@ blockVarUses :: forall a. Data a => Block (Analysis a) -> [Name]
 blockVarUses (BlStatement _ _ _ (StExpressionAssign _ _ lhs rhs))
   | ExpSubscript _ _ _ subs <- lhs = allVars rhs ++ concatMap allVars (aStrip subs)
   | otherwise                      = allVars rhs
-blockVarUses (BlDo _ _ _ _ _ (Just (DoSpecification _ _ (StExpressionAssign _ _ lhs rhs) e1 e2)) _ _)
+blockVarUses (BlDo _ _ _ _ _ (Just (DoSpecification _ _ lhs rhs e1 e2)) _ _)
   | ExpSubscript _ _ _ subs <- lhs = allVars rhs ++ allVars e1 ++ maybe [] allVars e2 ++ concatMap allVars (aStrip subs)
   | otherwise                      = allVars rhs ++ allVars e1 ++ maybe [] allVars e2
 blockVarUses (BlStatement _ _ _ st@StDeclaration{}) = concat [ rhsOfDecls d | d <- universeBi st ]
@@ -376,6 +382,9 @@ blockVarDefs :: Data a => Block (Analysis a) -> [Name]
 blockVarDefs b@BlStatement{} = allLhsVars b
 blockVarDefs (BlDo _ _ _ _ _ (Just doSpec) _ _)  = allLhsVarsDoSpec doSpec
 blockVarDefs _                      = []
+
+allLhsVarsDoSpec :: Data a => DoSpecification (Analysis a) -> [Name]
+allLhsVarsDoSpec = computeAllLhsVars . dospecAsStmt
 
 -- form name: n[i]
 dummyArg :: Name -> Int -> Name

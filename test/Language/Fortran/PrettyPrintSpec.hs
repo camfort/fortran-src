@@ -206,8 +206,7 @@ spec =
           let stDo = StDo () u Nothing Nothing Nothing
           pprint Fortran90 stDo Nothing `shouldBe` "do"
 
-        let doInit = StExpressionAssign () u (varGen "i") (intGen (-1))
-        let doSpec = DoSpecification () u doInit (intGen 5) Nothing
+        let doSpec = DoSpecification () u (varGen "i") (intGen (-1)) (intGen 5) Nothing
 
         it "prints labeled do" $ do
           let stDo = StDo () u Nothing (Just $ intGen 42) (Just doSpec)
@@ -338,8 +337,7 @@ spec =
           pprint Fortran90 bl Nothing `shouldBe` text expect
 
       describe "Do" $ do
-        let iAssign = StExpressionAssign () u (varGen "i") (intGen 1)
-        let doSpec = DoSpecification () u iAssign (intGen 9) (Just (intGen 2))
+        let doSpec = DoSpecification () u (varGen "i") (intGen 1) (intGen 9) (Just (intGen 2))
 
         it "prints 90 style do loop" $ do
           let bl = BlDo () u Nothing Nothing Nothing (Just doSpec) body Nothing

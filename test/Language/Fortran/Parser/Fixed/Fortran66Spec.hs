@@ -183,7 +183,6 @@ spec =
           sParser "      f = a(1,2)" `shouldBe'` expectedSt
 
       it "parses 'do 42 i = 10, 1, 1'" $ do
-        let st = StExpressionAssign () u (varGen "i") (intGen 10)
-        let doSpec = DoSpecification () u st (intGen 1) (Just $ intGen 1)
+        let doSpec = DoSpecification () u (varGen "i") (intGen 10) (intGen 1) (Just $ intGen 1)
         let expectedSt = StDo () u Nothing (Just $ labelGen 42) (Just doSpec)
         sParser "      do 42 i = 10, 1, 1" `shouldBe'` expectedSt

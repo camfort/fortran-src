@@ -171,10 +171,10 @@ DO_STATEMENT :: { Statement A0 }
   { StDo () (getTransSpan $1 $3) Nothing (Just $2) (Just $3) }
 
 DO_SPECIFICATION :: { DoSpecification A0 }
-: EXPRESSION_ASSIGNMENT_STATEMENT ',' INT_OR_VAR ',' INT_OR_VAR
-  { DoSpecification () (getTransSpan $1 $5) $1 $3 (Just $5) }
-| EXPRESSION_ASSIGNMENT_STATEMENT ',' INT_OR_VAR
-  { DoSpecification () (getTransSpan $1 $3) $1 $3 Nothing }
+: ELEMENT '=' EXPRESSION ',' INT_OR_VAR ',' INT_OR_VAR
+  { DoSpecification () (getTransSpan $1 $7) $1 $3 $5 (Just $7) }
+| ELEMENT '=' EXPRESSION ',' INT_OR_VAR
+  { DoSpecification () (getTransSpan $1 $5) $1 $3 $5 Nothing }
 
 INT_OR_VAR :: { Expression A0 }
 : INTEGER_LITERAL { $1 }

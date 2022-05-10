@@ -289,8 +289,10 @@ DO_STATEMENT :: { Statement A0 }
 | do { StDo () (getSpan $1) Nothing Nothing Nothing }
 
 DO_SPECIFICATION :: { DoSpecification A0 }
-: EXPRESSION_ASSIGNMENT_STATEMENT ',' EXPRESSION ',' EXPRESSION { DoSpecification () (getTransSpan $1 $5) $1 $3 (Just $5) }
-| EXPRESSION_ASSIGNMENT_STATEMENT ',' EXPRESSION                { DoSpecification () (getTransSpan $1 $3) $1 $3 Nothing }
+: ELEMENT '=' EXPRESSION ',' EXPRESSION ',' EXPRESSION
+  { DoSpecification () (getTransSpan $1 $7) $1 $3 $5 (Just $7) }
+| ELEMENT '=' EXPRESSION ',' EXPRESSION
+  { DoSpecification () (getTransSpan $1 $5) $1 $3 $5 Nothing }
 
 EXECUTABLE_STATEMENT :: { Statement A0 }
 : EXPRESSION_ASSIGNMENT_STATEMENT { $1 }
