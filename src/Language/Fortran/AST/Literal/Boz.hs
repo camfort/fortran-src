@@ -32,6 +32,8 @@ import qualified Data.List as List
 import qualified Data.Char as Char
 import qualified Numeric   as Num
 
+import           Data.Bits
+
 -- | A Fortran BOZ literal constant.
 --
 -- The prefix defines the characters allowed in the string:
@@ -46,15 +48,27 @@ data Boz = Boz
   , bozPrefixWasPostfix :: Conforming
   -- ^ Was the prefix actually postfix i.e. @'123'z@? This is non-standard
   --   syntax, disabled by default in gfortran. Syntactic info.
-  } deriving stock    (Eq, Show, Generic, Data, Typeable, Ord)
+  } deriving stock    (Show, Generic, Data, Typeable, Ord)
     deriving anyclass (NFData, Out)
+
+-- | Tests prefix & strings match, ignoring conforming/nonconforming flags.
+instance Eq Boz where
+    b1 == b2 =     bozPrefix b1 == bozPrefix b2
+                && bozString b1 == bozString b2
 
 data BozPrefix
   = BozPrefixB              -- ^ binary (bitstring)
   | BozPrefixO              -- ^ octal
   | BozPrefixZ Conforming   -- ^ hex, including nonstandard @x@
-    deriving stock    (Eq, Show, Generic, Data, Typeable, Ord)
+    deriving stock    (Show, Generic, Data, Typeable, Ord)
     deriving anyclass (NFData, Out)
+
+-- | Ignores conforming/nonconforming flags.
+instance Eq BozPrefix where
+    p1 == p2 = case (p1, p2) of (BozPrefixB,   BozPrefixB)   -> True
+                                (BozPrefixO,   BozPrefixO)   -> True
+                                (BozPrefixZ{}, BozPrefixZ{}) -> True
+                                _                            -> False
 
 data Conforming = Conforming | Nonconforming
     deriving stock    (Eq, Show, Generic, Data, Typeable, Ord)
@@ -111,14 +125,15 @@ bozAsNatural (Boz pfx str _) = runReadS $ parser str
                         '1' -> 1
                         _   -> error "Language.Fortran.AST.BOZ.bozAsNatural: invalid BOZ string"
 
--- | Check if two 'Boz's are identical, ignoring differing syntax with no
---   semantic meaning (nonconforming syntax). This doesn't test value equality:
---   it tests that the prefix and strings each match.
-bozIdentical :: Boz -> Boz -> Bool
-bozIdentical b1 b2 =
-    bozPfxIdentical (bozPrefix b1) (bozPrefix b2) && bozString b1 == bozString b2
-  where bozPfxIdentical p1 p2 = case (p1, p2) of
-                                  (BozPrefixB,   BozPrefixB)   -> True
-                                  (BozPrefixO,   BozPrefixO)   -> True
-                                  (BozPrefixZ{}, BozPrefixZ{}) -> True
-                                  _                            -> False
+-- | Resolve a BOZ constant as a two's complement integer.
+--
+-- Note that the value will depend on the size of the output type.
+bozAsTwosComp :: (Num a, Eq a, FiniteBits a) => Boz -> a
+bozAsTwosComp boz =
+    if   msbIsSet
+    then asNat - (2 ^ bitCount)
+    else asNat
+  where
+    msbIsSet = testBit asNat (bitCount - 1)
+    asNat    = bozAsNatural boz
+    bitCount = finiteBitSize asNat

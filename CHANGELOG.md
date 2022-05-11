@@ -4,8 +4,9 @@
     following gfortran's behaviour.
     * Kind parameter representation is changed to explicitly say if it's an
       integer kind or named constant kind, rather than reusing `Expression`.
-  * put some syntactic info in BOZ record type (to enable checking standards
-    conformance)
+  * BOZ literals
+    * add some syntactic info (to enable checking standards conformance)
+    * export `bozAsTwosComp` function for reading as two's complement integer
   * allow named constants in complex literals
   * document `FirstParameter`, `SecondParameter` behaviour/safety, fix erroneous
     instances
