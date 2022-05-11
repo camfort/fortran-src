@@ -4,6 +4,14 @@
     following gfortran's behaviour.
     * Kind parameter representation is changed to explicitly say if it's an
       integer kind or named constant kind, rather than reusing `Expression`.
+  * put some syntactic info in BOZ record type (to enable checking standards
+    conformance)
+  * allow named constants in complex literals
+  * document `FirstParameter`, `SecondParameter` behaviour/safety, fix erroneous
+    instances
+  * fiddle with record selectors for some AST nodes (for better Aeson instances)
+  * pair IF/CASE conditions with their blocks, rather than splitting between two
+    lists
 
 ### 0.9.0 (Feb 14, 2022)
   * Restructure parsing-related modules for code deduplication and better user
