@@ -537,17 +537,6 @@ spec =
         let st = StPrint () u starVal (Just $ fromList () [ varGen "hex" ])
         sParser "print *, hex" `shouldBe'` st
 
-      it "parses write with implied do" $ do
-        let cp1 = ControlPair () u Nothing (intGen 10)
-            cp2 = ControlPair () u (Just "format") (varGen "x")
-            ciList = fromList () [ cp1, cp2 ]
-            assign = StExpressionAssign () u (varGen "i") (intGen 1)
-            doSpec = DoSpecification () u assign (intGen 42) (Just $ intGen 2)
-            alist = fromList () [ varGen "i", varGen "j" ]
-            outList = fromList () [ ExpImpliedDo () u alist doSpec ]
-            st = StWrite () u ciList (Just outList)
-        sParser "write (10, FORMAT = x) (i, j,  i = 1, 42, 2)" `shouldBe'` st
-
     it "parses use statement" $ do
       let renames = fromList ()
             [ UseRename () u (varGen "sprod") (varGen "prod")

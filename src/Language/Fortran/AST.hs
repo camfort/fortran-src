@@ -610,7 +610,12 @@ data Expression a =
   -- ^ @%@ notation for variables inside data types
   | ExpFunctionCall  a SrcSpan (Expression a) (Maybe (AList Argument a))
   -- ^ A function expression applied to a list of arguments.
-  | ExpImpliedDo     a SrcSpan (AList Expression a) (DoSpecification a)
+  | ExpImpliedDo     a SrcSpan
+                     (AList Expression a)
+                     (Expression a) -- ^ Name @(ExpValue (ValVariable n))@
+                     (Expression a) -- ^ Initial value
+                     (Expression a) -- ^ End value
+                     (Maybe (Expression a)) -- ^ Step (or 1 if 'Nothing')
   -- ^ Implied do (i.e. one-liner do loops)
   | ExpInitialisation  a SrcSpan (AList Expression a)
   -- ^ Array initialisation

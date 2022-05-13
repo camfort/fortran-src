@@ -741,8 +741,10 @@ IN_IOLIST :: { [ Expression A0 ] }
 
 IN_IO_ELEMENT :: { Expression A0 }
 : DATA_REF { $1 }
+{- TODO
 | '(' IN_IOLIST ',' DO_SPECIFICATION ')'
   { ExpImpliedDo () (getTransSpan $1 $5) (fromReverseList $2) $4 }
+-}
 
 OUT_IOLIST :: { [ Expression A0 ] }
 : OUT_IOLIST ',' EXPRESSION { $3 : $1}
@@ -1091,9 +1093,21 @@ DO_SPECIFICATION :: { DoSpecification A0 }
   { DoSpecification () (getTransSpan $1 $3) $1 $3 Nothing }
 
 IMPLIED_DO :: { Expression A0 }
-: '(' EXPRESSION ',' DO_SPECIFICATION ')'
-  { let expList = AList () (getSpan $2) [ $2 ]
-    in ExpImpliedDo () (getTransSpan $1 $5) expList $4 }
+: '(' EXPRESSION ',' EXPRESSION ',' DATA_REF '=' EXPRESSION ',' EXPRESSION ')'
+  { let es = AList () (getTransSpan $2 $4) [$2, $4]
+    in  ExpImpliedDo () (getTransSpan $1 $11) es $6 $8 $10 Nothing }
+| '(' EXPRESSION ',' EXPRESSION ',' DATA_REF '=' EXPRESSION ',' EXPRESSION ',' EXPRESSION ')'
+  { let es = AList () (getTransSpan $2 $4) [$2, $4]
+    in  ExpImpliedDo () (getTransSpan $1 $13) es $6 $8 $10 (Just $12) }
+{-
+: '(' EXPRESSION_LIST ',' DATA_REF '=' EXPRESSION ',' EXPRESSION ')'
+  { let es = AList () (getSpan $2) (reverse $2)
+    in  ExpImpliedDo () (getTransSpan $1 $9) es $4 $6 $8 Nothing }
+| '(' EXPRESSION_LIST ',' DATA_REF '=' EXPRESSION ',' EXPRESSION ',' EXPRESSION ')'
+  { let es = AList () (getSpan $2) (reverse $2)
+    in  ExpImpliedDo () (getTransSpan $1 $9) es $4 $6 $8 (Just $10) }
+-}
+{- TODO
 | '(' EXPRESSION ',' EXPRESSION ',' DO_SPECIFICATION ')'
   { let expList = AList () (getTransSpan $2 $4) [ $2, $4 ]
     in ExpImpliedDo () (getTransSpan $1 $5) expList $6 }
@@ -1101,6 +1115,7 @@ IMPLIED_DO :: { Expression A0 }
   { let { exps =  reverse $6;
           expList = AList () (getTransSpan $2 exps) ($2 : $4 : reverse $6) }
     in ExpImpliedDo () (getTransSpan $1 $9) expList $8 }
+-}
 
 EXPRESSION_LIST :: { [ Expression A0 ] }
 : EXPRESSION_LIST ',' EXPRESSION { $3 : $1 }
