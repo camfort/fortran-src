@@ -196,3 +196,14 @@ specFreeCommon bParser sParser eParser =
                                                       (intGen 2)
                                                       (intGen 3)
           sParser "if (x) 1, 2, 3" `shouldBe'` stIf
+
+    describe "Assorted" $ do
+      it "parses write with implied do" $ do
+        let cp1 = ControlPair () u Nothing (intGen 10)
+            cp2 = ControlPair () u (Just "format") (varGen "x")
+            ciList = fromList () [ cp1, cp2 ]
+            alist = fromList () [ varGen "i", varGen "j" ]
+            impdo = ExpImpliedDo () u alist (varGen "i") (intGen 1) (intGen 42) (Just (intGen 2))
+            outList = fromList () [impdo]
+            st = StWrite () u ciList (Just outList)
+        sParser "write (10, FORMAT = x) (i, j,  i = 1, 42, 2)" `shouldBe'` st

@@ -242,7 +242,8 @@ IO_ELEMENT :: { Expression A0 }
 -- differentiate it at this stage from VARIABLE. Hence, it is omitted to prevent
 -- reduce/reduce conflict.
 | SUBSCRIPT { $1 }
-| '(' IO_ELEMENTS ',' DO_SPECIFICATION ')' { ExpImpliedDo () (getTransSpan $1 $5) $2 $4 }
+| '(' IO_ELEMENTS ',' ELEMENT '=' EXPRESSION ',' INT_OR_VAR ')'
+  { ExpImpliedDo () (getTransSpan $1 $9) $2 $4 $6 $8 Nothing }
 
 ELEMENT :: { Expression A0 }
 : VARIABLE { $1 }

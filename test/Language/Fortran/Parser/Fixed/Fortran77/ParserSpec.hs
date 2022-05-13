@@ -53,19 +53,15 @@ spec =
         sParser "      endfile i" `shouldBe'` StEndfile2 () u (varGen "i")
 
       it "parses 'read *, (x, y(i), i = 1, 10, 2)'" $ do
-        let stAssign = StExpressionAssign () u (varGen "i") (intGen 1)
-            doSpec = DoSpecification () u stAssign (intGen 10) (Just $ intGen 2)
-            impliedDoVars = AList () u [ varGen "x", ExpSubscript () u (varGen "y") (AList () u [ IxSingle () u Nothing $ varGen "i" ])]
-            impliedDo = ExpImpliedDo () u impliedDoVars doSpec
+        let impliedDoVars = AList () u [ varGen "x", ExpSubscript () u (varGen "y") (AList () u [ IxSingle () u Nothing $ varGen "i" ])]
+            impliedDo = ExpImpliedDo () u impliedDoVars (varGen "i") (intGen 1) (intGen 10) (Just (intGen 2))
             iolist = AList () u [ impliedDo ]
             expectedSt = StRead2 () u starVal (Just iolist)
         sParser "      read *, (x, y(i), i = 1, 10, 2)" `shouldBe'` expectedSt
 
     it "parses '(x, y(i), i = 1, 10, 2)'" $ do
-      let stAssign = StExpressionAssign () u (varGen "i") (intGen 1)
-          doSpec = DoSpecification () u stAssign (intGen 10) (Just $ intGen 2)
-          impliedDoVars = AList () u [ varGen "x", ExpSubscript () u (varGen "y") (AList () u [ IxSingle () u Nothing $ varGen "i" ])]
-          impliedDo = ExpImpliedDo () u impliedDoVars doSpec
+      let impliedDoVars = AList () u [ varGen "x", ExpSubscript () u (varGen "y") (AList () u [ IxSingle () u Nothing $ varGen "i" ])]
+          impliedDo = ExpImpliedDo () u impliedDoVars (varGen "i") (intGen 1) (intGen 10) (Just (intGen 2))
       eParser "(x, y(i), i = 1, 10, 2)" `shouldBe'` impliedDo
 
     it "parses main program unit" $ do

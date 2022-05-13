@@ -947,8 +947,11 @@ instance Pretty (Expression a) where
     pprint' v (ExpFunctionCall _ _ e mes) =
         pprint' v e <> parens (pprint' v mes)
 
-    pprint' v (ExpImpliedDo _ _ es dospec) =
-        pprint' v es <> comma <+> pprint' v dospec
+    pprint' v (ExpImpliedDo _ _ es n initial limit mStride) =
+           pprint' v es
+        <> comma <> pprint' v n <> " = " <> pprint' v initial
+        <> comma <> pprint' v limit
+        <> comma <?+> pprint' v mStride
 
     pprint' v (ExpInitialisation _ _ es) =
         "(/" <> pprint' v es <> "/)"
