@@ -463,10 +463,20 @@ data Statement a  =
   | StEnum                a SrcSpan
   | StEnumerator          a SrcSpan (AList Declarator a)
   | StEndEnum             a SrcSpan
-  -- Following is a temporary solution to a complicated FORMAT statement
-  -- parsing problem.
+
   | StFormatBogus         a SrcSpan String
+  -- ^ TODO temporary solution to a complicated FORMAT statement parsing problem
+
+  | StCrayPointer         a SrcSpan (AList CrayPointer a)
+  -- ^ non-standard feature Cray pointers
+  -- https://docs.oracle.com/cd/E19957-01/805-4941/z40000a54ba7/index.html
   deriving (Eq, Show, Data, Typeable, Generic, Functor)
+
+-- TODO
+data CrayPointer = CrayPointer a SrcSpan
+                               Name           -- ^ pointer
+                               (Expression a) -- ^ pointee
+  deriving stock (Eq, Show, Data, Typeable, Generic, Functor)
 
 -- R1214 proc-decl is procedure-entity-name [=> null-init]
 data ProcDecl a = ProcDecl a SrcSpan (Expression a) (Maybe (Expression a))

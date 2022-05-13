@@ -466,7 +466,7 @@ NONEXECUTABLE_STATEMENT :: { Statement A0 }
 | dimension INITIALIZED_ARRAY_DECLARATORS { StDimension () (getTransSpan $1 $2) (aReverse $2) }
 | common COMMON_GROUPS { StCommon () (getTransSpan $1 $2) (aReverse $2) }
 | equivalence EQUIVALENCE_GROUPS { StEquivalence () (getTransSpan $1 $2) (aReverse $2) }
-| pointer POINTER_LIST { StPointer () (getTransSpan $1 $2) (fromReverseList $2) }
+| pointer POINTER_LIST { StPointer () (getTransSpan $1 $2) (aTupleList () (fromReverseList $2)) }
 | data DATA_GROUPS { StData () (getTransSpan $1 $2) (fromReverseList $2) }
 | automatic INITIALIZED_DECLARATORS { StAutomatic () (getTransSpan $1 $2) (aReverse $2) }
 | static INITIALIZED_DECLARATORS { StStatic () (getTransSpan $1 $2) (aReverse $2) }
@@ -601,7 +601,7 @@ EQUIVALENCE_GROUPS :: { AList (AList Expression) A0 }
 : EQUIVALENCE_GROUPS ','  '(' NAME_LIST ')' { setSpan (getTransSpan $1 $5) $ (setSpan (getTransSpan $3 $5) $ aReverse $4) `aCons` $1 }
 | '(' NAME_LIST ')' { let s = (getTransSpan $1 $3) in AList () s [ setSpan s $ aReverse $2 ] }
 
-POINTER_LIST :: { [ Declarator A0 ] }
+POINTER_LIST :: { [ ATuple Expression Expression A0 ] }
 : POINTER_LIST ',' POINTER { $3 : $1 }
 | POINTER                  { [ $1 ] }
 

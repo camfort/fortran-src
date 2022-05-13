@@ -64,7 +64,11 @@ aMap f (AList a s xs) = AList a s (map f xs)
 --------------------------------------------------------------------------------
 
 data ATuple t1 t2 a = ATuple a SrcSpan (t1 a) (t2 a)
-    deriving (Eq, Show, Data, Typeable, Generic, Functor)
+    deriving stock (Eq, Show, Data, Typeable, Generic, Functor)
+
+-- | Convert a list of 'ATuple's into an 'AList' of 'ATuple's.
+aTupleList :: a -> [ATuple t1 t2 a] -> AList (ATuple t1 t2) a
+aTupleList a tups = AList a (getSpan tups) tups
 
 instance FirstParameter (ATuple t1 t2 a) a
 instance SecondParameter (ATuple t1 t2 a) SrcSpan
