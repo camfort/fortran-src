@@ -74,7 +74,6 @@ library
       Language.Fortran.Analysis.Types.Annotate
       Language.Fortran.Analysis.Types.FortranVars
       Language.Fortran.Analysis.Types.Internal
-      Language.Fortran.Analysis.Types.Resolve
       Language.Fortran.Analysis.Types.Traverse
       Language.Fortran.Analysis.Types.Util
       Language.Fortran.Analysis.Util
@@ -102,14 +101,7 @@ library
       Language.Fortran.Parser.Monad
       Language.Fortran.Parser.ParserUtils
       Language.Fortran.PrettyPrint
-      Language.Fortran.Repr.Coerce
       Language.Fortran.Repr.Eval
-      Language.Fortran.Repr.Kind
-      Language.Fortran.Repr.Type
-      Language.Fortran.Repr.Type.Array
-      Language.Fortran.Repr.Type.Scalar
-      Language.Fortran.Repr.Value
-      Language.Fortran.Repr.Value.Array
       Language.Fortran.Repr.Value.Scalar
       Language.Fortran.Rewriter
       Language.Fortran.Rewriter.Internal
@@ -162,8 +154,12 @@ library
     , either >=5.0.1.1 && <5.1
     , fgl ==5.*
     , filepath ==1.4.*
+    , fortran-src-repr
     , mtl >=2.2 && <3
     , pretty >=1.1 && <2
+    , singletons
+    , singletons-base
+    , singletons-th
     , temporary >=1.2 && <1.4
     , text >=1.2 && <2
     , uniplate >=1.6 && <2
@@ -211,8 +207,12 @@ executable fortran-src
     , fgl ==5.*
     , filepath ==1.4.*
     , fortran-src
+    , fortran-src-repr
     , mtl >=2.2 && <3
     , pretty >=1.1 && <2
+    , singletons
+    , singletons-base
+    , singletons-th
     , temporary >=1.2 && <1.4
     , text >=1.2 && <2
     , uniplate >=1.6 && <2
@@ -290,9 +290,13 @@ test-suite spec
     , fgl ==5.*
     , filepath ==1.4.*
     , fortran-src
+    , fortran-src-repr
     , hspec >=2.2 && <3
     , mtl >=2.2 && <3
     , pretty >=1.1 && <2
+    , singletons
+    , singletons-base
+    , singletons-th
     , temporary >=1.2 && <1.4
     , text >=1.2 && <2
     , uniplate >=1.6 && <2

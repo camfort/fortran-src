@@ -4,8 +4,6 @@ module Language.Fortran.Analysis.Types.Internal where
 
 import           Language.Fortran.AST
 import           Language.Fortran.Repr.Value.Scalar
-import           Language.Fortran.Repr.Eval ( Op )
-import           Language.Fortran.Repr.Value ( FVal )
 import           Language.Fortran.Analysis
 import           Language.Fortran.Version
 import           Language.Fortran.Util.Position
@@ -29,7 +27,7 @@ data InferConfig = InferConfig
   --   character length for a non-character data type will treat it as a kind
   --   parameter. In both cases, a warning is logged (nonstandard syntax).
 
-  , inferConfigConstantOps :: Map Name (Op FVal)
+  , inferConfigConstantOps :: Map Name ()
   -- ^ Existence of and implementation for intrinsic functions to use during
   --   PARAMETER evaluation.
 
@@ -42,7 +40,7 @@ data InferState = InferState
   , structs     :: StructTypeEnv
   , entryPoints :: Map Name (Name, Maybe Name)
   , typeErrors  :: [TypeError]
-  , constMap    :: Map Name FValScalar
+  , constMap    :: Map Name FVSM
   } deriving (Show)
 
 -- | Mapping of names to type information.

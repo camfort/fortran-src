@@ -3,10 +3,21 @@
 # For more information, please see the documentation at:
 #   https://docs.haskellstack.org/en/stable/lock_files
 
-packages: []
+packages:
+- completed:
+    name: fortran-src-repr
+    version: 0.0.0
+    git: https://github.com/camfort/fortran-src-repr
+    pantry-tree:
+      size: 2104
+      sha256: af2964c25c441a175d5825da92893daef924b17deca935b57eb068cb17778a55
+    commit: 967b00772e600304ec2a8f24d80ac2513058753c
+  original:
+    git: https://github.com/camfort/fortran-src-repr
+    commit: 967b00772e600304ec2a8f24d80ac2513058753c
 snapshots:
 - completed:
-    size: 533053
-    url: https://raw.githubusercontent.com/commercialhaskell/stackage-snapshots/master/lts/16/28.yaml
-    sha256: a9c01d860ac8dfb3a1b6f7ec4a36dd9504a95392b89c99b0877da63fa36a8e97
-  original: lts-16.28
+    size: 588043
+    url: https://raw.githubusercontent.com/commercialhaskell/stackage-snapshots/master/nightly/2022/5/20.yaml
+    sha256: 7800e52de866bab899c118558f3a48e455f9f57fb3b3595e0002018fbea5ee58
+  original: nightly-2022-05-20

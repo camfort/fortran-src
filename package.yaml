@@ -71,6 +71,10 @@ dependencies:
 - either ^>=5.0.1.1
 #- vector-sized # TODO
 - vector
+- singletons
+- singletons-th
+- singletons-base
+- fortran-src-repr
 
 # --pedantic for building (not used for stack ghci)
 ghc-options:

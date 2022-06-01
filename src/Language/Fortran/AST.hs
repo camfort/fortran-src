@@ -896,6 +896,7 @@ data Value a
   | ValAssignment
   -- ^ Overloaded assignment in interfaces
   | ValType         String
+  -- ^ TODO not used??
   | ValStar
   | ValColon                   -- see R402 / C403 in Fortran2003 spec.
     deriving stock    (Eq, Show, Data, Generic, Functor)

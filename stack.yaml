@@ -1,4 +1,8 @@
-resolver: lts-16.28
+resolver: nightly-2022-05-20
 packages:
 - '.'
 save-hackage-creds: false
+
+extra-deps:
+- git: https://github.com/camfort/fortran-src-repr
+  commit: 967b00772e600304ec2a8f24d80ac2513058753c

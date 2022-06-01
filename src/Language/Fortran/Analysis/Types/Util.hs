@@ -8,11 +8,6 @@ import           Language.Fortran.Version
 import           Language.Fortran.Intrinsics
 import           Language.Fortran.Analysis
 import           Language.Fortran.Analysis.Types.Internal
-import           Language.Fortran.Repr.Type
-import           Language.Fortran.Repr.Type.Scalar
-import           Language.Fortran.Repr.Type.Array
-import qualified Language.Fortran.Repr.Eval as Eval
-import           Language.Fortran.Repr.Value
 
 import           Data.Data
 import           Control.Monad.State.Strict
@@ -52,7 +47,7 @@ recordCType :: MonadState InferState m => ConstructType -> Name -> m ()
 recordCType ct n =
     modify $ \s -> s { environ = Map.alter changeFunc n (environ s) }
   where changeFunc mIDType = Just $ IDType (mIDType >>= idScalarType) (mIDType >>= idArrayInfo) (Just ct)
-
+    {-
 recordType :: MonadState InferState m => Name -> FType -> m ()
 recordType n (FType sty maty) =
     modify $ \s -> s { environ = Map.alter changeFunc n (environ s) }
@@ -73,6 +68,7 @@ recordArrayInfo n aty =
     changeFunc = \case
       Nothing   -> Just $ IDType Nothing (Just aty) Nothing
       Just idty -> Just $ idty { idArrayInfo = Just aty }
+-}
 
 recordEntryPoint :: MonadState InferState m => Name -> Name -> Maybe Name -> m ()
 recordEntryPoint fn en mRetName = modify $ \ s -> s { entryPoints = Map.insert en (fn, mRetName) (entryPoints s) }
@@ -94,6 +90,7 @@ getExprRecordedType (ExpSubscript _ _ base _) = do
       pure . Just $ IDType (Just sty) Nothing (Just CTVariable)
     _ -> pure Nothing
 
+{-
 getExprRecordedType (ExpDataRef _ _ base ref) = do
   mTy <- getExprRecordedType base
   case mTy of
@@ -104,6 +101,7 @@ getExprRecordedType (ExpDataRef _ _ base ref) = do
         Just env -> pure $ Map.lookup (varName ref) env
     x -> pure x
 getExprRecordedType _ = pure Nothing
+-}
 
 -- Set the idType annotation
 setIDType :: Annotated f => IDType -> f (Analysis a) -> f (Analysis a)
@@ -115,6 +113,7 @@ setIDType ty x =
 getIDType :: (Annotated f, Data a) => f (Analysis a) -> Maybe IDType
 getIDType x = idType (getAnnotation x)
 
+{-
 makeEvalEnv
     :: (MonadState InferState m, MonadReader InferConfig m)
     => m (Eval.Env FVal)
@@ -123,3 +122,4 @@ makeEvalEnv = do scalarConsts <- gets constMap
                  ops <- asks inferConfigConstantOps
                  --let ops' = Map.map _ ops
                  return $ Eval.Env consts ops
+-}
