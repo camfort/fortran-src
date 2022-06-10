@@ -691,8 +691,8 @@ SIMPLE_EXPRESSION_LIST :: { [Expression A0] }
 SIMPLE_EXPRESSION :: { Expression A0 }
 : INTEGER_CONSTANT '*' CONSTANT  { ExpBinary () (getTransSpan $1 $3) Multiplication $1 $3 }
 | CONSTANT { $1 }
-| '(' '*' ')' { ExpValue () (getSpan $2) ValStar }
-| '(' EXPRESSION ')' { $2 }
+| '(' '*' ')' { ExpValue () (getTransSpan $1 $3) ValStar }
+| '(' EXPRESSION ')' { setSpan (getTransSpan $1 $3) $2 }
 
 CONSTANT :: { Expression A0 }
 : VARIABLE { $1 }
@@ -788,7 +788,7 @@ IMPLIED_DO :: { Expression A0 }
          }
 | '(' EXPRESSION ',' EXPRESSION ',' DO_SPECIFICATION ')' {
     let expList = AList () (getTransSpan $2 $4) [ $2, $4 ]
-          in ExpImpliedDo () (getTransSpan $1 $5) expList $6
+          in ExpImpliedDo () (getTransSpan $1 $7) expList $6
          }
 | '(' EXPRESSION ',' EXPRESSION ',' EXPRESSION_LIST ',' DO_SPECIFICATION ')' {
     let { exps =  reverse $6;
