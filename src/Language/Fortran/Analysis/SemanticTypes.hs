@@ -7,7 +7,6 @@ import           Data.Data                      ( Data, Typeable )
 import           Control.DeepSeq                ( NFData )
 import           GHC.Generics                   ( Generic )
 import           Language.Fortran.AST           ( BaseType(..)
-                                                , Kind
                                                 , Expression(..)
                                                 , Value(..)
                                                 , TypeSpec(..)
@@ -18,6 +17,8 @@ import           Data.Binary                    ( Binary )
 import           Text.PrettyPrint.GenericPretty ( Out(..) )
 import           Text.PrettyPrint               ( (<+>), parens )
 import           Language.Fortran.PrettyPrint   ( Pretty(..) )
+
+type Kind = Int
 
 -- | Semantic type assigned to variables.
 --

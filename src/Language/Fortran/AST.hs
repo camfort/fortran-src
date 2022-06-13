@@ -1,28 +1,20 @@
 {-# OPTIONS_GHC -fno-warn-orphans #-} -- for Out (NonEmpty a)
 
--- |
---
--- This module holds the data types used to represent Fortran code of various
--- versions.
---
--- fortran-src supports Fortran 66 through to Fortran 2003, and uses the same
--- types to represent them. The Fortran standard was largely refined as it grew,
--- often assimilating popular compiler extensions for the previous standard. We
--- try to be as permissible as reasonable when parsing; similarly, this AST
--- keeps close to the syntax, and includes statements, expressions, types etc.
--- only applicable to certain (newer) versions of Fortran.
---
--- Useful Fortran standard references:
---
---   * Fortran 77 ANSI standard: ANSI X3.9-1978
---   * Fortran 90 ANSI standard: ANSI X3.198-1992 (also ISO/IEC 1539:1991)
---   * Fortran 90 Handbook (J. Adams)
---
--- (The Fortran 66 ANSI standard lacks detail, and isn't as useful as the later
--- standards for implementing the language.)
---
--- /Note:/ some comments aren't reflected in the Haddock documentation, so you
--- may also wish to view this file's source.
+{- | Data types for representing Fortran code (for various versions of Fortran).
+
+The same representation is used for all supported Fortran standards. Constructs
+only available in certain versions are gated by the parsers (and the pretty
+printer). In general, the definitions here are highly permissible, partly to
+allow for all the oddities of older standards & extensions.
+
+Useful Fortran standard references:
+
+  * Fortran 2018 standard: WD 1539-1 J3/18-007r1
+  * Fortran 2008 standard: WD 1539-1 J3/10-007r1
+  * Fortran 90 standard: ANSI X3.198-1992 (also ISO/IEC 1539:1991)
+  * Fortran 90 Handbook (J. Adams)
+  * Fortran 77 standard: ANSI X3.9-1978
+-}
 
 module Language.Fortran.AST
   (
@@ -47,7 +39,6 @@ module Language.Fortran.AST
   , Selector(..)
   , Declarator(..)
   , DeclaratorType(..)
-  , declaratorType
   , DimensionDeclarator(..)
 
   -- ** Annotated node list (re-export)
@@ -86,7 +77,6 @@ module Language.Fortran.AST
   , FlushSpec(..)
   , DoSpecification(..)
   , ProgramUnitName(..)
-  , Kind
 
   -- * Node annotations & related typeclasses
   , A0
@@ -169,16 +159,19 @@ data BaseType =
   | ClassStar
   | ClassCustom String
   | TypeByte
-  deriving (Ord, Eq, Show, Data, Typeable, Generic)
-
-instance Binary BaseType
+  deriving stock (Ord, Eq, Show, Data, Generic)
+  deriving anyclass (Binary)
 
 -- | The type specification of a declaration statement, containing the syntactic
 --   type name and kind selector.
 --
 -- See HP's F90 spec pg.24.
-data TypeSpec a = TypeSpec a SrcSpan BaseType (Maybe (Selector a))
-  deriving (Eq, Show, Data, Typeable, Generic, Functor)
+data TypeSpec a = TypeSpec
+  { typeSpecAnno :: a
+  , typeSpecSpan :: SrcSpan
+  , typeSpecBaseType :: BaseType
+  , typeSpecSelector :: Maybe (Selector a)
+  } deriving stock (Eq, Show, Data, Generic, Functor)
 
 -- | The "kind selector" of a declaration statement.
 --
@@ -191,61 +184,76 @@ data TypeSpec a = TypeSpec a SrcSpan BaseType (Maybe (Selector a))
 -- The upshot is, length is invalid for non-CHARACTER types, and the parser
 -- guarantees that it will be Nothing. For CHARACTER types, both maybe or may
 -- not be present.
-data Selector a =
-  Selector a SrcSpan
-    (Maybe (Expression a)) -- ^ length (if present)
-    (Maybe (Expression a)) -- ^ kind (if present)
-  deriving (Eq, Show, Data, Typeable, Generic, Functor)
-
-type Kind = Int
+data Selector a = Selector
+  { selectorAnno :: a
+  , selectorSpan :: SrcSpan
+  , selectorLength :: Maybe (Expression a)
+  , selectorKind   :: Maybe (Expression a)
+  } deriving stock (Eq, Show, Data, Generic, Functor)
 
 data MetaInfo = MetaInfo { miVersion :: FortranVersion, miFilename :: String }
-  deriving (Eq, Show, Data, Typeable, Generic)
+  deriving stock (Eq, Show, Data, Generic)
 
 -- Program structure definition
 data ProgramFile a = ProgramFile
   { programFileMeta :: MetaInfo
   , programFileProgramUnits :: [ ProgramUnit a ]
-  } deriving (Eq, Show, Data, Typeable, Generic, Functor)
+  } deriving stock (Eq, Show, Data, Generic, Functor)
 
 pfSetFilename :: String -> ProgramFile a -> ProgramFile a
 pfSetFilename fn (ProgramFile mi pus) = ProgramFile (mi { miFilename = fn }) pus
 pfGetFilename :: ProgramFile a -> String
 pfGetFilename (ProgramFile mi _) = miFilename mi
 
+-- | A Fortran program unit. _(F2008 2.2)_
+--
+-- A Fortran program is made up of many program units.
+--
+-- Related points from the Fortran 2008 specification:
+--
+--   * There must be exactly one main program, and any number of other program
+--     units.
+--   * Note 2.3: There may be at most 1 unnamed block data program unit.
 data ProgramUnit a =
-    PUMain
+    PUMain                          -- ^ Main program
       a SrcSpan
-      (Maybe Name) -- Program name
-      [Block a] -- Body
-      (Maybe [ProgramUnit a]) -- Subprograms
-  | PUModule
+      (Maybe Name)                  -- ^ Program name
+      [Block a]                     -- ^ Body
+      (Maybe [ProgramUnit a])       -- ^ Subprograms
+
+  | PUModule                        -- ^ Module
       a SrcSpan
-      Name -- Program name
-      [Block a] -- Body
-      (Maybe [ProgramUnit a]) -- Subprograms
-  | PUSubroutine
+      Name                          -- ^ Program name
+      [Block a]                     -- ^ Body
+      (Maybe [ProgramUnit a])       -- ^ Subprograms
+
+  | PUSubroutine                    -- ^ Subroutine subprogram (procedure)
       a SrcSpan
-      (PrefixSuffix a) -- Subroutine options
-      Name
-      (Maybe (AList Expression a)) -- Arguments
-      [Block a] -- Body
-      (Maybe [ProgramUnit a]) -- Subprograms
-  | PUFunction
+      (PrefixSuffix a)              -- ^ Options (elemental, pure etc.)
+      Name                          -- ^ Name
+      (Maybe (AList Expression a))  -- ^ Arguments
+      [Block a]                     -- ^ Body
+      (Maybe [ProgramUnit a])       -- ^ Subprograms
+
+  | PUFunction                      -- ^ Function subprogram (procedure)
       a SrcSpan
-      (Maybe (TypeSpec a)) -- Return type
-      (PrefixSuffix a) -- Function Options
-      Name
-      (Maybe (AList Expression a)) -- Arguments
-      (Maybe (Expression a)) -- Result
-      [Block a] -- Body
-      (Maybe [ProgramUnit a]) -- Subprograms
-  | PUBlockData
+      (Maybe (TypeSpec a))          -- ^ Return type
+      (PrefixSuffix a)              -- ^ Options (elemental, pure etc.)
+      Name                          -- ^ Name
+      (Maybe (AList Expression a))  -- ^ Arguments
+      (Maybe (Expression a))        -- ^ Result
+      [Block a]                     -- ^ Body
+      (Maybe [ProgramUnit a])       -- ^ Subprograms
+
+  | PUBlockData                     -- ^ Block data (named or unnamed).
       a SrcSpan
-      (Maybe Name)
+      (Maybe Name)                  -- ^ Optional block
       [Block a] -- Body
-  | PUComment a SrcSpan (Comment a)
-  deriving (Eq, Show, Data, Typeable, Generic, Functor)
+
+  | PUComment                       -- ^ Program unit-level comment
+      a SrcSpan
+      (Comment a)
+  deriving stock (Eq, Show, Data, Generic, Functor)
 
 type Prefixes a = Maybe (AList Prefix a)
 type Suffixes a = Maybe (AList Suffix a)
@@ -263,7 +271,7 @@ emptyPrefixSuffix = (emptyPrefixes, emptySuffixes)
 data Prefix a = PfxRecursive a SrcSpan
               | PfxElemental a SrcSpan
               | PfxPure a SrcSpan
-  deriving (Eq, Show, Data, Typeable, Generic, Functor)
+  deriving stock (Eq, Show, Data, Generic, Functor)
 
 -- see C1241 & C1242 (Fortran2003)
 validPrefixSuffix :: PrefixSuffix a -> Bool
@@ -277,7 +285,7 @@ validPrefixSuffix (mpfxs, msfxs) =
     sfxs = aStrip' msfxs
 
 data Suffix a = SfxBind a SrcSpan (Maybe (Expression a))
-  deriving (Eq, Show, Data, Typeable, Generic, Functor)
+  deriving stock (Eq, Show, Data, Generic, Functor)
 
 programUnitBody :: ProgramUnit a -> [Block a]
 programUnitBody (PUMain _ _ _ bs _)              = bs
@@ -309,28 +317,32 @@ programUnitSubprograms PUBlockData{}               = Nothing
 programUnitSubprograms PUComment{}                 = Nothing
 
 newtype Comment a = Comment String
-  deriving (Eq, Show, Data, Typeable, Generic, Functor)
+  deriving stock (Eq, Show, Data, Generic, Functor)
 
 data Block a =
-    BlStatement a SrcSpan
+    BlStatement                              -- ^ Statement
+                a SrcSpan
                 (Maybe (Expression a))       -- ^ Label
-                (Statement a)                -- ^ Statement
+                (Statement a)                -- ^ Wrapped statement
 
-  | BlForall    a SrcSpan
+  | BlForall                                 -- ^ FORALL array assignment syntax
+                a SrcSpan
                 (Maybe (Expression a))       -- ^ Label
                 (Maybe String)               -- ^ Construct name
                 (ForallHeader a)             -- ^ Header information
                 [ Block a ]                  -- ^ Body
                 (Maybe (Expression a))       -- ^ Label to END DO
 
-  | BlIf        a SrcSpan
+  | BlIf                                     -- ^ IF block construct
+                a SrcSpan
                 (Maybe (Expression a))       -- ^ Label
                 (Maybe String)               -- ^ Construct name
                 (NonEmpty (Expression a, [Block a])) -- ^ IF, ELSE IF clauses
                 (Maybe [Block a])            -- ^ ELSE block
                 (Maybe (Expression a))       -- ^ Label to END IF
 
-  | BlCase      a SrcSpan
+  | BlCase                                   -- ^ SELECT CASE construct
+                a SrcSpan
                 (Maybe (Expression a))       -- ^ Label
                 (Maybe String)               -- ^ Construct name
                 (Expression a)               -- ^ Scrutinee
@@ -354,45 +366,83 @@ data Block a =
                 [ Block a ]                  -- ^ Body
                 (Maybe (Expression a))       -- ^ Label to END DO
 
-  | BlAssociate a SrcSpan
-                (Maybe (Expression a))       -- Label
-                (Maybe String)               -- Construct name
-                (AList (ATuple Expression Expression) a) -- Expression abbreviations
-                [ Block a ]                  -- Body
-                (Maybe (Expression a))       -- Label to END IF
+  | BlAssociate
   -- ^ The first 'Expression' in the abbreviation tuple is always an
-  --   @ExpValue _ _ (ValVariable id)@. Also guaranteed nonempty.
+  --   @ExpValue _ _ (ValVariable id)@. Also guaranteed nonempty. TODO
+                a SrcSpan
+                (Maybe (Expression a))       -- ^ Label
+                (Maybe String)               -- ^ Construct name
+                (AList (ATuple Expression Expression) a) -- ^ Expression abbreviations
+                [ Block a ]                  -- ^ Body
+                (Maybe (Expression a))       -- ^ Label
 
   | BlInterface a SrcSpan
-                (Maybe (Expression a))       -- ^ label
-                Bool                         -- ^ abstract?
-                [ ProgramUnit a ]            -- ^ Routine decls. in the interface
+                (Maybe (Expression a))       -- ^ Label
+                Bool                         -- ^ Is this an abstract interface?
+                [ ProgramUnit a ]            -- ^ Interface procedures
                 [ Block a ]                  -- ^ Module procedures
 
-  | BlComment a SrcSpan (Comment a)
-  deriving (Eq, Show, Data, Typeable, Generic, Functor)
+  | BlComment                                -- ^ Block-level comment
+                a SrcSpan
+                (Comment a)
+  deriving stock (Eq, Show, Data, Generic, Functor)
 
 data Statement a  =
-    StDeclaration         a SrcSpan (TypeSpec a) (Maybe (AList Attribute a)) (AList Declarator a)
-  | StStructure           a SrcSpan (Maybe String) (AList StructureItem a)
+    StDeclaration
+    -- ^ Declare variable(s) at a given type.
+        a SrcSpan
+        (TypeSpec a)                -- ^ Type specification
+        (Maybe (AList Attribute a)) -- ^ Attributes
+        (AList Declarator a)        -- ^ Declarators
+
+  | StStructure
+    -- ^ A structure (pre-F90 extension) declaration.
+        a SrcSpan
+        (Maybe String)          -- ^ Name
+        (AList StructureItem a) -- ^ Structure fields
+
   | StIntent              a SrcSpan Intent (AList Expression a)
   | StOptional            a SrcSpan (AList Expression a)
   | StPublic              a SrcSpan (Maybe (AList Expression a))
   | StPrivate             a SrcSpan (Maybe (AList Expression a))
   | StProtected           a SrcSpan (Maybe (AList Expression a))
-  | StSave                a SrcSpan (Maybe (AList Expression a))
+
+  | StSave
+    -- ^ SAVE statement: variable retains its value between invocations
+        a SrcSpan
+        (Maybe (AList Expression a))
+        -- ^ Save the given variables, or all saveable items in the program unit
+        --   if 'Nothing'
+
   | StDimension           a SrcSpan (AList Declarator a)
+    -- ^ DIMENSION attribute as statement.
+
   | StAllocatable         a SrcSpan (AList Declarator a)
+    -- ^ ALLOCATABLE attribute statement.
+
   | StAsynchronous        a SrcSpan (AList Declarator a)
+    -- ^ ASYNCHRONOUS attribute statement.
+
   | StPointer             a SrcSpan (AList Declarator a)
+    -- ^ POINTER attribute statement.
+
   | StTarget              a SrcSpan (AList Declarator a)
+    -- ^ TARGET attribute statement.
+
   | StValue               a SrcSpan (AList Declarator a)
+    -- ^ VALUE attribute statement.
+
   | StVolatile            a SrcSpan (AList Declarator a)
+    -- ^ VOLATILE attribute statement.
+
   | StData                a SrcSpan (AList DataGroup a)
   | StAutomatic           a SrcSpan (AList Declarator a)
   | StStatic              a SrcSpan (AList Declarator a)
   | StNamelist            a SrcSpan (AList Namelist a)
+
   | StParameter           a SrcSpan (AList Declarator a)
+    -- ^ PARAMETER attribute as statement.
+
   | StExternal            a SrcSpan (AList Expression a)
   | StIntrinsic           a SrcSpan (AList Expression a)
   | StCommon              a SrcSpan (AList CommonGroup a)
@@ -450,7 +500,18 @@ data Statement a  =
   | StWhereConstruct      a SrcSpan (Maybe String) (Expression a)
   | StElsewhere           a SrcSpan (Maybe String) (Maybe (Expression a))
   | StEndWhere            a SrcSpan (Maybe String)
-  | StUse                 a SrcSpan (Expression a) (Maybe ModuleNature) Only (Maybe (AList Use a))
+
+  | StUse
+    -- ^ Import definitions (procedures, types) from a module. _(F2018 14.2.2)_
+    --
+    -- If a module nature isn't provided and there are both intrinsic and
+    -- nonintrinsic modules with that name, the nonintrinsic module is selected.
+        a SrcSpan
+        (Expression a)        -- ^ name of module to use
+        (Maybe ModuleNature)  -- ^ optional explicit module nature
+        Only
+        (Maybe (AList Use a))
+
   | StModuleProcedure     a SrcSpan (AList Expression a)
   | StProcedure           a SrcSpan (Maybe (ProcInterface a)) (Maybe (Attribute a)) (AList ProcDecl a)
   | StType                a SrcSpan (Maybe (AList Attribute a)) String
@@ -466,43 +527,43 @@ data Statement a  =
   -- Following is a temporary solution to a complicated FORMAT statement
   -- parsing problem.
   | StFormatBogus         a SrcSpan String
-  deriving (Eq, Show, Data, Typeable, Generic, Functor)
+  deriving stock (Eq, Show, Data, Generic, Functor)
 
 -- R1214 proc-decl is procedure-entity-name [=> null-init]
 data ProcDecl a = ProcDecl a SrcSpan (Expression a) (Maybe (Expression a))
-  deriving (Eq, Show, Data, Typeable, Generic, Functor)
+  deriving stock (Eq, Show, Data, Generic, Functor)
 
 -- R1212 proc-interface is interface-name or declaration-type-spec
 data ProcInterface a = ProcInterfaceName a SrcSpan (Expression a)
                      | ProcInterfaceType a SrcSpan (TypeSpec a)
-  deriving (Eq, Show, Data, Typeable, Generic, Functor)
+  deriving stock (Eq, Show, Data, Generic, Functor)
 
 data ForallHeader a = ForallHeader
     -- List of tuples: index-name, start subscript, end subscript, optional stride
     [(Name, Expression a, Expression a, Maybe (Expression a))]
     -- An optional expression for scaling
     (Maybe (Expression a))
-  deriving (Eq, Show, Data, Typeable, Generic, Functor)
+  deriving stock (Eq, Show, Data, Generic, Functor)
 
 data Only = Exclusive | Permissive
-  deriving (Eq, Show, Data, Typeable, Generic)
+  deriving stock (Eq, Show, Data, Generic)
 
 data ModuleNature = ModIntrinsic | ModNonIntrinsic
-  deriving (Eq, Show, Data, Typeable, Generic)
+  deriving stock (Eq, Show, Data, Generic)
 
 data Use a =
     UseRename a SrcSpan (Expression a) (Expression a)
   | UseID a SrcSpan (Expression a)
-  deriving (Eq, Show, Data, Typeable, Generic, Functor)
+  deriving stock (Eq, Show, Data, Generic, Functor)
 
 -- TODO potentially should throw Maybe String into ArgumentExpression too?
 data Argument a = Argument a SrcSpan (Maybe String) (ArgumentExpression a)
-  deriving (Eq, Show, Data, Typeable, Generic, Functor)
+  deriving stock (Eq, Show, Data, Generic, Functor)
 
 data ArgumentExpression a
   = ArgExpr              (Expression a)
   | ArgExprVar a SrcSpan Name
-  deriving (Eq, Show, Data, Typeable, Generic, Functor)
+  deriving stock (Eq, Show, Data, Generic, Functor)
 
 argExprNormalize :: ArgumentExpression a -> Expression a
 argExprNormalize = \case ArgExpr         e -> e
@@ -529,51 +590,51 @@ data Attribute a =
   | AttrTarget a SrcSpan
   | AttrValue a SrcSpan
   | AttrVolatile a SrcSpan
-  deriving (Eq, Show, Data, Typeable, Generic, Functor)
+  deriving stock (Eq, Show, Data, Generic, Functor)
 
 data Intent = In | Out | InOut
-  deriving (Eq, Show, Data, Typeable, Generic)
+  deriving stock (Eq, Show, Data, Generic)
 
 data ControlPair a = ControlPair a SrcSpan (Maybe String) (Expression a)
-  deriving (Eq, Show, Data, Typeable, Generic, Functor)
+  deriving stock (Eq, Show, Data, Generic, Functor)
 
 data AllocOpt a =
     AOStat a SrcSpan (Expression a)
   | AOErrMsg a SrcSpan (Expression a)
   | AOSource a SrcSpan (Expression a)
-  deriving (Eq, Show, Data, Typeable, Generic, Functor)
+  deriving stock (Eq, Show, Data, Generic, Functor)
 
 data ImpList a = ImpList a SrcSpan (TypeSpec a) (AList ImpElement a)
-  deriving (Eq, Show, Data, Typeable, Generic, Functor)
+  deriving stock (Eq, Show, Data, Generic, Functor)
 
 data ImpElement a =
     ImpCharacter    a SrcSpan String
   | ImpRange        a SrcSpan String String
-  deriving (Eq, Show, Data, Typeable, Generic, Functor)
+  deriving stock (Eq, Show, Data, Generic, Functor)
 
 -- | Note that the 'Declarator's in common group definitions do not contain
 --   initializing expressions.
 data CommonGroup a =
   CommonGroup a SrcSpan (Maybe (Expression a)) (AList Declarator a)
-  deriving (Eq, Show, Data, Typeable, Generic, Functor)
+  deriving stock (Eq, Show, Data, Generic, Functor)
 
 data Namelist a =
   Namelist a SrcSpan (Expression a) (AList Expression a)
-  deriving (Eq, Show, Data, Typeable, Generic, Functor)
+  deriving stock (Eq, Show, Data, Generic, Functor)
 
 data DataGroup a =
   DataGroup a SrcSpan (AList Expression a) (AList Expression a)
-  deriving (Eq, Show, Data, Typeable, Generic, Functor)
+  deriving stock (Eq, Show, Data, Generic, Functor)
 
 data StructureItem a =
     StructFields a SrcSpan (TypeSpec a) (Maybe (AList Attribute a)) (AList Declarator a)
   | StructUnion a SrcSpan (AList UnionMap a)
   | StructStructure a SrcSpan (Maybe String) String (AList StructureItem a)
-  deriving (Eq, Show, Data, Typeable, Generic, Functor)
+  deriving stock (Eq, Show, Data, Generic, Functor)
 
 data UnionMap a =
   UnionMap a SrcSpan (AList StructureItem a)
-  deriving (Eq, Show, Data, Typeable, Generic, Functor)
+  deriving stock (Eq, Show, Data, Generic, Functor)
 
 data FormatItem a =
     FIFormatList            a             SrcSpan   (Maybe String) (AList FormatItem a)
@@ -584,18 +645,18 @@ data FormatItem a =
   | FIFieldDescriptorAIL    a             SrcSpan   (Maybe Integer)   Char          Integer
   | FIBlankDescriptor       a             SrcSpan   Integer
   | FIScaleFactor           a             SrcSpan   Integer
-  deriving (Eq, Show, Data, Typeable, Generic, Functor)
+  deriving stock (Eq, Show, Data, Generic, Functor)
 
 data FlushSpec a =
     FSUnit a SrcSpan (Expression a)
   | FSIOStat a SrcSpan (Expression a)
   | FSIOMsg a SrcSpan (Expression a)
   | FSErr a SrcSpan (Expression a)
-  deriving (Eq, Show, Data, Typeable, Generic, Functor)
+  deriving stock (Eq, Show, Data, Generic, Functor)
 
 data DoSpecification a =
   DoSpecification a SrcSpan (Statement a) (Expression a) (Maybe (Expression a))
-  deriving (Eq, Show, Data, Typeable, Generic, Functor)
+  deriving stock (Eq, Show, Data, Generic, Functor)
 
 data Expression a =
     ExpValue         a SrcSpan (Value a)
@@ -616,7 +677,7 @@ data Expression a =
   -- ^ Array initialisation
   | ExpReturnSpec    a SrcSpan (Expression a)
   -- ^ Function return value specification
-  deriving (Eq, Show, Data, Typeable, Generic, Functor)
+  deriving stock (Eq, Show, Data, Generic, Functor)
 
 data Index a =
     IxSingle a SrcSpan (Maybe String) (Expression a)
@@ -624,7 +685,7 @@ data Index a =
             (Maybe (Expression a)) -- ^ Lower index
             (Maybe (Expression a)) -- ^ Upper index
             (Maybe (Expression a)) -- ^ Stride
-  deriving (Eq, Show, Data, Typeable, Generic, Functor)
+  deriving stock (Eq, Show, Data, Generic, Functor)
 
 -- | Values and literals.
 data Value a
@@ -653,7 +714,7 @@ data Value a
   | ValType         String
   | ValStar
   | ValColon                   -- see R402 / C403 in Fortran2003 spec.
-    deriving stock    (Eq, Show, Data, Typeable, Generic, Functor)
+    deriving stock    (Eq, Show, Data, Generic, Functor)
     deriving anyclass (NFData, Out)
 
 -- | Declarators. R505 entity-decl from F90 ISO spec.
@@ -670,21 +731,19 @@ data Value a
 -- Only CHARACTERs may specify a length. However, a nonstandard syntax feature
 -- uses non-CHARACTER lengths as a kind parameter. We parse regardless of type
 -- and warn during analysis.
-data Declarator a
-  = Declarator a SrcSpan
-               (Expression a)         -- ^ Variable
-               (DeclaratorType a)     -- ^ Declarator type (dimensions if array)
-               (Maybe (Expression a)) -- ^ Length (character)
-               (Maybe (Expression a)) -- ^ Initial value
-  deriving (Eq, Show, Data, Typeable, Generic, Functor)
+data Declarator a = Declarator
+  { declaratorAnno     :: a
+  , declaratorSpan     :: SrcSpan
+  , declaratorVariable :: Expression a
+  , declaratorType     :: DeclaratorType a
+  , declaratorLength   :: Maybe (Expression a)
+  , declaratorInitial  :: Maybe (Expression a)
+  } deriving stock (Eq, Show, Data, Generic, Functor)
 
 data DeclaratorType a
   = ScalarDecl
   | ArrayDecl (AList DimensionDeclarator a)
-  deriving (Eq, Show, Data, Typeable, Generic, Functor)
-
-declaratorType :: Declarator a -> DeclaratorType a
-declaratorType (Declarator _ _ _ dt _ _) = dt
+  deriving stock (Eq, Show, Data, Generic, Functor)
 
 -- | Set a 'Declarator''s initializing expression only if it has none already.
 setInitialisation :: Declarator a -> Expression a -> Declarator a
@@ -693,16 +752,19 @@ setInitialisation (Declarator a s v dt l Nothing) init =
 setInitialisation d _ = d
 
 -- | Dimension declarator stored in @dimension@ attributes and 'Declarator's.
-data DimensionDeclarator a =
-  DimensionDeclarator a SrcSpan (Maybe (Expression a)) (Maybe (Expression a))
-  deriving (Eq, Show, Data, Typeable, Generic, Functor)
+data DimensionDeclarator a = DimensionDeclarator
+  { dimDeclAnno :: a
+  , dimDeclSpan :: SrcSpan
+  , dimDeclLower :: Maybe (Expression a)
+  , dimDeclUpper :: Maybe (Expression a)
+  } deriving stock (Eq, Show, Data, Generic, Functor)
 
 data UnaryOp =
     Plus
   | Minus
   | Not
   | UnCustom String
-  deriving (Eq, Ord, Show, Data, Typeable, Generic)
+  deriving stock (Eq, Ord, Show, Data, Generic)
 
 instance Binary UnaryOp
 
@@ -725,7 +787,7 @@ data BinaryOp =
   | Equivalent
   | NotEquivalent
   | BinCustom String
-  deriving (Eq, Ord, Show, Data, Typeable, Generic)
+  deriving stock (Eq, Ord, Show, Data, Generic)
 
 instance Binary BinaryOp
 
@@ -882,7 +944,7 @@ data ProgramUnitName =
   | NamelessBlockData
   | NamelessComment
   | NamelessMain
-  deriving (Ord, Eq, Show, Data, Typeable, Generic)
+  deriving stock (Ord, Eq, Show, Data, Generic)
 
 instance Binary ProgramUnitName
 instance NFData ProgramUnitName
