@@ -835,11 +835,11 @@ FLUSH_SPEC_LIST :: { [ FlushSpec A0 ] }
 
 {- R928 -}
 FLUSH_SPEC :: { FlushSpec A0 }
-: EXPRESSION { FSUnit () (getSpan $1) $1 }
-| unit '=' EXPRESSION   { FSUnit () (getTransSpan $1 $3) $3 }
+:            EXPRESSION { FSUnit   () (getSpan $1)         $1 }
+| unit   '=' EXPRESSION { FSUnit   () (getTransSpan $1 $3) $3 }
 | iostat '=' EXPRESSION { FSIOStat () (getTransSpan $1 $3) $3 }
-| iomsg '=' EXPRESSION  { FSIOMsg () (getTransSpan $1 $3) $3 }
-| err '=' EXPRESSION    { FSErr () (getTransSpan $1 $3) $3 }
+| iomsg  '=' EXPRESSION { FSIOMsg  () (getTransSpan $1 $3) $3 }
+| err    '=' EXPRESSION { FSErr    () (getTransSpan $1 $3) $3 }
 
 CILIST :: { AList ControlPair A0 }
 : '(' CILIST_ELEMENT ',' FORMAT_ID ',' CILIST_PAIRS ')'

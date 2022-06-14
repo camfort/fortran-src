@@ -595,12 +595,25 @@ data Attribute a =
 data Intent = In | Out | InOut
   deriving stock (Eq, Show, Data, Generic)
 
-data ControlPair a = ControlPair a SrcSpan (Maybe String) (Expression a)
-  deriving stock (Eq, Show, Data, Generic, Functor)
+data ControlPair a = ControlPair
+  { controlPairAnno :: a
+  , controlPairSpan :: SrcSpan
+  , controlPairName :: Maybe String
+  , controlPairExpr :: Expression a
+  } deriving stock (Eq, Show, Data, Generic, Functor)
 
+-- | Part of ALLOCATE statement.
+--
+-- There are restrictions on how ALLOCATE options can be combined. See F2018
+-- 9.7.1, or:
+-- https://www.intel.com/content/www/us/en/develop/documentation/fortran-compiler-oneapi-dev-guide-and-reference/top/language-reference/a-to-z-reference/a-to-b/allocate-statement.html
 data AllocOpt a =
-    AOStat a SrcSpan (Expression a)
-  | AOErrMsg a SrcSpan (Expression a)
+    AOStat   -- ^ (output) status of allocation
+        a SrcSpan
+        (Expression a) -- ^ scalar integer variable
+  | AOErrMsg -- ^ (output) error condition if present
+        a SrcSpan
+        (Expression a) -- ^ scalar character variable
   | AOSource a SrcSpan (Expression a)
   deriving stock (Eq, Show, Data, Generic, Functor)
 
@@ -688,12 +701,23 @@ data FormatItem a =
   | FIScaleFactor           a             SrcSpan   Integer
   deriving stock (Eq, Show, Data, Generic, Functor)
 
-data FlushSpec a =
-    FSUnit a SrcSpan (Expression a)
-  | FSIOStat a SrcSpan (Expression a)
-  | FSIOMsg a SrcSpan (Expression a)
-  | FSErr a SrcSpan (Expression a)
-  deriving stock (Eq, Show, Data, Generic, Functor)
+-- | Part of the newer (Fortran 2003?) FLUSH statement.
+--
+-- See: https://www.ibm.com/docs/en/xl-fortran-aix/15.1.0?topic=attributes-flush-fortran-2003
+data FlushSpec a
+  = FSUnit
+        a SrcSpan
+        (Expression a) -- ^ scalar integer expression
+  | FSIOStat
+        a SrcSpan
+        (Expression a) -- ^ scalar integer variable
+  | FSIOMsg
+        a SrcSpan
+        (Expression a) -- ^ scalar character variable
+  | FSErr
+        a SrcSpan
+        (Expression a) -- ^ statement label
+    deriving stock (Eq, Show, Data, Generic, Functor)
 
 data DoSpecification a =
   DoSpecification a SrcSpan (Statement a) (Expression a) (Maybe (Expression a))
