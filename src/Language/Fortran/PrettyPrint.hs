@@ -925,8 +925,10 @@ instance Pretty (DataGroup a) where
       pprint' v vars <> char '/' <> pprint' v exps <> char '/'
 
 instance Pretty (ImpElement a) where
-    pprint' _ (ImpCharacter _ _ c) = text c
-    pprint' _ (ImpRange _ _ beg end) = text beg <> "-" <> text end
+    pprint' _ (ImpElement _ _ cFrom mcTo) =
+        case mcTo of
+          Nothing  -> char cFrom
+          Just cTo -> char cFrom <> "-" <> char cTo
 
 instance Pretty (Expression a) where
     pprint' v (ExpValue _ _ val)  =

@@ -19,6 +19,7 @@ import Language.Fortran.AST
 
 import Prelude hiding ( EQ, LT, GT ) -- Same constructors exist in the AST
 import Data.Either ( partitionEithers )
+import qualified Data.List as List
 
 }
 
@@ -816,19 +817,21 @@ IMP_ELEMENTS :: { AList ImpElement A0 }
 | IMP_ELEMENT { AList () (getSpan $1) [ $1 ] }
 
 IMP_ELEMENT :: { ImpElement A0 }
-: id {% do
-      let (TId s id) = $1
-      if length id /= 1
-      then fail "Implicit argument must be a character."
-      else return $ ImpCharacter () s id
-     }
-| id '-' id {% do
-             let (TId _ id1) = $1
-             let (TId _ id2) = $3
-             if length id1 /= 1 || length id2 /= 1
-             then fail "Implicit argument must be a character."
-             else return $ ImpRange () (getTransSpan $1 $3) id1 id2
-             }
+: id
+  {% let TId s id = $1
+     in  case List.uncons id of
+           Just (c, "") -> return $ ImpElement () s c Nothing
+           _ -> fail "Implicit argument must be a character." }
+| id '-' id
+  {% let { TId _ idFrom = $1;
+           TId _ idTo   = $3;
+           s            = getTransSpan $1 $3 }
+     in  case List.uncons idFrom of
+           Just (cFrom, "") ->
+             case List.uncons idTo of
+               Just (cTo, "") -> return $ ImpElement () s cFrom (Just cTo)
+               _ -> fail "Implicit argument must be a character."
+           _ -> fail "Implicit argument must be a character." }
 
 PARAMETER_ASSIGNMENTS :: { [ Declarator A0 ] }
 : PARAMETER_ASSIGNMENTS ',' PARAMETER_ASSIGNMENT { $3 : $1 }

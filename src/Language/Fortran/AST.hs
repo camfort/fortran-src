@@ -398,7 +398,7 @@ data Statement a  =
   | StStructure
     -- ^ A structure (pre-F90 extension) declaration.
         a SrcSpan
-        (Maybe String)          -- ^ Name
+        (Maybe String)          -- ^ Structure name
         (AList StructureItem a) -- ^ Structure fields
 
   | StIntent              a SrcSpan Intent (AList Expression a)
@@ -604,37 +604,78 @@ data AllocOpt a =
   | AOSource a SrcSpan (Expression a)
   deriving stock (Eq, Show, Data, Generic, Functor)
 
-data ImpList a = ImpList a SrcSpan (TypeSpec a) (AList ImpElement a)
-  deriving stock (Eq, Show, Data, Generic, Functor)
+-- | List of names for an IMPLICIT statement.
+data ImpList a = ImpList
+  { impListAnno :: a
+  , impListSpan :: SrcSpan
+  , impListType :: TypeSpec a
+  , impListElements :: AList ImpElement a
+  } deriving stock (Eq, Show, Data, Generic, Functor)
 
-data ImpElement a =
-    ImpCharacter    a SrcSpan String
-  | ImpRange        a SrcSpan String String
-  deriving stock (Eq, Show, Data, Generic, Functor)
+data ImpElement a = ImpElement
+  { impElementAnno :: a
+  , impElementSpan :: SrcSpan
+  , impElementFrom :: Char
+  , impElementTo   :: Maybe Char
+  } deriving stock (Eq, Show, Data, Generic, Functor)
 
--- | Note that the 'Declarator's in common group definitions do not contain
---   initializing expressions.
-data CommonGroup a =
-  CommonGroup a SrcSpan (Maybe (Expression a)) (AList Declarator a)
-  deriving stock (Eq, Show, Data, Generic, Functor)
+-- | A single COMMON block definition.
+--
+-- The 'Declarator's here shall not contain initializing expressions.
+data CommonGroup a = CommonGroup
+  { commonGroupAnno :: a
+  , commonGroupSpan :: SrcSpan
+  , commonGroupName :: Maybe (Expression a)
+  , commonGroupVars :: AList Declarator a
+  } deriving stock (Eq, Show, Data, Generic, Functor)
 
-data Namelist a =
-  Namelist a SrcSpan (Expression a) (AList Expression a)
-  deriving stock (Eq, Show, Data, Generic, Functor)
+data Namelist a = Namelist
+  { namelistAnno :: a
+  , namelistSpan :: SrcSpan
+  , namelistName :: Expression a
+  , namelistVars :: AList Expression a
+  } deriving stock (Eq, Show, Data, Generic, Functor)
 
-data DataGroup a =
-  DataGroup a SrcSpan (AList Expression a) (AList Expression a)
-  deriving stock (Eq, Show, Data, Generic, Functor)
+-- | The part of a DATA statement describing a single set of initializations.
+--
+-- The initializer list must be compatible with the name list. Generally, that
+-- means either the lengths must be equal, or the name list is the singleton
+-- list referring to an array, and the initializer list is compatible with that
+-- array's shape.
+data DataGroup a = DataGroup
+  { dataGroupAnno         :: a
+  , dataGroupSpan         :: SrcSpan
+  , dataGroupNames        :: AList Expression a
+  , dataGroupInitializers :: AList Expression a
+  } deriving stock (Eq, Show, Data, Generic, Functor)
 
+-- | Field types in pre-Fortran 90 non-standard structure/record/union
+--   extension.
+--
+-- Structures were obsoleted by derived types in later standards.
+--
+-- The outer structure is stored in 'StStructure'.
 data StructureItem a =
-    StructFields a SrcSpan (TypeSpec a) (Maybe (AList Attribute a)) (AList Declarator a)
-  | StructUnion a SrcSpan (AList UnionMap a)
-  | StructStructure a SrcSpan (Maybe String) String (AList StructureItem a)
+    StructFields    -- ^ Regular field
+        a SrcSpan
+        (TypeSpec a)                -- ^ Type
+        (Maybe (AList Attribute a)) -- ^ Attributes
+        (AList Declarator a)        -- ^ Declarators
+  | StructUnion     -- ^ Union field
+        a SrcSpan
+        (AList UnionMap a) -- ^ Union fields
+  | StructStructure -- ^ Substructure (nested/inline record/structure)
+        a SrcSpan
+        (Maybe String)          -- ^ Substructure name
+        String                  -- ^ Field name
+        (AList StructureItem a) -- ^ Substructure fields
   deriving stock (Eq, Show, Data, Generic, Functor)
 
-data UnionMap a =
-  UnionMap a SrcSpan (AList StructureItem a)
-  deriving stock (Eq, Show, Data, Generic, Functor)
+data UnionMap a = UnionMap
+  { unionMapAnno   :: a
+  , unionMapSpan   :: SrcSpan
+  , unionMapFields :: AList StructureItem a
+  } deriving stock (Eq, Show, Data, Generic, Functor)
 
 data FormatItem a =
     FIFormatList            a             SrcSpan   (Maybe String) (AList FormatItem a)
