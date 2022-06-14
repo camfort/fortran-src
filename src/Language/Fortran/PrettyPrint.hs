@@ -875,10 +875,10 @@ instance Pretty (FormatItem a) where
     pprint' _ _ = error "Not yet supported."
 
 instance Pretty (FlushSpec a) where
-  pprint' v (FSUnit _ _ e)   = "unit=" <> pprint' v e
+  pprint' v (FSUnit _ _ e)   = "unit="   <> pprint' v e
   pprint' v (FSIOStat _ _ e) = "iostat=" <> pprint' v e
-  pprint' v (FSIOMsg _ _ e)  = "iomsg=" <> pprint' v e
-  pprint' v (FSErr _ _ e)    = "err=" <> pprint' v e
+  pprint' v (FSIOMsg _ _ e)  = "iomsg="  <> pprint' v e
+  pprint' v (FSErr _ _ e)    = "err="    <> pprint' v e
 
 instance Pretty (DoSpecification a) where
     pprint' v (DoSpecification _ _ s@StExpressionAssign{} limit mStride) =
