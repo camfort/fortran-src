@@ -451,22 +451,44 @@ data Statement a  =
   | StEquivalence         a SrcSpan (AList (AList Expression) a)
   | StFormat              a SrcSpan (AList FormatItem a)
   | StImplicit            a SrcSpan (Maybe (AList ImpList a))
-  | StEntry               a SrcSpan (Expression a) (Maybe (AList Expression a)) (Maybe (Expression a))
+  | StEntry
+        a SrcSpan
+        (Expression a)               -- ^ name (guaranteed @ExpValue ValVariable@)
+        (Maybe (AList Expression a)) -- ^ argument variables
+        (Maybe (Expression a))       -- ^ optional result variable (guaranteed @ExpValue ValVariable@)
 
-  | StInclude             a SrcSpan (Expression a) (Maybe [Block a])
-  -- ^ Nothing indicates an yet-to-be processed include. (The F77 parser parses
-  -- Nothing, then fills out each include statement in a post-parse step.)
+  | StInclude
+        a SrcSpan
+        (Expression a) -- ^ file name to include. guaranteed @ExpValue ValString@
+        (Maybe [Block a]) -- ^ First parsed to 'Nothing', then potentially "expanded out" in a post-parse step.
 
   | StDo                  a SrcSpan (Maybe String) (Maybe (Expression a)) (Maybe (DoSpecification a))
   | StDoWhile             a SrcSpan (Maybe String) (Maybe (Expression a)) (Expression a)
   | StEnddo               a SrcSpan (Maybe String)
-  | StCycle               a SrcSpan (Maybe (Expression a))
+  | StCycle               a SrcSpan (Maybe (Expression a)) -- ^ guaranteed @ExpValue ValVariable@
   | StExit                a SrcSpan (Maybe (Expression a))
-  | StIfLogical           a SrcSpan (Expression a) (Statement a) -- Statement should not further recurse
+  | StIfLogical
+        a SrcSpan
+        (Expression a) -- ^ condition
+        (Statement a)  -- ^ statement (should not further recurse)
   | StIfArithmetic        a SrcSpan (Expression a) (Expression a) (Expression a) (Expression a)
-  | StSelectCase          a SrcSpan (Maybe String) (Expression a)
-  | StCase                a SrcSpan (Maybe String) (Maybe (AList Index a))
-  | StEndcase             a SrcSpan (Maybe String)
+
+  | StSelectCase -- ^ CASE construct opener.
+        a SrcSpan
+        (Maybe String) -- ^ block name
+        (Expression a)
+        -- ^ CASE expression. Should be one of scalar CHARACTER, INTEGER or LOGICAL.
+
+  | StCase -- ^ inner CASE clause
+        a SrcSpan
+        (Maybe String) -- ^ block name (must match a corresponding opener)
+        (Maybe (AList Index a))
+        -- ^ CASE indices (expressions). 'Nothing' means it's CASE DEFAULT.
+
+  | StEndcase -- ^ END SELECT statement
+        a SrcSpan
+        (Maybe String) -- ^ block name (must match corresponding opener name)
+
   | StFunction            a SrcSpan (Expression a) (AList Expression a) (Expression a)
   | StExpressionAssign    a SrcSpan (Expression a) (Expression a)
   | StPointerAssign       a SrcSpan (Expression a) (Expression a)
@@ -483,7 +505,16 @@ data Statement a  =
   | StRead2               a SrcSpan (Expression a) (Maybe (AList Expression a))
   | StWrite               a SrcSpan (AList ControlPair a) (Maybe (AList Expression a))
   | StPrint               a SrcSpan (Expression a) (Maybe (AList Expression a))
-  | StTypePrint           a SrcSpan (Expression a) (Maybe (AList Expression a))
+
+  | StTypePrint
+    -- ^ Special TYPE "print" statement (~F77 syntactic sugar for PRINT/WRITE)
+    --
+    -- Not to be confused with the TYPE construct in later standards for
+    -- defining derived data types.
+        a SrcSpan
+        (Expression a) -- ^ format identifier
+        (Maybe (AList Expression a)) -- ^ variables etc. to print
+
   | StOpen                a SrcSpan (AList ControlPair a)
   | StClose               a SrcSpan (AList ControlPair a)
   | StFlush               a SrcSpan (AList FlushSpec a)
@@ -494,13 +525,36 @@ data Statement a  =
   | StBackspace2          a SrcSpan (Expression a)
   | StEndfile             a SrcSpan (AList ControlPair a)
   | StEndfile2            a SrcSpan (Expression a)
-  | StAllocate            a SrcSpan (Maybe (TypeSpec a)) (AList Expression a) (Maybe (AList AllocOpt a))
-  | StNullify             a SrcSpan (AList Expression a)
-  | StDeallocate          a SrcSpan (AList Expression a) (Maybe (AList AllocOpt a))
-  | StWhere               a SrcSpan (Expression a) (Statement a)
-  | StWhereConstruct      a SrcSpan (Maybe String) (Expression a)
-  | StElsewhere           a SrcSpan (Maybe String) (Maybe (Expression a))
-  | StEndWhere            a SrcSpan (Maybe String)
+
+  | StAllocate -- ^ ALLOCATE: associate pointers with targets
+        a SrcSpan
+        (Maybe (TypeSpec a))
+        (AList Expression a) -- ^ pointers (variables/references)
+        (Maybe (AList AllocOpt a))
+  | StNullify -- ^ NULLIFY: disassociate pointers from targets
+        a SrcSpan
+        (AList Expression a) -- ^ pointers (variables/references)
+  | StDeallocate -- ^ DEALLOCATE: disassociate pointers from targets
+        a SrcSpan
+        (AList Expression a) -- ^ pointers (variables/references)
+        (Maybe (AList AllocOpt a))
+
+  | StWhere
+        a SrcSpan
+        (Expression a) -- ^ must be LOGICAL
+        (Statement a) -- ^ guaranteed to be 'StExpressionAssign'
+
+  | StWhereConstruct -- ^ begin WHERE block
+        a SrcSpan
+        (Maybe String) -- ^ block name
+        (Expression a) -- ^ must be LOGICAL
+  | StElsewhere -- ^ WHERE clause. compare to IF, IF ELSE
+        a SrcSpan
+        (Maybe String) -- ^ block name
+        (Maybe (Expression a)) -- ^ must be LOGICAL
+  | StEndWhere -- ^ end WHERE block
+        a SrcSpan
+        (Maybe String) -- ^ block name
 
   | StUse
     -- ^ Import definitions (procedures, types) from a module. /(F2018 14.2.2)/
@@ -508,20 +562,48 @@ data Statement a  =
     -- If a module nature isn't provided and there are both intrinsic and
     -- nonintrinsic modules with that name, the nonintrinsic module is selected.
         a SrcSpan
-        (Expression a)        -- ^ name of module to use
+        (Expression a)
+        -- ^ name of module to use, guaranteed to be @ExpValue ValVariable@
         (Maybe ModuleNature)  -- ^ optional explicit module nature
         Only
         (Maybe (AList Use a)) -- ^ definitions to import (including renames)
 
-  | StModuleProcedure     a SrcSpan (AList Expression a)
-  | StProcedure           a SrcSpan (Maybe (ProcInterface a)) (Maybe (Attribute a)) (AList ProcDecl a)
-  | StType                a SrcSpan (Maybe (AList Attribute a)) String
-  | StEndType             a SrcSpan (Maybe String)
+  | StModuleProcedure
+        a SrcSpan
+        (AList Expression a)
+        -- ^ procedure names, guaranteed @ExpValue ValVariable@
+  | StProcedure           a SrcSpan (Maybe (ProcInterface a)) (Maybe (AList Attribute a)) (AList ProcDecl a)
+
+  | StType -- ^ TYPE ... = begin a DDT (derived data type) definition block
+        a SrcSpan
+        (Maybe (AList Attribute a)) -- ^ attributes (subset permitted)
+        String                      -- ^ DDT name
+
+  | StEndType
+    -- ^ END TYPE [ type-name ] = end a DDT definition block
+        a SrcSpan
+        (Maybe String) -- ^ optional type name (must match corresponding opener)
+
   | StSequence            a SrcSpan
-  | StForall              a SrcSpan (Maybe String) (ForallHeader a)
-  | StForallStatement     a SrcSpan (ForallHeader a) (Statement a)
-  | StEndForall           a SrcSpan (Maybe String)
-  | StImport              a SrcSpan (AList Expression a)
+
+  | StForall -- ^ FORALL ... = begin a FORALL block
+        a SrcSpan
+        (Maybe String)   -- ^ block name
+        (ForallHeader a) -- ^ FORALL header syntax
+  | StEndForall
+    -- ^ END FORALL [ construct-name ]
+        a SrcSpan
+        (Maybe String) -- ^ block name
+
+  | StForallStatement -- ^ FORALL statement - essentially an inline FORALL block
+        a SrcSpan
+        (ForallHeader a) -- ^ FORALL header syntax
+        (Statement a)    -- ^ guaranteed 'StExpressionAssign' or 'StPointerAssign'
+
+  | StImport
+        a SrcSpan
+        (AList Expression a) -- ^ guaranteed @ExpValue ValVariable@
+
   | StEnum                a SrcSpan
   | StEnumerator          a SrcSpan (AList Declarator a)
   | StEndEnum             a SrcSpan
