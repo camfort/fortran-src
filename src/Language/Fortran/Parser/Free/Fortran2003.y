@@ -576,9 +576,9 @@ NONEXECUTABLE_STATEMENT :: { Statement A0 }
   { let saveAList = (fromReverseList $3)
     in StSave () (getTransSpan $1 saveAList) (Just saveAList) }
 | save { StSave () (getSpan $1) Nothing }
-| procedure '(' MAYBE_PROC_INTERFACE ')' ',' ATTRIBUTE_SPEC '::' PROC_DECLS
+| procedure '(' MAYBE_PROC_INTERFACE ')' ',' ATTRIBUTE_LIST '::' PROC_DECLS
   { let declAList = fromReverseList $8
-    in StProcedure () (getTransSpan $1 $8) $3 (Just $6) declAList }
+    in StProcedure () (getTransSpan $1 $8) $3 (Just (fromReverseList $6)) declAList }
 | procedure '(' MAYBE_PROC_INTERFACE ')' MAYBE_DCOLON PROC_DECLS
   { let declAList = fromReverseList $6
     in StProcedure () (getTransSpan $1 $6) $3 Nothing declAList }
