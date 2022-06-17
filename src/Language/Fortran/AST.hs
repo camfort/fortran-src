@@ -52,6 +52,7 @@ module Language.Fortran.AST
   , ProcInterface(..)
   , Comment(..)
   , ForallHeader(..)
+  , ForallHeaderPart(..)
   , Only(..)
   , MetaInfo(..)
   , Prefixes
@@ -502,7 +503,7 @@ data Statement a  =
   | StEndWhere            a SrcSpan (Maybe String)
 
   | StUse
-    -- ^ Import definitions (procedures, types) from a module. _(F2018 14.2.2)_
+    -- ^ Import definitions (procedures, types) from a module. /(F2018 14.2.2)/
     --
     -- If a module nature isn't provided and there are both intrinsic and
     -- nonintrinsic modules with that name, the nonintrinsic module is selected.
@@ -510,7 +511,7 @@ data Statement a  =
         (Expression a)        -- ^ name of module to use
         (Maybe ModuleNature)  -- ^ optional explicit module nature
         Only
-        (Maybe (AList Use a))
+        (Maybe (AList Use a)) -- ^ definitions to import (including renames)
 
   | StModuleProcedure     a SrcSpan (AList Expression a)
   | StProcedure           a SrcSpan (Maybe (ProcInterface a)) (Maybe (Attribute a)) (AList ProcDecl a)
@@ -530,20 +531,34 @@ data Statement a  =
   deriving stock (Eq, Show, Data, Generic, Functor)
 
 -- R1214 proc-decl is procedure-entity-name [=> null-init]
-data ProcDecl a = ProcDecl a SrcSpan (Expression a) (Maybe (Expression a))
-  deriving stock (Eq, Show, Data, Generic, Functor)
+data ProcDecl a = ProcDecl
+  { procDeclAnno       :: a
+  , procDeclSpan       :: SrcSpan
+  , procDeclEntityName :: Expression a
+  , procDeclInitName   :: Maybe (Expression a)
+  } deriving stock (Eq, Show, Data, Generic, Functor)
 
 -- R1212 proc-interface is interface-name or declaration-type-spec
 data ProcInterface a = ProcInterfaceName a SrcSpan (Expression a)
                      | ProcInterfaceType a SrcSpan (TypeSpec a)
   deriving stock (Eq, Show, Data, Generic, Functor)
 
+-- | Part of a FORALL statement. Introduced in Fortran 95.
 data ForallHeader a = ForallHeader
-    -- List of tuples: index-name, start subscript, end subscript, optional stride
-    [(Name, Expression a, Expression a, Maybe (Expression a))]
-    -- An optional expression for scaling
-    (Maybe (Expression a))
-  deriving stock (Eq, Show, Data, Generic, Functor)
+  { forallHeaderAnno    :: a
+  , forallHeaderSpan    :: SrcSpan
+  , forallHeaderHeaders :: [ForallHeaderPart a]
+  , forallHeaderScaling :: Maybe (Expression a)
+  } deriving stock (Eq, Show, Data, Generic, Functor)
+
+data ForallHeaderPart a = ForallHeaderPart
+  { forallHeaderPartAnno   :: a
+  , forallHeaderPartSpan   :: SrcSpan
+  , forallHeaderPartName   :: Name
+  , forallHeaderPartStart  :: Expression a
+  , forallHeaderPartEnd    :: Expression a
+  , forallHeaderPartStride :: Maybe (Expression a)
+  } deriving stock (Eq, Show, Data, Generic, Functor)
 
 data Only = Exclusive | Permissive
   deriving stock (Eq, Show, Data, Generic)
@@ -551,14 +566,26 @@ data Only = Exclusive | Permissive
 data ModuleNature = ModIntrinsic | ModNonIntrinsic
   deriving stock (Eq, Show, Data, Generic)
 
+-- | Part of USE statement. /(F2018 14.2.2)/
+--
+-- Expressions may be names or operators.
 data Use a =
-    UseRename a SrcSpan (Expression a) (Expression a)
-  | UseID a SrcSpan (Expression a)
+    UseRename
+        a SrcSpan
+        (Expression a) -- ^ local name
+        (Expression a) -- ^ use name
+  | UseID
+        a SrcSpan
+        (Expression a) -- ^ name
   deriving stock (Eq, Show, Data, Generic, Functor)
 
 -- TODO potentially should throw Maybe String into ArgumentExpression too?
-data Argument a = Argument a SrcSpan (Maybe String) (ArgumentExpression a)
-  deriving stock (Eq, Show, Data, Generic, Functor)
+data Argument a = Argument
+  { argumentAnno :: a
+  , argumentSpan :: SrcSpan
+  , argumentName :: Maybe String
+  , argumentExpr :: ArgumentExpression a
+  } deriving stock (Eq, Show, Data, Generic, Functor)
 
 data ArgumentExpression a
   = ArgExpr              (Expression a)
@@ -719,9 +746,13 @@ data FlushSpec a
         (Expression a) -- ^ statement label
     deriving stock (Eq, Show, Data, Generic, Functor)
 
-data DoSpecification a =
-  DoSpecification a SrcSpan (Statement a) (Expression a) (Maybe (Expression a))
-  deriving stock (Eq, Show, Data, Generic, Functor)
+data DoSpecification a = DoSpecification
+  { doSpecAnno      :: a
+  , doSpecSpan      :: SrcSpan
+  , doSpecInitial   :: Statement a -- ^ Guaranteed to be 'StExpressionAssign'
+  , doSpecLimit     :: Expression a
+  , doSpecIncrement :: Maybe (Expression a)
+  } deriving stock (Eq, Show, Data, Generic, Functor)
 
 data Expression a =
     ExpValue         a SrcSpan (Value a)
@@ -884,6 +915,8 @@ instance FirstParameter (Declarator a) a
 instance FirstParameter (DimensionDeclarator a) a
 instance FirstParameter (ControlPair a) a
 instance FirstParameter (AllocOpt a) a
+instance FirstParameter (ForallHeader a) a
+instance FirstParameter (ForallHeaderPart a) a
 
 instance SecondParameter (ProgramUnit a) SrcSpan
 instance SecondParameter (Prefix a) SrcSpan
@@ -913,6 +946,8 @@ instance SecondParameter (Declarator a) SrcSpan
 instance SecondParameter (DimensionDeclarator a) SrcSpan
 instance SecondParameter (ControlPair a) SrcSpan
 instance SecondParameter (AllocOpt a) SrcSpan
+instance SecondParameter (ForallHeader a) SrcSpan
+instance SecondParameter (ForallHeaderPart a) SrcSpan
 
 instance Annotated ProgramUnit
 instance Annotated Block
@@ -940,6 +975,8 @@ instance Annotated Declarator
 instance Annotated DimensionDeclarator
 instance Annotated ControlPair
 instance Annotated AllocOpt
+instance Annotated ForallHeader
+instance Annotated ForallHeaderPart
 
 instance Spanned (ProgramUnit a)
 instance Spanned (Prefix a)
@@ -969,6 +1006,8 @@ instance Spanned (Declarator a)
 instance Spanned (DimensionDeclarator a)
 instance Spanned (ControlPair a)
 instance Spanned (AllocOpt a)
+instance Spanned (ForallHeader a)
+instance Spanned (ForallHeaderPart a)
 
 instance Spanned (ProgramFile a) where
   getSpan (ProgramFile _ pus) =
@@ -1079,6 +1118,7 @@ instance Out a => Out (AllocOpt a)
 instance Out UnaryOp
 instance Out BinaryOp
 instance Out a => Out (ForallHeader a)
+instance Out a => Out (ForallHeaderPart a)
 
 -- Classifiers on statement and blocks ASTs
 
@@ -1146,6 +1186,7 @@ instance NFData a => NFData (ProcInterface a)
 instance NFData a => NFData (DoSpecification a)
 instance NFData a => NFData (Selector a)
 instance NFData a => NFData (ForallHeader a)
+instance NFData a => NFData (ForallHeaderPart a)
 instance NFData a => NFData (Argument a)
 instance NFData a => NFData (ArgumentExpression a)
 instance NFData a => NFData (Use a)

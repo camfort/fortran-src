@@ -1314,41 +1314,40 @@ IMPLIED_DO :: { Expression A0 }
     in ExpImpliedDo () (getTransSpan $1 $9) expList $8 }
 
 FORALL :: { Statement A0 }
-: id ':' forall FORALL_HEADER {
-  let (TId s1 id) = $1 in
-  let (h,s2) = $4 in
-  StForall () (getTransSpan s1 s2) (Just id) h
-}
-| forall FORALL_HEADER {
-  let (h,s) = $2 in
-  StForall () (getTransSpan $1 s) Nothing h
-}
-| forall FORALL_HEADER FORALL_ASSIGNMENT_STMT {
-  let (h,_) = $2 in
-  StForallStatement () (getTransSpan $1 $3) h $3
-}
+: id ':' forall FORALL_HEADER
+    { let (TId s1 id) = $1
+      in  StForall () (getTransSpan s1 $4) (Just id) $4 }
+| forall FORALL_HEADER
+    { StForall () (getTransSpan $1 $2) Nothing $2 }
+| forall FORALL_HEADER FORALL_ASSIGNMENT_STMT
+    { StForallStatement () (getTransSpan $1 $3) $2 $3 }
 
-FORALL_HEADER :: { (ForallHeader A0, SrcSpan) }
+FORALL_HEADER :: { ForallHeader A0 }
 -- Standard simple forall header
-: '(' FORALL_TRIPLET_SPEC ')'   { (ForallHeader [$2] Nothing, getTransSpan $1 $3) }
+: '(' FORALL_TRIPLET_SPEC ')'
+    { ForallHeader () (getTransSpan $1 $3) [$2] Nothing }
 -- forall header with scale expression
 | '(' '(' FORALL_TRIPLET_SPEC ')' ',' EXPRESSION ')'
-                              { (ForallHeader [$3] (Just $6), getTransSpan $1 $7) }
+    { ForallHeader () (getTransSpan $1 $7) [$3] (Just $6) }
 -- multi forall header
 | '(' FORALL_TRIPLET_SPEC_LIST_PLUS_STRIDE ')'
-                              { (ForallHeader $2 Nothing, getTransSpan $1 $3) }
+    { ForallHeader () (getTransSpan $1 $3) $2   Nothing }
 -- multi forall header with scale
 | '(' FORALL_TRIPLET_SPEC_LIST_PLUS_STRIDE ',' EXPRESSION ')'
-                              { (ForallHeader $2 (Just $4), getTransSpan $1 $5) }
+    { ForallHeader () (getTransSpan $1 $5) $2   (Just $4) }
 
 FORALL_TRIPLET_SPEC_LIST_PLUS_STRIDE
-  :: { [(Name, Expression A0, Expression A0, Maybe (Expression A0))] }
+  :: { [ForallHeaderPart A0] }
 : '(' FORALL_TRIPLET_SPEC ')' ',' FORALL_TRIPLET_SPEC_LIST_PLUS_STRIDE { $2 : $5 }
 | {- empty -}                                                          { [] }
 
-FORALL_TRIPLET_SPEC :: { (Name, Expression A0, Expression A0, Maybe (Expression A0)) }
-: NAME '=' EXPRESSION ':' EXPRESSION { ($1, $3, $5, Nothing) }
-| NAME '=' EXPRESSION ':' EXPRESSION ',' EXPRESSION { ($1, $3, $5, Just $7) }
+FORALL_TRIPLET_SPEC :: { ForallHeaderPart A0 }
+: id '=' EXPRESSION ':' EXPRESSION
+    { let TId idSpan idName = $1
+      in ForallHeaderPart () (getTransSpan idSpan $5) idName $3 $5 Nothing   }
+| id '=' EXPRESSION ':' EXPRESSION ',' EXPRESSION
+    { let TId idSpan idName = $1
+      in  ForallHeaderPart () (getTransSpan idSpan $7) idName $3 $5 (Just $7) }
 
 FORALL_ASSIGNMENT_STMT :: { Statement A0 }
 : EXPRESSION_ASSIGNMENT_STATEMENT { $1 }
