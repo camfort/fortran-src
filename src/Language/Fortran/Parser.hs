@@ -280,9 +280,7 @@ f77lIncludesInline dirs seen st = case st of
         Just blocks' -> pure $ StInclude a s e (Just blocks')
         Nothing -> do
           (fullPath, inc) <- liftIO $ readInDirs dirs path
-          -- Append newline to include, as grammar is defined to expect a
-          -- newline at the end of most blocks
-          case f77lIncludesInner fullPath (B.snoc inc '\n') of
+          case f77lIncludesInner fullPath inc of
             Right blocks -> do
               blocks' <- descendBiM (f77lIncludesInline dirs (path:seen)) blocks
               modify (Map.insert path blocks')

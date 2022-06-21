@@ -194,16 +194,16 @@ PROGRAM_UNITS :: { [ ProgramUnit A0 ] }
 | maybe(LABEL_IN_6COLUMN) PROGRAM_UNIT maybe(NEWLINE) { [ $2 ] }
 
 PROGRAM_UNIT :: { ProgramUnit A0 }
-: program NAME NEWLINE BLOCKS ENDPROG
-  { PUMain () (getTransSpan $1 $5) (Just $2) (reverse $4) Nothing }
-| TYPE_SPEC function NAME MAYBE_ARGUMENTS NEWLINE BLOCKS ENDFUN
-  { PUFunction () (getTransSpan $1 $7) (Just $1) emptyPrefixSuffix $3 $4 Nothing (reverse $6) Nothing }
-| function NAME MAYBE_ARGUMENTS NEWLINE BLOCKS ENDFUN
-  { PUFunction () (getTransSpan $1 $6) Nothing emptyPrefixSuffix $2 $3 Nothing (reverse $5) Nothing }
-| subroutine NAME MAYBE_ARGUMENTS NEWLINE BLOCKS ENDSUB
-  { PUSubroutine () (getTransSpan $1 $6) emptyPrefixSuffix $2 $3 (reverse $5) Nothing }
-| blockData NEWLINE BLOCKS END { PUBlockData () (getTransSpan $1 $4) Nothing (reverse $3) }
-| blockData NAME NEWLINE BLOCKS END { PUBlockData () (getTransSpan $1 $5) (Just $2) (reverse $4) }
+: program NAME BLOCKS NEWLINE ENDPROG
+  { PUMain () (getTransSpan $1 $5) (Just $2) (reverse $3) Nothing }
+| TYPE_SPEC function NAME MAYBE_ARGUMENTS BLOCKS NEWLINE ENDFUN
+  { PUFunction () (getTransSpan $1 $7) (Just $1) emptyPrefixSuffix $3 $4 Nothing (reverse $5) Nothing }
+| function NAME MAYBE_ARGUMENTS BLOCKS NEWLINE ENDFUN
+  { PUFunction () (getTransSpan $1 $6) Nothing emptyPrefixSuffix $2 $3 Nothing (reverse $4) Nothing }
+| subroutine NAME MAYBE_ARGUMENTS BLOCKS NEWLINE ENDSUB
+  { PUSubroutine () (getTransSpan $1 $6) emptyPrefixSuffix $2 $3 (reverse $4) Nothing }
+| blockData BLOCKS NEWLINE END { PUBlockData () (getTransSpan $1 $4) Nothing (reverse $2) }
+| blockData NAME BLOCKS NEWLINE END { PUBlockData () (getTransSpan $1 $5) (Just $2) (reverse $3) }
 | comment { let (TComment s c) = $1 in PUComment () s (Comment c) }
 
 END :: { Token }
@@ -236,37 +236,35 @@ MAYBE_ID :: { Maybe Name }
 NAME :: { Name } : id { let (TId _ name) = $1 in name }
 
 INCLUDES :: { [ Block A0 ] }
-: maybe(NEWLINE) list(BLOCK) { $2 }
+: BLOCKS maybe(NEWLINE) { $1 }
 
 BLOCKS :: { [ Block A0 ] }
-: BLOCKS BLOCK { $2 : $1 }
+: BLOCKS NEWLINE BLOCK { $3 : $1 }
+| BLOCK { [ $1 ] }
 | {- EMPTY -} { [ ] }
 
 BLOCK :: { Block A0 }
-: IF_BLOCK NEWLINE { $1 }
-| LABEL_IN_6COLUMN STATEMENT NEWLINE { BlStatement () (getTransSpan $1 $2) (Just $1) $2 }
-| STATEMENT NEWLINE { BlStatement () (getSpan $1) Nothing $1 }
-| COMMENT_BLOCK { $1 }
+: IF_BLOCK { $1 }
+| LABEL_IN_6COLUMN STATEMENT { BlStatement () (getTransSpan $1 $2) (Just $1) $2 }
+| STATEMENT { BlStatement () (getSpan $1) Nothing $1 }
+| comment { let (TComment s c) = $1 in BlComment () s (Comment c) }
 
 IF_BLOCK :: { Block A0 }
-:                  if '(' EXPRESSION ')' then NEWLINE BLOCKS ELSE_BLOCKS
+: if '(' EXPRESSION ')' then BLOCKS NEWLINE ELSE_BLOCKS
   { let (clauses, elseBlock, endSpan, endLabel) = $8
-    in  BlIf () (getTransSpan $1 endSpan) Nothing   Nothing (($3, reverse $7) :| clauses) elseBlock endLabel }
-| LABEL_IN_6COLUMN if '(' EXPRESSION ')' then NEWLINE BLOCKS ELSE_BLOCKS
+    in  BlIf () (getTransSpan $1 endSpan) Nothing   Nothing (($3, reverse $6) :| clauses) elseBlock endLabel }
+| LABEL_IN_6COLUMN if '(' EXPRESSION ')' then BLOCKS NEWLINE ELSE_BLOCKS
   { let (clauses, elseBlock, endSpan, endLabel) = $9
-    in  BlIf () (getTransSpan $1 endSpan) (Just $1) Nothing (($4, reverse $8) :| clauses) elseBlock endLabel }
+    in  BlIf () (getTransSpan $1 endSpan) (Just $1) Nothing (($4, reverse $7) :| clauses) elseBlock endLabel }
 
 ELSE_BLOCKS :: { ([(Expression A0, [Block A0])], Maybe [Block A0], SrcSpan, Maybe (Expression A0)) }
-: maybe(LABEL_IN_6COLUMN) elsif '(' EXPRESSION ')' then NEWLINE BLOCKS ELSE_BLOCKS
+: maybe(LABEL_IN_6COLUMN) elsif '(' EXPRESSION ')' then BLOCKS NEWLINE ELSE_BLOCKS
   { let (clauses, elseBlock, endSpan, endLabel) = $9
-    in (($4, reverse $8) : clauses, elseBlock, endSpan, endLabel) }
-| maybe(LABEL_IN_6COLUMN) else NEWLINE BLOCKS maybe(LABEL_IN_6COLUMN) endif
-  { ([], Just (reverse $4), getSpan $6, $5) }
+    in (($4, reverse $7) : clauses, elseBlock, endSpan, endLabel) }
+| maybe(LABEL_IN_6COLUMN) else BLOCKS NEWLINE maybe(LABEL_IN_6COLUMN) endif
+  { ([], Just (reverse $3), getSpan $6, $5) }
 | maybe(LABEL_IN_6COLUMN) endif
   { ([], Nothing,           getSpan $2, $1) }
-
-COMMENT_BLOCK :: { Block A0 }
-: comment NEWLINE { let (TComment s c) = $1 in BlComment () s (Comment c) }
 
 NEWLINE :: { Token }
 : NEWLINE newline { $1 }

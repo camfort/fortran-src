@@ -26,6 +26,7 @@ extra-source-files:
     README.md
     CHANGELOG.md
     test-data/f77-include/foo.f
+    test-data/f77-include/no-newline/foo.f
     test-data/rewriter/replacementsmap-columnlimit/001_foo.f
     test-data/rewriter/replacementsmap-columnlimit/001_foo.f.expected
     test-data/rewriter/replacementsmap-columnlimit/002_other.f

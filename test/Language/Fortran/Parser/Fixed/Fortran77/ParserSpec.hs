@@ -11,6 +11,7 @@ import qualified Language.Fortran.Parser.Fixed.Fortran77 as F77
 import qualified Language.Fortran.Parser.Fixed.Lexer     as Fixed
 
 import Prelude hiding ( exp )
+import Data.List ( intercalate )
 import qualified Data.ByteString.Char8 as B
 
 parseWith :: FortranVersion -> Parse Fixed.AlexInput Fixed.Token a -> String -> a
@@ -217,23 +218,25 @@ spec =
 
       it "unlabelled" $ do
         let bl = BlIf () u Nothing Nothing ((valTrue, inner) :| []) (Just inner) Nothing
-            src = unlines [ "      if (.true.) then ! comment if"
-                          , "        print *, 'foo'"
-                          , "      else ! comment else"
-                          , "        print *, 'foo'"
-                          , "       endif ! comment end"
-                          ]
+            src = intercalate "\n"
+              [ "      if (.true.) then ! comment if"
+              , "        print *, 'foo'"
+              , "      else ! comment else"
+              , "        print *, 'foo'"
+              , "       endif ! comment end"
+              ]
         bParser src `shouldBe'` bl
 
       it "labelled" $ do
         let label = Just . intGen
             bl = BlIf () u (label 10)  Nothing ((valTrue, inner) :| []) (Just inner) (label 30)
-            src = unlines [ "10    if (.true.) then ! comment if"
-                          , "        print *, 'foo'"
-                          , "20    else ! comment else"
-                          , "        print *, 'foo'"
-                          , "30     endif ! comment end"
-                          ]
+            src = intercalate "\n"
+              [ "10    if (.true.) then ! comment if"
+              , "        print *, 'foo'"
+              , "20    else ! comment else"
+              , "        print *, 'foo'"
+              , "30     endif ! comment end"
+              ]
         bParser src `shouldBe'` bl
 
     describe "Legacy Extensions" $ do
