@@ -5,7 +5,7 @@ import Language.Fortran.Util.SecondParameter
 import Language.Fortran.Util.Position (Spanned, SrcSpan(..), getSpan)
 import Language.Fortran.AST.Annotated ( Annotated )
 
-import Data.Data    (Data, Typeable)
+import Data.Data    (Data)
 import GHC.Generics (Generic)
 import Control.DeepSeq (NFData)
 import Text.PrettyPrint.GenericPretty (Out)
@@ -17,7 +17,12 @@ import Text.PrettyPrint.GenericPretty (Out)
 -- declarations), we define a dedicated annotated list type to reuse.
 --
 -- Note that the list itself also holds an @a@ annotation.
-data AList t a = AList a SrcSpan [t a] deriving (Eq, Show, Data, Typeable, Generic)
+data AList t a = AList
+  { alistAnno :: a
+  , alistSpan :: SrcSpan
+  , alistList :: [t a]
+  } deriving stock (Eq, Show, Data, Generic)
+
 instance Functor t => Functor (AList t) where
   fmap f (AList a s xs) = AList (f a) s (map (fmap f) xs)
 
@@ -63,8 +68,12 @@ aMap f (AList a s xs) = AList a s (map f xs)
 
 --------------------------------------------------------------------------------
 
-data ATuple t1 t2 a = ATuple a SrcSpan (t1 a) (t2 a)
-    deriving (Eq, Show, Data, Typeable, Generic, Functor)
+data ATuple t1 t2 a = ATuple
+  { atupleAnno :: a
+  , atupleSpan :: SrcSpan
+  , atupleFst  :: t1 a
+  , atupleSnd  :: t2 a
+  } deriving stock (Eq, Show, Data, Generic, Functor)
 
 instance FirstParameter (ATuple t1 t2 a) a
 instance SecondParameter (ATuple t1 t2 a) SrcSpan
