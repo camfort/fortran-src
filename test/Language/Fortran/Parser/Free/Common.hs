@@ -125,6 +125,35 @@ specFreeCommon bParser sParser eParser =
               genArg   = Argument () u Nothing
           sParser stStr `shouldBe'` expected
 
+      describe "Implicit" $ do
+        it "parses implicit none" $ do
+          let st = StImplicit () u Nothing
+          sParser "implicit none" `shouldBe'` st
+
+        it "parses implicit with single" $ do
+          let typeSpec = TypeSpec () u TypeCharacter Nothing
+              impEls = [ ImpElement () u 'k' Nothing ]
+              impLists = [ ImpList () u typeSpec (fromList () impEls) ]
+              st = StImplicit () u (Just $ fromList () impLists)
+          sParser "implicit character (k)" `shouldBe'` st
+
+        it "parses implicit with range" $ do
+          let typeSpec = TypeSpec () u TypeLogical Nothing
+              impEls = [ ImpElement () u 'x' (Just 'z') ]
+              impLists = [ ImpList () u typeSpec (fromList () impEls) ]
+              st = StImplicit () u (Just $ fromList () impLists)
+          sParser "implicit logical (x-z)" `shouldBe'` st
+
+        it "parses implicit statement" $ do
+          let typeSpec1 = TypeSpec () u TypeCharacter Nothing
+              typeSpec2 = TypeSpec () u TypeInteger Nothing
+              impEls1 = [ ImpElement () u 's' Nothing, ImpElement () u 'a' Nothing ]
+              impEls2 = [ ImpElement () u 'x' (Just 'z') ]
+              impLists = [ ImpList () u typeSpec1 (fromList () impEls1)
+                         , ImpList () u typeSpec2 (fromList () impEls2) ]
+              st = StImplicit () u (Just $ fromList () impLists)
+          sParser "implicit character (s, a), integer (x-z)" `shouldBe'` st
+
     describe "Block" $ do
       describe "Case" $ do
         let printArgs str = Just $ AList () u [ExpValue () u $ ValString str]

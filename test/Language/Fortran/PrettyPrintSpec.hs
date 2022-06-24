@@ -70,9 +70,9 @@ spec =
     describe "Implicit list" $
       it "prints mixed implicit lists" $ do
         let typ = TypeSpec () u TypeInteger Nothing
-        let impEls = [ ImpCharacter () u "x"
-                     , ImpRange () u "a" "z"
-                     , ImpCharacter () u "o" ]
+        let impEls = [ ImpElement () u 'x' Nothing
+                     , ImpElement () u 'a' (Just 'z')
+                     , ImpElement () u 'o' Nothing ]
         let impList = ImpList () u typ (AList () u impEls)
         pprint Fortran90 impList Nothing `shouldBe` "integer (x, a-z, o)"
 

@@ -272,35 +272,6 @@ spec =
             expected = StParameter () u (fromList () [ ass1, ass2 ])
         sParser "parameter (x = 10, y = 20)" `shouldBe'` expected
 
-      describe "Implicit" $ do
-        it "parses implicit none" $ do
-          let st = StImplicit () u Nothing
-          sParser "implicit none" `shouldBe'` st
-
-        it "parses implicit with single" $ do
-          let typeSpec = TypeSpec () u TypeCharacter Nothing
-              impEls = [ ImpCharacter () u "k" ]
-              impLists = [ ImpList () u typeSpec (fromList () impEls) ]
-              st = StImplicit () u (Just $ fromList () impLists)
-          sParser "implicit character (k)" `shouldBe'` st
-
-        it "parses implicit with range" $ do
-          let typeSpec = TypeSpec () u TypeLogical Nothing
-              impEls = [ ImpRange () u "x" "z" ]
-              impLists = [ ImpList () u typeSpec (fromList () impEls) ]
-              st = StImplicit () u (Just $ fromList () impLists)
-          sParser "implicit logical (x-z)" `shouldBe'` st
-
-        it "parses implicit statement" $ do
-          let typeSpec1 = TypeSpec () u TypeCharacter Nothing
-              typeSpec2 = TypeSpec () u TypeInteger Nothing
-              impEls1 = [ ImpCharacter () u "s", ImpCharacter () u "a" ]
-              impEls2 = [ ImpRange () u "x" "z" ]
-              impLists = [ ImpList () u typeSpec1 (fromList () impEls1)
-                         , ImpList () u typeSpec2 (fromList () impEls2) ]
-              st = StImplicit () u (Just $ fromList () impLists)
-          sParser "implicit character (s, a), integer (x-z)" `shouldBe'` st
-
       describe "Data" $ do
         it "parses vanilla" $ do
           let nlist = fromList () [ varGen "x", varGen "y" ]

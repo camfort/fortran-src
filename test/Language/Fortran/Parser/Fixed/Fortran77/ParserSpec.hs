@@ -156,10 +156,14 @@ spec =
         sParser "      implicit none" `shouldBe'` st
 
       it "parses 'implicit character*30 (a, b, c), integer (a-z, l)" $ do
-        let impEls = [ImpCharacter () u "a", ImpCharacter () u "b", ImpCharacter () u "c"]
+        let impEls1 = [ ImpElement () u 'a' Nothing
+                      , ImpElement () u 'b' Nothing
+                      , ImpElement () u 'c' Nothing ]
+            impEls2 = [ ImpElement () u 'a' (Just 'z')
+                      , ImpElement () u 'l' Nothing ]
             sel = Selector () u (Just (intGen 30)) Nothing
-            imp1 = ImpList () u (TypeSpec () u TypeCharacter (Just sel)) $ AList () u impEls
-            imp2 = ImpList () u (TypeSpec () u TypeInteger Nothing) $ AList () u [ImpRange () u "a" "z", ImpCharacter () u "l"]
+            imp1 = ImpList () u (TypeSpec () u TypeCharacter (Just sel)) $ AList () u impEls1
+            imp2 = ImpList () u (TypeSpec () u TypeInteger Nothing) $ AList () u impEls2
             st = StImplicit () u $ Just $ AList () u [imp1, imp2]
         sParser "      implicit character*30 (a, b, c), integer (a-z, l)" `shouldBe'` st
 
