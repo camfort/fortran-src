@@ -298,17 +298,17 @@ spec =
         sParser "parameter (x = 10, y = 20)" `shouldBe'` expected
 
       describe "FORALL blocks" $ do
-        let stride = Just $ ExpBinary () u NE (varGen "i") (intGen 2)
-            tripletSpecList = [("i", intGen 1, varGen "n", stride)]
+        let stride          = ExpBinary () u NE (varGen "i") (intGen 2)
+            tripletSpecList = ForallHeaderPart () u "i" (intGen 1) (varGen "n") (Just stride)
 
         it "parses basic FORALL blocks" $ do
           let stStr = "FORALL (I=1:N, I /= 2)"
-              expected = StForall () u Nothing (ForallHeader tripletSpecList Nothing)
+              expected = StForall () u Nothing (ForallHeader () u [tripletSpecList] Nothing)
           sParser stStr `shouldBe'` expected
 
       describe "FORALL statements" $ do
-        let stride = Just $ ExpBinary () u NE (varGen "i") (intGen 2)
-            tripletSpecList = [("i", intGen 1, varGen "n", stride)]
+        let stride          = ExpBinary () u NE (varGen "i") (intGen 2)
+            tripletSpecList = ForallHeaderPart () u "i" (intGen 1) (varGen "n") (Just stride)
         --let varI = IxSingle () u Nothing (varGen "i")
         --let expSub1 = ExpSubscript () u (varGen "a") (AList () u [varI, varI])
         --let expSub2 = ExpSubscript () u (varGen "x") (AList () u [varI])
@@ -316,7 +316,7 @@ spec =
 
         it "parses basic FORALL statements" $ do
           let stStr = "FORALL (I=1:N, I /= 2)" -- A(I,I) = X(I)"
-              expected = StForall () u Nothing (ForallHeader tripletSpecList Nothing)-- eAssign
+              expected = StForall () u Nothing (ForallHeader () u [tripletSpecList] Nothing) -- eAssign
           sParser stStr `shouldBe'` expected
 
       describe "ENDFORALL statements" $ do
@@ -329,35 +329,6 @@ spec =
           let stStr = "ENDFORALL A"
               expected = StEndForall () u $ Just "a"
           sParser stStr `shouldBe'` expected
-
-      describe "Implicit" $ do
-        it "parses implicit none" $ do
-          let st = StImplicit () u Nothing
-          sParser "implicit none" `shouldBe'` st
-
-        it "parses implicit with single" $ do
-          let typeSpec = TypeSpec () u TypeCharacter Nothing
-              impEls = [ ImpCharacter () u "k" ]
-              impLists = [ ImpList () u typeSpec (fromList () impEls) ]
-              st = StImplicit () u (Just $ fromList () impLists)
-          sParser "implicit character (k)" `shouldBe'` st
-
-        it "parses implicit with range" $ do
-          let typeSpec = TypeSpec () u TypeLogical Nothing
-              impEls = [ ImpRange () u "x" "z" ]
-              impLists = [ ImpList () u typeSpec (fromList () impEls) ]
-              st = StImplicit () u (Just $ fromList () impLists)
-          sParser "implicit logical (x-z)" `shouldBe'` st
-
-        it "parses implicit statement" $ do
-          let typeSpec1 = TypeSpec () u TypeCharacter Nothing
-              typeSpec2 = TypeSpec () u TypeInteger Nothing
-              impEls1 = [ ImpCharacter () u "s", ImpCharacter () u "a" ]
-              impEls2 = [ ImpRange () u "x" "z" ]
-              impLists = [ ImpList () u typeSpec1 (fromList () impEls1)
-                         , ImpList () u typeSpec2 (fromList () impEls2) ]
-              st = StImplicit () u (Just $ fromList () impLists)
-          sParser "implicit character (s, a), integer (x-z)" `shouldBe'` st
 
       describe "Data" $ do
         it "parses vanilla" $ do

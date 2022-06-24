@@ -59,7 +59,7 @@ spec =
       it "parses procedure (interface-name, attribute, proc-decl)" $ do
         let call = ExpFunctionCall () u (varGen "c") Nothing
             st = StProcedure () u (Just (ProcInterfaceName () u (varGen "a")))
-                                  (Just (AttrSave () u))
+                                  (Just (AList () u [AttrSave () u]))
                                   (AList () u [ProcDecl () u (varGen "b") (Just call)])
         sParser "PROCEDURE(a), SAVE :: b => c()" `shouldBe'` st
 
@@ -67,7 +67,7 @@ spec =
         let call = ExpFunctionCall () u (varGen "c") Nothing
             clas = TypeSpec () u ClassStar Nothing
             st = StProcedure () u (Just (ProcInterfaceType () u clas))
-                                  (Just (AttrSuffix () u (SfxBind () u (Just (ExpValue () u (ValString "e"))))))
+                                  (Just (AList () u [AttrSuffix () u (SfxBind () u (Just (ExpValue () u (ValString "e"))))]))
                                   (AList () u [ProcDecl () u (varGen "b") (Just call)
                                               ,ProcDecl () u (varGen "d") (Just call)])
         sParser "PROCEDURE(CLASS(*)), BIND(C, NAME=\"e\") :: b => c(), d => c()" `shouldBe'` st
@@ -76,7 +76,7 @@ spec =
         let call = ExpFunctionCall () u (varGen "c") Nothing
             clas = TypeSpec () u (ClassCustom "e") Nothing
             st = StProcedure () u (Just (ProcInterfaceType () u clas))
-                                  (Just (AttrSuffix () u (SfxBind () u Nothing)))
+                                  (Just (AList () u [AttrSuffix () u (SfxBind () u Nothing)]))
                                   (AList () u [ProcDecl () u (varGen "b") (Just call)
                                               ,ProcDecl () u (varGen "d") (Just call)])
         sParser "PROCEDURE(CLASS(e)), BIND(C) :: b => c(), d => c()" `shouldBe'` st

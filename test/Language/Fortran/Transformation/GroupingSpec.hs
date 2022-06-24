@@ -61,8 +61,8 @@ buildExampleProgram name blocks = ProgramFile mi77 [ PUMain () u (Just name) blo
 
 exampleComment :: Block ()
 exampleComment = BlComment () u $ Comment "comment"
-exampleHeader :: ForallHeader a
-exampleHeader = ForallHeader [] Nothing
+exampleHeader :: ForallHeader ()
+exampleHeader = ForallHeader () u [] Nothing
 exampleForall :: Maybe String -> Maybe String -> ProgramFile ()
 exampleForall name nameEnd = buildExampleProgram "forall"
   [ BlStatement () u Nothing $ StForall () u name exampleHeader
