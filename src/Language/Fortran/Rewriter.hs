@@ -96,8 +96,7 @@ processReplacements_ = mapM_ go
       let newContents  = RI.applyReplacements contents repls
       withTempDirectory (takeDirectory filePath) ('.' : takeFileName filePath) $ \tmpDir ->
         let tmpFile = tmpDir </> "tmp.f"
-         in do putStrLn tmpFile
-               BC.writeFile tmpFile newContents
+         in do BC.writeFile tmpFile newContents
                renameFile tmpFile filePath
 
 -- | Utility function to convert 'SrcSpan' to 'SourceRange'
