@@ -239,14 +239,14 @@ lhsExprs x = concatMap lhsOfStmt (universeBi x)
   where
     lhsOfStmt :: Statement a -> [Expression a]
     lhsOfStmt (StExpressionAssign _ _ e e') = e : onExprs e'
-    lhsOfStmt (StCall _ _ _ (Just aexps)) = filter isLExpr argExps ++ concatMap onExprs argExps
+    lhsOfStmt (StCall _ _ _ aexps) = filter isLExpr argExps ++ concatMap onExprs argExps
        where argExps = map argExtractExpr . aStrip $ aexps
     lhsOfStmt s =  onExprs s
 
     onExprs :: (Data a, Data (c a)) => c a -> [Expression a]
     onExprs = concatMap lhsOfExp . universeBi
     lhsOfExp :: Expression a -> [Expression a]
-    lhsOfExp (ExpFunctionCall _ _ _ (Just aexps)) = fstLvl aexps
+    lhsOfExp (ExpFunctionCall _ _ _ aexps) = fstLvl aexps
     lhsOfExp _ = []
 
     fstLvl = filter isLExpr . map argExtractExpr . aStrip
@@ -297,7 +297,7 @@ computeAllLhsVars = concatMap lhsOfStmt . universeBi
     lhsOfStmt (StDeclaration _ _ _ _ decls) = concat [ lhsOfDecls decl | decl <- universeBi decls ]
     lhsOfStmt (StCall _ _ f@(ExpValue _ _ (ValIntrinsic _)) _)
       | Just defs <- intrinsicDefs f = defs
-    lhsOfStmt (StCall _ _ _ (Just aexps)) = concatMap (match'' . argExtractExpr) (aStrip aexps)
+    lhsOfStmt (StCall _ _ _ aexps) = concatMap (match'' . argExtractExpr) (aStrip aexps)
     lhsOfStmt s = onExprs s
 
     lhsOfDecls (Declarator _ _ e _ _ (Just e')) = match' e : onExprs e'
@@ -307,7 +307,7 @@ computeAllLhsVars = concatMap lhsOfStmt . universeBi
     onExprs = concatMap lhsOfExp . universeBi
 
     lhsOfExp :: Expression (Analysis a) -> [Name]
-    lhsOfExp (ExpFunctionCall _ _ _ (Just aexps)) = concatMap (match . argExtractExpr) (aStrip aexps)
+    lhsOfExp (ExpFunctionCall _ _ _ aexps) = concatMap (match . argExtractExpr) (aStrip aexps)
     lhsOfExp _ = []
 
     -- Match and give the varname for LHS of statement
@@ -366,7 +366,7 @@ blockVarUses (BlStatement _ _ _ st@StDeclaration{}) = concat [ rhsOfDecls d | d 
     rhsOfDecls _ = []
 blockVarUses (BlStatement _ _ _ (StCall _ _ f@(ExpValue _ _ (ValIntrinsic _)) _))
   | Just uses <- intrinsicUses f = uses
-blockVarUses (BlStatement _ _ _ (StCall _ _ _ (Just aexps))) = allVars aexps
+blockVarUses (BlStatement _ _ _ (StCall _ _ _ aexps)) = allVars aexps
 blockVarUses (BlDoWhile _ _ e1 _ _ e2 _ _) = maybe [] allVars e1 ++ allVars e2
 blockVarUses (BlIf _ _ eLabel _ clauses _ _) =
     maybe [] allVars eLabel ++ concatMap allVars (fmap fst clauses)

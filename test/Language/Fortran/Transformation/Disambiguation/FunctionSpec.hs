@@ -80,7 +80,7 @@ ex1pu1bs =
   , BlStatement () u Nothing (StExpressionAssign () u
       (ExpSubscript () u (varGen "d") (AList () u [ IxSingle () u Nothing $ varGen "x" ])) (intGen 1))
   , BlStatement () u Nothing (StExpressionAssign () u
-      (ExpFunctionCall () u (varGen "e") Nothing) (intGen 1)) ]
+      (ExpFunctionCall () u (varGen "e") (aEmpty () u)) (intGen 1)) ]
 
 expectedEx1 :: ProgramFile ()
 expectedEx1 = ProgramFile mi77 [ expectedEx1pu1 ]
@@ -155,7 +155,7 @@ expectedEx2pu1bs =
           (intGen 1)
           (ExpFunctionCall () u
             (ExpValue () u $ ValVariable "f")
-            (Just $ AList () u [ Argument () u Nothing (aintGen 1) ])))) ]
+            (AList () u [ Argument () u Nothing (aintGen 1) ])))) ]
 
 
 ex3 :: ProgramFile ()
@@ -191,9 +191,9 @@ expectedEx3pu1bs =
   , BlStatement () u Nothing
       (StExpressionAssign () u (varGen "i")
         (ExpFunctionCall () u (ExpValue () u $ ValIntrinsic "abs")
-          (Just $ AList () u [ Argument () u Nothing
+          (AList () u [ Argument () u Nothing
             (ArgExpr $ ExpFunctionCall () u (ExpValue () u $ ValVariable "f")
-                                  (Just $ AList () u [ Argument () u Nothing (aintGen 1) ])) ]))) ]
+                                  (AList () u [ Argument () u Nothing (aintGen 1) ])) ]))) ]
 
 
 {-
@@ -228,7 +228,7 @@ expectedEx4pu1bs =
   , BlStatement () u Nothing
       (StExpressionAssign () u (varGen "a")
        (ExpFunctionCall () u (ExpValue () u $ ValVariable "f")
-                                  (Just $ AList () u [ Argument () u Nothing (aintGen 1) ] ))) ]
+                                  (AList () u [ Argument () u Nothing (aintGen 1) ] ))) ]
 
 {-
 - program Main
@@ -260,7 +260,7 @@ expectedEx5pu1bs =
   , BlStatement () u Nothing
       (StExpressionAssign () u (varGen "a")
        (ExpFunctionCall () u (ExpValue () u $ ValVariable "f")
-                                  (Just $ AList () u [ Argument () u Nothing (aintGen 1) ] ))) ]
+                                  (AList () u [ Argument () u Nothing (aintGen 1) ] ))) ]
 
 {-
 - program Main

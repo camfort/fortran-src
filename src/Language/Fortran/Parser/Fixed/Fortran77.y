@@ -303,8 +303,10 @@ EXECUTABLE_STATEMENT :: { Statement A0 }
   { StDoWhile () (getTransSpan $1 $7) Nothing (Just $2) $6 }
 | enddo { StEnddo () (getSpan $1) Nothing }
 | call VARIABLE ARGUMENTS
-  { StCall () (getTransSpan $1 $3) $2 $ Just $3 }
-| call VARIABLE { StCall () (getTransSpan $1 $2) $2 Nothing }
+  { StCall () (getTransSpan $1 $3) $2 $3 }
+| call VARIABLE
+  { StCall () (getTransSpan $1 $2) $2 (aEmpty () (emptySpan (ssTo (getSpan $2)))) }
+  -- ^ (!) empty list 0-span
 | return { StReturn () (getSpan $1) Nothing }
 | return EXPRESSION { StReturn () (getTransSpan $1 $2) $ Just $2 }
 | save SAVE_ARGS { StSave () (getSpan ($1, $2)) $2 }
@@ -740,7 +742,7 @@ CALLABLE_EXPRESSION :: { Argument A0 }
           TId _ name = $2;
           intr = ExpFunctionCall () (getTransSpan $1 $5)
                    (ExpValue () (getTransSpan $1 $2) (ValIntrinsic ('%':name)))
-                   (Just args) }
+                   args }
     in Argument () (getTransSpan $1 $5) Nothing (ArgExpr intr) }
 | id '=' EXPRESSION
   { let TId span keyword = $1
@@ -857,7 +859,8 @@ SUBSCRIPT :: { Expression A0 }
 | SUBSCRIPT '%' VARIABLE
   { ExpDataRef () (getTransSpan $1 $3) $1 $3 }
 | SUBSCRIPT '(' ')'
-  { ExpFunctionCall () (getTransSpan $1 $3) $1 Nothing }
+  { ExpFunctionCall () (getTransSpan $1 $3) $1 (aEmpty () (getTransSpan $2 $3)) }
+  -- ^ (!) empty list spans brackets
 | SUBSCRIPT '(' INDICIES ')'
   { ExpSubscript () (getTransSpan $1 $4) $1 (fromReverseList $3) }
 | VARIABLE { $1 }
