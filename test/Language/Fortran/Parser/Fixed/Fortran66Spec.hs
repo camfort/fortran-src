@@ -121,12 +121,12 @@ spec =
 
       describe "CALL" $ do
         it "parses 'CALL me" $ do
-          let expectedSt = StCall () u (ExpValue () u (ValVariable "me")) Nothing
+          let expectedSt = StCall () u (ExpValue () u (ValVariable "me")) (aEmpty () u)
           sParser "      CALL me" `shouldBe'` expectedSt
 
         it "parses 'CALL me(baby)" $ do
           let args = AList () u [ Argument () u Nothing $ ArgExpr $ varGen "baby" ]
-          let expectedSt = StCall () u (ExpValue () u (ValVariable "me")) $ Just args
+          let expectedSt = StCall () u (ExpValue () u (ValVariable "me")) args
           sParser "      CALL me(baby)" `shouldBe'` expectedSt
 
       it "parses 'stop'" $ do

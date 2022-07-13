@@ -207,7 +207,7 @@ ex4pu1bs =
   , BlStatement () u Nothing (StExpressionAssign () u
       (ExpValue () u (ValVariable "r"))
       (ExpFunctionCall () u (ExpValue () u (ValVariable "f1"))
-                            (Just $ AList () u [ Argument () u Nothing $ aintGen 1 ]))) ]
+                            (AList () u [ Argument () u Nothing $ aintGen 1 ]))) ]
 ex4pu2 :: ProgramUnit ()
 ex4pu2 = PUFunction () u (Just $ TypeSpec () u TypeInteger Nothing) emptyPrefixSuffix "f1" (Just $ AList () u [ varGen "x"]) Nothing [ BlStatement () u Nothing (StExpressionAssign () u (varGen "f1") (varGen "x")) ] Nothing
 
@@ -235,7 +235,19 @@ ex6pu2 = PUModule () u "ex6mod" ex6pu2bs (Just [ex6pu2pu1])
 ex6pu2bs :: [a]
 ex6pu2bs = []
 ex6pu2pu1 :: ProgramUnit ()
-ex6pu2pu1 = PUFunction () u (Just $ TypeSpec () u TypeInteger Nothing) emptyPrefixSuffix "f1" (Just $ AList () u [ varGen "x"]) Nothing [ BlStatement () u Nothing (StExpressionAssign () u (varGen "f1") (ExpFunctionCall () u (ExpValue () u (ValVariable "f1")) (Just $ AList () u [Argument () u Nothing (ArgExpr $ varGen "x")]))) ] (Just [ex5pu2pu1])
+ex6pu2pu1 =
+    PUFunction () u
+        (Just $ TypeSpec () u TypeInteger Nothing)
+        emptyPrefixSuffix
+        "f1"
+        (Just $ AList () u [ varGen "x"])
+        Nothing
+        [ BlStatement () u Nothing
+            (StExpressionAssign () u (varGen "f1")
+                (ExpFunctionCall () u (ExpValue () u (ValVariable "f1"))
+                (AList () u [Argument () u Nothing (ArgExpr $ varGen "x")])
+        )) ]
+        (Just [ex5pu2pu1])
 
 --parseF90 :: [String] -> ProgramFile A0
 --parseF90 = resetSrcSpan . fortran90Parser . unlines

@@ -253,7 +253,10 @@ statement (StExpressionAssign _ _ (ExpSubscript _ _ v ixAList) _)
 -- them in the first place? (iterate until fixed point?)
 statement (StFunction _ _ v _ _) = recordCType CTFunction (varName v)
 -- (part of answer to above is) nullary function statement: foo() = ...
-statement (StExpressionAssign _ _ (ExpFunctionCall _ _ v Nothing) _) = recordCType CTFunction (varName v)
+statement (StExpressionAssign _ _ (ExpFunctionCall _ _ v args) _) =
+  case alistList args of
+    []  -> recordCType CTFunction (varName v)
+    _:_ -> pure ()
 
 statement (StDimension _ _ declAList) = do
   let decls = aStrip declAList
@@ -403,8 +406,8 @@ subscriptType ss e1 (AList _ _ idxs) = do
         else return ty
     _ -> return emptyType
 
-functionCallType :: Data a => SrcSpan -> Expression (Analysis a) -> Maybe (AList Argument (Analysis a)) -> Infer IDType
-functionCallType ss (ExpValue _ _ (ValIntrinsic n)) (Just (AList _ _ params)) = do
+functionCallType :: Data a => SrcSpan -> Expression (Analysis a) -> AList Argument (Analysis a) -> Infer IDType
+functionCallType ss (ExpValue _ _ (ValIntrinsic n)) (AList _ _ params) = do
   itab <- gets intrinsics
   let mRetType = getIntrinsicReturnType n itab
   case mRetType of

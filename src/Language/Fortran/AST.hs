@@ -496,7 +496,7 @@ data Statement a  =
   | StGotoUnconditional   a SrcSpan (Expression a)
   | StGotoAssigned        a SrcSpan (Expression a) (Maybe (AList Expression a))
   | StGotoComputed        a SrcSpan (AList Expression a) (Expression a)
-  | StCall                a SrcSpan (Expression a) (Maybe (AList Argument a))
+  | StCall                a SrcSpan (Expression a) (AList Argument a)
   | StReturn              a SrcSpan (Maybe (Expression a))
   | StContinue            a SrcSpan
   | StStop                a SrcSpan (Maybe (Expression a))
@@ -847,7 +847,7 @@ data Expression a =
   -- ^ Array indexing
   | ExpDataRef       a SrcSpan (Expression a) (Expression a)
   -- ^ @%@ notation for variables inside data types
-  | ExpFunctionCall  a SrcSpan (Expression a) (Maybe (AList Argument a))
+  | ExpFunctionCall  a SrcSpan (Expression a) (AList Argument a)
   -- ^ A function expression applied to a list of arguments.
   | ExpImpliedDo     a SrcSpan (AList Expression a) (DoSpecification a)
   -- ^ Implied do (i.e. one-liner do loops)

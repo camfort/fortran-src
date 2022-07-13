@@ -53,6 +53,9 @@ aCons x (AList a s xs) = AList a s $ x:xs
 
 infixr 5 `aCons`
 
+aEmpty :: a -> SrcSpan -> AList t a
+aEmpty a s = AList a s []
+
 aReverse :: AList t a -> AList t a
 aReverse (AList a s xs) = AList a s $ reverse xs
 

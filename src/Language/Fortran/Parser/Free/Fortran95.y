@@ -615,11 +615,14 @@ EXECUTABLE_STATEMENT :: { Statement A0 }
 | endfile UNIT { StEndfile2 () (getTransSpan $1 $2) $2 }
 | backspace CILIST { StBackspace () (getTransSpan $1 $2) $2 }
 | backspace UNIT { StBackspace2 () (getTransSpan $1 $2) $2 }
-| call VARIABLE { StCall () (getTransSpan $1 $2) $2 Nothing }
-| call VARIABLE '(' ')' { StCall () (getTransSpan $1 $4) $2 Nothing }
+| call VARIABLE
+  { StCall () (getTransSpan $1 $2) $2 (aEmpty () (emptySpan (ssTo (getSpan $2)))) }
+  -- ^ (!) empty list 0-span
+| call VARIABLE '(' ')'
+  { StCall () (getTransSpan $1 $4) $2 (aEmpty () (getTransSpan $3 $4)) }
+  -- ^ (!) empty list spans brackets
 | call VARIABLE '(' ARGUMENTS ')'
-  { let alist = fromReverseList $4
-    in StCall () (getTransSpan $1 $5) $2 (Just alist) }
+  { StCall () (getTransSpan $1 $5) $2 (fromReverseList $4) }
 | return { StReturn () (getSpan $1) Nothing }
 | return EXPRESSION { StReturn () (getTransSpan $1 $2) (Just $2) }
 | FORALL { $1 }
@@ -1069,7 +1072,8 @@ PART_REFS :: { [ Expression A0 ] }
 PART_REF :: { Expression A0 }
 : VARIABLE { $1 }
 | VARIABLE '(' ')'
-  { ExpFunctionCall () (getTransSpan $1 $3) $1 Nothing }
+  { ExpFunctionCall () (getTransSpan $1 $3) $1 (aEmpty () (getTransSpan $2 $3)) }
+  -- ^ (!) empty list spans brackets
 | VARIABLE '(' INDICIES ')'
   { ExpSubscript () (getTransSpan $1 $4) $1 (fromReverseList $3) }
 | VARIABLE '(' INDICIES ')' '(' INDICIES ')'

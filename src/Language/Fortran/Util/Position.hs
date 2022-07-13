@@ -43,7 +43,7 @@ lineCol p = (fromIntegral $ posLine p, fromIntegral $ posColumn p)
 -- | (line, column) number taking into account any specified line pragmas.
 apparentLineCol :: Position -> (Int, Int)
 apparentLineCol (Position _ c l _ (Just (o, _))) = (l + o, c)
-apparentLineCol (Position _ c l _ _)             = (l, c)
+apparentLineCol (Position _ c l _ Nothing)       = (l, c)
 
 -- | Path of file taking into account any specified line pragmas.
 apparentFilePath :: Position -> String
@@ -79,9 +79,9 @@ spannedLines (SrcSpan (Position _ _ l1 _ _) (Position _ _ l2 _ _)) = [l1..l2]
 initSrcSpan :: SrcSpan
 initSrcSpan = SrcSpan initPosition initPosition
 
-instance Spanned SrcSpan where
-  getSpan s = s
-  setSpan _ _ = undefined
+-- | Return the empty span at a given position (span between itself).
+emptySpan :: Position -> SrcSpan
+emptySpan pos = SrcSpan pos pos
 
 class Spanned a where
   getSpan :: a -> SrcSpan
@@ -92,6 +92,10 @@ class Spanned a where
 
   default setSpan :: (SecondParameter a SrcSpan) => SrcSpan -> a -> a
   setSpan = setSecondParameter
+
+instance Spanned SrcSpan where
+  getSpan = id
+  setSpan = const
 
 class (Spanned a, Spanned b) => SpannedPair a b where
   getTransSpan :: a -> b -> SrcSpan

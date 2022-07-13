@@ -188,8 +188,10 @@ OTHER_EXECUTABLE_STATEMENT :: { Statement A0 }
 | goto LABELS_IN_STATEMENT VARIABLE { StGotoComputed () (getTransSpan $1 $3) $2 $3 }
 | if '(' EXPRESSION ')' LABEL_IN_STATEMENT ',' LABEL_IN_STATEMENT ',' LABEL_IN_STATEMENT { StIfArithmetic () (getTransSpan $1 $9) $3 $5 $7 $9 }
 | call VARIABLE ARGUMENTS
-  { StCall () (getTransSpan $1 $3) $2 (Just $3) }
-| call VARIABLE { StCall () (getTransSpan $1 $2) $2 Nothing }
+  { StCall () (getTransSpan $1 $3) $2 $3 }
+| call VARIABLE
+  { StCall () (getTransSpan $1 $2) $2 (aEmpty () (emptySpan (ssTo (getSpan $2)))) }
+  -- ^ (!) empty list 0-span
 | return { StReturn () (getSpan $1) Nothing }
 | continue { StContinue () $ getSpan $1 }
 | stop INTEGER_LITERAL { StStop () (getTransSpan $1 $2) $ Just $2 }
@@ -381,7 +383,8 @@ RELATIONAL_OPERATOR :: { BinaryOp }
 
 SUBSCRIPT :: { Expression A0 }
 : VARIABLE '(' ')'
-  { ExpFunctionCall () (getTransSpan $1 $3) $1 Nothing }
+  { ExpFunctionCall () (getTransSpan $1 $3) $1 (aEmpty () (getTransSpan $2 $3)) }
+  -- ^ (!) empty list spans brackets
 | VARIABLE '(' INDICIES ')'
   { ExpSubscript () (getTransSpan $1 $4) $1 (fromReverseList $3) }
 
