@@ -83,3 +83,32 @@ instance SecondParameter (ATuple t1 t2 a) SrcSpan
 instance Spanned (ATuple t1 t2 a)
 instance (Out a, Out (t1 a), Out (t2 a)) => Out (ATuple t1 t2 a)
 instance (NFData a, NFData (t1 a), NFData (t2 a)) => NFData (ATuple t1 t2 a)
+
+--------------------------------------------------------------------------------
+
+{-
+
+see issue #231
+
+data AListX ext t a = AListX
+  { alistxAnno :: a
+  , alistxSpan :: SrcSpan
+  , alistxList :: [t a]
+  , alistxExt  :: ext
+  } deriving stock (Eq, Show, Data, Generic)
+
+instance Functor t => Functor (AListX ext t) where
+  fmap f (AListX a s xs ext) = AListX (f a) s (map (fmap f) xs) ext
+
+instance FirstParameter (AListX ext t a) a
+instance SecondParameter (AListX ext t a) SrcSpan
+instance Annotated (AListX ext t)
+instance Spanned (AListX ext t a)
+instance (Out a, Out (t a), Out ext) => Out (AListX ext t a)
+instance (NFData a, NFData (t a), NFData ext) => NFData (AListX ext t a)
+
+data Brackets = Brackets | OmitBrackets
+    deriving stock    (Eq, Show, Data, Generic)
+    deriving anyclass (NFData, Out)
+
+-}

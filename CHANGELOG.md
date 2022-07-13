@@ -13,6 +13,19 @@
   * fiddle with record selectors for some AST nodes (for better Aeson instances)
   * pair IF/CASE conditions with their blocks, rather than splitting between two
     lists
+  * `ExpFunctionCall` and `StCall` store procedure arguments in `AList` (`[a]`)
+    instead of `Maybe AList` (`Maybe [a]`)
+    * Matching is safer because empty lists are always `[]` instead of `Nothing`
+      or `Just []`. Construction for empty lists is more awkward.
+    * A better solution would be to use an `AList`-like that also stores extra
+      syntactic information.
+  * refactored a number of small AST nodes
+    * `ImpElement`
+    * `ForallHeader`
+  * add Hackage documentation to many individual AST constructors and fields
+  * improve include parser interface #227
+  * improve newline handling for block parsers #228
+  * fix some source span misses #225
 
 ### 0.9.0 (Feb 14, 2022)
   * Restructure parsing-related modules for code deduplication and better user
