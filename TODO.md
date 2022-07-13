@@ -2,10 +2,11 @@
   * Many AST nodes could be upgraded to use `NonEmpty` - some appear to be
     nonsensical for the empty list case (e.g. `Declarator` with `ArrayDecl`)
     * May need another newtype to work with `AList`
-  * `SrcSpan` for empty `AList`, and brackets problem
-    * Moving from `Maybe AList` to `AList` simplifies representation, but means
-      we need to provide a `SrcSpan`. To enable correct reprinting, we would
-      need to use an `AList`-like wrapper that explicitly states whether there
-      were brackets or not.
-    * Only problematic for reprintings below `Expression` level, which likely
-      aren't done. But moving has opened up that avenue.
+  * How to handle empty `AList`s
+    * Empty `AList`s are hard to give `SrcSpan`s to (but probably OK to do so)
+    * Some syntax allows omitting brackets for empty lists
+    * `Maybe AList` fixes the problem, but now we have `Just []` and `Nothing`
+    * Ideal solution is probably more `AList`-likes that encode some extra
+      syntactic info while storing a regular list. Large scale change
+    * For now, moved `ExpFunctionCall` and `StCall` from `Maybe AList` to
+      `AList`, with notes on problematic spans
