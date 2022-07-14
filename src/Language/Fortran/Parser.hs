@@ -64,7 +64,7 @@ import Control.Monad.State
 import qualified Data.Map as Map
 import           Data.Map ( Map )
 import Data.Generics.Uniplate.Operations ( descendBiM )
-import Control.Exception ( throwIO )
+import Control.Exception ( throwIO, Exception )
 import System.FilePath ( (</>) )
 import System.Directory ( doesFileExist )
 
@@ -72,6 +72,17 @@ import System.Directory ( doesFileExist )
 --   either a normalized error (tokens are printed) or an untransformed
 --   'ProgramFile'.
 type Parser a = String -> B.ByteString -> Either ParseErrorSimple a
+
+-- Provides a way to aggregate errors that come
+-- from parses with different token types
+data ParseErrorSimple = ParseErrorSimple
+  { errorPos      :: Position
+  , errorFilename :: String
+  , errorMsg      :: String
+  } deriving (Exception)
+
+instance Show ParseErrorSimple where
+  show err = errorFilename err ++ ", " ++ show (errorPos err) ++ ": " ++ errorMsg err
 
 --------------------------------------------------------------------------------
 

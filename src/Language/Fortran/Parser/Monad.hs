@@ -67,17 +67,6 @@ data ParseResult b c a = ParseOk a (ParseState b) | ParseFailed (ParseError b c)
 
 instance (Typeable a, Typeable b, Show a, Show b) => Exception (ParseError a b)
 
--- Provides a way to aggregate errors that come
--- from parses with different token types
-data ParseErrorSimple = ParseErrorSimple
-  { errorPos      :: Position
-  , errorFilename :: String
-  , errorMsg      :: String
-  } deriving (Exception)
-
-instance Show ParseErrorSimple where
-  show err = errorFilename err ++ ", " ++ show (errorPos err) ++ ": " ++ errorMsg err
-
 class LastToken a b | a -> b where
   getLastToken :: (Show b) => a -> Maybe b
 

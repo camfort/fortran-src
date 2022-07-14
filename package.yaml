@@ -46,6 +46,11 @@ default-extensions:
 - BangPatterns
 - TupleSections
 
+# --pedantic for building (not used for stack ghci)
+ghc-options:
+- -Wall
+#- -Werror # appears bad to do in distribution, can be useful for development
+
 dependencies:
 - base >=4.6 && <5
 - mtl >=2.2 && <3
@@ -64,11 +69,6 @@ dependencies:
 - filepath >=1.4 && <1.5
 - temporary >=1.2 && <1.4
 - either ^>=5.0.1.1
-
-# --pedantic for building (not used for stack ghci)
-ghc-options:
-- -Wall
-#- -Werror # appears bad to do in distribution, can be useful for development
 
 library:
   source-dirs: src
