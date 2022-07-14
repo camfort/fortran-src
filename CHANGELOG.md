@@ -1,3 +1,6 @@
+### Unreleased
+  * Export `ParseErrorSimple` from `Parser`, not internal module `Parser.Monad`
+
 ### 0.10.0 (Jul 13, 2022)
   * Fix parsing kind parameters like `a_1` on literals. Previously, that would
     be parsed as a kind parameter on a kind parameter. Now we don't do that,
