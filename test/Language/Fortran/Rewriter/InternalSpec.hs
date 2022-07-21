@@ -240,7 +240,7 @@ spec = do
             , RChar Nothing    False (SourceLocation 0 6) ""
             ]
           chunk = nextChunk line
-      chunk `shouldBe` (take 2 line, drop 2 line)
+      chunk `shouldBe` splitAt 2 line
     it "Take next chunk (replacement in the begining)" $ do
       let line =
             [ RChar (Just 'D') True  (SourceLocation 0 0) "repl"
@@ -249,7 +249,7 @@ spec = do
             , RChar Nothing    False (SourceLocation 0 3) ""
             ]
           chunk = nextChunk line
-      chunk `shouldBe` (take 1 line, drop 1 line)
+      chunk `shouldBe` splitAt 1 line
     it "Take next chunk (deletion in the begining)" $ do
       let line =
             [ RChar (Just 'D') True  (SourceLocation 0 0) ""
@@ -258,11 +258,11 @@ spec = do
             , RChar Nothing    False (SourceLocation 0 3) ""
             ]
           chunk = nextChunk line
-      chunk `shouldBe` (take 1 line, drop 1 line)
+      chunk `shouldBe` splitAt 1 line
     it "Take next chunk (with a new line)" $ do
       let multiline = toRCharList "some text with\na new line"
           chunk     = nextChunk multiline
-      chunk `shouldBe` (take 15 multiline, drop 15 multiline)
+      chunk `shouldBe` splitAt 15 multiline
     it "Take all chunks (single chunk)" $ do
       let line   = toRCharList "A single chunk"
           chunks = allChunks line
@@ -518,6 +518,88 @@ spec = do
                    <> "\n     +"
                    <> BC.replicate 28 'a'
                    )
+    it "Apply replacement (continuation line with comments)" $ do
+      let source =
+            BC.replicate 6 ' '
+              <> "abcdefg"           -- 7 characters
+              <> BC.replicate 59 ' '
+              <> BC.replicate 4 'c'  -- starts exactly at 73
+          range = SourceRange (SourceLocation 0 6) (SourceLocation 0 6)
+          replS = "1234"
+          r     = Replacement range replS
+          res   = applyReplacements source [r]
+      res
+        `shouldBe` (  BC.replicate 6 ' '
+                   <> BC.pack replS        -- 4 characters
+                   <> "a\n     +bcdefg"    -- 6 characters
+                   <> BC.replicate 60 ' '
+                   <> BC.replicate 4 'c'   -- starts exactly at 73
+                   )
+    it "Apply replacement (continuation line with comments in continuation)"
+      $ do
+          let prefix = BC.replicate 6 ' ' <> "abcdefg + 56\n     +"
+              source =
+                prefix
+                  <> "abcdefg" -- 7 characters after continuation
+                  <> BC.replicate 59 ' '
+                  <> "+ 56"                   -- starts exactly at 73
+              range = SourceRange (SourceLocation 1 6) (SourceLocation 1 6)
+              replS = "1234"
+              r     = Replacement range replS
+              res   = applyReplacements source [r]
+          res
+            `shouldBe` (  prefix
+                       <> BC.pack replS        -- 4 characters
+                       <> "a\n     +bcdefg"    -- 6 characters
+                       <> BC.replicate 60 ' '
+                       <> "+ 56"               -- starts exactly at 73
+                       )
+    it "Apply replacement (forced continuation line with comments)" $ do
+      let
+        source
+          = "      write(8, *) '>>>>>>>>>>>>>>>>>>>>         ', 5 + 3422   + p6uUiD  + 4"
+                                                                          -- ^ column 64
+        range = SourceRange (SourceLocation 0 64) (SourceLocation 0 70)
+        replS = "sespit_get_p6uuid()"
+        r     = Replacement range replS
+        res   = applyReplacements source [r]
+      res
+        `shouldBe` ("      write(8, *) '>>>>>>>>>>>>>>>>>>>>         ', 5 + 3422   + \n"
+                   <> "     +sespit_get_p6uuid()                                               + 4"
+                   )
+    it "Apply replacement inside string (inline comment over column 72)" $ do
+      let
+        source
+          = "      write(8, *) 'hi' !  this comment goes way over the limit................"
+                                                                                  -- ^ column 72
+        range = SourceRange (SourceLocation 0 19) (SourceLocation 0 21)
+        replS = "hello"
+        r     = Replacement range replS
+        res   = applyReplacements source [r]
+      res
+        `shouldBe` "      write(8, *) 'hello' !  this comment goes way over the limit................"
+    it "Apply replacement outside string (inline comment over column 72)" $ do
+      let
+        source
+          = "      write(8, *) 'hi', varHi !  this comment goes way over the limit................"
+                                                                                  -- ^ column 72
+        range = SourceRange (SourceLocation 0 27) (SourceLocation 0 29)
+        replS = "Hello"
+        r     = Replacement range replS
+        res   = applyReplacements source [r]
+      res
+        `shouldBe` "      write(8, *) 'hi', varHello !  this comment goes way over the limit................"
+    it "Apply replacement ('!' in a string literal)" $ do
+      let
+        source =
+          "      write(8, *) 'hi! this string is really long, overflowing even'"
+                                                                           -- ^ column 68
+        range = SourceRange (SourceLocation 0 68) (SourceLocation 0 68)
+        replS = ", variableHello"
+        r     = Replacement range replS
+        res   = applyReplacements source [r]
+      res
+        `shouldBe` "      write(8, *) 'hi! this string is really long, overflowing even'\n     +, variableHello"
     it "Apply replacement (insertion in the middle)" $ do
       let source = "abc"
           range  = SourceRange (SourceLocation 0 0) (SourceLocation 0 0)
@@ -546,18 +628,6 @@ spec = do
         <>         BC.pack replS1
         <>         BC.pack replS2
         <>         BC.replicate 24 'a'
-    it "Apply replacement ('!' in a string literal)" $ do
-      let
-        source =
-          "      write(8, *) 'hi! this string is really long, overflowing even'"
-                                                                           -- ^ Column 68
-        range = SourceRange (SourceLocation 0 68) (SourceLocation 0 68)
-        replS = ", variableHello"
-        r     = Replacement range replS
-        res   = applyReplacements source [r]
-      res
-        `shouldBe`
-          "      write(8, *) 'hi! this string is really long, overflowing even'\n     +, variableHello"
     it "Apply replacements (overlapping)" $ do
       let source = BC.replicate 30 'a'
           range1 = SourceRange (SourceLocation 0 2) (SourceLocation 0 4)

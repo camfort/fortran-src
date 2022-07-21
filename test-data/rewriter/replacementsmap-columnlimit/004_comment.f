@@ -6,6 +6,6 @@ c     This is the API for foo subroutine. We take in some inputs, apply some coo
         some_string = "some_string"
 
         if (foo) then
-            IF (some_string(0).eq.'s') foo=9                              Text after col 72 are comments and should remain
+            IF (some_string(0).eq.'s') foo=9                            Text after col 72 are comments and should remain
         endif
       end
