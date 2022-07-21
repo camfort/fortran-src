@@ -68,14 +68,10 @@ library
       Language.Fortran.Analysis.Constants
       Language.Fortran.Analysis.DataFlow
       Language.Fortran.Analysis.ModGraph
+      Language.Fortran.Analysis.Raehik
       Language.Fortran.Analysis.Renaming
       Language.Fortran.Analysis.SemanticTypes
       Language.Fortran.Analysis.Types
-      Language.Fortran.Analysis.Types.Annotate
-      Language.Fortran.Analysis.Types.FortranVars
-      Language.Fortran.Analysis.Types.Internal
-      Language.Fortran.Analysis.Types.Traverse
-      Language.Fortran.Analysis.Types.Util
       Language.Fortran.Analysis.Util
       Language.Fortran.AST
       Language.Fortran.AST.AList
