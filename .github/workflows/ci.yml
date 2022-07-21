@@ -54,7 +54,7 @@ jobs:
     strategy:
       fail-fast: false      # don't stop if one job (= GHC version) fails
       matrix:
-        cabal: ["3.4"]      # ghcup recommended as of 2021-09-24
+        cabal: [latest]
         ghc:
         - "8.4"
         - "9.0"
@@ -110,7 +110,7 @@ jobs:
     strategy:
       fail-fast: false      # don't stop if one job (= GHC version) fails
       matrix:
-        cabal: ["3.4"]      # ghcup recommended as of 2021-09-24
+        cabal: [latest]
         ghc: ["9.0"]
     steps:
 
@@ -159,7 +159,7 @@ jobs:
     strategy:
       fail-fast: false      # don't stop if one job (= GHC version) fails
       matrix:
-        cabal: ["3.4"]      # ghcup recommended as of 2021-09-24
+        cabal: [latest]
         ghc: ["9.0"]
     steps:
     # TODO figure out timestamp fixer on Windows (need Bash)
