@@ -14,6 +14,7 @@
 module Language.Fortran.Rewriter.Internal where
 
 import           Data.Int
+import           Data.Bifunctor                 ( first )
 import           Data.ByteString.Lazy.Char8     ( ByteString )
 import qualified Data.ByteString.Lazy.Char8    as BC
 import           Control.Exception              ( Exception
@@ -169,7 +170,9 @@ evaluateRChar (RChar char del _ repl) | del = repl
 nextChunk :: [RChar] -> (Chunk, [RChar])
 nextChunk [] = ([], [])
 -- if the current chunk is the start of inline comment, prepend it to next
-nextChunk (rchar@(RChar (Just '!') True _ _) : xs) = (rchar : fst rec, snd rec)
+nextChunk (rchar@(RChar (Just '!') True _ _) : xs) = Data.Bifunctor.first
+  (rchar :)
+  rec
   where rec = nextChunk xs
 nextChunk (rchar@(RChar _ True _ _) : xs) = ([rchar], xs)
 nextChunk rchars                          = nextChunk_ rchars
@@ -178,7 +181,8 @@ nextChunk_ :: [RChar] -> (Chunk, [RChar])
 nextChunk_ [] = ([], [])
 nextChunk_ ls@(RChar _ True _ _ : _) = ([], ls)
 nextChunk_ (rchar@(RChar (Just '\n') _ _ _) : xs) = ([rchar], xs)
-nextChunk_ (rchar : xs) = (rchar : fst rec, snd rec) where rec = nextChunk_ xs
+nextChunk_ (rchar : xs) = Data.Bifunctor.first (rchar :) rec
+  where rec = nextChunk_ xs
 
 -- | Splits ['RChar'] into 'Chunk's.
 allChunks :: [RChar] -> [Chunk]
@@ -191,68 +195,101 @@ allChunks rchars = chunk : allChunks rest
 evaluateChunks :: [Chunk] -> ByteString
 evaluateChunks ls = evaluateChunks_ ls 0 Nothing
 
+-- | This expands the chunks from the left to right. If the length
+-- of what has already been put into the current line exceeds the
+-- limit of 72 characters (excluding inline comments starting with
+-- '!' and implicit comments starting at column 73) then it ends
+-- the current line with a continuation, otherwise it simply adds
+-- the line as-is. It also calculates if the chunk is inside or outside
+-- of a string literal, using that to determine where explicit comments are
+-- if any.
+--
+-- In either case, we make sure that we are padding implicit
+-- comments *from the original source* even if the tail of that
+-- line has been moved onto a continuation line.
 evaluateChunks_ :: [Chunk] -> Int64 -> Maybe Char -> ByteString
-evaluateChunks_ []       _       _         = ""
-evaluateChunks_ (x : xs) currLen quotation = if overLength
-  then
-    "\n     +"
-    <> evaluateRChars xPadded
-    <> maybe (evaluateChunks_ xs (6 + nextLen) nextState)
-             (\len -> evaluateChunks_ xs len nextState)
-             lastLen
-  else
-    chStr
-      <> maybe (evaluateChunks_ xs (currLen + nextLen) nextState)
-               (\len -> evaluateChunks_ xs len nextState)
-               lastLen
- where
-  overLength = currLen + nextLen > 72 && currLen > 0
-  xPadded    = padImplicitComments x (72 - 6)
-  chStr      = evaluateRChars x
-  isQuote    = (`elem` ['\'', '"'])
-  nextLen    = fromMaybe (BC.length chStr)
-                         (myMin (BC.elemIndex '\n' chStr) explicitCommentIdx) -- don't line break for comments
-  lastLen = BC.elemIndex '\n' $ BC.reverse chStr
-  -- min for maybes that doesn't short circuit if there's a Nothing
-  myMin y z = case (y, z) of
-    (Just a , Just b ) -> Just $ min a b
-    (Nothing, Just a ) -> Just a
-    (Just a , Nothing) -> Just a
-    (Nothing, Nothing) -> Nothing
-  (nextState, explicitCommentIdx) =
-    elemIndexOutsideStringLiteral quotation '!' (BC.unpack chStr)
-  elemIndexOutsideStringLiteral currentState needle haystack = elemIndexImpl_
-    currentState
-    needle
-    haystack
-    0
-   where
-      -- Search space is empty, therefore no result is possible
-    elemIndexImpl_ state _ "" _ = (state, Nothing)
-    -- We have already entered a string literal
-    elemIndexImpl_ state@(Just quoteChar) query (top : rest) idx
-      | top == quoteChar = elemIndexImpl_ Nothing query rest (idx + 1)
-      | otherwise        = elemIndexImpl_ state query rest (idx + 1)
-    -- Searching outside a string literal, might find the query or
-    -- enter a string literal
-    elemIndexImpl_ Nothing query (top : rest) idx
-      | top == query = (Nothing, Just idx)
-      | isQuote top  = elemIndexImpl_ (Just top) query rest (idx + 1)
-      | otherwise    = elemIndexImpl_ Nothing query rest (idx + 1)
+evaluateChunks_ [] _ _ = ""
+evaluateChunks_ (x : xs) currLen quotation =
+  let chStr   = evaluateRChars x
+      isQuote = (`elem` ['\'', '"'])
+      elemIndexOutsideStringLiteral currentState needle haystack = impl
+        currentState
+        needle
+        haystack
+        0
+         where
+          -- Search space is empty, therefore no result is possible
+          impl state _ "" _ = (state, Nothing)
+          -- We have already entered a string literal
+          impl state@(Just quoteChar) query (top : rest) idx
+            | top == quoteChar = impl Nothing query rest (idx + 1)
+            | otherwise        = impl state query rest (idx + 1)
+          -- Searching outside a string literal, might find the query or
+          -- enter a string literal
+          impl Nothing query (top : rest) idx
+            | top == query = (Nothing, Just idx)
+            | isQuote top  = impl (Just top) query rest (idx + 1)
+            | otherwise    = impl Nothing query rest (idx + 1)
 
-  -- Text after line 72 is an implicit comment, so should stay there
+      -- length to the last line
+      lastLen = BC.elemIndex '\n' $ BC.reverse chStr
+      (nextState, explicitCommentIdx) =
+          elemIndexOutsideStringLiteral quotation '!' (BC.unpack chStr)
+      -- length of rest of the line ignoring explicit comments
+      nextLen = fromMaybe
+        (BC.length chStr)
+        -- \n cannot occur inside of string literals so it is okay to search
+        -- directly for it. '!' on the other hand is allowed inside strings
+        -- so it needs to be searched for outside string literals
+        (myMin (BC.elemIndex '\n' chStr) explicitCommentIdx)
+      overLength = currLen + nextLen > 72 && currLen > 0
+  in  if overLength
+   -- start a new line
+        then
+          let targetCol = 72 - 6
+          in  "\n     +"
+              <> evaluateRChars (padImplicitComments x targetCol)
+              <> maybe (evaluateChunks_ xs (6 + nextLen) nextState)
+                       (\len -> evaluateChunks_ xs len nextState)
+                       lastLen
+   -- continue with the current line
+        else
+          let targetCol = 72 - fromIntegral currLen
+          in  evaluateRChars (padImplicitComments x targetCol)
+                <> maybe (evaluateChunks_ xs (currLen + nextLen) nextState)
+                         (\len -> evaluateChunks_ xs len nextState)
+                         lastLen
+ where
+  -- min for maybes that doesn't short circuit if there's a Nothing
+  myMin Nothing  m        = m
+  myMin m        Nothing  = m
+  myMin (Just a) (Just b) = Just $ min a b
+  -- Text after line 72 is an implicit comment, so should stay there regardless
+  -- of what happens to the rest of the source
   padImplicitComments :: Chunk -> Int -> Chunk
-  padImplicitComments chunk targetCol = case findCommentRChar chunk of
-    Just (index, rc) ->
-      take index chunk
-        ++ padCommentRChar rc (targetCol - index + 1)
-        :  drop (index + 1) chunk
-    Nothing -> chunk
+  padImplicitComments chunk targetCol =
+    let zippedChunk = zip [0 ..] chunk
+    in  case findCommentRChar zippedChunk of
+          Just (index, rc) ->
+            case
+                findExclamationRChar zippedChunk
+                  >>= \(id2, _) -> return (id2 >= index)
+              of
+                Just False -> chunk -- in this case there's a "!" before column 73
+                _ ->
+                  take index chunk
+                    ++ padCommentRChar rc (targetCol - index)
+                    :  drop (index + 1) chunk
+          Nothing -> chunk
    where
-    findCommentRChar :: Chunk -> Maybe (Int, RChar)
-    findCommentRChar =
-      find ((\(RChar _ _ (SourceLocation _ cl) _) -> cl == 72) . snd)
-        . zip [1 ..]
+    -- Find the first location of a '!' in the chunks
+    findExclamationRChar = find ((\(RChar c _ _ _) -> c == Just '!') . snd)
+    -- Find the location at column 73 in the original source.
+    -- If that character is a newline, ignore it
+    findCommentRChar     = find
+      ( (\(RChar ch _ (SourceLocation _ cl) _) -> cl == 72 && ch /= Just '\n')
+      . snd
+      )
     padCommentRChar :: RChar -> Int -> RChar
     padCommentRChar (RChar char _ loc repl) padding = RChar
       char

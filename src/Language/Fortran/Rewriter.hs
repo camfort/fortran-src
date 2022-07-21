@@ -29,17 +29,18 @@ where
 import qualified Data.ByteString.Lazy.Char8    as BC
 import qualified Language.Fortran.Rewriter.Internal
                                                as RI
+import           Control.Exception              ( finally )
+import           Control.Monad                  ( when )
+import           Data.Bifunctor                 ( bimap )
 import           Data.List                      ( partition )
 import qualified Data.Map                      as M
 import           Language.Fortran.Util.Position ( lineCol
                                                 , SrcSpan(..)
                                                 )
-import           System.Directory               ( renameFile )
-import           System.FilePath                ( (</>)
-                                                , takeFileName
-                                                , takeDirectory
+import           System.Directory               ( doesFileExist
+                                                , removeFile
+                                                , renameFile
                                                 )
-import           System.IO.Temp                 ( withTempDirectory )
 
 -- | Remove overlapping items from a list of replacements and return a pair of
 -- lists containing disjoint items and overlapping items, respectively.
@@ -50,12 +51,12 @@ import           System.IO.Temp                 ( withTempDirectory )
 -- items.
 partitionOverlapping :: [RI.Replacement] -> ([RI.Replacement], [RI.Replacement])
 partitionOverlapping [] = ([], [])
-partitionOverlapping (r:rs) =
-  -- partition current list using front element, recurse on the disjoints
-  -- (r is always treated as disjoint, which gives the precedence)
-  let (disjoint,     overlapping)     = partition (RI.areDisjoint r) rs
-      (disjointRest, overlappingRest) = partitionOverlapping disjoint
-  in  (r : disjointRest, overlapping <> overlappingRest)
+partitionOverlapping repls =
+  let currentRepl = head repls
+      (overlapping, remaining) =
+          partition (not . RI.areDisjoint currentRepl) (tail repls)
+      nextResult = partitionOverlapping remaining
+  in  Data.Bifunctor.bimap (currentRepl :) (overlapping <>) nextResult
 
 -- | Apply a list of 'Replacement's to the orginal source file.
 --
@@ -88,16 +89,18 @@ processReplacements :: RI.ReplacementMap -> IO ()
 processReplacements rm = processReplacements_ $ M.toList rm
 
 processReplacements_ :: [(String, [RI.Replacement])] -> IO ()
-processReplacements_ = mapM_ go
-  where
-    go :: (String, [RI.Replacement]) -> IO ()
-    go (filePath, repls) = do
-      contents <- BC.readFile filePath
-      let newContents  = RI.applyReplacements contents repls
-      withTempDirectory (takeDirectory filePath) ('.' : takeFileName filePath) $ \tmpDir ->
-        let tmpFile = tmpDir </> "tmp.f"
-         in do BC.writeFile tmpFile newContents
-               renameFile tmpFile filePath
+processReplacements_ []                       = return ()
+processReplacements_ ((filePath, repls) : xs) = do
+  contents <- BC.readFile filePath
+  let newContents  = RI.applyReplacements contents repls
+      tempFilePath = filePath ++ ".temp"
+      maybeRm      = do
+        exists <- doesFileExist tempFilePath
+        when exists $ removeFile tempFilePath
+  flip finally maybeRm $ do
+    BC.writeFile tempFilePath newContents
+    renameFile tempFilePath filePath
+  processReplacements_ xs
 
 -- | Utility function to convert 'SrcSpan' to 'SourceRange'
 --
