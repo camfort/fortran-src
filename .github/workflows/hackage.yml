@@ -65,14 +65,11 @@ jobs:
 
     - run: cabal freeze
 
-    - name: Cache Cabal build artifacts
+    - name: Cache global Cabal store
       uses: actions/cache@v2
       with:
-        path: |
-          ~/.cabal/store
-          dist-newstyle
-        key:          hackage-deps-${{ runner.os }}-ghc_${{ env.ghc }}-${{ hashFiles('cabal.project.freeze') }}
-        restore-keys: hackage-deps-${{ runner.os }}-ghc_${{ env.ghc }}
+        path: ~/.cabal/store
+        key: hackage-deps-${{ runner.os }}-ghc_${{ env.ghc }}
 
     # TODO 2022-04-22: --haddock-options=--quickjump fixes a bug with not
     # propagating --haddock-quickjump to building dependency Haddocks
