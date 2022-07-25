@@ -7,7 +7,7 @@ import Language.Fortran.Util.SecondParameter ( SecondParameter )
 import Language.Fortran.AST.Annotated ( Annotated )
 
 import GHC.Generics                   ( Generic )
-import Data.Data                      ( Data, Typeable )
+import Data.Data                      ( Data )
 import Control.DeepSeq                ( NFData )
 import Text.PrettyPrint.GenericPretty ( Out )
 

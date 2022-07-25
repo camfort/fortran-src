@@ -5,4 +5,4 @@ save-hackage-creds: false
 
 extra-deps:
 - git: https://github.com/camfort/fortran-src-repr
-  commit: 967b00772e600304ec2a8f24d80ac2513058753c
+  commit: 09ca1881b0c7e8f3933046f70441d4092eee96f1

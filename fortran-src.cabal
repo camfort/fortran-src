@@ -68,7 +68,6 @@ library
       Language.Fortran.Analysis.Constants
       Language.Fortran.Analysis.DataFlow
       Language.Fortran.Analysis.ModGraph
-      Language.Fortran.Analysis.Raehik
       Language.Fortran.Analysis.Renaming
       Language.Fortran.Analysis.SemanticTypes
       Language.Fortran.Analysis.Types
@@ -97,8 +96,38 @@ library
       Language.Fortran.Parser.Monad
       Language.Fortran.Parser.ParserUtils
       Language.Fortran.PrettyPrint
-      Language.Fortran.Repr.Eval
+      Language.Fortran.Repr
+      Language.Fortran.Repr.Eval.Common
+      Language.Fortran.Repr.Eval.Op
+      Language.Fortran.Repr.Eval.Type
+      Language.Fortran.Repr.Eval.Value
+      Language.Fortran.Repr.Tmp
+      Language.Fortran.Repr.Type
+      Language.Fortran.Repr.Type.Array
+      Language.Fortran.Repr.Type.Scalar
+      Language.Fortran.Repr.Type.Scalar.Common
+      Language.Fortran.Repr.Type.Scalar.Complex
+      Language.Fortran.Repr.Type.Scalar.Int
+      Language.Fortran.Repr.Type.Scalar.Real
+      Language.Fortran.Repr.Type.Scalar.String
+      Language.Fortran.Repr.Util
+      Language.Fortran.Repr.Value
+      Language.Fortran.Repr.Value.Array
+      Language.Fortran.Repr.Value.Array.Machine
+      Language.Fortran.Repr.Value.Common
+      Language.Fortran.Repr.Value.Machine
       Language.Fortran.Repr.Value.Scalar
+      Language.Fortran.Repr.Value.Scalar.Common
+      Language.Fortran.Repr.Value.Scalar.Complex
+      Language.Fortran.Repr.Value.Scalar.Int
+      Language.Fortran.Repr.Value.Scalar.Int.Idealized
+      Language.Fortran.Repr.Value.Scalar.Int.Machine
+      Language.Fortran.Repr.Value.Scalar.Logical
+      Language.Fortran.Repr.Value.Scalar.Logical.Idealized
+      Language.Fortran.Repr.Value.Scalar.Logical.Machine
+      Language.Fortran.Repr.Value.Scalar.Machine
+      Language.Fortran.Repr.Value.Scalar.Real
+      Language.Fortran.Repr.Value.Scalar.String
       Language.Fortran.Rewriter
       Language.Fortran.Rewriter.Internal
       Language.Fortran.Transformation.Disambiguation.Function
@@ -117,13 +146,12 @@ library
       src
   default-extensions:
       EmptyCase
-      FlexibleContexts
-      FlexibleInstances
-      InstanceSigs
-      MultiParamTypeClasses
-      PolyKinds
       LambdaCase
+      InstanceSigs
+      BangPatterns
+      ExplicitNamespaces
       DerivingStrategies
+      DerivingVia
       StandaloneDeriving
       DeriveAnyClass
       DeriveGeneric
@@ -132,8 +160,20 @@ library
       DeriveFoldable
       DeriveTraversable
       DeriveLift
-      BangPatterns
-      TupleSections
+      FlexibleContexts
+      FlexibleInstances
+      MultiParamTypeClasses
+      GADTs
+      PolyKinds
+      RoleAnnotations
+      RankNTypes
+      TypeApplications
+      DefaultSignatures
+      TypeFamilies
+      DataKinds
+      MagicHash
+      ScopedTypeVariables
+      TypeOperators
   ghc-options: -Wall
   build-tools:
       alex >=3.1
@@ -150,7 +190,6 @@ library
     , either >=5.0.1.1 && <5.1
     , fgl ==5.*
     , filepath ==1.4.*
-    , fortran-src-repr
     , mtl >=2.2 && <3
     , pretty >=1.1 && <2
     , singletons
@@ -160,6 +199,7 @@ library
     , text >=1.2 && <2
     , uniplate >=1.6 && <2
     , vector
+    , vector-sized
   if os(windows)
     cpp-options: -DFS_DISABLE_WIN_BROKEN_TESTS
   default-language: Haskell2010
@@ -172,13 +212,12 @@ executable fortran-src
       app
   default-extensions:
       EmptyCase
-      FlexibleContexts
-      FlexibleInstances
-      InstanceSigs
-      MultiParamTypeClasses
-      PolyKinds
       LambdaCase
+      InstanceSigs
+      BangPatterns
+      ExplicitNamespaces
       DerivingStrategies
+      DerivingVia
       StandaloneDeriving
       DeriveAnyClass
       DeriveGeneric
@@ -187,8 +226,20 @@ executable fortran-src
       DeriveFoldable
       DeriveTraversable
       DeriveLift
-      BangPatterns
-      TupleSections
+      FlexibleContexts
+      FlexibleInstances
+      MultiParamTypeClasses
+      GADTs
+      PolyKinds
+      RoleAnnotations
+      RankNTypes
+      TypeApplications
+      DefaultSignatures
+      TypeFamilies
+      DataKinds
+      MagicHash
+      ScopedTypeVariables
+      TypeOperators
   ghc-options: -Wall
   build-depends:
       GenericPretty >=1.2.2 && <2
@@ -203,7 +254,6 @@ executable fortran-src
     , fgl ==5.*
     , filepath ==1.4.*
     , fortran-src
-    , fortran-src-repr
     , mtl >=2.2 && <3
     , pretty >=1.1 && <2
     , singletons
@@ -213,6 +263,7 @@ executable fortran-src
     , text >=1.2 && <2
     , uniplate >=1.6 && <2
     , vector
+    , vector-sized
   if os(windows)
     cpp-options: -DFS_DISABLE_WIN_BROKEN_TESTS
   default-language: Haskell2010
@@ -252,13 +303,12 @@ test-suite spec
       test
   default-extensions:
       EmptyCase
-      FlexibleContexts
-      FlexibleInstances
-      InstanceSigs
-      MultiParamTypeClasses
-      PolyKinds
       LambdaCase
+      InstanceSigs
+      BangPatterns
+      ExplicitNamespaces
       DerivingStrategies
+      DerivingVia
       StandaloneDeriving
       DeriveAnyClass
       DeriveGeneric
@@ -267,8 +317,20 @@ test-suite spec
       DeriveFoldable
       DeriveTraversable
       DeriveLift
-      BangPatterns
-      TupleSections
+      FlexibleContexts
+      FlexibleInstances
+      MultiParamTypeClasses
+      GADTs
+      PolyKinds
+      RoleAnnotations
+      RankNTypes
+      TypeApplications
+      DefaultSignatures
+      TypeFamilies
+      DataKinds
+      MagicHash
+      ScopedTypeVariables
+      TypeOperators
   ghc-options: -Wall
   build-tool-depends:
       hspec-discover:hspec-discover
@@ -286,7 +348,6 @@ test-suite spec
     , fgl ==5.*
     , filepath ==1.4.*
     , fortran-src
-    , fortran-src-repr
     , hspec >=2.2 && <3
     , mtl >=2.2 && <3
     , pretty >=1.1 && <2
@@ -297,6 +358,7 @@ test-suite spec
     , text >=1.2 && <2
     , uniplate >=1.6 && <2
     , vector
+    , vector-sized
   if os(windows)
     cpp-options: -DFS_DISABLE_WIN_BROKEN_TESTS
   default-language: Haskell2010

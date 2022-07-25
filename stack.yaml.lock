@@ -9,12 +9,12 @@ packages:
     version: 0.0.0
     git: https://github.com/camfort/fortran-src-repr
     pantry-tree:
-      size: 2104
-      sha256: af2964c25c441a175d5825da92893daef924b17deca935b57eb068cb17778a55
-    commit: 967b00772e600304ec2a8f24d80ac2513058753c
+      size: 2954
+      sha256: 5a9d8af59c4adc62d2f0436bbde8d3d03eb422e1a2429c86a97920eca369f70a
+    commit: 09ca1881b0c7e8f3933046f70441d4092eee96f1
   original:
     git: https://github.com/camfort/fortran-src-repr
-    commit: 967b00772e600304ec2a8f24d80ac2513058753c
+    commit: 09ca1881b0c7e8f3933046f70441d4092eee96f1
 snapshots:
 - completed:
     size: 614841

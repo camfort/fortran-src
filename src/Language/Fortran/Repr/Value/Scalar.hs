@@ -1,5 +1,5 @@
 module Language.Fortran.Repr.Value.Scalar
-  ( module FortranSrc.Repr.Value.Scalar
+  ( module Language.Fortran.Repr.Value.Scalar.Machine
   ) where
 
-import FortranSrc.Repr.Value.Scalar
+import Language.Fortran.Repr.Value.Scalar.Machine

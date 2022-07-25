@@ -22,18 +22,18 @@ extra-source-files:
 - CHANGELOG.md
 - test-data/**/*
 
-# 2022-01-25: raehik: the essentials + handful of syntax (most in GHC2021)
+# raehik's extensions (GHC 9.2; last updated: 2022-06-15)
 default-extensions:
-# essential
+# syntax that should be default
 - EmptyCase
-- FlexibleContexts
-- FlexibleInstances
-- InstanceSigs
-- MultiParamTypeClasses
-- PolyKinds
 - LambdaCase
-# deriving-related
-- DerivingStrategies
+- InstanceSigs
+- BangPatterns
+- ExplicitNamespaces # 7.6
+
+## deriving-related
+- DerivingStrategies # 8.2
+- DerivingVia # 8.6
 - StandaloneDeriving
 - DeriveAnyClass
 - DeriveGeneric
@@ -42,9 +42,33 @@ default-extensions:
 - DeriveFoldable
 - DeriveTraversable
 - DeriveLift
-# less essential but still gimmes
-- BangPatterns
-- TupleSections
+
+# features that should be default
+- FlexibleContexts
+- FlexibleInstances
+- MultiParamTypeClasses
+- GADTs
+- PolyKinds
+- RoleAnnotations # 7.8
+- RankNTypes
+
+# other features
+- TypeApplications # 8.0
+- DefaultSignatures
+- TypeFamilies
+- DataKinds
+
+# other syntax
+- MagicHash
+#- ImportQualifiedPost # 8.10
+#- StandaloneKindSignatures # 8.10
+
+# essential, but can break things, so be wary
+- ScopedTypeVariables # changes type var scoping quite dramatically
+- TypeOperators # interferes with the old `*` type
+
+# useful extensions to know about, but which must be specified on-demand
+#- UndecidableInstances
 
 # --pedantic for building (not used for stack ghci)
 ghc-options:
@@ -69,16 +93,13 @@ dependencies:
 - filepath >=1.4 && <1.5
 - temporary >=1.2 && <1.4
 - either ^>=5.0.1.1
-#- vector-sized # TODO
+
+# strong type & value repr
+- vector-sized
 - vector
 - singletons
 - singletons-th
 - singletons-base
-- fortran-src-repr
-
-# --pedantic for building (not used for stack ghci)
-ghc-options:
-- -Wall
 
 library:
   source-dirs: src
