@@ -7,11 +7,11 @@ module Language.Fortran.Analysis
   ( initAnalysis, stripAnalysis, Analysis(..), Constant(..)
   , varName, srcName, lvVarName, lvSrcName, isNamedExpression
   , genVar, puName, puSrcName, blockRhsExprs, rhsExprs
-  , ModEnv, NameType(..), IDType(..), ConstructType(..)
+  , ModEnv, NameType(..), ConstructType(..)
   , lhsExprs, isLExpr, allVars, analyseAllLhsVars, analyseAllLhsVars1, allLhsVars
   , blockVarUses, blockVarDefs
   , BB, BBNode, BBGr(..), bbgrMap, bbgrMapM, bbgrEmpty
-  , TransFunc, TransFuncM, prettyIDType )
+  , TransFunc, TransFuncM )
 where
 
 import           Language.Fortran.AST
@@ -19,6 +19,7 @@ import           Language.Fortran.LValue
 import           Language.Fortran.Intrinsics    ( getIntrinsicDefsUses
                                                 , allIntrinsics )
 import           Language.Fortran.Util.Position ( SrcSpan )
+import           Language.Fortran.Repr.Type
 
 import Prelude hiding (exp)
 import Data.Generics.Uniplate.Data
@@ -38,11 +39,14 @@ import Data.Bifunctor (first)
 type BB a = [Block a]
 
 -- | Basic block graph.
-data BBGr a = BBGr { bbgrGr :: Gr (BB a) () -- ^ the underlying graph
-                   , bbgrEntries :: [Node]  -- ^ the entry node(s)
-                   , bbgrExits :: [Node]    -- ^ the exit node(s)
-                   }
-  deriving (Data, Show, Eq, Generic)
+data BBGr a = BBGr
+  { bbgrGr      :: Gr (BB a) () -- ^ the underlying graph
+  , bbgrEntries :: [Node]       -- ^ the entry node(s)
+  , bbgrExits   :: [Node]       -- ^ the exit node(s)
+  } deriving stock (Eq, Show, Data, Generic)
+
+instance Functor BBGr where
+    fmap f (BBGr gr ents exts) = BBGr (first (map (fmap f)) gr) ents exts
 
 type BBNode = Int
 
@@ -98,72 +102,48 @@ data ConstructType =
 instance Out    ConstructType
 instance Binary ConstructType
 
-data IDType = IDType
-  { idScalarType :: Maybe ()
-  , idArrayInfo  :: Maybe ()
-  , idCType :: Maybe ConstructType }
-  deriving (Ord, Eq, Show, Data, Typeable, Generic)
-
-instance Out    IDType
-instance Binary IDType
-
-prettyIDType :: IDType -> String
-prettyIDType (IDType msty maty mct) = undefined
-{-
-    case (msty, maty, mct) of
-      (Nothing, Nothing, Nothing)           -> "<no type info>"
-      (Just sty, Nothing,  Just CTVariable) -> prettyScalarType sty
-      (Just sty, Just aty, Just CTVariable) -> prettyType (FType sty (Just aty))
-      _ -> show msty <> " | " <> show maty <> " | " <> show mct
--}
-
--- | Information about potential / actual constant expressions.
-data Constant
-  = ConstInt Integer            -- ^ interpreted integer
-  | ConstUninterpInt String     -- ^ uninterpreted integer
-  | ConstUninterpReal String    -- ^ uninterpreted real
-  | ConstBinary BinaryOp Constant Constant -- ^ binary operation on potential constants
-  | ConstUnary UnaryOp Constant -- ^ unary operation on potential constants
-  deriving (Show, Ord, Eq, Typeable, Generic, Data)
-
-instance Out Constant
-instance Binary Constant
-
+-- | A wrapper for storing information from various analysis passes inside an
+--   AST node annotation.
 data Analysis a = Analysis
-  { prevAnnotation :: a -- ^ original annotation
-  , uniqueName     :: Maybe String -- ^ unique name for function/variable, after variable renaming phase
-  , sourceName     :: Maybe String -- ^ original name for function/variable found in source text
-  , bBlocks        :: Maybe (BBGr (Analysis a)) -- ^ basic block graph
-  , insLabel       :: Maybe Int -- ^ unique number for each block during dataflow analysis
+  { prevAnnotation :: a
+  -- ^ Wrapped original annotation.
+
+  , uniqueName     :: Maybe String
+  -- ^ Unique name for function/variable, after variable renaming phase.
+
+  , sourceName     :: Maybe String
+  -- ^ Original name for function/variable found in source text.
+
+  , bBlocks        :: Maybe (BBGr (Analysis a))
+  -- ^ Local basic block graph for node.
+
+  , insLabel       :: Maybe Int
+  -- ^ Unique block identifier used during dataflow analysis.
+
   , moduleEnv      :: Maybe ModEnv
-  , idType         :: Maybe IDType
+
+  , exprType       :: Maybe FType
+  -- ^ Fortran type, for nodes describing an expression.
+
+  , constructType  :: Maybe ConstructType
+  -- ^ Construct type: regular variable, PARAMETER, function, ... essentially
+  --   what type of syntax element this binder refers to.
+
   , allLhsVarsAnn  :: [Name]
   , constExp       :: Maybe Constant
-  }
-  deriving (Data, Show, Eq, Generic)
-
-instance Functor Analysis where
-  fmap f analysis =
-    Analysis
-    { prevAnnotation = f (prevAnnotation analysis)
-    , uniqueName = uniqueName analysis
-    , sourceName = sourceName analysis
-    , bBlocks = fmap (bbgrMap (first . fmap . fmap . fmap $ f)) . bBlocks $ analysis
-    , insLabel = insLabel analysis
-    , moduleEnv = moduleEnv analysis
-    , idType = idType analysis
-    , allLhsVarsAnn = allLhsVarsAnn analysis
-    , constExp = constExp analysis
-    }
+  } deriving stock (Show, Eq, Data, Generic, Functor)
 
 instance Out (Analysis a) where
   doc a = parens . text . unwords . map (uncurry (++) . fmap fromJust) . filter (isJust . snd) $
             [ ("uniqueName: ", uniqueName a)
             , ("sourceName: ", sourceName a)
             , ("insLabel: ", fmap show (insLabel a))
-            , ("idType: ", fmap show (idType a)) ]
+            , ("exprType: ", fmap show (exprType a))
+            , ("constructType: ", fmap show (constructType a))
+            ]
   docPrec _ = doc
 
+-- | The empty 'Analysis', containing a "saved"/wrapped existing annotation.
 analysis0 :: a -> Analysis a
 analysis0 a = Analysis { prevAnnotation = a
                        , uniqueName     = Nothing
@@ -171,7 +151,8 @@ analysis0 a = Analysis { prevAnnotation = a
                        , bBlocks        = Nothing
                        , insLabel       = Nothing
                        , moduleEnv      = Nothing
-                       , idType         = Nothing
+                       , exprType       = Nothing
+                       , constructType  = Nothing
                        , allLhsVarsAnn  = []
                        , constExp       = Nothing }
 
@@ -216,8 +197,8 @@ lvSrcName _ = error "Use of lvSrcName on a non-variable"
 genVar :: Analysis a -> SrcSpan -> Name -> Expression (Analysis a)
 genVar a s n = ExpValue (a { uniqueName = Just n, sourceName = Just n }) s v
   where
-    v | Just CTIntrinsic <- idCType =<< idType a = ValIntrinsic n
-      | otherwise                                = ValVariable n
+    v | Just CTIntrinsic <- constructType a = ValIntrinsic n
+      | otherwise                           = ValVariable n
 
 -- | Obtain either ProgramUnit uniqueName or whatever is in the AST.
 puName :: ProgramUnit (Analysis a) -> ProgramUnitName
@@ -406,7 +387,17 @@ intrinsicDefsUses :: Expression (Analysis a) -> Maybe ([Name], [Name])
 intrinsicDefsUses f = both (map (dummyArg (varName f))) <$> getIntrinsicDefsUses (srcName f) allIntrinsics
   where both f' (x, y) = (f' x, f' y)
 
--- Local variables:
--- mode: haskell
--- haskell-program-name: "cabal repl"
--- End:
+--------------------------------------------------------------------------------
+-- Delete
+
+-- | Information about potential / actual constant expressions.
+data Constant
+  = ConstInt Integer            -- ^ interpreted integer
+  | ConstUninterpInt String     -- ^ uninterpreted integer
+  | ConstUninterpReal String    -- ^ uninterpreted real
+  | ConstBinary BinaryOp Constant Constant -- ^ binary operation on potential constants
+  | ConstUnary UnaryOp Constant -- ^ unary operation on potential constants
+  deriving (Show, Ord, Eq, Typeable, Generic, Data)
+
+instance Out Constant
+instance Binary Constant

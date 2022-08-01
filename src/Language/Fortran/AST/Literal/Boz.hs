@@ -33,11 +33,9 @@ import qualified Data.List as List
 import qualified Data.Char as Char
 import qualified Numeric   as Num
 
-import           Data.Bits
-
 -- | A Fortran BOZ literal constant.
 --
--- You should not create values of this type directly
+-- You should not create values of this type directly.
 --
 -- The prefix defines the characters allowed in the string:
 --

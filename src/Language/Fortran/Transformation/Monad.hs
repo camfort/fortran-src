@@ -35,13 +35,12 @@ type Transform a = State (TransformationState a)
 -- then throws this analysis away afterwards. It would be nice to instead run a
 -- smaller analysis, or perhaps do efficient analyses in the transformations
 -- themselves.
-runTransform :: a -> b -> c -> d -> e
-runTransform = undefined
-{-
 runTransform
     :: Data a
     => TypeEnv -> ModuleMap -> Transform a () -> ProgramFile a -> ProgramFile a
 runTransform env mmap trans pf =
+    pf
+{-
     stripAnalysis . transProgramFile . execState trans $ initState
   where
     (pf', _, _) = analyseTypesWithEnv env . analyseRenamesWithModuleMap mmap . initAnalysis $ pf
