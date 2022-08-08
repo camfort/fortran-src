@@ -1024,48 +1024,51 @@ instance Pretty (Declarator a) where
     pprint' v (Declarator _ _ e ScalarDecl mLen mInit)
       | v >= Fortran90 =
         pprint' v e <>
-        char '*' <?> pprint' v mLen <+>
+        char '*' <?> noParensLit mLen <+>
         char '=' <?+> pprint' v mInit
-
-    pprint' v (Declarator _ _ e ScalarDecl mLen mInit)
       | v >= Fortran77 =
         case mInit of
           Nothing -> pprint' v e <>
-                     char '*' <?> pprint' v mLen
+                     char '*' <?> noParensLit mLen
           Just initial -> pprint' v e <>
-                       char '*' <?> pprint' v mLen <>
+                       char '*' <?> noParensLit mLen <>
                        char '/' <> pprint' v initial <> char '/'
 
-    pprint' v (Declarator _ _ e ScalarDecl mLen mInit)
       | Nothing <- mLen
       , Nothing <- mInit = pprint' v e
       | Just _ <- mInit = tooOld v "Variable initialisation" Fortran90
       | Just _ <- mLen = tooOld v "Variable width" Fortran77
+     where
+      noParensLit (Just e'@(ExpValue _ _ (ValInteger _ _)))  = pprint' v e'
+      noParensLit (Just e') = parens $ pprint' v e'
+      noParensLit _ = empty
 
     pprint' v (Declarator _ _ e (ArrayDecl dims) mLen mInit)
       | v >= Fortran90 =
         pprint' v e <> parens (pprint' v dims) <+>
-        "*" <?> pprint' v mLen <+>
+        "*" <?> noParensLit mLen <+>
         equals <?> pprint' v mInit
 
-    pprint' v (Declarator _ _ e (ArrayDecl dims) mLen mInit)
       | v >= Fortran77 =
         case mInit of
           Nothing -> pprint' v e <> parens (pprint' v dims) <>
-                     "*" <?> pprint' v mLen
+                     "*" <?> noParensLit mLen
           Just initial ->
             let initDoc = case initial of
                   ExpInitialisation _ _ es ->
                     char '/' <> pprint' v es <> char '/'
                   e' -> pprint' v e'
             in pprint' v e <> parens (pprint' v dims) <>
-               "*" <?> pprint' v mLen <> initDoc
+               "*" <?> noParensLit mLen <> initDoc
 
-    pprint' v (Declarator _ _ e (ArrayDecl dims) mLen mInit)
       | Nothing <- mLen
       , Nothing <- mInit = pprint' v e <> parens (pprint' v dims)
       | Just _ <- mInit = tooOld v "Variable initialisation" Fortran90
       | Just _ <- mLen = tooOld v "Variable width" Fortran77
+     where
+      noParensLit (Just e'@(ExpValue _ _ (ValInteger _ _)))  = pprint' v e'
+      noParensLit (Just e') = parens $ pprint' v e'
+      noParensLit _ = empty
 
 instance Pretty (DimensionDeclarator a) where
     pprint' v (DimensionDeclarator _ _ me1 me2) =
