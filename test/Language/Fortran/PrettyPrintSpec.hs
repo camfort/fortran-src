@@ -148,12 +148,11 @@ spec =
 
         it "prints ValStar with parens" $ do
           let sel = Selector () u (Just $ ExpValue () u ValStar) Nothing
-              typeSpec = TypeSpec () u TypeCharacter (Just sel) 
+              typeSpec = TypeSpec () u TypeCharacter (Just sel)
               decl = Declarator () u (varGen "x") ScalarDecl (Just $ ExpValue () u ValStar) Nothing
               st = StDeclaration () u typeSpec Nothing (AList () u [decl])
               expect = "character*(*) x*(*)"
           pprint Fortran77 st Nothing `shouldBe` expect
-             
 
       describe "Intent" $
         it "prints intent statement" $ do
