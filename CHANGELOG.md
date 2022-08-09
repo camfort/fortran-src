@@ -1,3 +1,6 @@
+### Unreleased
+  *  fix missing parentheses when pretty printing certain syntax #233
+
 ### 0.10.1 (Aug 1, 2022)
   * export `ParseErrorSimple` from `Parser`, not internal module `Parser.Monad`
   * rewriter fixes #232
