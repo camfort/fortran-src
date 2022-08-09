@@ -416,17 +416,23 @@ instance Pretty (TypeSpec a) where
     pprint' v (TypeSpec _ _ baseType mSelector) =
       pprint' v baseType <> pprint' v mSelector
 
+-- | Note that this instance is tightly bound with 'TypeSpec' due to 'Selector'
+--   appending information on where 'TypeSpec' should have been prettied. By
+--   itself, this instance is less sensible.
 instance Pretty (Selector a) where
   pprint' v (Selector _ _ mLenSel mKindSel)
     | v < Fortran77 = tooOld v "Length/kind selector" Fortran77
     | v < Fortran90 =
       case (mLenSel, mKindSel) of
         (Just lenSel, Nothing) ->
-          char '*' <> noParensLit lenSel
+          char '*' <> noParensLit v lenSel
         (Nothing, Just kindSel) ->
-          char '*' <> noParensLit kindSel
-        _ -> error "Kind and length selectors can be active one at a time in\
-                   \Fortran 77."
+          char '*' <> noParensLit v kindSel
+        (Just{} , Just{}) ->
+          error "Kind and length selectors can be active one at a time in\
+                \Fortran 77."
+        (Nothing, Nothing) ->
+          error "empty selector disallowed"
 
     | v >= Fortran90 =
       case (mLenSel, mKindSel) of
@@ -434,14 +440,19 @@ instance Pretty (Selector a) where
           parens $ len lenSel <> char ',' <+> kind kindSel
         (Nothing, Just kindSel) -> parens $ kind kindSel
         (Just lenDev, Nothing) -> parens $ len lenDev
-        _ -> error "No way for both kind and length selectors to be empty in \
-                   \Fortran 90 onwards."
+        (Nothing, Nothing) ->
+          error "No way for both kind and length selectors to be empty in\
+                \Fortran 90 onwards."
     | otherwise = error "unhandled version"
     where
       len e  = "len=" <> pprint' v e
       kind e = "kind=" <> pprint' v e
-      noParensLit e@(ExpValue _ _ (ValInteger _ _))  = pprint' v e
-      noParensLit e = parens $ pprint' v e
+
+-- | Pretty print an 'Expression' inside parentheses, _except_ if the
+--   'Expression' is an integer literal, in which case print without the parens.
+noParensLit :: FortranVersion -> Expression a -> Doc
+noParensLit v e = case e of ExpValue _ _ ValInteger{} ->          pprint' v e
+                            _                         -> parens $ pprint' v e
 
 instance Pretty (Statement a) where
     pprint' v (StDeclaration _ _ typeSpec mAttrList declList)
@@ -1024,51 +1035,45 @@ instance Pretty (Declarator a) where
     pprint' v (Declarator _ _ e ScalarDecl mLen mInit)
       | v >= Fortran90 =
         pprint' v e <>
-        char '*' <?> noParensLit mLen <+>
+        char '*' <?> noParensLit' mLen <+>
         char '=' <?+> pprint' v mInit
       | v >= Fortran77 =
         case mInit of
           Nothing -> pprint' v e <>
-                     char '*' <?> noParensLit mLen
+                     char '*' <?> noParensLit' mLen
           Just initial -> pprint' v e <>
-                       char '*' <?> noParensLit mLen <>
+                       char '*' <?> noParensLit' mLen <>
                        char '/' <> pprint' v initial <> char '/'
 
       | Nothing <- mLen
       , Nothing <- mInit = pprint' v e
       | Just _ <- mInit = tooOld v "Variable initialisation" Fortran90
       | Just _ <- mLen = tooOld v "Variable width" Fortran77
-     where
-      noParensLit (Just e'@(ExpValue _ _ (ValInteger _ _)))  = pprint' v e'
-      noParensLit (Just e') = parens $ pprint' v e'
-      noParensLit _ = empty
+      where noParensLit' = printMaybe (noParensLit v)
 
     pprint' v (Declarator _ _ e (ArrayDecl dims) mLen mInit)
       | v >= Fortran90 =
         pprint' v e <> parens (pprint' v dims) <+>
-        "*" <?> noParensLit mLen <+>
+        "*" <?> noParensLit' mLen <+>
         equals <?> pprint' v mInit
 
       | v >= Fortran77 =
         case mInit of
           Nothing -> pprint' v e <> parens (pprint' v dims) <>
-                     "*" <?> noParensLit mLen
+                     "*" <?> noParensLit' mLen
           Just initial ->
             let initDoc = case initial of
                   ExpInitialisation _ _ es ->
                     char '/' <> pprint' v es <> char '/'
                   e' -> pprint' v e'
             in pprint' v e <> parens (pprint' v dims) <>
-               "*" <?> noParensLit mLen <> initDoc
+               "*" <?> noParensLit' mLen <> initDoc
 
       | Nothing <- mLen
       , Nothing <- mInit = pprint' v e <> parens (pprint' v dims)
       | Just _ <- mInit = tooOld v "Variable initialisation" Fortran90
       | Just _ <- mLen = tooOld v "Variable width" Fortran77
-     where
-      noParensLit (Just e'@(ExpValue _ _ (ValInteger _ _)))  = pprint' v e'
-      noParensLit (Just e') = parens $ pprint' v e'
-      noParensLit _ = empty
+      where noParensLit' = printMaybe (noParensLit v)
 
 instance Pretty (DimensionDeclarator a) where
     pprint' v (DimensionDeclarator _ _ me1 me2) =

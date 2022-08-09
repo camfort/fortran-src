@@ -174,7 +174,8 @@ data TypeSpec a = TypeSpec
   , typeSpecSelector :: Maybe (Selector a)
   } deriving stock (Eq, Show, Data, Generic, Functor)
 
--- | The "kind selector" of a declaration statement.
+-- | The "kind selector" of a declaration statement. Tightly bound to
+--   'TypeSpec'.
 --
 -- HP's F90 spec (pg.24) actually differentiates between "kind selectors" and
 -- "char selectors", where char selectors can specify a length (alongside kind),
@@ -185,6 +186,10 @@ data TypeSpec a = TypeSpec
 -- The upshot is, length is invalid for non-CHARACTER types, and the parser
 -- guarantees that it will be Nothing. For CHARACTER types, both maybe or may
 -- not be present.
+--
+-- Often used with the assumption that when a 'Selector' term is present, it
+-- contains some information (i.e. one of length or kind is @'Just' _@), so that
+-- the awkward "empty" possibility may be avoided.
 data Selector a = Selector
   { selectorAnno :: a
   , selectorSpan :: SrcSpan
