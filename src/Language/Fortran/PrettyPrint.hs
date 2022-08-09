@@ -17,7 +17,7 @@ import Language.Fortran.Version
 import Text.PrettyPrint
 
 tooOld :: FortranVersion -> String -> FortranVersion -> a
-tooOld currentVersion featureName featureVersion = error $
+tooOld currentVersion featureName featureVersion = prettyError $
     featureName ++ " was introduced in " ++ show featureVersion ++
     ". You called pretty print with " ++ show currentVersion ++ "."
 
@@ -26,7 +26,7 @@ tooOld currentVersion featureName featureVersion = error $
 olderThan :: FortranVersion -> String -> FortranVersion -> a -> a
 olderThan verMax featureName ver cont =
     if   ver > verMax
-    then error $
+    then prettyError $
             featureName
             ++ " is only available in " ++ show verMax
             ++ " or before. You called pretty print with "
@@ -324,7 +324,7 @@ instance IndentablePretty (Block a) where
               ("do" <+> pprint' v tLabel <+> pprint' v doSpec <> newline) <>
             pprint v body nextI
           Nothing ->
-            error "Fortran 77 and earlier versions only have labeled DO blocks"
+            prettyError "Fortran 77 and earlier versions only have labeled DO blocks"
       where
         nextI = incIndentation i
         labeledIndent label stDoc =
@@ -429,10 +429,10 @@ instance Pretty (Selector a) where
         (Nothing, Just kindSel) ->
           char '*' <> noParensLit v kindSel
         (Just{} , Just{}) ->
-          error "Kind and length selectors can be active one at a time in\
-                \Fortran 77."
+          prettyError "Kind and length selectors can be active one at a time in\
+                      \Fortran 77."
         (Nothing, Nothing) ->
-          error "empty selector disallowed"
+          prettyError "empty selector disallowed"
 
     | v >= Fortran90 =
       case (mLenSel, mKindSel) of
@@ -441,9 +441,9 @@ instance Pretty (Selector a) where
         (Nothing, Just kindSel) -> parens $ kind kindSel
         (Just lenDev, Nothing) -> parens $ len lenDev
         (Nothing, Nothing) ->
-          error "No way for both kind and length selectors to be empty in\
+          prettyError "No way for both kind and length selectors to be empty in\
                 \Fortran 90 onwards."
-    | otherwise = error "unhandled version"
+    | otherwise = prettyError "unhandled version"
     where
       len e  = "len=" <> pprint' v e
       kind e = "kind=" <> pprint' v e
@@ -463,7 +463,7 @@ instance Pretty (Statement a) where
           pprint' v mAttrList <+>
           text "::" <+>
           pprint' v declList
-      | otherwise = error "unhandled version"
+      | otherwise = prettyError "unhandled version"
 
     pprint' v (StStructure _ _ mName itemList) =
         olderThan Fortran77Legacy "Structure" v $
@@ -792,9 +792,9 @@ instance Pretty (Statement a) where
       | otherwise = tooOld v "Import" Fortran2003
 
     pprint' v (StFormatBogus _ _ blob) = "format" <+> pprint' v blob
-    pprint' _ StForall{} = error "unhandled pprint StForall"
-    pprint' _ StForallStatement{} = error "unhandled pprint StForallStatement"
-    pprint' _ StEndForall{} = error "unhandled pprint StEndForall"
+    pprint' _ StForall{} = prettyError "unhandled pprint StForall"
+    pprint' _ StForallStatement{} = prettyError "unhandled pprint StForallStatement"
+    pprint' _ StEndForall{} = prettyError "unhandled pprint StEndForall"
 
 instance Pretty (ProcInterface a) where
   pprint' v (ProcInterfaceName _ _ e) = pprint' v e
@@ -815,7 +815,7 @@ instance Pretty (Use a) where
           UseRename _ _ uSrc uDst -> pprint' v uSrc <+> "=>" <+> pprint' v uDst
           UseID _ _ u -> pprint' v u
       | v < Fortran90 = tooOld v "Module system" Fortran90
-      | otherwise = error "unhandled version"
+      | otherwise = prettyError "unhandled version"
 
 instance Pretty (Argument a) where
     pprint' v (Argument _ _ key e) =
@@ -883,7 +883,7 @@ instance Pretty Intent where
 instance Pretty (FormatItem a) where
     pprint' _ (FIHollerith _ _ (ValHollerith s)) =
       text (show $ length s) <> char 'h' <> text s
-    pprint' _ _ = error "Not yet supported."
+    pprint' _ _ = prettyError "Not yet supported."
 
 instance Pretty (FlushSpec a) where
   pprint' v (FSUnit _ _ e)   = "unit="   <> pprint' v e
@@ -900,7 +900,7 @@ instance Pretty (DoSpecification a) where
     -- Given DoSpec. has a single constructor, the only way for pattern
     -- match above to fail is to have the wrong type of statement embedded
     -- in it.
-    pprint' _ _ = error "Incorrect initialisation in DO specification."
+    pprint' _ _ = prettyError "Incorrect initialisation in DO specification."
 
 instance Pretty (ControlPair a) where
     pprint' v (ControlPair _ _ mStr exp)
@@ -1180,3 +1180,9 @@ reformatMixedFormInsertContinuations = go stNewline
 
     maxCol = 72
     stNewline = RefmtStNewline 0
+
+----
+
+-- | 'error' wrapper to make it easier to swap this out for a monad later.
+prettyError :: String -> a
+prettyError = error
