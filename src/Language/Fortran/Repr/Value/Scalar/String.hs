@@ -1,3 +1,8 @@
+{- | Fortran CHAR value representation.
+
+Currently only CHARs of known length.
+-}
+
 module Language.Fortran.Repr.Value.Scalar.String where
 
 import GHC.TypeNats

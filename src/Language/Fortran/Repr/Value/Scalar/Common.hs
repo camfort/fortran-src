@@ -1,3 +1,4 @@
+-- | Common definitions for Fortran scalar representations.
 module Language.Fortran.Repr.Value.Scalar.Common where
 
 import Data.Singletons

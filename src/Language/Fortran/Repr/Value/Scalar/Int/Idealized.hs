@@ -1,3 +1,10 @@
+{- | Idealized Fortran INTEGER values.
+
+This module stores Fortran INTEGER values in a Haskell 'Integer', together with
+a phantom type describing the Fortran kind. This way, we can safely check for
+bounds issues, and leave exact behaviour up to the user.
+-}
+
 {-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE StandaloneKindSignatures #-}
 {-# LANGUAGE TypeFamilyDependencies #-} -- just for better inference (maybe)

@@ -1,3 +1,8 @@
+{- | Fortran COMPLEX value representation.
+
+A Fortran COMPLEX is simply two REALs of the same kind.
+-}
+
 module Language.Fortran.Repr.Value.Scalar.Complex where
 
 import Language.Fortran.Repr.Value.Scalar.Common

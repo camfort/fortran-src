@@ -1,17 +1,30 @@
+{- |
+Precise Fortran type & value model.
+
+The syntactic constructs for Fortran types and values are clunky and awkward to
+use. The representations in this sub-package enable performing efficient
+operations with explicit, documented semantics (usually the de facto behaviour,
+or adopted from gfortran).
+
+The aims for this representation are _correctness_ and _efficiency_. All values
+store enough information on the type level to recover their precise Fortran type
+via inspection.
+-}
+
 module Language.Fortran.Repr
   (
   -- * Assorted notes
-  -- ** Design aims
-  -- $design-aims
-
   -- ** Kind semantics
   -- $kind-semantics
+
+  -- ** Exceptional behaviour
+  -- $exceptional-behaviour
 
   -- ** Naming conventions
   -- $naming-conventions
 
   -- * Re-exports
-  -- ** Type representation
+  -- ** Fortran types
     module Language.Fortran.Repr.Type
   , module Language.Fortran.Repr.Type.Array
   , module Language.Fortran.Repr.Type.Scalar
@@ -21,7 +34,7 @@ module Language.Fortran.Repr
   , module Language.Fortran.Repr.Type.Scalar.Complex
   , module Language.Fortran.Repr.Type.Scalar.String
 
-  -- ** Value representation
+  -- ** Fortran values
   , module Language.Fortran.Repr.Value
   , module Language.Fortran.Repr.Value.Array
   , module Language.Fortran.Repr.Value.Scalar
@@ -52,21 +65,6 @@ import Language.Fortran.Repr.Value.Scalar.Complex
 import Language.Fortran.Repr.Value.Scalar.Logical
 import Language.Fortran.Repr.Value.Scalar.String
 
-{- $design-aims
-
-The aims for this representation are _correctness_ and _efficiency_. All values
-store enough information on the type level to recover their precise Fortran
-type via inspection.
-
-Where possible, this representation matches common exceptional behaviours in
-Fortran expression evaluation - specifically using gfortran as a basis. For
-example:
-
-  * Integers overflow predictably.
-  * Reals should have approximately matching behaviour, since both gfortran and
-    Haskell use IEEE floats.
--}
-
 {- $kind-semantics
 
 Kinds in Fortran are natural number "tags" associated with certain intrinsic
@@ -90,9 +88,19 @@ semantics. The following general rules exist:
     @INTEGER(2)@ is.
 -}
 
+{- $exceptional-behaviour
+
+Where possible, this representation also matches common exceptional behaviours
+in Fortran expression evaluation - specifically using gfortran as a basis. For
+example:
+
+  * Integers overflow predictably.
+  * Reals should have approximately matching behaviour, since both gfortran and
+    Haskell use IEEE floats.
+-}
+
 {- $naming-conventions
 
 To prevent clashes with common Haskell types and definitions, most
 representation types are prefixed with @F@, read as _Fortran_.
-
 -}

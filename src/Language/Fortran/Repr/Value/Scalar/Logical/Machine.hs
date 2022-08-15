@@ -1,10 +1,11 @@
-{- | Fortran logical value.
+{- | Machine Fortran LOGICAL values.
 
-Fortran compilers usually store logicals as integers (TODO actually I think this
-is in the standard), with the same kinding. To more accurately simulate their
-behaviour, we represent them directly as integers, and simply provide a handful
-of definitions for using them as booleans.
+Fortran compilers usually store LOGICALs as INTEGERs (they former is tied to the
+latter in the specifications). To more accurately simulate their behaviour, we
+represent them directly as integers, and simply provide a handful of definitions
+for using them as booleans.
 -}
+
 module Language.Fortran.Repr.Value.Scalar.Logical.Machine where
 
 import Language.Fortran.Repr.Type.Scalar.Int

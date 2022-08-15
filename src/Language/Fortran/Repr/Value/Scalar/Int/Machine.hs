@@ -1,3 +1,12 @@
+{- | Machine Fortran INTEGER values.
+
+This module stores Fortran INTEGER values in a matching Haskell machine integer
+type. For example, an @INT(4)@ would be stored in an 'Int32'. This way, we get
+both efficient operations and common overflow behaviour (which hopefully matches
+most Fortran compilers), and explicitly encode kinding semantics via promoting
+integral types.
+-}
+
 module Language.Fortran.Repr.Value.Scalar.Int.Machine
   ( FInt(..)
   , SomeFInt
