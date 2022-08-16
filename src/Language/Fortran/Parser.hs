@@ -27,7 +27,8 @@ module Language.Fortran.Parser
 
   -- * Various combinators
   , transformAs, defaultTransformation
-  , Parser, StateInit, ParserMaker, makeParser, makeParserFixed, makeParserFree
+  , Parser, ParseErrorSimple(..)
+  , StateInit, ParserMaker, makeParser, makeParserFixed, makeParserFree
   , initParseStateFixed, initParseStateFree
   , initParseStateFixedExpr, initParseStateFreeExpr
   , parseUnsafe
