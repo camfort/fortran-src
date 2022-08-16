@@ -1,3 +1,7 @@
+### Unreleased
+  * export `defaultArrayStartIndex` from `Language.Fortran.AST` (magic number 1)
+    for array indices
+
 ### 0.10.2 (Aug 18, 2022)
   * fix missing parentheses when pretty printing certain syntax #233
   * fix missing export of `ParseErrorSimple` in `Parser`

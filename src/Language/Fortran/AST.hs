@@ -103,6 +103,9 @@ module Language.Fortran.AST
   , updateProgramUnitBody
   , programUnitSubprograms
 
+  -- ** Handy static definitions
+  , defaultArrayStartIndex
+
   -- * Re-exports and orphan instances
   , NonEmpty(..)
 
@@ -1308,6 +1311,13 @@ nonExecutableStatementBlock = \case
   BlStatement _ _ _ s -> nonExecutableStatement s
   BlInterface{}       -> True
   _                   -> False
+
+--------------------------------------------------------------------------------
+-- Helper definitions
+
+-- | Fortran arrays are 1-indexed (by default).
+defaultArrayStartIndex :: Integral a => a -- <- TODO
+defaultArrayStartIndex = 1
 
 --------------------------------------------------------------------------------
 -- Orphan instances
