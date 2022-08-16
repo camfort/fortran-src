@@ -11,6 +11,7 @@ combinators are exposed to assist in manually configuring parsers.
 -}
 
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TupleSections #-}
 
 module Language.Fortran.Parser
   (
@@ -154,7 +155,7 @@ transformAs fv p mods fn bs = do
     pf <- p fn bs
     let pf' = pfSetFilename fn pf
     return $ transform pf'
-  where transform = runTransform (combinedTypeEnv mods)
+  where transform = runTransform -- (combinedTypeEnv mods)
                                  (combinedModuleMap mods)
                                  (defaultTransformation fv)
 
@@ -260,7 +261,7 @@ f77lIncludes incs mods fn bs = do
       Right pf -> do
         let pf' = pfSetFilename fn pf
         pf'' <- evalStateT (descendBiM (f77lIncludesInline incs []) pf') Map.empty
-        let pf''' = runTransform (combinedTypeEnv mods)
+        let pf''' = runTransform -- (combinedTypeEnv mods)
                                  (combinedModuleMap mods)
                                  (defaultTransformation Fortran77Legacy)
                                  pf''

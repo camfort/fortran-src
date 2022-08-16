@@ -8,7 +8,7 @@ import Prelude hiding (lookup)
 import Data.Generics.Uniplate.Data
 import Data.Data
 
-import Language.Fortran.Analysis ( IDType(..), idType, ConstructType(..), TransFunc )
+import Language.Fortran.Analysis ( Analysis(..), ConstructType(..), TransFunc )
 import Language.Fortran.AST
 import Language.Fortran.Transformation.Monad
 
@@ -23,7 +23,7 @@ disambiguateFunctionStatements = modifyProgramFile (trans statement)
   where
     trans = transformBi :: Data a => TransFunc Statement ProgramFile a
     statement (StExpressionAssign a1 s (ExpSubscript _ _ v@(ExpValue a _ (ValVariable _)) indicies) e2)
-      | Just (IDType _ _ (Just CTFunction)) <- idType a
+      | Just CTFunction <- constructType a
       , indiciesRangeFree indicies = StFunction a1 s v (aMap fromIndex indicies) e2
     -- nullary statement function (no args): TODO handled above...?
     statement st                                      = st
@@ -33,16 +33,16 @@ disambiguateFunctionCalls = modifyProgramFile (trans expression)
   where
     trans = transformBi :: Data a => TransFunc Expression ProgramFile a
     expression (ExpSubscript a1 s v@(ExpValue a _ (ValVariable _)) indicies)
-      | Just (IDType _ _ (Just CTFunction)) <- idType a
+      | Just CTFunction <- constructType a
       , indiciesRangeFree indicies = ExpFunctionCall a1 s v (aMap fromIndex indicies)
-      | Just (IDType _ _ (Just CTExternal)) <- idType a
+      | Just CTExternal <- constructType a
       , indiciesRangeFree indicies = ExpFunctionCall a1 s v (aMap fromIndex indicies)
-      | Just (IDType _ _ (Just CTVariable)) <- idType a
+      | Just CTVariable <- constructType a
       , indiciesRangeFree indicies = ExpFunctionCall a1 s v (aMap fromIndex indicies)
-      | Nothing <- idType a
+      | Nothing <- constructType a
       , indiciesRangeFree indicies = ExpFunctionCall a1 s v (aMap fromIndex indicies)
     expression (ExpSubscript a1 s v@(ExpValue a _ (ValIntrinsic _)) indicies)
-      | Just (IDType _ _ (Just CTIntrinsic)) <- idType a
+      | Just CTIntrinsic <- constructType a
       , indiciesRangeFree indicies = ExpFunctionCall a1 s v (aMap fromIndex indicies)
     expression e                                      = e
 

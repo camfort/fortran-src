@@ -13,8 +13,6 @@ import Language.Fortran.Repr.Value.Scalar.Real
 import Language.Fortran.Repr.Value.Scalar.Complex
 import Language.Fortran.Repr.Value.Scalar.String
 import Language.Fortran.Repr.Type.Scalar
-import Language.Fortran.Repr.Type.Scalar.Int
-import Language.Fortran.Repr.Type.Scalar.Real
 import GHC.Generics ( Generic )
 
 {- $type-coercion-implementation

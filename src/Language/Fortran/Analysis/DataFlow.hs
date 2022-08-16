@@ -1,6 +1,8 @@
 -- | Dataflow analysis to be applied once basic block analysis is complete.
 
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TupleSections #-}
+
 module Language.Fortran.Analysis.DataFlow
   ( dominators, iDominators, DomMap, IDomMap
   , postOrder, revPostOrder, preOrder, revPreOrder, OrderF

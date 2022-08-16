@@ -79,7 +79,7 @@ fRealBOp'
     -> (Double -> Double -> r)
     -> FReal kl -> FReal kr -> r
 fRealBOp' k4f k8f l r = getConst $ fRealBOpInternal (go k4f) (go k8f) l r
-  where go g l r = Const $ g l r
+  where go g l' r' = Const $ g l' r'
 
 fRealBOp
     :: (forall a. RealFloat a => a -> a -> r)

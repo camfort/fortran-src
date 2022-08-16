@@ -7,7 +7,6 @@ module Language.Fortran.Repr.Value.Scalar.Complex where
 
 import Language.Fortran.Repr.Value.Scalar.Common
 import Language.Fortran.Repr.Type.Scalar.Real
-import Language.Fortran.Repr.Value.Scalar.Real
 import GHC.Float ( float2Double )
 
 data FComplex (k :: FTReal) where

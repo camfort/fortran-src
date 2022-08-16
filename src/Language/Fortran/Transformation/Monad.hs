@@ -37,8 +37,8 @@ type Transform a = State (TransformationState a)
 -- themselves.
 runTransform
     :: Data a
-    => TypeEnv -> ModuleMap -> Transform a () -> ProgramFile a -> ProgramFile a
-runTransform env mmap trans pf =
+    => ModuleMap -> Transform a () -> ProgramFile a -> ProgramFile a
+runTransform mmap trans pf =
     pf
 {-
     stripAnalysis . transProgramFile . execState trans $ initState

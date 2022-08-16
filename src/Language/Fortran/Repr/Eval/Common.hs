@@ -1,7 +1,6 @@
 module Language.Fortran.Repr.Eval.Common where
 
 import qualified Language.Fortran.AST as F
-import Language.Fortran.Repr.Value
 
 class Monad m => MonadEval m where
     type EvalTo m

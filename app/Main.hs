@@ -112,7 +112,7 @@ main = do
           tenv      = combinedTypeEnv mods
           pvm       = combinedParamVarMap mods
 
-      let runTypes = analyseAndCheckTypesWithEnv tenv . analyseRenamesWithModuleMap mmap . initAnalysis
+      let runTypes = analyseRenamesWithModuleMap mmap . initAnalysis
       let runRenamer = stripAnalysis . rename . analyseRenamesWithModuleMap mmap . initAnalysis
           runBBlocks pf = showBBlocks pf' ++ "\n\n" ++ showDataFlow pf'
             where pf' = analyseParameterVars pvm . analyseBBlocks . analyseRenamesWithModuleMap mmap . initAnalysis $ pf
@@ -134,11 +134,13 @@ main = do
         Lex        -> ioError $ userError $ usageInfo programName options
         Parse      -> pp parsedPF
         Typecheck  -> do
-          let (pf, tenvOut, consts, errs) = runTypes parsedPF
-          printTypeErrors errs
-          printTypes tenvOut
-          print consts
-          printTypes (regenerateTypeEnv pf)
+          --let (pf, tenvOut, consts, errs) = runTypes parsedPF
+          let pf = runTypes parsedPF
+          print pf
+          --printTypeErrors errs
+          --printTypes tenvOut
+          --print consts
+          --printTypes (regenerateTypeEnv pf)
         Rename     -> pp $ runRenamer parsedPF
         BBlocks    -> putStrLn $ runBBlocks parsedPF
         SuperGraph -> putStrLn $ runSuperGraph parsedPF
@@ -250,8 +252,8 @@ compileFileToMod mvers mods path moutfile = do
       mmap = combinedModuleMap mods
       tenv = combinedTypeEnv mods
       runCompile pf =
-          case analyseTypesWithEnv tenv $ analyseRenamesWithModuleMap mmap $ initAnalysis pf of
-            (pf', _, _) -> genModFile pf'
+          case analyseRenamesWithModuleMap mmap $ initAnalysis pf of
+            pf' -> genModFile pf'
       parsedPF  = fromRight' $ (Parser.byVerWithMods mods version) path contents
       mod = runCompile parsedPF
       fspath = path -<.> modFileSuffix `fromMaybe` moutfile
@@ -322,19 +324,25 @@ showStringMap = showGenericMap
 showModuleMap :: ModuleMap -> String
 showModuleMap = concatMap (\ (n, m) -> show n ++ ":\n" ++ (unlines . map ("  "++) . lines . showGenericMap $ m)) . M.toList
 showTypes :: TypeEnv -> String
-showTypes tenv =
+showTypes _ = "TODO"
+{-
     flip concatMap (M.toList tenv) $
       \(name, IDType msty _maty mcty) ->
         printf "%s\t\t%s %s\n" name (drop 1 $ maybe "  -" show msty) (drop 2 $ maybe "   " show mcty)
+-}
 printTypes :: TypeEnv -> IO ()
 printTypes = putStrLn . showTypes'
+type TypeError = ()
 showTypeErrors :: [TypeError] -> String
-showTypeErrors errs = unlines [ show ss ++ ": " ++ msg | (msg, ss) <- sortBy (comparing snd) errs ]
+--showTypeErrors errs = unlines [ show ss ++ ": " ++ msg | (msg, ss) <- sortBy (comparing snd) errs ]
+showTypeErrors _ = "TODO"
 printTypeErrors :: [TypeError] -> IO ()
 printTypeErrors = putStrLn . showTypeErrors
 
+type TypeEnv = () -- TODO
 showTypes' :: TypeEnv -> String
-showTypes' = intercalate "\n" . map (\(name, ty) -> printf "%s\t%s" name (prettyIDType ty)) . M.toList
+--showTypes' = intercalate "\n" . map (\(name, ty) -> printf "%s\t%s" name (prettyIDType ty)) . M.toList
+showTypes' _ = "TODO"
 
 data Action
   = Lex | Parse | Typecheck | Rename | BBlocks | SuperGraph | Reprint | DumpModFile | Compile

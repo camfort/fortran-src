@@ -8,9 +8,7 @@ for using them as booleans.
 
 module Language.Fortran.Repr.Value.Scalar.Logical.Machine where
 
-import Language.Fortran.Repr.Type.Scalar.Int
 import Language.Fortran.Repr.Value.Scalar.Int.Machine
-import Language.Fortran.Repr.Value.Scalar.Common
 
 -- | Retrieve the boolean value stored by a @LOGICAL(x)@.
 fLogicalToBool :: FInt k -> Bool
