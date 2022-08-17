@@ -237,7 +237,7 @@ MAYBE_ID :: { Maybe Name }
 NAME :: { Name } : id { let (TId _ name) = $1 in name }
 
 INCLUDES :: { [ Block A0 ] }
-: BLOCKS maybe(NEWLINE) { $1 }
+: BLOCKS maybe(NEWLINE) { reverse $1 }
 
 BLOCKS :: { [ Block A0 ] }
 : BLOCKS NEWLINE BLOCK { $3 : $1 }

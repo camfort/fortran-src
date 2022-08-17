@@ -1,1 +1,2 @@
       integer a
+      integer b
