@@ -222,7 +222,7 @@ spec = do
                   "999999999999999999999"
               ]
             )
-#ifndef mingw32_HOST_OS
+#ifndef _WIN32
           -- TODO fails on Windows due to some line ending/spacing bug
           , ( workDir ++ "002_other.f"
             , [ Replacement
