@@ -53,7 +53,7 @@ spec =
             , bl st3Span . st st3Span ty2Span $ varGen' var2Span "b"
             ])
           ex = ExpValue () expSpan (ValString "foo.f")
-#ifndef _WIN32
+#ifndef FS_DISABLE_WIN_BROKEN_TESTS
     -- 2022-08-18 raehik
     -- These tests failed on the Windows CI on GitHub with an unknown error. I'm
     -- assuming it's to do with 'SrcSpan's not matching -- specifically the
@@ -69,5 +69,5 @@ spec =
       pfParsed <- iParser [inc] source
       pfParsed `shouldBe` pf inc
 #else
-    pure
+    pure ()
 #endif

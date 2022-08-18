@@ -222,7 +222,7 @@ spec = do
                   "999999999999999999999"
               ]
             )
-#ifndef _WIN32
+#ifndef FS_DISABLE_WIN_BROKEN_TESTS
           -- TODO fails on Windows due to some line ending/spacing bug
           , ( workDir ++ "002_other.f"
             , [ Replacement
@@ -293,7 +293,7 @@ spec = do
         Nothing
         "replacementsmap-columnlimit"
         [ "001_foo.f"
-#ifndef mingw32_HOST_OS
+#ifndef FS_DISABLE_WIN_BROKEN_TESTS
         , "002_other.f"
         , "003_multiline.f"
 #endif
