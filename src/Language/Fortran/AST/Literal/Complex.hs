@@ -58,3 +58,11 @@ instance FirstParameter  (ComplexPart a) a
 instance Annotated       ComplexPart
 instance SecondParameter (ComplexPart a) SrcSpan
 instance Spanned         (ComplexPart a)
+
+-- | Is the given COMPLEX literal "pure", i.e. does it have no named constant
+--   components?
+complexLitIsPure :: ComplexLit a -> Bool
+complexLitIsPure c =
+    check (complexLitRealPart c) && check (complexLitImagPart c)
+  where check = \case ComplexPartNamed{} -> False
+                      _                  -> True
