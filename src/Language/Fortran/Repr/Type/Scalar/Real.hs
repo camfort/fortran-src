@@ -37,6 +37,7 @@ instance FKinded FTReal where
     parseFKind = \case 4 -> Just FTReal4
                        8 -> Just FTReal8
                        _ -> Nothing
+    -- spurious warning on GHC 9.0
     printFKind (FromSing x) = case x of
       SFTReal4 -> reifyKinded x
       SFTReal8 -> reifyKinded x

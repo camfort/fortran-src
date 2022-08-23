@@ -35,7 +35,7 @@ jobs:
       run: stack --no-terminal test --only-dependencies
 
     - name: Build and run tests
-      run: stack --no-terminal haddock --test --no-haddock-deps --pedantic
+      run: stack --no-terminal haddock --test --no-haddock-deps
 
     - name: Install (to place executable at a known location)
       run: stack --no-terminal install

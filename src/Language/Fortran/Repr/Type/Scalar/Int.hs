@@ -53,6 +53,7 @@ instance FKinded FTInt where
                        8  -> Just FTInt8
                        16 -> Just FTInt16
                        _ -> Nothing
+    -- spurious warning on GHC 9.0
     printFKind (FromSing x) = case x of
       SFTInt1  -> reifyKinded x
       SFTInt2  -> reifyKinded x
