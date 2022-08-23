@@ -49,7 +49,7 @@ jobs:
       if: always()
 
     - name: Install GHC ${{ env.ghc }}
-      run: ghcup install --set ghc ${{ env.ghc }}
+      run: ghcup install ghc --set ${{ env.ghc }}
 
     - run: cabal update
 
