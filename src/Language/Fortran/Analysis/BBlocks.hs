@@ -1,6 +1,5 @@
 -- | Analyse a program file and create basic blocks.
 
-{-# LANGUAGE ScopedTypeVariables #-}
 module Language.Fortran.Analysis.BBlocks
   ( analyseBBlocks, genBBlockMap, showBBGr, showAnalysedBBGr, showBBlocks, bbgrToDOT, BBlockMap, ASTBlockNode, ASTExprNode
   , genSuperBBGr, SuperBBGr(..), showSuperBBGr, superBBGrToDOT, findLabeledBBlock, showBlock )
@@ -105,12 +104,17 @@ labelWithinBlocks = perBlock'
         _                             -> b
       where i = insLabel $ getAnnotation b
 
+    mfill
+        :: forall f. (Data (f (Analysis a)))
+        => Maybe ASTBlockNode -> Maybe (f (Analysis a)) -> Maybe (f (Analysis a))
     mfill i  = fmap (fill i)
 
     fillCaseClause i (rs, b) = (fill i rs, b)
     fillIf i (e, b) = (fill i e, b)
 
-    fill :: forall f. (Data (f (Analysis a))) => Maybe ASTBlockNode -> f (Analysis a) -> f (Analysis a)
+    fill
+        :: forall f. (Data (f (Analysis a)))
+        => Maybe ASTBlockNode -> f (Analysis a) -> f (Analysis a)
     fill Nothing  = id
     fill (Just i) = transform perIndex
       where

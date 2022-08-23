@@ -1,5 +1,3 @@
-{-# LANGUAGE ScopedTypeVariables #-}
-
 module Language.Fortran.Transformation.Disambiguation.Function (disambiguateFunction) where
 
 import Prelude hiding (lookup)

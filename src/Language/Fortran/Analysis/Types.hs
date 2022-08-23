@@ -1,5 +1,3 @@
-{-# LANGUAGE ScopedTypeVariables #-}
-
 module Language.Fortran.Analysis.Types
   ( analyseTypes
   , analyseTypesWithEnv

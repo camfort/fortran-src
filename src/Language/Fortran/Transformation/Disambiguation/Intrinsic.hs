@@ -1,5 +1,3 @@
-{-# LANGUAGE ScopedTypeVariables #-}
-
 module Language.Fortran.Transformation.Disambiguation.Intrinsic (disambiguateIntrinsic) where
 
 import Prelude hiding (lookup)

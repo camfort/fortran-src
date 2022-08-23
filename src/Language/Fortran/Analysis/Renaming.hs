@@ -1,5 +1,3 @@
-{-# LANGUAGE ScopedTypeVariables #-}
-
 -- |
 -- Analyse variables/function names and produce unique names that can
 -- be used to replace the original names while maintaining program
