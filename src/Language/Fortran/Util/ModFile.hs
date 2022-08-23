@@ -14,8 +14,6 @@
    limitations under the License.
 -}
 
-{-# LANGUAGE ScopedTypeVariables #-}
-
 {-|
 
 Format of Camfort precompiled files with information about Fortran

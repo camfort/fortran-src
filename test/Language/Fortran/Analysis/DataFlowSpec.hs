@@ -1,4 +1,3 @@
-{-# LANGUAGE ScopedTypeVariables #-}
 module Language.Fortran.Analysis.DataFlowSpec where
 
 import Test.Hspec

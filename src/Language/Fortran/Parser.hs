@@ -10,8 +10,6 @@ This module provides a common wrapper over all that functionality. Internal
 combinators are exposed to assist in manually configuring parsers.
 -}
 
-{-# LANGUAGE ScopedTypeVariables #-}
-
 module Language.Fortran.Parser
   (
   -- * Main parsers (ProgramFile, with transformation)

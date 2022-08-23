@@ -1,7 +1,6 @@
 {-| Parser/lexer monad, plus common functionality and definitions. -}
 
 {-# LANGUAGE UndecidableInstances #-}
-{-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE CPP #-}
 
