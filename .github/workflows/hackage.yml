@@ -45,21 +45,11 @@ jobs:
         done
 
     - name: Delete preinstalled docs-stripped GHC ${{ env.ghc }}
-      run: rm -rf $HOME/.ghcup/ghc/${{ env.ghc }}
+      run: ghcup rm ghc ${{ env.ghc }}
+      if: always()
 
-    - name: Cache GHC ${{ env.ghc }}
-      uses: actions/cache@v2
-      with:
-        path: ~/.ghcup/ghc/${{ env.ghc }}
-        key: hackage-ghc-${{ runner.os }}-ghc_${{ env.ghc }}
-
-    - name: Install GHC ${{ env.ghc }} if not present from cache
-      run: |
-        if [ ! -d $HOME/.ghcup/ghc/${{ env.ghc }} ]; then
-            ghcup install ghc --force ${{ env.ghc }}
-        fi
-
-    - run: ghcup set ghc ${{ env.ghc }}
+    - name: Install GHC ${{ env.ghc }}
+      run: ghcup install --set ghc ${{ env.ghc }}
 
     - run: cabal update
 
