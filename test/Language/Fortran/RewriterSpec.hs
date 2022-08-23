@@ -148,6 +148,8 @@ spec = do
         "replacementsmap-overlapping-filtered"
         ["001_foo.f"]
       overlapping `shouldBe` [r2]
+#ifndef FS_DISABLE_WIN_BROKEN_TESTS
+    -- TODO fails on Windows, perhaps problem with temp files or filenames?
     it "Process ReplacementMap (invalid range; start line)" $ do
       base <- getCurrentDirectory
       let
@@ -222,7 +224,6 @@ spec = do
                   "999999999999999999999"
               ]
             )
-#ifndef FS_DISABLE_WIN_BROKEN_TESTS
           -- TODO fails on Windows due to some line ending/spacing bug
           , ( workDir ++ "002_other.f"
             , [ Replacement
@@ -237,7 +238,6 @@ spec = do
                   "9 .and. \n     + 4 .lt. 4\n     + .or. .true."
               ]
             )
-#endif
           , ( workDir ++ "004_comment.f"
             , [ Replacement
                 (SourceRange (SourceLocation 2 18) (SourceLocation 2 19))
@@ -293,14 +293,13 @@ spec = do
         Nothing
         "replacementsmap-columnlimit"
         [ "001_foo.f"
-#ifndef FS_DISABLE_WIN_BROKEN_TESTS
         , "002_other.f"
         , "003_multiline.f"
-#endif
         , "004_comment.f"
         , "005_removals.f"
         , "006_linewrap_heuristic.f"
         ]
+#endif
 
   describe "Filtering overlapping replacements" $ do
     it "Simple overlap" $ do
