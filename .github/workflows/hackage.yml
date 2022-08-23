@@ -17,7 +17,7 @@ on:
 
 env:
   # ghcup needs full version string (e.g. 9.0.1, not 9.0)
-  ghc: "9.2.2"
+  ghc: "9.2.4"
   package_name: fortran-src
 
 jobs:
