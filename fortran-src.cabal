@@ -94,6 +94,39 @@ library
       Language.Fortran.Parser.Monad
       Language.Fortran.Parser.ParserUtils
       Language.Fortran.PrettyPrint
+      Language.Fortran.Repr
+      Language.Fortran.Repr.Compat.Natural
+      Language.Fortran.Repr.Eval.Op
+      Language.Fortran.Repr.Tmp
+      Language.Fortran.Repr.Translate.Common
+      Language.Fortran.Repr.Translate.Type
+      Language.Fortran.Repr.Translate.Value
+      Language.Fortran.Repr.Type
+      Language.Fortran.Repr.Type.Array
+      Language.Fortran.Repr.Type.Scalar
+      Language.Fortran.Repr.Type.Scalar.Common
+      Language.Fortran.Repr.Type.Scalar.Complex
+      Language.Fortran.Repr.Type.Scalar.Int
+      Language.Fortran.Repr.Type.Scalar.Real
+      Language.Fortran.Repr.Type.Scalar.String
+      Language.Fortran.Repr.Util
+      Language.Fortran.Repr.Value
+      Language.Fortran.Repr.Value.Array
+      Language.Fortran.Repr.Value.Array.Machine
+      Language.Fortran.Repr.Value.Common
+      Language.Fortran.Repr.Value.Machine
+      Language.Fortran.Repr.Value.Scalar
+      Language.Fortran.Repr.Value.Scalar.Common
+      Language.Fortran.Repr.Value.Scalar.Complex
+      Language.Fortran.Repr.Value.Scalar.Int
+      Language.Fortran.Repr.Value.Scalar.Int.Idealized
+      Language.Fortran.Repr.Value.Scalar.Int.Machine
+      Language.Fortran.Repr.Value.Scalar.Logical
+      Language.Fortran.Repr.Value.Scalar.Logical.Idealized
+      Language.Fortran.Repr.Value.Scalar.Logical.Machine
+      Language.Fortran.Repr.Value.Scalar.Machine
+      Language.Fortran.Repr.Value.Scalar.Real
+      Language.Fortran.Repr.Value.Scalar.String
       Language.Fortran.Rewriter
       Language.Fortran.Rewriter.Internal
       Language.Fortran.Transformation.Disambiguation.Function
@@ -159,9 +192,13 @@ library
     , filepath ==1.4.*
     , mtl >=2.2 && <3
     , pretty >=1.1 && <2
+    , singletons >=3.0
+    , singletons-base >=3.0
+    , singletons-th >=3.0
     , temporary >=1.2 && <1.4
     , text >=1.2 && <2
     , uniplate >=1.6 && <2
+    , vector-sized
   if os(windows)
     cpp-options: -DFS_DISABLE_WIN_BROKEN_TESTS
   default-language: Haskell2010
@@ -219,9 +256,13 @@ executable fortran-src
     , fortran-src
     , mtl >=2.2 && <3
     , pretty >=1.1 && <2
+    , singletons >=3.0
+    , singletons-base >=3.0
+    , singletons-th >=3.0
     , temporary >=1.2 && <1.4
     , text >=1.2 && <2
     , uniplate >=1.6 && <2
+    , vector-sized
   if os(windows)
     cpp-options: -DFS_DISABLE_WIN_BROKEN_TESTS
   default-language: Haskell2010
@@ -311,9 +352,13 @@ test-suite spec
     , hspec >=2.2 && <3
     , mtl >=2.2 && <3
     , pretty >=1.1 && <2
+    , singletons >=3.0
+    , singletons-base >=3.0
+    , singletons-th >=3.0
     , temporary >=1.2 && <1.4
     , text >=1.2 && <2
     , uniplate >=1.6 && <2
+    , vector-sized
   if os(windows)
     cpp-options: -DFS_DISABLE_WIN_BROKEN_TESTS
   default-language: Haskell2010

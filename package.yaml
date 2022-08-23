@@ -97,6 +97,10 @@ dependencies:
 - filepath >=1.4 && <1.5
 - temporary >=1.2 && <1.4
 - either ^>=5.0.1.1
+- singletons >= 3.0
+- singletons-th >= 3.0
+- singletons-base >= 3.0
+- vector-sized # TODO
 
 library:
   source-dirs: src
