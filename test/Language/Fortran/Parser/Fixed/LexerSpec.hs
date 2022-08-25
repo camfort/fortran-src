@@ -294,11 +294,11 @@ spec =
         resetSrcSpan (collectFixedTokens' Fortran77Legacy src) `shouldBe`
           resetSrcSpan [ TId u "l", TOpAssign u, TId u "r", TNewline u
                        , TId u "r", TOpAssign u, TId u "l", TNewline u, TEOF u]
-      it "lexel comment line overflow" $ do
+      it "lexes all comment line even with overflow" $ do
         let src = unlines [ replicate 80 'c'
                           , "      l = r" ]
         resetSrcSpan (collectFixedTokens' Fortran77Legacy src) `shouldBe`
-          resetSrcSpan [ TComment u (replicate 71 'c'), TNewline u
+          resetSrcSpan [ TComment u (replicate 79 'c'), TNewline u
                        , TId u "l", TOpAssign u, TId u "r", TNewline u, TEOF u]
 
 example1 :: String
