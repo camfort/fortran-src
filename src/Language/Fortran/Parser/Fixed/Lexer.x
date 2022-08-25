@@ -530,6 +530,12 @@ setCaseInsensitive = do
   ai <- getAlex
   putAlex $ ai { aiCaseSensitive = False }
 
+setInComment :: LexAction ()
+setInComment = getAlex >>= \ai -> putAlex ai { aiInComment = True }
+
+setNotInComment :: LexAction ()
+setNotInComment = getAlex >>= \ai -> putAlex ai { aiInComment = False }
+
 enterFormat :: LexAction ()
 enterFormat = do
   ai <- getAlex
@@ -592,10 +598,12 @@ lexHash = do
 lexComment :: LexAction (Maybe Token)
 lexComment = do
   setCaseSensitive
+  setInComment
   mt <- lexLineWithWhitespace $ \ m -> do
     s <- getLexemeSpan
     return . Just . TComment s $ tail m
   setCaseInsensitive
+  setNotInComment
   pure mt
 
 -- Get a line without losing the whitespace, then call continuation with it.
@@ -876,6 +884,7 @@ data AlexInput = AlexInput
   , aiPreviousToken             :: Maybe Token
   , aiPreviousTokensInLine      :: [ Token ]
   , aiCaseSensitive             :: Bool
+  , aiInComment                 :: Bool
   , aiInFormat                  :: Bool
   , aiFortranVersion            :: FortranVersion
   } deriving (Show)
@@ -901,6 +910,7 @@ vanillaAlexInput fn fv bs = AlexInput
   , aiPreviousToken = Nothing
   , aiPreviousTokensInLine = [ ]
   , aiCaseSensitive = False
+  , aiInComment = False
   , aiInFormat = False
   , aiFortranVersion = fv
   }
@@ -943,7 +953,8 @@ alexGetByte ai
     && not _inFormat && _curChar == '!' && not _blankLine
   = skip Comment ai
   -- Ignore comments after column 72 in fortran77
-  | aiFortranVersion ai == Fortran77Legacy && posColumn _position > 72 && _curChar /= '\n'
+  | aiFortranVersion ai == Fortran77Legacy && not (aiInComment ai)
+    && posColumn _position > 72 && _curChar /= '\n'
   = skip Comment ai
   -- Read genuine character and advance. Also covers white sensitivity.
   | otherwise =
