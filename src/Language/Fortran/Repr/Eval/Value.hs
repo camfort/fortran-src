@@ -41,6 +41,7 @@ data Error
   | ENoSuchKindForType String KindLit
   | EUnsupported String
   | EOp Op.Error
+  | EOpTypeError String
   | ELazy String
   -- ^ Catch-all for non-grouped errors.
     deriving stock (Generic, Show, Eq)
@@ -149,21 +150,22 @@ evalUOp op v = do
           _ -> err $ EOp $ Op.EBadArgType1 ["LOGICAL"] $ fScalarValueType v'
       _ -> err $ EUnsupported $ "operator: " <> show op
 
-forceScalar :: MonadEvalValue m => FValue -> m FScalarValue
-forceScalar = \case
-  MkFArrayValue{} -> err $ EUnsupported "no array values in eval for now thx"
-  MkFScalarValue v' -> return v'
-
 wrapOp :: MonadEvalValue m => Either Op.Error a -> m a
 wrapOp = \case
   Right a -> return a
   Left  e -> err $ EOp e
 
+-- | Wrap the output of an operation that returns a scalar value into the main
+--   evaluator.
 wrapSOp :: MonadEvalValue m => Either Op.Error FScalarValue -> m FValue
 wrapSOp = \case
   Right a -> return $ MkFScalarValue a
   Left  e -> err $ EOp e
 
+-- | Evaluate explicit binary operators (ones denoted as such in the AST).
+--
+-- Note that this does not cover all binary operators -- there are many
+-- intrinsics which use function syntax, but are otherwise binary operators.
 evalBOp :: MonadEvalValue m => F.BinaryOp -> FValue -> FValue -> m FValue
 evalBOp bop l r = do
     l' <- forceScalar l
@@ -210,10 +212,15 @@ defFLogical =
     MkFScalarValue . FSVLogical . SomeFKinded . FInt4 . fLogicalNumericFromBool
 
 evalFunctionCall :: MonadEvalValue m => F.Name -> [FValue] -> m FValue
-evalFunctionCall fname _args =
+evalFunctionCall fname args =
     case fname of
+      "ior"  -> do
+        args' <- forceArgs 2 args
+        let [l, r] = args'
+        l' <- forceScalar l
+        r' <- forceScalar r
+        evalBOpIor' l' r'
 {-
-      "ior"  -> ior' es
       "max"  -> max' es
       "char" -> char' es
       "not"  -> not' es
@@ -227,3 +234,28 @@ evalArg (F.Argument _ _ _ ae) =
     case ae of
       F.ArgExpr        e -> evalExpr e
       F.ArgExprVar _ _ v -> evalVar  v
+
+--------------------------------------------------------------------------------
+
+forceScalar :: MonadEvalValue m => FValue -> m FScalarValue
+forceScalar = \case
+  MkFArrayValue{} -> err $ EUnsupported "no array values in eval for now thx"
+  MkFScalarValue v' -> return v'
+
+forceUnconsArg :: MonadEvalValue m => [a] -> m (a, [a])
+forceUnconsArg = \case
+  []   -> err $ EOpTypeError "not enough arguments"
+  a:as -> return (a, as)
+
+-- TODO can I use vector-sized to improve safety here? lol
+-- it's just convenience either way
+forceArgs :: MonadEvalValue m => Int -> [a] -> m [a]
+forceArgs numArgs l =
+    if   length l == numArgs
+    then return l
+    else err $ EOpTypeError $
+            "expected "<>show numArgs<>" arguments; got "<>show (length l)
+
+evalBOpIor'
+    :: MonadEvalValue m => FScalarValue -> FScalarValue -> m FValue
+evalBOpIor' l r = wrapSOp $ FSVInt <$> Op.opIor l r

@@ -28,8 +28,12 @@ deriving stock instance Enum    FTInt
 
 -- | Get the output type from combining two integer values of arbitrary kinds
 --   (for example, adding an @INTEGER(1)@ and an @INTEGER(4)@).
+--
+-- TODO is this OK?? the @k k = k@ equation at top???
 type FTIntCombine :: FTInt -> FTInt -> FTInt
 type family FTIntCombine k1 k2 where
+    FTIntCombine k k = k
+
     FTIntCombine 'FTInt16 _        = 'FTInt16
     FTIntCombine _        'FTInt16 = 'FTInt16
     FTIntCombine 'FTInt8  _        = 'FTInt8

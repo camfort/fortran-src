@@ -7,9 +7,12 @@ most Fortran compilers), and explicitly encode kinding semantics via promoting
 integral types.
 -}
 
+{-# LANGUAGE ConstraintKinds #-}
+
 module Language.Fortran.Repr.Value.Scalar.Int.Machine
   ( FInt(..)
   , SomeFInt
+  , type IsFInt
 
   , fIntUOp
   , fIntUOp'
@@ -31,6 +34,8 @@ import Language.Fortran.Repr.Value.Scalar.Common
 import Data.Int
 import Data.Functor.Const
 
+import Data.Bits ( Bits )
+
 -- | A Fortran integer value, tagged with its kind.
 data FInt (k :: FTInt) where
     FInt1 :: Int8  -> FInt 'FTInt1 -- ^ @INTEGER(1)@
@@ -40,6 +45,8 @@ data FInt (k :: FTInt) where
 deriving stock instance Show (FInt k)
 deriving stock instance Eq   (FInt k)
 deriving stock instance Ord  (FInt k)
+
+type IsFInt a = (Integral a, Bits a)
 
 type SomeFInt = SomeFKinded FTInt FInt
 deriving stock instance Show SomeFInt
@@ -76,7 +83,7 @@ fIntUOp' k1f k2f k4f k8f =
 
 -- | Run an operation over some 'FInt'.
 fIntUOp
-    :: (forall a. Integral a => a -> r)
+    :: (forall a. IsFInt a => a -> r)
     -> FInt k -> r
 fIntUOp f = fIntUOp' f f f f
 
@@ -93,7 +100,7 @@ fIntUOpInplace' k1f k2f k4f k8f =
 
 -- | Run an inplace operation over some 'FInt'.
 fIntUOpInplace
-    :: (forall a. Integral a => a -> a)
+    :: (forall a. IsFInt a => a -> a)
     -> FInt k -> FInt k
 fIntUOpInplace f = fIntUOpInplace' f f f f
 
@@ -144,7 +151,7 @@ fIntBOp' k1f k2f k4f k8f il ir =
   where go g l r = Const $ g l r
 
 fIntBOp
-    :: (forall a. Integral a => a -> a -> r)
+    :: (forall a. IsFInt a => a -> a -> r)
     -> FInt kl -> FInt kr -> r
 fIntBOp f = fIntBOp' f f f f
 
@@ -159,7 +166,7 @@ fIntBOpInplace' k1f k2f k4f k8f =
   where go f g l r = f $ g l r
 
 fIntBOpInplace
-    :: (forall a. Integral a => a -> a -> a)
+    :: (forall a. IsFInt a => a -> a -> a)
     -> FInt kl -> FInt kr -> FInt (FTIntCombine kl kr)
 fIntBOpInplace f = fIntBOpInplace' f f f f
 
