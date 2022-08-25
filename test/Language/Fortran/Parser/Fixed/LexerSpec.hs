@@ -166,6 +166,10 @@ spec =
         resetSrcSpan (collectFixedTokens' Fortran77Legacy "      integer foo ! bar")
           `shouldBe` resetSrcSpan [TType u "integer", TId u "foo", TEOF u]
 
+      it "lexes inline comments as blocks when possible" $
+        resetSrcSpan (collectFixedTokens' Fortran77Legacy "\n      ! Block")
+          `shouldBe` resetSrcSpan [TNewline u, TComment u " Block", TEOF u]
+
       it "lexes continuation lines separated by comments" $ do
         let src = unlines [ "      integer foo,"
                           , "C hello"

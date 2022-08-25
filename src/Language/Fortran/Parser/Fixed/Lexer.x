@@ -590,20 +590,24 @@ lexHash = do
 
 -- Lex comments with whitespace included
 lexComment :: LexAction (Maybe Token)
-lexComment =
-  lexLineWithWhitespace $ \ m -> do
+lexComment = do
+  setCaseSensitive
+  mt <- lexLineWithWhitespace $ \ m -> do
     s <- getLexemeSpan
     return . Just . TComment s $ tail m
+  setCaseInsensitive
+  pure mt
 
 -- Get a line without losing the whitespace, then call continuation with it.
 lexLineWithWhitespace :: (String -> LexAction (Maybe Token)) -> LexAction (Maybe Token)
 lexLineWithWhitespace k = do
+  incWhiteSensitiveCharCount
   alex <- getAlex
-  let modifiedAlex = alex { aiWhiteSensitiveCharCount = 1 }
-  case alexGetByte modifiedAlex of
-    Just (w, newAlex)
-      | fromIntegral w /= ord '\n' -> putAlex newAlex >> lexLineWithWhitespace k
+  mw <- case alexGetByte alex of
+    Just (w, alex')
+      | fromIntegral w /= ord '\n' -> putAlex alex' >> lexLineWithWhitespace k
     _                              -> getMatch >>= k
+  pure mw
 
 
 --------------------------------------------------
@@ -935,8 +939,9 @@ alexGetByte ai
   -- If we are not parsing a Hollerith skip whitespace
   | _curChar `elem` [ ' ', '\t' ] && _isWhiteInsensitive = skip Char ai
   -- Ignore inline comments
-  | aiFortranVersion ai == Fortran77Legacy &&
-    _isWhiteInsensitive && not _inFormat && _curChar == '!' = skip Comment ai
+  | aiFortranVersion ai == Fortran77Legacy && _isWhiteInsensitive
+    && not _inFormat && _curChar == '!' && not _blankLine
+  = skip Comment ai
   -- Ignore comments after column 72 in fortran77
   | aiFortranVersion ai == Fortran77Legacy && posColumn _position > 72 && _curChar /= '\n'
   = skip Comment ai
@@ -962,6 +967,9 @@ alexGetByte ai
     _position = aiPosition ai
     _isWhiteInsensitive = aiWhiteSensitiveCharCount ai == 0
     _inFormat = aiInFormat ai
+    _blankLine = case aiPreviousToken ai of
+      Just (TNewline _) -> True
+      _ -> False
 
 alexInputPrevChar :: AlexInput -> Char
 alexInputPrevChar ai = aiPreviousChar ai
@@ -1109,7 +1117,7 @@ lexer' = do
     AlexEOF -> return $ TEOF $ SrcSpan (getPos alexInput) (getPos alexInput)
     AlexError _ -> do
       parseState <- get
-      fail $ psFilename parseState ++ ": lexing failed. "
+      fail $ psFilename parseState ++ " - lexing failed: " ++ show (psAlexInput parseState)
     AlexSkip newAlex _ -> putAlex newAlex >> lexer'
     AlexToken newAlex _ action -> do
       putAlex newAlex
