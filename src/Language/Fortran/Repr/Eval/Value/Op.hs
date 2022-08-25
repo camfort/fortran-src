@@ -1,4 +1,6 @@
-module Language.Fortran.Repr.Eval.Op where
+-- | Evaluate operations between values in the value representation.
+
+module Language.Fortran.Repr.Eval.Value.Op where
 
 import Language.Fortran.Repr.Value.Scalar.Machine
 import Language.Fortran.Repr.Value.Scalar.Common

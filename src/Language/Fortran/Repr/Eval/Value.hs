@@ -1,12 +1,13 @@
 {-# LANGUAGE ConstraintKinds #-}
 
-module Language.Fortran.Repr.Translate.Value where
+-- | Evaluate AST terms to values in the value representation.
+
+module Language.Fortran.Repr.Eval.Value where
 
 import qualified Language.Fortran.AST as F
 import qualified Language.Fortran.AST.Literal.Real as F
 import qualified Language.Fortran.AST.Literal.Complex as F
 import qualified Language.Fortran.AST.Literal.Boz as F
-import Language.Fortran.Repr.Translate.Common
 
 import Language.Fortran.Repr.Value
 import Language.Fortran.Repr.Value.Scalar
@@ -15,20 +16,25 @@ import Language.Fortran.Repr.Value.Scalar.Int.Machine
 import Language.Fortran.Repr.Value.Scalar.Real
 import Language.Fortran.Repr.Value.Scalar.Logical.Machine
 import Language.Fortran.Repr.Value.Scalar.String
-import Language.Fortran.Repr.Type
-import qualified Language.Fortran.Repr.Eval.Op as Op
+
+import Language.Fortran.Repr.Type ( FType )
+
+import Language.Fortran.Repr.Eval.Common
+import qualified Language.Fortran.Repr.Eval.Value.Op as Op
+
 
 import GHC.Generics ( Generic )
 import qualified Data.Text as Text
 
 import Control.Monad.Except
 
-type MonadTranslateValue m = (MonadTranslate m, TranslateTo m ~ FValue, MonadError Error m)
+-- | A convenience type over 'MonadEval' bringing all requirements into scope.
+type MonadEvalValue m = (MonadEval m, EvalTo m ~ FValue, MonadError Error m)
 
 -- TODO best for temp KPs: String, Integer, Text? Word8??
 type KindLit = String
 
--- | Value translation error.
+-- | Value evaluation error.
 data Error
   = ENoSuchVar F.Name
   | EKindLitBadType F.Name FType
@@ -39,32 +45,32 @@ data Error
   -- ^ Catch-all for non-grouped errors.
     deriving stock (Generic, Show, Eq)
 
-translateVar :: MonadTranslateValue m => F.Name -> m FValue
-translateVar name =
+evalVar :: MonadEvalValue m => F.Name -> m FValue
+evalVar name =
     lookupFVar name >>= \case
       Nothing  -> err $ ENoSuchVar name
       Just val -> return val
 
-translateExpr :: MonadTranslateValue m => F.Expression a -> m FValue
-translateExpr = \case
+evalExpr :: MonadEvalValue m => F.Expression a -> m FValue
+evalExpr = \case
   F.ExpValue _ _ astVal ->
     case astVal of
-      F.ValVariable name -> translateVar name
+      F.ValVariable name -> evalVar name
       -- TODO: Do same with ValIntrinsic??? idk...
-      _ -> MkFScalarValue <$> translateLit astVal
+      _ -> MkFScalarValue <$> evalLit astVal
   F.ExpUnary  _ _ uop e   -> do
-    v <- translateExpr e
-    translateUOp uop v
+    v <- evalExpr e
+    evalUOp uop v
   F.ExpBinary _ _ bop le re -> do
     -- TODO 2022-08-23 raehik: here is where we would implement
     -- short-circuiting, by inspecting the bop earlier and having special cases
     -- for certain bops
-    lv <- translateExpr le
-    rv <- translateExpr re
-    translateBOp bop lv rv
+    lv <- evalExpr le
+    rv <- evalExpr re
+    evalBOp bop lv rv
   F.ExpFunctionCall _ _ ve args -> do
-    translatedArgs <- traverse translateArg $ F.alistList args
-    translateFunctionCall (forceVarExpr ve) translatedArgs
+    evaledArgs <- traverse evalArg $ F.alistList args
+    evalFunctionCall (forceVarExpr ve) evaledArgs
   _ -> err $ EUnsupported "Expression constructor"
 
 forceVarExpr :: F.Expression a -> F.Name
@@ -72,22 +78,22 @@ forceVarExpr = \case
   F.ExpValue _ _ (F.ValVariable v) -> v
   _ -> error "program error, sent me an expr that wasn't a name"
 
-translateLit :: MonadTranslateValue m => F.Value a -> m FScalarValue
-translateLit = \case
+evalLit :: MonadEvalValue m => F.Value a -> m FScalarValue
+evalLit = \case
   F.ValInteger i mkp -> do
-    translateKp "4" mkp >>= \case
+    evalKp "4" mkp >>= \case
       "4" -> return $ FSVInt $ SomeFKinded $ FInt4 $ read i
       "8" -> return $ FSVInt $ SomeFKinded $ FInt8 $ read i
       "2" -> return $ FSVInt $ SomeFKinded $ FInt2 $ read i
       "1" -> return $ FSVInt $ SomeFKinded $ FInt1 $ read i
       k   -> err $ ENoSuchKindForType "INTEGER" k
   F.ValReal r mkp -> do
-    translateKp "4" mkp >>= \case
+    evalKp "4" mkp >>= \case
       "4" -> return $ FSVReal $ SomeFKinded $ FReal4 $ F.readRealLit r
       "8" -> return $ FSVReal $ SomeFKinded $ FReal8 $ F.readRealLit r
       k   -> err $ ENoSuchKindForType "REAL" k
   F.ValLogical b mkp -> do
-    translateKp "4" mkp >>= \case
+    evalKp "4" mkp >>= \case
       "4" -> return $ FSVLogical $ SomeFKinded $ FInt4 $ fLogicalNumericFromBool b
       "8" -> return $ FSVLogical $ SomeFKinded $ FInt8 $ fLogicalNumericFromBool b
       "2" -> return $ FSVLogical $ SomeFKinded $ FInt2 $ fLogicalNumericFromBool b
@@ -95,7 +101,7 @@ translateLit = \case
       k   -> err $ ENoSuchKindForType "LOGICAL" k
   F.ValComplex (F.ComplexLit _ _ _cr _ci) ->
     -- TODO annoying & tedious. see Fortran 2008 spec 4.4.2.4
-    -- 1. translate each part
+    -- 1. evaluate each part
     -- 2. determine kind parameter (largest real, or default if both ints)
     --    - fail here if a named part wasn't real or int
     -- 3. upgrade both parts to that kind
@@ -103,22 +109,22 @@ translateLit = \case
     err $ EUnsupported "COMPLEX literals"
   F.ValString s -> return $ FSVString $ someFString $ Text.pack s
   F.ValBoz boz -> do
-    warn "requested to translate BOZ literal with no context: defaulting to INTEGER(4)"
+    warn "requested to evaluate BOZ literal with no context: defaulting to INTEGER(4)"
     return $ FSVInt $ SomeFKinded $ FInt4 $ F.bozAsTwosComp boz
   F.ValHollerith s -> return $ FSVString $ someFString $ Text.pack s
-  F.ValIntrinsic{} -> error "you tried to translate a lit, but it was an intrinsic name"
-  F.ValVariable{} ->  error "you tried to translate a lit, but it was a variable name"
-  F.ValOperator{} ->  error "you tried to translate a lit, but it was a custom operator name"
-  F.ValAssignment ->  error "you tried to translate a lit, but it was an overloaded assignment name"
-  F.ValStar       ->  error "you tried to translate a lit, but it was a star"
-  F.ValColon      ->  error "you tried to translate a lit, but it was a colon"
+  F.ValIntrinsic{} -> error "you tried to evaluate a lit, but it was an intrinsic name"
+  F.ValVariable{} ->  error "you tried to evaluate a lit, but it was a variable name"
+  F.ValOperator{} ->  error "you tried to evaluate a lit, but it was a custom operator name"
+  F.ValAssignment ->  error "you tried to evaluate a lit, but it was an overloaded assignment name"
+  F.ValStar       ->  error "you tried to evaluate a lit, but it was a star"
+  F.ValColon      ->  error "you tried to evaluate a lit, but it was a colon"
   F.ValType{}     ->  error "not used anywhere, don't know what it is"
 
 err :: MonadError Error m => Error -> m a
 err = throwError
 
-translateKp :: MonadTranslateValue m => KindLit -> Maybe (F.KindParam a) -> m KindLit
-translateKp kDef = \case
+evalKp :: MonadEvalValue m => KindLit -> Maybe (F.KindParam a) -> m KindLit
+evalKp kDef = \case
   Nothing -> return kDef
   Just kp -> case kp of
     F.KindParamInt _ _ k -> return $ read k
@@ -130,8 +136,8 @@ translateKp kDef = \case
           _ -> err $ EKindLitBadType var (fValueType val)
         Nothing  -> err $ ENoSuchVar var
 
-translateUOp :: MonadTranslateValue m => F.UnaryOp -> FValue -> m FValue
-translateUOp op v = do
+evalUOp :: MonadEvalValue m => F.UnaryOp -> FValue -> m FValue
+evalUOp op v = do
     v' <- forceScalar v
     case op of
       F.Plus  -> wrapSOp $ Op.opIcNumericUOpInplace id     v'
@@ -143,23 +149,23 @@ translateUOp op v = do
           _ -> err $ EOp $ Op.EBadArgType1 ["LOGICAL"] $ fScalarValueType v'
       _ -> err $ EUnsupported $ "operator: " <> show op
 
-forceScalar :: MonadTranslateValue m => FValue -> m FScalarValue
+forceScalar :: MonadEvalValue m => FValue -> m FScalarValue
 forceScalar = \case
-  MkFArrayValue{} -> err $ EUnsupported "no array values in translate for now thx"
+  MkFArrayValue{} -> err $ EUnsupported "no array values in eval for now thx"
   MkFScalarValue v' -> return v'
 
-wrapOp :: MonadTranslateValue m => Either Op.Error a -> m a
+wrapOp :: MonadEvalValue m => Either Op.Error a -> m a
 wrapOp = \case
   Right a -> return a
   Left  e -> err $ EOp e
 
-wrapSOp :: MonadTranslateValue m => Either Op.Error FScalarValue -> m FValue
+wrapSOp :: MonadEvalValue m => Either Op.Error FScalarValue -> m FValue
 wrapSOp = \case
   Right a -> return $ MkFScalarValue a
   Left  e -> err $ EOp e
 
-translateBOp :: MonadTranslateValue m => F.BinaryOp -> FValue -> FValue -> m FValue
-translateBOp bop l r = do
+evalBOp :: MonadEvalValue m => F.BinaryOp -> FValue -> FValue -> m FValue
+evalBOp bop l r = do
     l' <- forceScalar l
     r' <- forceScalar r
     case bop of
@@ -203,8 +209,8 @@ defFLogical :: Bool -> FValue
 defFLogical =
     MkFScalarValue . FSVLogical . SomeFKinded . FInt4 . fLogicalNumericFromBool
 
-translateFunctionCall :: MonadTranslateValue m => F.Name -> [FValue] -> m FValue
-translateFunctionCall fname _args =
+evalFunctionCall :: MonadEvalValue m => F.Name -> [FValue] -> m FValue
+evalFunctionCall fname _args =
     case fname of
 {-
       "ior"  -> ior' es
@@ -216,8 +222,8 @@ translateFunctionCall fname _args =
 -}
       _      -> err $ EUnsupported $ "function call: " <> fname
 
-translateArg :: MonadTranslateValue m => F.Argument a -> m FValue
-translateArg (F.Argument _ _ _ ae) =
+evalArg :: MonadEvalValue m => F.Argument a -> m FValue
+evalArg (F.Argument _ _ _ ae) =
     case ae of
-      F.ArgExpr        e -> translateExpr e
-      F.ArgExprVar _ _ v -> translateVar v
+      F.ArgExpr        e -> evalExpr e
+      F.ArgExprVar _ _ v -> evalVar  v

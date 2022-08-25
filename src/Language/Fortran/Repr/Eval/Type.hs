@@ -1,11 +1,13 @@
-module Language.Fortran.Repr.Translate.Type where
+-- | Evaluate AST terms to types in the type representation.
+
+module Language.Fortran.Repr.Eval.Type where
 
 import qualified Language.Fortran.AST as F
 import Language.Fortran.Repr.Type
-import Language.Fortran.Repr.Translate.Common
+import Language.Fortran.Repr.Eval.Common
 
 fromExpression
-    :: forall m a. (MonadTranslate m, TranslateTo m ~ FType)
+    :: forall m a. (MonadEval m, EvalTo m ~ FType)
     => F.Expression a -> m (Either String FType)
 fromExpression = \case
   F.ExpValue _ _ (F.ValVariable name) ->

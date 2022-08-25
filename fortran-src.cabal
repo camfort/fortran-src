@@ -96,11 +96,11 @@ library
       Language.Fortran.PrettyPrint
       Language.Fortran.Repr
       Language.Fortran.Repr.Compat.Natural
-      Language.Fortran.Repr.Eval.Op
+      Language.Fortran.Repr.Eval.Common
+      Language.Fortran.Repr.Eval.Type
+      Language.Fortran.Repr.Eval.Value
+      Language.Fortran.Repr.Eval.Value.Op
       Language.Fortran.Repr.Tmp
-      Language.Fortran.Repr.Translate.Common
-      Language.Fortran.Repr.Translate.Type
-      Language.Fortran.Repr.Translate.Value
       Language.Fortran.Repr.Type
       Language.Fortran.Repr.Type.Array
       Language.Fortran.Repr.Type.Scalar
