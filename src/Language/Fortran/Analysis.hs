@@ -169,7 +169,16 @@ isNamedExpression (ExpValue _ _ (ValVariable _))  = True
 isNamedExpression (ExpValue _ _ (ValIntrinsic _)) = True
 isNamedExpression _                               = False
 
--- | Obtain either uniqueName or source name from an ExpValue variable.
+-- | Obtain either 'uniqueName' or 'sourceName' from an 'ExpValue' variable, or
+--   an 'ExpDataRef'.
+--
+-- Precedence is as follows:
+--
+--   * if 'uniqueName' is present, it is returned
+--   * else if 'sourceName' is present, it is returned
+--   * else the variable name itself is returned
+--
+-- Crashes on 'Expression's which don't define a variable.
 varName :: Expression (Analysis a) -> Name
 varName (ExpValue Analysis { uniqueName = Just n } _ ValVariable{})  = n
 varName (ExpValue Analysis { sourceName = Just n } _ ValVariable{})  = n
@@ -177,6 +186,10 @@ varName (ExpValue _ _ (ValVariable n))                               = n
 varName (ExpValue Analysis { uniqueName = Just n } _ ValIntrinsic{}) = n
 varName (ExpValue Analysis { sourceName = Just n } _ ValIntrinsic{}) = n
 varName (ExpValue _ _ (ValIntrinsic n))                              = n
+
+-- | Recursively apply to the left for data refs e.g. @var%field@ -> @var@
+varName (ExpDataRef _ _ e _) = varName e
+
 varName _                                                            = error "Use of varName on non-variable."
 
 -- | Obtain the source name from an ExpValue variable.
