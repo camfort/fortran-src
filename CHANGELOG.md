@@ -1,3 +1,16 @@
+### Unreleased
+  * add strong Fortran value & type representation at `Language.Fortran.Repr`
+    (currently unused) (#235, @raehik)
+    * operations are accurate to actual Fortran compiler behaviour e.g. integers
+      are stored fixed-width based on kind, so overflow behaviour is free
+    * can recover a value's precise type (e.g. `INTEGER(8)`, including kind) by
+      pattern matching
+  * bump minimum compiler version to GHC 9.0
+  * improved comment handling in fixed form lexer: parse more comment syntax,
+    case sensitive, parse beyond column 72 (#237, @RaoulHC)
+  * allow `ExpDataRef` constructor in `varName` (fixes a crash in type analysis
+    #238)
+
 ### 0.10.2 (Aug 18, 2022)
   * fix missing parentheses when pretty printing certain syntax #233
   * fix missing export of `ParseErrorSimple` in `Parser`
