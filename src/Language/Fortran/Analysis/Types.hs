@@ -238,13 +238,22 @@ statement (StDeclaration _ stmtSs ts mAttrAList declAList) = do
 statement (StExternal _ _ varAList) = do
   let vars = aStrip varAList
   mapM_ (recordCType CTExternal . varName) vars
-statement (StExpressionAssign _ _ (ExpSubscript _ _ v ixAList) _)
+statement (StExpressionAssign _ ss (ExpSubscript _ _ v ixAList) _)
   --  | any (not . isIxSingle) (aStrip ixAList) = recordCType CTArray (varName v)  -- it's an array (or a string?) FIXME
   | all isIxSingle (aStrip ixAList) = do
     mIDType <- getExprRecordedType v
     case mIDType of
       Just (IDType _ (Just CTArray{})) -> return ()                -- do nothing, it's already known to be an array
-      _                                -> recordCType CTFunction (varName v) -- assume it's a function statement
+      _                                ->
+        -- inspect the subscript to make a safe(r) assumption about type
+        -- (ideally, we would have more information coming in to this call)
+        case v of
+          ExpDataRef{} ->
+            -- can't have a function in a struct: must be array but we can't
+            -- record "some array", we need dimension info! so, refuse
+            typeError "likely found an array in a struct, but unable to record type information" ss
+          _ -> -- else assume it's a function statement
+            recordCType CTFunction (varName v)
 
 -- FIXME: if StFunctions can only be identified after types analysis
 -- is complete and disambiguation is performed, then how do we get
