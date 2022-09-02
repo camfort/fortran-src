@@ -28,11 +28,14 @@ import qualified Data.Text as Text
 
 import Control.Monad.Except
 
+-- simple implementation
+import Control.Monad.Reader
+import Control.Monad.Writer
+import qualified Data.Map as Map
+import Data.Map ( Map )
+
 -- | A convenience type over 'MonadEval' bringing all requirements into scope.
 type MonadEvalValue m = (MonadEval m, EvalTo m ~ FValue, MonadError Error m)
-
--- TODO best for temp KPs: String, Integer, Text? Word8??
-type KindLit = String
 
 -- | Value evaluation error.
 data Error
@@ -45,6 +48,28 @@ data Error
   | ELazy String
   -- ^ Catch-all for non-grouped errors.
     deriving stock (Generic, Show, Eq)
+
+-- TODO best for temp KPs: String, Integer, Text? Word8??
+type KindLit = String
+
+--------------------------------------------------------------------------------
+
+-- | A simple pure interpreter for Fortran value evaluation programs.
+type EvalValueSimple = WriterT [String] (ExceptT Error (Reader (Map F.Name FValue)))
+
+instance MonadEval EvalValueSimple where
+    type EvalTo EvalValueSimple = FValue
+    warn msg = tell [msg]
+    lookupFVar nm = do
+        m <- ask
+        pure $ Map.lookup nm m
+
+runEvalValueSimple
+    :: Map F.Name FValue
+    -> EvalValueSimple a -> Either Error (a, [String])
+runEvalValueSimple m = flip runReader m . runExceptT . runWriterT
+
+--------------------------------------------------------------------------------
 
 evalVar :: MonadEvalValue m => F.Name -> m FValue
 evalVar name =
@@ -89,7 +114,7 @@ evalLit = \case
       "1" -> return $ FSVInt $ SomeFKinded $ FInt1 $ read i
       k   -> err $ ENoSuchKindForType "INTEGER" k
   F.ValReal r mkp -> do
-    evalKp "4" mkp >>= \case
+    evalRealKp (F.exponentLetter (F.realLitExponent r)) mkp >>= \case
       "4" -> return $ FSVReal $ SomeFKinded $ FReal4 $ F.readRealLit r
       "8" -> return $ FSVReal $ SomeFKinded $ FReal8 $ F.readRealLit r
       k   -> err $ ENoSuchKindForType "REAL" k
@@ -128,7 +153,7 @@ evalKp :: MonadEvalValue m => KindLit -> Maybe (F.KindParam a) -> m KindLit
 evalKp kDef = \case
   Nothing -> return kDef
   Just kp -> case kp of
-    F.KindParamInt _ _ k -> return $ read k
+    F.KindParamInt _ _ k -> return k
     F.KindParamVar _ _ var ->
       lookupFVar var >>= \case
         Just val -> case val of
@@ -136,6 +161,44 @@ evalKp kDef = \case
             return $ fIntUOp' show show show show i
           _ -> err $ EKindLitBadType var (fValueType val)
         Nothing  -> err $ ENoSuchVar var
+
+-- TODO needs cleanup: internal repetition, common parts with evalKp. also needs
+-- a docstring
+evalRealKp :: MonadEvalValue m => F.ExponentLetter -> Maybe (F.KindParam a) -> m KindLit
+evalRealKp l mkp =
+    kindViaKindParam >>= \case
+      Nothing ->
+        case l of
+          F.ExpLetterE -> pure "4"
+          F.ExpLetterD -> pure "8"
+          F.ExpLetterQ -> do
+            warn "TODO 1.2Q3 REAL literals not supported; defaulting to REAL(8)"
+            evalRealKp F.ExpLetterD mkp
+      Just kkp ->
+        case l of
+          F.ExpLetterE -> -- @1.2E3_8@ syntax is permitted: use @_8@ kind param
+            pure kkp
+          F.ExpLetterD -> do -- @1.2D3_8@ syntax is nonsensical
+            warn $  "TODO exponent letter wasn't E but you gave kind parameter."
+                 <> "\nthis isn't allowed, but we'll default to"
+                 <> " using kind parameter"
+            pure kkp
+          F.ExpLetterQ -> do
+            warn "TODO 1.2Q3 REAL literals not supported; defaulting to REAL(8)"
+            evalRealKp F.ExpLetterD mkp
+  where
+    kindViaKindParam =
+        case mkp of
+          Nothing -> pure Nothing
+          Just kp -> case kp of
+            F.KindParamInt _ _ k -> pure $ Just k
+            F.KindParamVar _ _ var ->
+              lookupFVar var >>= \case
+                Just val -> case val of
+                  MkFScalarValue (FSVInt (SomeFKinded i)) ->
+                    pure $ Just $ fIntUOp' show show show show i
+                  _ -> err $ EKindLitBadType var (fValueType val)
+                Nothing  -> err $ ENoSuchVar var
 
 evalUOp :: MonadEvalValue m => F.UnaryOp -> FValue -> m FValue
 evalUOp op v = do
