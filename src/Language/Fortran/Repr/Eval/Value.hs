@@ -102,6 +102,7 @@ evalExpr = \case
 forceVarExpr :: F.Expression a -> F.Name
 forceVarExpr = \case
   F.ExpValue _ _ (F.ValVariable v) -> v
+  F.ExpValue _ _ (F.ValIntrinsic v) -> v
   _ -> error "program error, sent me an expr that wasn't a name"
 
 evalLit :: MonadEvalValue m => F.Value a -> m FScalarValue
