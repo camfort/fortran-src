@@ -64,6 +64,21 @@ opIcNumericBOp bop = go
     go (FSVReal l) (FSVComplex r) =
         Right $ FSVComplex $ someFComplexBOpWrap bop (someFComplexFromReal l) r
 
+opIcNumericBOpRealIntSep
+    :: (forall a. Integral  a => a -> a -> a)
+    -> (forall a. RealFloat a => a -> a -> a)
+    -> FScalarValue -> FScalarValue -> Either Error FScalarValue
+opIcNumericBOpRealIntSep bopInt bopReal = go
+  where
+    go (FSVInt l) (FSVInt r) = Right $ FSVInt $ someFIntBOpWrap bopInt l r
+    go (FSVInt (SomeFKinded l)) (FSVReal r) =
+        Right $ FSVReal $ someFRealUOpWrap (\x -> withFInt l `bopReal` x) r
+    -- TODO int complex
+    go (FSVReal l) (FSVReal r) = Right $ FSVReal $ someFRealBOpWrap bopReal l r
+    go (FSVReal l) (FSVInt r) = go (FSVInt r) (FSVReal l)
+    go (FSVReal l) (FSVComplex r) =
+        Right $ FSVComplex $ someFComplexBOpWrap bopReal (someFComplexFromReal l) r
+
 opIcNumRelBOp
     :: (forall a. Ord a => a -> a -> r)
     -> FScalarValue -> FScalarValue -> Either Error r

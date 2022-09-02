@@ -231,6 +231,7 @@ wrapSOp = \case
 -- intrinsics which use function syntax, but are otherwise binary operators.
 evalBOp :: MonadEvalValue m => F.BinaryOp -> FValue -> FValue -> m FValue
 evalBOp bop l r = do
+    -- TODO also see evalExpr: implement short-circuit eval here
     l' <- forceScalar l
     r' <- forceScalar r
     case bop of
@@ -238,8 +239,10 @@ evalBOp bop l r = do
       F.Subtraction    -> wrapSOp $ Op.opIcNumericBOp (-) l' r'
       F.Multiplication -> wrapSOp $ Op.opIcNumericBOp (*) l' r'
 
-      F.Division -> -- TODO rather complicated
-        err $ EUnsupported "division"
+
+      -- TODO confirm correct operation (not checked much)
+      F.Division -> wrapSOp $ Op.opIcNumericBOpRealIntSep (div) (/) l' r'
+
       F.Exponentiation -> -- TODO not looked, certainly custom
         err $ EUnsupported "exponentiation"
 
