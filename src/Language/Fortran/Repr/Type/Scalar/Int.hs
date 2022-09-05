@@ -80,8 +80,8 @@ type family FTIntMax k where
 -- | @min k = - (2^(8k-1))@ (make sure you negate when reifying etc!)
 type FTIntMin :: FTInt -> Nat
 type family FTIntMin k where
-    FTIntMax 'FTInt1  = 2^(8*1 -1)
-    FTIntMax 'FTInt2  = 2^(8*2 -1)
-    FTIntMax 'FTInt4  = 2^(8*4 -1)
-    FTIntMax 'FTInt8  = 2^(8*8 -1)
-    FTIntMax 'FTInt16 = 2^(8*16-1)
+    FTIntMin 'FTInt1  = 2^(8*1 -1)
+    FTIntMin 'FTInt2  = 2^(8*2 -1)
+    FTIntMin 'FTInt4  = 2^(8*4 -1)
+    FTIntMin 'FTInt8  = 2^(8*8 -1)
+    FTIntMin 'FTInt16 = 2^(8*16-1)
