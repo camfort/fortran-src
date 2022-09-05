@@ -871,6 +871,9 @@ data Index a =
   deriving stock (Eq, Show, Data, Generic, Functor)
 
 -- | Values and literals.
+--
+-- Note that 'KindParam' kind parameters may only be available on certain
+-- Fortran parsers. The fixed form parsers (F77, F66) may not parse them.
 data Value a
   = ValInteger           String  (Maybe (KindParam a))
   -- ^ The string representation of an integer literal
