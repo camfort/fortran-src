@@ -1,3 +1,8 @@
+## Repr
+  * without a value repr for BOZs, we're forced to delay evaluating function &
+    operation arguments until we know the function. since we need to implement
+    the special BOZ case
+
 ## Small refactorings
   * Many AST nodes could be upgraded to use `NonEmpty` - some appear to be
     nonsensical for the empty list case (e.g. `Declarator` with `ArrayDecl`)

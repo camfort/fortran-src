@@ -1,4 +1,5 @@
 {-# LANGUAGE TemplateHaskell, StandaloneKindSignatures, UndecidableInstances #-}
+{-# LANGUAGE NoStarIsType #-}
 
 module Language.Fortran.Repr.Type.Scalar.Int where
 
@@ -9,8 +10,10 @@ import Data.Data ( Data )
 
 import Data.Singletons.TH
 -- required for deriving instances (seems like bug)
-import Prelude.Singletons
+import Prelude.Singletons hiding ( type (-), type (*) )
 import Data.Ord.Singletons
+
+import GHC.TypeNats
 
 $(singletons [d|
     -- | The Fortran integer type.
@@ -64,3 +67,21 @@ instance FKinded FTInt where
       SFTInt4  -> reifyKinded x
       SFTInt8  -> reifyKinded x
       SFTInt16 -> reifyKinded x
+
+-- | @max k = 2^(8k-1) - 1@
+type FTIntMax :: FTInt -> Nat
+type family FTIntMax k where
+    FTIntMax 'FTInt1  = 2^(8*1 -1) - 1
+    FTIntMax 'FTInt2  = 2^(8*2 -1) - 1
+    FTIntMax 'FTInt4  = 2^(8*4 -1) - 1
+    FTIntMax 'FTInt8  = 2^(8*8 -1) - 1
+    FTIntMax 'FTInt16 = 2^(8*16-1) - 1
+
+-- | @min k = - (2^(8k-1))@ (make sure you negate when reifying etc!)
+type FTIntMin :: FTInt -> Nat
+type family FTIntMin k where
+    FTIntMax 'FTInt1  = 2^(8*1 -1)
+    FTIntMax 'FTInt2  = 2^(8*2 -1)
+    FTIntMax 'FTInt4  = 2^(8*4 -1)
+    FTIntMax 'FTInt8  = 2^(8*8 -1)
+    FTIntMax 'FTInt16 = 2^(8*16-1)

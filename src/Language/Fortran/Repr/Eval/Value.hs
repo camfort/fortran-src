@@ -24,7 +24,8 @@ import qualified Language.Fortran.Repr.Eval.Value.Op as Op
 
 import GHC.Generics ( Generic )
 import qualified Data.Text as Text
-import qualified Data.Char as Char
+import qualified Data.Char
+import qualified Data.Bits
 
 import Control.Monad.Except
 
@@ -282,30 +283,70 @@ defFLogical =
 evalFunctionCall :: MonadEvalValue m => F.Name -> [FValue] -> m FValue
 evalFunctionCall fname args =
     case fname of
+
       "ior"  -> do
         args' <- forceArgs 2 args
         let [l, r] = args'
         l' <- forceScalar l
         r' <- forceScalar r
         evalIntrinsicIor l' r'
+
       "max"  -> evalIntrinsicMax args
+
       "char" -> do
         args' <- forceArgs 1 args
-        let [n] = args'
-        n' <- forceScalar n
-        case n' of
+        let [v] = args'
+        v' <- forceScalar v
+        case v' of
           FSVInt (SomeFKinded i) -> do
             -- TODO better error handling
-            let c    = Char.chr (fIntUOp fromIntegral i)
+            let c    = Data.Char.chr (fIntUOp fromIntegral i)
             pure $ MkFScalarValue $ FSVString $ someFString $ Text.singleton c
           _ ->
             err $ EOpTypeError $
-                "char: expected INT(x), got "<>show (fScalarValueType n')
-{-
-      "not"  -> not' es
-      "int"  -> int' es
-      "int2" -> int' es
--}
+                "char: expected INT(x), got "<>show (fScalarValueType v')
+
+      "not"  -> do
+        args' <- forceArgs 1 args
+        let [v] = args'
+        v' <- forceScalar v
+        case v' of
+          FSVInt (SomeFKinded i) -> do
+            pure $ MkFScalarValue $ FSVInt $ SomeFKinded $ fIntUOpInplace Data.Bits.complement i
+          _ ->
+            err $ EOpTypeError $
+                "not: expected INT(x), got "<>show (fScalarValueType v')
+
+      "int"  -> do
+        -- TODO a real pain. just implementing common bits for now
+        -- TODO gfortran actually performs some range checks for constants!
+        -- @int(128, 1)@ errors with "this INT(4) is too big for INT(1)".
+        args' <- forceArgs 1 args
+        let [v] = args'
+        v' <- forceScalar v
+        case v' of
+          FSVInt{} ->
+            pure $ MkFScalarValue v'
+          FSVReal (SomeFKinded r) ->
+            pure $ MkFScalarValue $ FSVInt $ SomeFKinded $ FInt4 $ fRealUOp truncate r
+          _ ->
+            err $ EOpTypeError $
+                "int: unsupported or unimplemented type: "<>show (fScalarValueType v')
+
+      -- TODO all lies
+      "int2" -> do
+        args' <- forceArgs 1 args
+        let [v] = args'
+        v' <- forceScalar v
+        case v' of
+          FSVInt{} ->
+            pure $ MkFScalarValue v'
+          FSVReal (SomeFKinded r) ->
+            pure $ MkFScalarValue $ FSVInt $ SomeFKinded $ FInt2 $ fRealUOp truncate r
+          _ ->
+            err $ EOpTypeError $
+                "int: unsupported or unimplemented type: "<>show (fScalarValueType v')
+
       _      -> err $ EUnsupported $ "function call: " <> fname
 
 evalArg :: MonadEvalValue m => F.Argument a -> m FValue

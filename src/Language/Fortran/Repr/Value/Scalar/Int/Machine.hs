@@ -8,6 +8,7 @@ integral types.
 -}
 
 {-# LANGUAGE ConstraintKinds #-}
+{-# LANGUAGE AllowAmbiguousTypes #-}
 
 module Language.Fortran.Repr.Value.Scalar.Int.Machine
   ( FInt(..)
@@ -35,6 +36,9 @@ import Data.Int
 import Data.Functor.Const
 
 import Data.Bits ( Bits )
+
+import Language.Fortran.Repr.Util ( natVal'' )
+import GHC.TypeNats
 
 -- | A Fortran integer value, tagged with its kind.
 data FInt (k :: FTInt) where
@@ -176,3 +180,36 @@ fIntBOpInplace f = fIntBOpInplace' f f f f
 -- TODO remove. means being explicit with coercions to real in eval.
 withFInt :: Num a => FInt k -> a
 withFInt = fIntUOp fromIntegral
+
+fIntMax :: forall (k :: FTInt). KnownNat (FTIntMax k) => Int64
+fIntMax = fromIntegral $ natVal'' @(FTIntMax k)
+
+fIntMin :: forall (k :: FTInt). KnownNat (FTIntMin k) => Int64
+fIntMin = fromIntegral $ natVal'' @(FTIntMin k)
+
+-- TODO improve (always return answer, and a flag indicating if there was an
+-- error)
+fIntCoerceChecked
+    :: forall kout kin
+    .  (KnownNat (FTIntMax kout), KnownNat (FTIntMin kout))
+    => SFTInt kout -> FInt kin -> Either String (FInt kout)
+fIntCoerceChecked ty = fIntUOp $ \n ->
+    if fromIntegral n > fIntMax @kout then
+        Left "too large for new size"
+    else if fromIntegral n < fIntMin @kout then
+        Left "too small for new size"
+    else
+        case ty of
+          SFTInt1  -> Right $ FInt1 $ fromIntegral n
+          SFTInt2  -> Right $ FInt2 $ fromIntegral n
+          SFTInt4  -> Right $ FInt4 $ fromIntegral n
+          SFTInt8  -> Right $ FInt8 $ fromIntegral n
+          SFTInt16 -> Left "can't represent INTEGER(16) yet, sorry"
+
+-- can also define this (and stronger funcs) with singletons
+fIntType :: FInt (k :: FTInt) -> FTInt
+fIntType = \case
+  FInt1{} -> FTInt1
+  FInt2{} -> FTInt2
+  FInt4{} -> FTInt4
+  FInt8{} -> FTInt8
