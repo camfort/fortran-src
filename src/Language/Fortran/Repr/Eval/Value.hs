@@ -95,6 +95,7 @@ evalExpr = \case
     rv <- evalExpr re
     evalBOp bop lv rv
   F.ExpFunctionCall _ _ ve args -> do
+    -- same here, could more arg evaluation into op
     evaledArgs <- traverse evalArg $ F.alistList args
     evalFunctionCall (forceVarExpr ve) evaledArgs
   _ -> err $ EUnsupported "Expression constructor"
@@ -286,9 +287,9 @@ evalFunctionCall fname args =
         let [l, r] = args'
         l' <- forceScalar l
         r' <- forceScalar r
-        evalBOpIor' l' r'
+        evalIntrinsicIor l' r'
+      "max"  -> evalIntrinsicMax args
 {-
-      "max"  -> max' es
       "char" -> char' es
       "not"  -> not' es
       "int"  -> int' es
@@ -323,6 +324,39 @@ forceArgs numArgs l =
     else err $ EOpTypeError $
             "expected "<>show numArgs<>" arguments; got "<>show (length l)
 
-evalBOpIor'
+evalIntrinsicIor
     :: MonadEvalValue m => FScalarValue -> FScalarValue -> m FValue
-evalBOpIor' l r = wrapSOp $ FSVInt <$> Op.opIor l r
+evalIntrinsicIor l r = wrapSOp $ FSVInt <$> Op.opIor l r
+
+-- https://gcc.gnu.org/onlinedocs/gfortran/MAX.html
+evalIntrinsicMax
+    :: MonadEvalValue m => [FValue] -> m FValue
+evalIntrinsicMax = \case
+  []   -> err $ EOpTypeError "max intrinsic expects at least 1 argument"
+  v:vs -> do
+    v' <- forceScalar v
+    vs' <- traverse forceScalar vs
+    go v' vs'
+  where
+    go vCurMax [] = pure $ MkFScalarValue vCurMax
+    go vCurMax (v:vs) =
+        case vCurMax of
+          FSVInt{} ->
+            case v of
+              FSVInt{} -> do
+                vNewMax <- wrapOp $ Op.opIcNumericBOp max vCurMax v
+                go vNewMax vs
+              _ ->
+                err $ EOpTypeError $
+                    "max: expected INT(x), got "<>show (fScalarValueType v)
+          FSVReal{} ->
+            case v of
+              FSVReal{} -> do
+                vNewMax <- wrapOp $ Op.opIcNumericBOp max vCurMax v
+                go vNewMax vs
+              _ ->
+                err $ EOpTypeError $
+                    "max: expected REAL(x), got "<>show (fScalarValueType v)
+          _ ->
+            err $ EOpTypeError $
+                "max: unsupported type: "<> show (fScalarValueType vCurMax)

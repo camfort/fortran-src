@@ -51,7 +51,7 @@ eGeneric :: String -> Either Error a
 eGeneric = Left . EGeneric
 
 opIcNumericBOp
-    :: (forall a. Num a => a -> a -> a)
+    :: (forall a. (Num a, Ord a) => a -> a -> a)
     -> FScalarValue -> FScalarValue -> Either Error FScalarValue
 opIcNumericBOp bop = go
   where
