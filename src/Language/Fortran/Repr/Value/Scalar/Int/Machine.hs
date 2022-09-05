@@ -83,7 +83,8 @@ fIntUOp' k1f k2f k4f k8f =
 
 -- | Run an operation over some 'FInt'.
 fIntUOp
-    :: (forall a. IsFInt a => a -> r)
+    :: forall r k
+    .  (forall a. IsFInt a => a -> r)
     -> FInt k -> r
 fIntUOp f = fIntUOp' f f f f
 

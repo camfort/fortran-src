@@ -22,9 +22,9 @@ import Language.Fortran.Repr.Type ( FType )
 import Language.Fortran.Repr.Eval.Common
 import qualified Language.Fortran.Repr.Eval.Value.Op as Op
 
-
 import GHC.Generics ( Generic )
 import qualified Data.Text as Text
+import qualified Data.Char as Char
 
 import Control.Monad.Except
 
@@ -289,8 +289,19 @@ evalFunctionCall fname args =
         r' <- forceScalar r
         evalIntrinsicIor l' r'
       "max"  -> evalIntrinsicMax args
+      "char" -> do
+        args' <- forceArgs 1 args
+        let [n] = args'
+        n' <- forceScalar n
+        case n' of
+          FSVInt (SomeFKinded i) -> do
+            -- TODO better error handling
+            let c    = Char.chr (fIntUOp fromIntegral i)
+            pure $ MkFScalarValue $ FSVString $ someFString $ Text.singleton c
+          _ ->
+            err $ EOpTypeError $
+                "char: expected INT(x), got "<>show (fScalarValueType n')
 {-
-      "char" -> char' es
       "not"  -> not' es
       "int"  -> int' es
       "int2" -> int' es
@@ -329,6 +340,7 @@ evalIntrinsicIor
 evalIntrinsicIor l r = wrapSOp $ FSVInt <$> Op.opIor l r
 
 -- https://gcc.gnu.org/onlinedocs/gfortran/MAX.html
+-- TODO should support arrays! at least for >=F2010
 evalIntrinsicMax
     :: MonadEvalValue m => [FValue] -> m FValue
 evalIntrinsicMax = \case
