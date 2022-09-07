@@ -28,6 +28,10 @@ module Language.Fortran.Repr.Value.Scalar.Int.Machine
   , fIntBOpInternal
 
   , withFInt
+
+  , fIntConvertChecked
+  , fIntType
+  , toFInt
   ) where
 
 import Language.Fortran.Repr.Type.Scalar.Int
@@ -187,29 +191,45 @@ fIntMax = fromIntegral $ natVal'' @(FTIntMax k)
 fIntMin :: forall (k :: FTInt). KnownNat (FTIntMin k) => Int64
 fIntMin = fromIntegral $ natVal'' @(FTIntMin k)
 
--- TODO improve (always return answer, and a flag indicating if there was an
--- error)
-fIntCoerceChecked
+fIntConvertChecked
     :: forall kout kin
     .  (KnownNat (FTIntMax kout), KnownNat (FTIntMin kout))
-    => SFTInt kout -> FInt kin -> Either String (FInt kout)
-fIntCoerceChecked ty = fIntUOp $ \n ->
-    if fromIntegral n > fIntMax @kout then
-        Left "too large for new size"
-    else if fromIntegral n < fIntMin @kout then
-        Left "too small for new size"
-    else
-        case ty of
-          SFTInt1  -> Right $ FInt1 $ fromIntegral n
-          SFTInt2  -> Right $ FInt2 $ fromIntegral n
-          SFTInt4  -> Right $ FInt4 $ fromIntegral n
-          SFTInt8  -> Right $ FInt8 $ fromIntegral n
-          SFTInt16 -> Left "can't represent INTEGER(16) yet, sorry"
+    => SFTInt kout -> FInt kin -> (FInt kout, Maybe String)
+fIntConvertChecked ty = fIntUOp $ \n ->
+    let mErr =
+            if fromIntegral n > fIntMax @kout then
+                Just "too large for new size"
+            else if fromIntegral n < fIntMin @kout then
+                Just "too small for new size"
+            else Nothing
+     in case ty of
+          SFTInt1  -> (FInt1 (fromIntegral n), mErr)
+          SFTInt2  -> (FInt2 (fromIntegral n), mErr)
+          SFTInt4  -> (FInt4 (fromIntegral n), mErr)
+          SFTInt8  -> (FInt8 (fromIntegral n), mErr)
+          SFTInt16 ->
+            -- safe usage, because @'FInt' 'FTInt16'@ is not a valid type!
+            error "impossible; INTEGER(16) value representation unsupported"
 
--- can also define this (and stronger funcs) with singletons
+-- | Get the term level representation of an 'FInt''s type (i.e. @INTEGER(x)@).
+--
+-- TODO can also define this (and stronger funcs) with singletons. perhaps have
+-- a look
 fIntType :: FInt (k :: FTInt) -> FTInt
 fIntType = \case
   FInt1{} -> FTInt1
   FInt2{} -> FTInt2
   FInt4{} -> FTInt4
   FInt8{} -> FTInt8
+
+-- | Convert some Haskell number the requested @INTEGER(k)@ type, with no range
+--   checks.
+toFInt :: SFTInt k -> (forall a. IsFInt a => a) -> FInt k
+toFInt ty n = case ty of
+  SFTInt1  -> FInt1 n
+  SFTInt2  -> FInt2 n
+  SFTInt4  -> FInt4 n
+  SFTInt8  -> FInt8 n
+  SFTInt16 ->
+    -- safe usage, because @'FInt' 'FTInt16'@ is not a valid type!
+    error "impossible; INTEGER(16) value representation unsupported"

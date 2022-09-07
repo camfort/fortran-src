@@ -1,0 +1,109 @@
+{-# LANGUAGE ConstraintKinds #-}
+
+module Language.Fortran.Repr.Eval.Value.Common where
+
+import Language.Fortran.Repr
+
+-- | A convenience type over 'MonadEval' bringing all requirements into scope.
+type MonadEvalValue env m = (MonadEval m, EvalTo m ~ FValue, MonadError Error m, MonadReader env m, HasEvalValueCfg env)
+
+-- | Fortran value evaluation configuration.
+data Cfg = Cfg
+  { cfgShortCircuit :: Bool
+  -- ^ Whether or not to attempt to short circuit certain operations.
+  --
+  -- Certain operations like binary OR/AND have cases where the result of
+  -- testing one operand can determine the result without testing remaining
+  -- operands. When enabled, the evaluator emulates that behaviour by evaluating
+  -- operands left-to-right, and potentially returning an evaluating value
+  -- "early", without evaluating all operands.
+  --
+  -- Enabling this option enables evaluating certain syntactically invalid
+  -- expressions, e.g. @.TRUE. .OR. "string" == .TRUE.@.
+
+  } deriving stock (Generic, Show, Eq)
+
+-- | A term of the given type provides read access to a 'Cfg'.
+--
+-- This lets us further abstract the evaluator to work inside existing monad
+-- and environment stacks.
+class HasEvalValueCfg env where
+    getEvalValueCfg :: env -> Cfg
+
+-- | Fortran value evaluation error.
+data Error
+  = ENoSuchVar F.Name
+  | EKindLitBadType F.Name FType
+  | ENoSuchKindForType String KindLit
+  | EUnsupported String
+  | EOp Op.Error
+
+  | EOpTypeError' String [FType]
+  -- ^ Encountered a type error while evaluating an operation.
+  --
+  -- The list of types should enumerate all types present (like a gfortran
+  -- operation type error).
+
+  | EOther String
+  -- ^ Catch-all for non-grouped errors.
+
+    deriving stock (Generic, Show, Eq)
+
+-- TODO best for temp KPs: String, Integer, Text? Word8??
+type KindLit = String
+
+--------------------------------------------------------------------------------
+
+forceVarExpr :: F.Expression a -> F.Name
+forceVarExpr = \case
+  F.ExpValue _ _ (F.ValVariable v) -> v
+  F.ExpValue _ _ (F.ValIntrinsic v) -> v
+  _ -> error "program error, sent me an expr that wasn't a name"
+
+err :: MonadError Error m => Error -> m a
+err = throwError
+
+wrapOp :: MonadEvalValue env m => Either Op.Error a -> m a
+wrapOp = \case
+  Right a -> pure a
+  Left  e -> err $ EOp e
+
+-- | Wrap the output of an operation that returns a scalar value into the main
+--   evaluator.
+wrapSOp :: MonadEvalValue env m => Either Op.Error FScalarValue -> m FValue
+wrapSOp = \case
+  Right a -> return $ MkFScalarValue a
+  Left  e -> err $ EOp e
+
+wrapBoolToDefaultFLogical
+    :: MonadEvalValue env m
+    => Either Op.Error Bool -> m FValue
+wrapBoolToDefaultFLogical = \case
+  Right b -> pure $ defFLogical b
+  Left  e -> err $ EOp e
+
+forceScalar :: MonadEvalValue env m => FValue -> m FScalarValue
+forceScalar = \case
+  MkFArrayValue{} -> err $ EUnsupported "no array values in eval for now thx"
+  MkFScalarValue v' -> return v'
+
+forceUnconsArg :: MonadEvalValue env m => [a] -> m (a, [a])
+forceUnconsArg = \case
+  []   -> err $ EOpTypeError "not enough arguments"
+  a:as -> return (a, as)
+
+-- TODO can I use vector-sized to improve safety here? lol
+-- it's just convenience either way
+forceArgs :: MonadEvalValue env m => Int -> [a] -> m [a]
+forceArgs numArgs l =
+    if   length l == numArgs
+    then return l
+    else err $ EOpTypeError $
+            "expected "<>show numArgs<>" arguments; got "<>show (length l)
+
+someFLogicalToBool :: SomeFInt -> Bool
+someFLogicalToBool (SomeFKinded b) = fLogicalToBool b
+
+defFLogical :: Bool -> FValue
+defFLogical =
+    MkFScalarValue . FSVLogical . SomeFKinded . FInt4 . fLogicalNumericFromBool

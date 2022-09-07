@@ -97,6 +97,7 @@ library
       Language.Fortran.Repr
       Language.Fortran.Repr.Compat.Natural
       Language.Fortran.Repr.Eval.Common
+      Language.Fortran.Repr.Eval.Simple
       Language.Fortran.Repr.Eval.Type
       Language.Fortran.Repr.Eval.Value
       Language.Fortran.Repr.Eval.Value.Op

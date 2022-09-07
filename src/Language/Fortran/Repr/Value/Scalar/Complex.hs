@@ -45,3 +45,19 @@ fComplexBOp
     -> (b -> b -> r)
     -> FComplex kl -> FComplex kr -> r
 fComplexBOp f g = fComplexBOp' f g f g
+
+fComplexUOp'
+    :: (Float  -> a)
+    -> (a -> a -> r)
+    -> (Double -> b)
+    -> (b -> b -> r)
+    -> FComplex k -> r
+fComplexUOp' k8f k8g k16f k16g = \case
+  FComplex8  cr ci -> k8g  (k8f  cr) (k8f  ci)
+  FComplex16 cr ci -> k16g (k16f cr) (k16f ci)
+
+fComplexUOp
+    :: (forall a. RealFloat a => a -> b)
+    -> (b -> b -> r)
+    -> FComplex k -> r
+fComplexUOp f g = fComplexUOp' f g f g
