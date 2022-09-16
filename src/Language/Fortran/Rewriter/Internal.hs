@@ -267,20 +267,22 @@ evaluateChunks_ (x : xs) currLen quotation =
   -- Text after line 72 is an implicit comment, so should stay there regardless
   -- of what happens to the rest of the source
   padImplicitComments :: Chunk -> Int -> Chunk
-  padImplicitComments chunk targetCol =
-    let zippedChunk = zip [0 ..] chunk
-    in  case findCommentRChar zippedChunk of
-          Just (index, rc) ->
-            case
-                findExclamationRChar zippedChunk
-                  >>= \(id2, _) -> return (id2 >= index)
-              of
-                Just False -> chunk -- in this case there's a "!" before column 73
-                _ ->
-                  take index chunk
-                    ++ padCommentRChar rc (targetCol - index)
-                    :  drop (index + 1) chunk
-          Nothing -> chunk
+  padImplicitComments chunk targetCol
+    | isMarkedForRemoval chunk = chunk
+    | otherwise =
+      let zippedChunk = zip [0 ..] chunk
+      in  case findCommentRChar zippedChunk of
+            Just (index, rc) ->
+              case
+                  findExclamationRChar zippedChunk
+                    >>= \(id2, _) -> return (id2 >= index)
+                of
+                  Just False -> chunk -- in this case there's a "!" before column 73
+                  _ ->
+                    take index chunk
+                      ++ padCommentRChar rc (targetCol - index)
+                      :  drop (index + 1) chunk
+            Nothing -> chunk
    where
     -- Find the first location of a '!' in the chunks
     findExclamationRChar = find ((\(RChar c _ _ _) -> c == Just '!') . snd)
@@ -298,6 +300,9 @@ evaluateChunks_ (x : xs) currLen quotation =
       (BC.pack (replicate padding ' ' ++ maybeToList char) `BC.append` repl)
 
 
+isMarkedForRemoval (RChar _ True _ _ : _) = True
+isMarkedForRemoval (_ : rs) = isMarkedForRemoval rs
+isMarkedForRemoval [] = False
 
 -- | Return TRUE iff the 'Replacement' constitutes a character
 -- insertion.
