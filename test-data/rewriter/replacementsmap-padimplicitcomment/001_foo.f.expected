@@ -1,0 +1,5 @@
+      program main
+      ! This is a long comment that goes over the 72 columns
+      integer*4 hello
+      integer*2 hello2
+      end program main

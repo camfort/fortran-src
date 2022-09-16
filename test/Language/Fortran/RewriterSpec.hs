@@ -300,6 +300,26 @@ spec = do
         , "006_linewrap_heuristic.f"
         ]
 #endif
+    it "implicit comment removal" $ do
+      base <- getCurrentDirectory
+      let
+        body workDir = processReplacements $ M.fromList
+          [ ( workDir ++ "001_foo.f"
+            , [ Replacement
+                  (SourceRange (SourceLocation 1 0) (SourceLocation 3 0))
+                  $ unlines [ "      ! This is a long comment that goes over the 72 columns"
+                            , "      integer*4 hello"
+                            , "      integer*2 hello2"
+                            ]
+              ]
+            )
+          ]
+      wrapReplacementsMapInvocationTestHelper
+        body
+        base
+        Nothing
+        "replacementsmap-padimplicitcomment"
+        [ "001_foo.f" ]
 
   describe "Filtering overlapping replacements" $ do
     it "Simple overlap" $ do
