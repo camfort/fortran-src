@@ -189,7 +189,7 @@ fIntMax :: forall (k :: FTInt). KnownNat (FTIntMax k) => Int64
 fIntMax = fromIntegral $ natVal'' @(FTIntMax k)
 
 fIntMin :: forall (k :: FTInt). KnownNat (FTIntMin k) => Int64
-fIntMin = fromIntegral $ natVal'' @(FTIntMin k)
+fIntMin = - (fromIntegral $ natVal'' @(FTIntMin k))
 
 fIntConvertChecked
     :: forall kout kin
