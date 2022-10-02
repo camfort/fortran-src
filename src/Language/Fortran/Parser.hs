@@ -23,6 +23,12 @@ module Language.Fortran.Parser
   -- * Other parsers
   , f90Expr
 
+  -- ** Statement
+  , byVerStmt
+  , f66StmtNoTransform, f77StmtNoTransform, f77eStmtNoTransform
+    , f77lStmtNoTransform, f90StmtNoTransform, f95StmtNoTransform
+    , f2003StmtNoTransform
+
   -- * Various combinators
   , transformAs, defaultTransformation
   , Parser, ParseErrorSimple(..)
@@ -138,6 +144,30 @@ f77lNoTransform  = makeParserFixed F77.programParser   Fortran77Legacy
 f90NoTransform   = makeParserFree  F90.programParser   Fortran90
 f95NoTransform   = makeParserFree  F95.programParser   Fortran95
 f2003NoTransform = makeParserFree  F2003.programParser Fortran2003
+
+f66StmtNoTransform, f77StmtNoTransform, f77eStmtNoTransform, f77lStmtNoTransform,
+  f90StmtNoTransform, f95StmtNoTransform, f2003StmtNoTransform
+    :: Parser (Statement A0)
+f66StmtNoTransform   = makeParserFixed F66.statementParser   Fortran66
+f77StmtNoTransform   = makeParserFixed F77.statementParser   Fortran77
+f77eStmtNoTransform  = makeParserFixed F77.statementParser   Fortran77Extended
+f77lStmtNoTransform  = makeParserFixed F77.statementParser   Fortran77Legacy
+f90StmtNoTransform   = makeParserFree  F90.statementParser   Fortran90
+f95StmtNoTransform   = makeParserFree  F95.statementParser   Fortran95
+f2003StmtNoTransform = makeParserFree  F2003.statementParser Fortran2003
+
+byVerStmt :: FortranVersion -> Parser (Statement A0)
+byVerStmt = \case
+  Fortran66         -> f66StmtNoTransform
+  Fortran77         -> f77StmtNoTransform
+  Fortran77Extended -> f77eStmtNoTransform
+  Fortran77Legacy   -> f77lStmtNoTransform
+  Fortran90         -> f90StmtNoTransform
+  Fortran95         -> f95StmtNoTransform
+  Fortran2003       -> f2003StmtNoTransform
+  v                 -> error $  "Language.Fortran.Parser.byVerStmt: "
+                             <> "no parser available for requested version: "
+                             <> show v
 
 f90Expr :: Parser (Expression A0)
 f90Expr = makeParser initParseStateFreeExpr F90.expressionParser Fortran90
