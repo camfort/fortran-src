@@ -1,6 +1,6 @@
 cabal-version: 1.12
 
--- This file has been generated from package.yaml by hpack version 0.34.4.
+-- This file has been generated from package.yaml by hpack version 0.35.0.
 --
 -- see: https://github.com/sol/hpack
 
@@ -200,9 +200,9 @@ library
     , text >=1.2 && <2
     , uniplate >=1.6 && <2
     , vector-sized >=1.5.0 && <1.6
+  default-language: Haskell2010
   if os(windows)
     cpp-options: -DFS_DISABLE_WIN_BROKEN_TESTS
-  default-language: Haskell2010
 
 executable fortran-src
   main-is: Main.hs
@@ -264,9 +264,9 @@ executable fortran-src
     , text >=1.2 && <2
     , uniplate >=1.6 && <2
     , vector-sized >=1.5.0 && <1.6
+  default-language: Haskell2010
   if os(windows)
     cpp-options: -DFS_DISABLE_WIN_BROKEN_TESTS
-  default-language: Haskell2010
 
 test-suite spec
   type: exitcode-stdio-1.0
@@ -360,6 +360,6 @@ test-suite spec
     , text >=1.2 && <2
     , uniplate >=1.6 && <2
     , vector-sized >=1.5.0 && <1.6
+  default-language: Haskell2010
   if os(windows)
     cpp-options: -DFS_DISABLE_WIN_BROKEN_TESTS
-  default-language: Haskell2010
