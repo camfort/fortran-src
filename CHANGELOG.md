@@ -12,6 +12,8 @@
     #238)
   * add `Annotated`, `Spanned` instances for intermediate AST data type
     `ArgumentExpression`
+  * export statement-level "pre-prepared" parsers (previously, you would have to
+    define the parser yourself using parser utils and the Happy parser export)
 
 ### 0.10.2 (Aug 18, 2022)
   * fix missing parentheses when pretty printing certain syntax #233
