@@ -10,6 +10,8 @@
     case sensitive, parse beyond column 72 (#237, @RaoulHC)
   * allow `ExpDataRef` constructor in `varName` (fixes a crash in type analysis
     #238)
+  * add `Annotated`, `Spanned` instances for intermediate AST data type
+    `ArgumentExpression`
 
 ### 0.10.2 (Aug 18, 2022)
   * fix missing parentheses when pretty printing certain syntax #233

@@ -674,10 +674,35 @@ data Argument a = Argument
   , argumentExpr :: ArgumentExpression a
   } deriving stock (Eq, Show, Data, Generic, Functor)
 
+-- | Extra data type to disambiguate between plain variable arguments and
+--   expression arguments (due to apparent behaviour of some Fortran compilers
+--   to treat these differently).
+--
+-- Note the 'Annotated' and 'Spanned' instances pass to the inner 'Expression'
+-- for 'ArgExpr'.
 data ArgumentExpression a
   = ArgExpr              (Expression a)
   | ArgExprVar a SrcSpan Name
   deriving stock (Eq, Show, Data, Generic, Functor)
+
+instance Annotated ArgumentExpression where
+    getAnnotation = \case
+      ArgExpr    e         -> getAnnotation e
+      ArgExprVar a _ss _nm -> a
+    setAnnotation a = \case
+      ArgExpr    e         -> ArgExpr (setAnnotation a e)
+      ArgExprVar _a ss nm  -> ArgExprVar a ss nm
+    modifyAnnotation f = \case
+      ArgExpr    e        -> ArgExpr (modifyAnnotation f e)
+      ArgExprVar a ss nm  -> ArgExprVar (f a) ss nm
+
+instance Spanned (ArgumentExpression a) where
+    getSpan = \case
+      ArgExpr    e         -> getSpan e
+      ArgExprVar _a ss _nm -> ss
+    setSpan ss = \case
+      ArgExpr    e        -> ArgExpr (setSpan ss e)
+      ArgExprVar a _ss nm -> ArgExprVar a ss nm
 
 argExprNormalize :: ArgumentExpression a -> Expression a
 argExprNormalize = \case ArgExpr         e -> e
