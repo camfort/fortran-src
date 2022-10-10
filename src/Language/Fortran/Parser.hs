@@ -22,6 +22,7 @@ module Language.Fortran.Parser
 
   -- * Other parsers
   , f90Expr
+  , byVerFromFilename
 
   -- ** Statement
   , byVerStmt
@@ -171,6 +172,11 @@ byVerStmt = \case
 
 f90Expr :: Parser (Expression A0)
 f90Expr = makeParser initParseStateFreeExpr F90.expressionParser Fortran90
+
+-- | Obtain a Fortran parser by assuming the version from the filename provided.
+byVerFromFilename :: Parser (ProgramFile A0)
+byVerFromFilename fn = byVer v fn
+  where v = deduceFortranVersion fn
 
 --------------------------------------------------------------------------------
 
