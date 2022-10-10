@@ -1,9 +1,9 @@
-### Unreleased
+### 0.11.0 (Oct 10, 2022)
   * add strong Fortran value & type representation at `Language.Fortran.Repr`
     (currently unused) (#235, @raehik)
     * operations are accurate to actual Fortran compiler behaviour e.g. integers
       are stored fixed-width based on kind, so overflow behaviour is free
-    * can recover a value's precise type (e.g. `INTEGER(8)`, including kind) by
+    * can recover a value's precise type (e.g. `INTEGER(8)`, including kind) via
       pattern matching
   * bump minimum compiler version to GHC 9.0
   * improved comment handling in fixed form lexer: parse more comment syntax,
@@ -14,6 +14,9 @@
     `ArgumentExpression`
   * export statement-level "pre-prepared" parsers (previously, you would have to
     define the parser yourself using parser utils and the Happy parser export)
+  * export `Language.Fortran.Parser.byVerFromFilename :: Parser (ProgramFile
+    A0)`, a replacement for the removed
+    `Language.Fortran.Parser.Any.fortranParser`
 
 ### 0.10.2 (Aug 18, 2022)
   * fix missing parentheses when pretty printing certain syntax #233
