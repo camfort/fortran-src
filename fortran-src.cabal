@@ -193,11 +193,11 @@ library
     , filepath ==1.4.*
     , mtl >=2.2 && <3
     , pretty >=1.1 && <2
-    , singletons >=3.0
-    , singletons-base >=3.0
-    , singletons-th >=3.0
+    , singletons >=3.0 && <3.2
+    , singletons-base >=3.0 && <3.2
+    , singletons-th >=3.0 && <3.2
     , temporary >=1.2 && <1.4
-    , text >=1.2 && <2
+    , text >=1.2 && <2.1
     , uniplate >=1.6 && <2
     , vector-sized >=1.5.0 && <1.6
   default-language: Haskell2010
@@ -257,11 +257,11 @@ executable fortran-src
     , fortran-src
     , mtl >=2.2 && <3
     , pretty >=1.1 && <2
-    , singletons >=3.0
-    , singletons-base >=3.0
-    , singletons-th >=3.0
+    , singletons >=3.0 && <3.2
+    , singletons-base >=3.0 && <3.2
+    , singletons-th >=3.0 && <3.2
     , temporary >=1.2 && <1.4
-    , text >=1.2 && <2
+    , text >=1.2 && <2.1
     , uniplate >=1.6 && <2
     , vector-sized >=1.5.0 && <1.6
   default-language: Haskell2010
@@ -353,11 +353,11 @@ test-suite spec
     , hspec >=2.2 && <3
     , mtl >=2.2 && <3
     , pretty >=1.1 && <2
-    , singletons >=3.0
-    , singletons-base >=3.0
-    , singletons-th >=3.0
+    , singletons >=3.0 && <3.2
+    , singletons-base >=3.0 && <3.2
+    , singletons-th >=3.0 && <3.2
     , temporary >=1.2 && <1.4
-    , text >=1.2 && <2
+    , text >=1.2 && <2.1
     , uniplate >=1.6 && <2
     , vector-sized >=1.5.0 && <1.6
   default-language: Haskell2010
