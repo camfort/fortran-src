@@ -85,7 +85,7 @@ main = do
       extracts <- concat `fmap` mapM perFile files
       let toJSON (name, ss, path)
             | ls@(_:_) <- spannedLines ss =
-                printf "{name: '%s', path: '%s', firstLine: %d, lastLine: %d}" name path (head ls) (last ls)
+                printf "{\"name\": \"%s\", \"path\": \"%s\", \"firstLine\": %d, \"lastLine\": %d}" name path (head ls) (last ls)
             | otherwise = ""
       putStrLn "["
       putStrLn . intercalate ",\n" . map toJSON $ extracts
