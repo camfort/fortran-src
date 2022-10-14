@@ -57,6 +57,40 @@ main = do
   args <- getArgs
   (opts, parsedArgs) <- compileArgs args
   case (parsedArgs, action opts) of
+    (paths, DumpFunsAndSubs) -> do
+      -- Look through all supplied dir and file paths
+      paths' <- expandDirs paths
+      mg <- genModGraph (fortranVersion opts) (includeDirs opts) paths'
+      let files = [ f | (_, (_, Just (MOFile f))) <- M.toList (mgModNodeMap mg) ]
+      -- Load any supplied mod files from include dirs
+      mods <- decodeModFiles' $ includeDirs opts
+      let mmap = combinedModuleMap mods
+      -- Loop through all functions and subroutines in each file
+      let perFile path = do
+            contents <- flexReadFile path
+            let version  = fromMaybe (deduceFortranVersion path) (fortranVersion opts)
+                parsedPF = case (Parser.byVerWithMods mods version) path contents of
+                             Left  a -> error $ show a
+                             Right a -> a
+            let pf = analyseRenamesWithModuleMap mmap . initAnalysis $ parsedPF
+            let isFunOrSub (PUFunction {}) = True; isFunOrSub (PUSubroutine {}) = True; isFunOrSub _ = False
+            let l = [ pu
+                    | pu <- universeBi pf :: [ProgramUnit (Analysis A0)]
+                    , isFunOrSub pu
+                    ]
+            let extract pu | Named name <- puSrcName pu = (name, getSpan pu, path)
+                           | otherwise = error "unnamed function or subroutine"
+            return $ map extract l
+      -- convert extracted info into json format for output
+      extracts <- concat `fmap` mapM perFile files
+      let toJSON (name, ss, path)
+            | ls@(_:_) <- spannedLines ss =
+                printf "{name: '%s', path: '%s', firstLine: %d, lastLine: %d}" name path (head ls) (last ls)
+            | otherwise = ""
+      putStrLn "["
+      putStrLn . intercalate ",\n" . map toJSON $ extracts
+      putStrLn "]"
+
     (paths, ShowMakeGraph) -> do
       paths' <- expandDirs paths
       mg <- genModGraph (fortranVersion opts) (includeDirs opts) paths'
@@ -357,6 +391,7 @@ printTypeErrors = putStrLn . showTypeErrors
 data Action
   = Lex | Parse | Typecheck | Rename | BBlocks | SuperGraph | Reprint | DumpModFile | Compile
   | ShowFlows Bool Bool Int | ShowBlocks (Maybe Int) | ShowMakeGraph | Make
+  | DumpFunsAndSubs
   deriving Eq
 
 instance Read Action where
@@ -468,6 +503,10 @@ options =
                                     num                      -> opts { action = ShowFlows True False (read num) }
               ) "AST-BLOCK-ID")
       "dump a graph showing flows-from information from the given AST-block ID; prefix with 's' for supergraph"
+  , Option []
+      ["dump-funs-and-subs"]
+      (NoArg $ \ opts -> opts { action = DumpFunsAndSubs })
+      "Dump all functions and subroutines from the program."
   ]
 
 compileArgs :: [ String ] -> IO (Options, [ String ])
