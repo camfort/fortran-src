@@ -303,14 +303,13 @@ f77lIncludes incs mods fn bs = do
 -- | Entry point for include files
 -- 
 -- We can't perform full analysis (though it might be possible to do in future)
--- but the AST is enough for certain types of analysis/refactoring
+-- but a list of blocks is enough for certain types of analysis/refactoring
 f77lIncIncludes
-  :: [FilePath] -> String -> B.ByteString -> IO [Block A0]
-f77lIncIncludes incs fn bs =
+  :: String -> B.ByteString -> IO [Block A0]
+f77lIncIncludes fn bs =
   case makeParserFixed F77.includesParser Fortran77Legacy fn bs of
     Left e -> liftIO $ throwIO e
-    Right bls ->
-      evalStateT (descendBiM (f77lIncludesInline incs []) bls) Map.empty
+    Right bls -> pure bls
 
 f77lIncludesInner :: Parser [Block A0]
 f77lIncludesInner = makeParserFixed F77.includesParser Fortran77Legacy
