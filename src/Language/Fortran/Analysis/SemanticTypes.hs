@@ -2,7 +2,7 @@
 
 module Language.Fortran.Analysis.SemanticTypes where
 
-import           Data.Data                      ( Data, Typeable )
+import           Data.Data                      ( Data )
 import           Control.DeepSeq                ( NFData )
 import           GHC.Generics                   ( Generic )
 import           Language.Fortran.AST           ( BaseType(..)
@@ -33,12 +33,17 @@ data SemType
   | TLogical Kind
   | TByte Kind
   | TCharacter CharacterLen Kind
-  | TArray SemType (Maybe Dimensions) -- ^ Nothing denotes dynamic dimensions
-  | TCustom String                    -- use for F77 structures, F90 DDTs
-  deriving (Eq, Ord, Show, Data, Typeable, Generic)
 
-instance Binary SemType
-instance Out    SemType
+  | TArray SemType Dimensions
+  -- ^ A Fortran array type is defined by a single type, and a set of
+  --   dimensions. Note that assumed-shape arrays which only "store" array rank
+  --   cannot be represented.
+
+  | TCustom String
+  -- ^ Constructor to use for F77 structures, F90 DDTs
+
+    deriving stock    (Ord, Eq, Show, Data, Generic)
+    deriving anyclass (NFData, Binary, Out)
 
 -- TODO placeholder, not final or tested
 -- should really attempt to print with kind info, and change to DOUBLE PRECISION
@@ -55,9 +60,36 @@ instance Pretty SemType where
     TArray st _ -> pprint' v st <+> parens "(A)"
     TCustom str -> pprint' v (TypeCustom str)
 
--- | The declared dimensions of a staticically typed array variable
--- type is of the form [(dim1_lower, dim1_upper), (dim2_lower, dim2_upper)]
-type Dimensions = [(Int, Int)]
+-- | The declared dimensions of an array variable.
+--
+-- Each dimension is of the form @(dim_lower, dim_upper)@.
+data Dimensions
+  = DimensionsCons !(Int, Int) Dimensions
+  -- ^ Another dimension in the dimension list.
+
+  | DimensionsEnd
+  -- ^ No more dimensions.
+
+  | DimensionsFinalStar
+  -- ^ The final dimension is dynamic (represented by a star @*@ in syntax).
+  --   This indicates an assumed-size array.
+    deriving stock    (Ord, Eq, Show, Data, Generic)
+    deriving anyclass (NFData, Binary, Out)
+
+-- | Convert 'Dimensions' data type to its previous type synonym
+--   @(Maybe [(Int, Int)])@.
+--
+-- Will not return @Just []@.
+dimensionsToTuples :: Dimensions -> Maybe [(Int, Int)]
+dimensionsToTuples = \case
+  DimensionsCons bounds ds -> Just $ reverse $ go [bounds] ds
+  DimensionsEnd       -> Nothing
+  DimensionsFinalStar -> Nothing
+  where
+    go boundss = \case
+      DimensionsCons bounds ds -> go (bounds:boundss) ds
+      DimensionsEnd       -> boundss
+      DimensionsFinalStar -> boundss
 
 --------------------------------------------------------------------------------
 
@@ -66,11 +98,8 @@ data CharacterLen = CharLenStar    -- ^ specified with a *
                     -- FIXME, possibly, with a more robust const-exp:
                   | CharLenExp     -- ^ specified with a non-trivial expression
                   | CharLenInt Int -- ^ specified with a constant integer
-  deriving (Ord, Eq, Show, Data, Typeable, Generic)
-
-instance Binary CharacterLen
-instance Out    CharacterLen
-instance NFData CharacterLen
+    deriving stock    (Ord, Eq, Show, Data, Generic)
+    deriving anyclass (NFData, Binary, Out)
 
 charLenSelector :: Maybe (Selector a) -> (Maybe CharacterLen, Maybe String)
 charLenSelector Nothing                          = (Nothing, Nothing)
