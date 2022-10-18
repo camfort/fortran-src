@@ -1,3 +1,10 @@
+### Unreleased (major ver.)
+  * clean up F77 include inlining
+    * directly export F77 include parser at `f77lIncludesNoTransform`
+    * `f77lIncIncludes :: String -> ByteString -> IO [Block A0]` should now be
+      defined by the user e.g. `\fn bs -> throwIOLeft $ f77lIncludesNoTransform
+      fn bs`
+
 ### 0.11.0 (Oct 10, 2022)
   * add strong Fortran value & type representation at `Language.Fortran.Repr`
     (currently unused) (#235, @raehik)
