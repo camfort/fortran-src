@@ -22,6 +22,7 @@ module Language.Fortran.Parser
 
   -- * Other parsers
   , f90Expr
+  , f77lIncludesNoTransform
   , byVerFromFilename
 
   -- ** Statement
@@ -38,11 +39,11 @@ module Language.Fortran.Parser
   , initParseStateFixedExpr, initParseStateFreeExpr
   , parseUnsafe
   , collectTokensSafe, collectTokens
+  , throwIOLeft
 
   -- * F77 with inlined includes
   -- $f77includes
-  , f77lIncludes
-  , f77lIncIncludes
+  , f77lInlineIncludes
   ) where
 
 import Language.Fortran.AST
@@ -85,10 +86,15 @@ data ParseErrorSimple = ParseErrorSimple
   { errorPos      :: Position
   , errorFilename :: String
   , errorMsg      :: String
-  } deriving (Exception)
+  } deriving anyclass (Exception)
 
 instance Show ParseErrorSimple where
   show err = errorFilename err ++ ", " ++ show (errorPos err) ++ ": " ++ errorMsg err
+
+-- | May be used to lift parse results into IO and force unwrap.
+throwIOLeft :: (Exception e, MonadIO m) => Either e a -> m a
+throwIOLeft = \case Right a -> pure a
+                    Left  e -> liftIO $ throwIO e
 
 --------------------------------------------------------------------------------
 
@@ -285,54 +291,45 @@ are thrown as IO exceptions.
 Can be cleaned up and generalized to use for other parsers.
 -}
 
-f77lIncludes
+f77lInlineIncludes
     :: [FilePath] -> ModFiles -> String -> B.ByteString
     -> IO (ProgramFile A0)
-f77lIncludes incs mods fn bs = do
+f77lInlineIncludes incs mods fn bs = do
     case f77lNoTransform fn bs of
       Left e -> liftIO $ throwIO e
       Right pf -> do
         let pf' = pfSetFilename fn pf
-        pf'' <- evalStateT (descendBiM (f77lIncludesInline incs []) pf') Map.empty
+        pf'' <- evalStateT (descendBiM (f77lInlineIncludes' incs []) pf') Map.empty
         let pf''' = runTransform (combinedTypeEnv mods)
                                  (combinedModuleMap mods)
                                  (defaultTransformation Fortran77Legacy)
                                  pf''
         return pf'''
 
--- | Entry point for include files
--- 
--- We can't perform full analysis (though it might be possible to do in future)
--- but a list of blocks is enough for certain types of analysis/refactoring
-f77lIncIncludes
-  :: String -> B.ByteString -> IO [Block A0]
-f77lIncIncludes fn bs =
-  case makeParserFixed F77.includesParser Fortran77Legacy fn bs of
-    Left e -> liftIO $ throwIO e
-    Right bls -> pure bls
-
-f77lIncludesInner :: Parser [Block A0]
-f77lIncludesInner = makeParserFixed F77.includesParser Fortran77Legacy
-
-f77lIncludesInline
+f77lInlineIncludes'
     :: [FilePath] -> [FilePath] -> Statement A0
     -> StateT (Map String [Block A0]) IO (Statement A0)
-f77lIncludesInline dirs seen st = case st of
-  StInclude a s e@(ExpValue _ _ (ValString path)) Nothing -> do
-    if notElem path seen then do
-      incMap <- get
-      case Map.lookup path incMap of
-        Just blocks' -> pure $ StInclude a s e (Just blocks')
-        Nothing -> do
-          (fullPath, inc) <- liftIO $ readInDirs dirs path
-          case f77lIncludesInner fullPath inc of
-            Right blocks -> do
-              blocks' <- descendBiM (f77lIncludesInline dirs (path:seen)) blocks
-              modify (Map.insert path blocks')
-              return $ StInclude a s e (Just blocks')
-            Left err -> liftIO $ throwIO err
-    else return st
-  _ -> return st
+f77lInlineIncludes' dirs = go
+  where
+    go seen st = case st of
+      StInclude a s e@(ExpValue _ _ (ValString path)) Nothing -> do
+        if notElem path seen then do
+          incMap <- get
+          case Map.lookup path incMap of
+            Just blocks' -> pure $ StInclude a s e (Just blocks')
+            Nothing -> do
+              (fullPath, incBs) <- liftIO $ readInDirs dirs path
+              case f77lIncludesNoTransform fullPath incBs of
+                Right blocks -> do
+                  blocks' <- descendBiM (go (path:seen)) blocks
+                  modify (Map.insert path blocks')
+                  pure $ StInclude a s e (Just blocks')
+                Left err -> liftIO $ throwIO err
+        else pure st
+      _ -> pure st
+
+f77lIncludesNoTransform :: Parser [Block A0]
+f77lIncludesNoTransform = makeParserFixed F77.includesParser Fortran77Legacy
 
 readInDirs :: [String] -> String -> IO (String, B.ByteString)
 readInDirs [] f = fail $ "cannot find file: " ++ f
