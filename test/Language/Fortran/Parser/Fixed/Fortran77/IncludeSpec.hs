@@ -6,13 +6,13 @@ import System.FilePath
 import Test.Hspec
 import TestUtil
 
-import Language.Fortran.Parser ( f77lIncludes )
+import qualified Language.Fortran.Parser as Parser
 import Language.Fortran.AST
 import Language.Fortran.Util.Position
 import qualified Data.ByteString.Char8 as B
 
 iParser :: [String] -> String -> IO (ProgramFile A0)
-iParser incs = f77lIncludes incs mempty "<unknown>" . B.pack
+iParser incs = Parser.f77lInlineIncludes incs mempty "<unknown>" . B.pack
 
 makeSrcR :: (Int, Int, Int, String) -> (Int, Int, Int, String) -> SrcSpan
 makeSrcR (i1, i2, i3, s) (j1, j2, j3, s') = SrcSpan (Position i1 i2 i3 s Nothing) (Position j1 j2 j3 s' Nothing)
