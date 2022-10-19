@@ -1,9 +1,12 @@
 ### Unreleased (major ver.)
-  * clean up F77 include inlining
+  * clean up F77 include inlining (#245, @RaoulHC)
     * directly export F77 include parser at `f77lIncludesNoTransform`
     * `f77lIncIncludes :: String -> ByteString -> IO [Block A0]` should now be
       defined by the user e.g. `\fn bs -> throwIOLeft $ f77lIncludesNoTransform
       fn bs`
+  * `Language.Fortran.Analysis.SemanticTypes`: alter `SemType` constructor
+    `TArray` to support assumed-size (e.g. `integer arr(*)`) arrays (#244)
+  * `Language.Fortran.Rewriter`: fix inline comment padding (#242, @RaoulHC)
 
 ### 0.11.0 (Oct 10, 2022)
   * add strong Fortran value & type representation at `Language.Fortran.Repr`
