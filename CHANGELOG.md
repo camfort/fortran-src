@@ -1,4 +1,4 @@
-### Unreleased (major ver.)
+### 0.12.0 (Oct 19, 2022)
   * clean up F77 include inlining (#245, @RaoulHC)
     * directly export F77 include parser at `f77lIncludesNoTransform`
     * `f77lIncIncludes :: String -> ByteString -> IO [Block A0]` should now be
