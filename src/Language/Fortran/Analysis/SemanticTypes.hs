@@ -63,6 +63,9 @@ instance Pretty SemType where
 -- | The declared dimensions of an array variable.
 --
 -- Each dimension is of the form @(dim_lower, dim_upper)@.
+--
+-- This type should not be used to represent assumed-shape arrays, introduced in
+-- F90. They may be represented like @[Int]@ (known rank, known lower bounds).
 data Dimensions
   = DimensionsCons !(Int, Int) Dimensions
   -- ^ Another dimension in the dimension list.
