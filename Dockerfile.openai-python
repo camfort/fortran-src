@@ -1,0 +1,19 @@
+FROM python:3.10
+ENV DEBIAN_FRONTEND=noninteractive
+
+RUN apt-get update -y && apt-get upgrade -y
+
+RUN apt-get install -y git vim less wget curl
+RUN pip3 install openai matplotlib plotly scipy sklearn transformers
+
+ARG USER_ID
+ARG GROUP_ID
+
+RUN addgroup --gid $GROUP_ID user
+RUN adduser --disabled-password --gecos '' --uid $USER_ID --gid $GROUP_ID user
+
+# Allow password-less 'root' login with 'su'
+RUN passwd -d root
+RUN sed -i 's/nullok_secure/nullok/' /etc/pam.d/common-auth
+
+USER user
