@@ -57,14 +57,14 @@ main = do
   case (parsedArgs, action opts) of
     (paths, ShowMakeGraph) -> do
       paths' <- expandDirs paths
-      mg <- genModGraph (fortranVersion opts) (includeDirs opts) paths'
+      mg <- genModGraph (fortranVersion opts) (includeDirs opts) (cppOptions opts) paths'
       putStrLn $ modGraphToDOT mg
     -- make: construct a build-dep graph and follow it
     (paths, Make) -> do
       let mvers = fortranVersion opts
       paths' <- expandDirs paths
       -- Build the graph of module dependencies
-      mg0 <- genModGraph mvers (includeDirs opts) paths'
+      mg0 <- genModGraph mvers (includeDirs opts) (cppOptions opts) paths'
       -- Start the list of mods with those from the command line
       mods0 <- decodeModFiles' $ includeDirs opts
       -- Loop through the dependency graph until it is empty
@@ -101,7 +101,7 @@ main = do
       mods <- decodeModFiles' $ includeDirs opts
       mapM_ (\ p -> compileFileToMod (fortranVersion opts) mods p (outputFile opts)) paths
     (path:_, actionOpt) -> do
-      contents <- flexReadFile path
+      contents <- runCPP (cppOptions opts) path -- only runs CPP if cppOptions is not Nothing
       mods <- decodeModFiles' $ includeDirs opts
       let version   = fromMaybe (deduceFortranVersion path) (fortranVersion opts)
           parsedPF  = case (Parser.byVerWithMods mods version) path contents of
@@ -204,7 +204,6 @@ main = do
                 B.putStrLn $ line <> suffix
         _ -> fail $ usageInfo programName options
     _ -> fail $ usageInfo programName options
-
 
 -- | Expand all paths that are directories into a list of Fortran
 -- files from a recursive directory listing.
@@ -349,11 +348,12 @@ data Options = Options
   , outputFormat    :: OutputFormat
   , outputFile      :: Maybe FilePath
   , includeDirs     :: [String]
+  , cppOptions      :: Maybe String -- ^ Nothing: no CPP; Just x: run CPP with options x.
   , useContinuationReformatter :: Bool
   }
 
 initOptions :: Options
-initOptions = Options Nothing Parse Default Nothing [] False
+initOptions = Options Nothing Parse Default Nothing [] Nothing False
 
 options :: [OptDescr (Options -> Options)]
 options =
@@ -397,6 +397,12 @@ options =
       ["dump-mod-file"]
       (NoArg $ \ opts -> opts { action = DumpModFile })
       "dump the information contained within mod files"
+  , Option ['C']
+      ["cpp"]
+      (OptArg (\ cppOpts opts -> opts {
+                  cppOptions = Just (dropWhile (=='=') $ fromMaybe "" cppOpts) }
+              ) "CPP-OPTS")
+      "run the C Pre Processor on the Fortran files first"
   , Option ['I']
       ["include-dir"]
       (ReqArg (\ d opts -> opts { includeDirs = d:includeDirs opts }) "DIR")
