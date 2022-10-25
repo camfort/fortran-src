@@ -61,8 +61,8 @@ addModDep modName depName = do
   mg@ModGraph { mgGraph = gr } <- get
   put $ mg { mgGraph = insEdge (i, j, ()) gr }
 
-genModGraph :: Maybe FortranVersion -> [FilePath] -> [FilePath] -> IO ModGraph
-genModGraph mversion includeDirs paths = do
+genModGraph :: Maybe FortranVersion -> [FilePath] -> Maybe String -> [FilePath] -> IO ModGraph
+genModGraph mversion includeDirs cppOpts paths = do
   let perModule path pu@(PUModule _ _ modName _ _) = do
         _ <- maybeAddModName modName (Just $ MOFile path)
         let uses = [ usedName | StUse _ _ (ExpValue _ _ (ValVariable usedName)) _ _ _ <-
@@ -80,7 +80,7 @@ genModGraph mversion includeDirs paths = do
       perModule _ _ = pure ()
   let iter :: FilePath -> ModGrapher ()
       iter path = do
-        contents <- liftIO $ flexReadFile path
+        contents <- liftIO $ runCPP cppOpts path
         fileMods <- liftIO $ decodeModFiles includeDirs
         let version = fromMaybe (deduceFortranVersion path) mversion
             mods = map snd fileMods
