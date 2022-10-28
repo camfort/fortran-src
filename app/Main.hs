@@ -58,7 +58,7 @@ main = do
     (paths, DumpFunsAndSubs) -> do
       -- Look through all supplied dir and file paths
       paths' <- expandDirs paths
-      mg <- genModGraph (fortranVersion opts) (includeDirs opts) paths'
+      mg <- genModGraph (fortranVersion opts) (includeDirs opts) (useCPP opts) paths'
       let files = [ f | (_, (_, Just (MOFile f))) <- M.toList (mgModNodeMap mg) ]
       -- Load any supplied mod files from include dirs
       mods <- decodeModFiles' $ includeDirs opts
@@ -91,14 +91,14 @@ main = do
 
     (paths, ShowMakeGraph) -> do
       paths' <- expandDirs paths
-      mg <- genModGraph (fortranVersion opts) (includeDirs opts) paths'
+      mg <- genModGraph (fortranVersion opts) (includeDirs opts) (useCPP opts) paths'
       putStrLn $ modGraphToDOT mg
     -- make: construct a build-dep graph and follow it
     (paths, Make) -> do
       let mvers = fortranVersion opts
       paths' <- expandDirs paths
       -- Build the graph of module dependencies
-      mg0 <- genModGraph mvers (includeDirs opts) paths'
+      mg0 <- genModGraph mvers (includeDirs opts) (useCPP opts) paths'
       -- Start the list of mods with those from the command line
       mods0 <- decodeModFiles' $ includeDirs opts
       -- Loop through the dependency graph until it is empty
