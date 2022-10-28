@@ -65,7 +65,7 @@ main = do
       let mmap = combinedModuleMap mods
       -- Loop through all functions and subroutines in each file
       let perFile path = do
-            contents <- flexReadFile path
+            contents <- if useCPP opts then runCPP path else flexReadFile path
             let version  = fromMaybe (deduceFortranVersion path) (fortranVersion opts)
                 parsedPF = case (Parser.byVerWithMods mods version) path contents of
                              Left  a -> error $ show a
