@@ -1,5 +1,6 @@
 module Language.Fortran.Util.Files
   ( flexReadFile
+  , runCPP
   , getDirContents
   , rGetDirContents
   ) where
@@ -10,8 +11,10 @@ import qualified Data.ByteString.Char8      as B
 import           System.Directory (listDirectory, canonicalizePath,
                                    doesDirectoryExist, getDirectoryContents)
 import           System.FilePath  ((</>))
-import           Data.List        ((\\))
-
+import           System.IO.Temp   (withSystemTempDirectory)
+import           System.Process   (callProcess)
+import           Data.List        ((\\), foldl')
+import           Data.Char        (isNumber)
 -- | Obtain a UTF-8 safe 'B.ByteString' representation of a file's contents.
 --
 -- Invalid UTF-8 is replaced with the space character.
@@ -39,3 +42,28 @@ rGetDirContents d = canonicalizePath d >>= \d' -> go [d'] d'
               x' <- go (path : seen) path
               return $ map (\ y -> x ++ "/" ++ y) x'
             else return [x]
+
+-- | Run the C Pre Processor over the file before reading into a bytestring
+runCPP :: FilePath -> IO B.ByteString
+runCPP path = do
+  -- Fold over the lines, skipping CPP pragmas and inserting blank
+  -- lines as needed to make the line numbers match up for the current
+  -- file. CPP pragmas for other files are just ignored.
+  let processCPPLine :: ([B.ByteString], Int) -> B.ByteString -> ([B.ByteString], Int)
+      processCPPLine (revLs, curLineNo) curLine
+        | B.null curLine || B.head curLine /= '#' = (curLine:revLs, curLineNo + 1)
+        | linePath /= path                        = (revLs, curLineNo)
+        | newLineNo <= curLineNo                  = (revLs, curLineNo)
+        | otherwise                               = (replicate (newLineNo - curLineNo) B.empty ++ revLs,
+                                                     newLineNo)
+          where
+            newLineNo = read . B.unpack . B.takeWhile isNumber . B.drop 2 $ curLine
+            linePath = B.unpack . B.takeWhile (/='"') . B.drop 1 . B.dropWhile (/='"') $ curLine
+
+  withSystemTempDirectory "fortran-src" $ \ tmpdir -> do
+    let outfile = tmpdir </> "cpp.out"
+    callProcess "cpp" ["-o", outfile, path]
+    contents <- flexReadFile outfile
+    let ls = B.lines contents
+    let ls' = reverse . fst $ foldl' processCPPLine ([], 1) ls
+    return $ B.unlines ls'
