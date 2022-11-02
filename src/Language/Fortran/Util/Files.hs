@@ -62,7 +62,7 @@ runCPP path = do
 
   withSystemTempDirectory "fortran-src" $ \ tmpdir -> do
     let outfile = tmpdir </> "cpp.out"
-    callProcess "cpp" ["-o", outfile, path]
+    callProcess "cpp" ["-CC", "-nostdinc", "-o", outfile, path]
     contents <- flexReadFile outfile
     let ls = B.lines contents
     let ls' = reverse . fst $ foldl' processCPPLine ([], 1) ls
