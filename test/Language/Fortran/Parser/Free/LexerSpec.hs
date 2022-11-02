@@ -284,6 +284,10 @@ spec =
           shouldBe' (collectF90 "i = &  ! hi \n  42") $
                     pseudoAssign $ flip TIntegerLiteral "42"
 
+        it "Continuation with line pragma" $
+          shouldBe' (collectF90 "i = &\n #line 40 file.f\n  42") $
+                    pseudoAssign $ flip TIntegerLiteral "42"
+
       describe "Comment" $ do
         it "Full line comment" $
           shouldBe' (collectF90 "! = & ! hi \n") $

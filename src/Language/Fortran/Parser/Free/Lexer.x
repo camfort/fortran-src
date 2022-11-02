@@ -1048,7 +1048,7 @@ skipContinuation ai' = _skipCont ai' (0::Integer)
       let _curChar = currentChar ai in
         if _curChar `elem` [' ', '\t', '\r', '\n']
         then _advance ai 3
-        else if _curChar == '!'
+        else if _curChar `elem` ['!', '#']
         then _advance ai 2
         else if _curChar == '&'
         -- This state accepts as if there were no spaces between the broken
