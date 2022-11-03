@@ -8,7 +8,7 @@ import Language.Fortran.Parser ( collectTokens )
 import Language.Fortran.Parser ( initParseStateFree )
 import Language.Fortran.AST.Literal.Real
 import Language.Fortran.Version
-import Language.Fortran.Util.Position (SrcSpan)
+import Language.Fortran.Util.Position (SrcSpan(..), initSrcSpan, initPosition, posPragmaOffset, getSpan)
 
 import qualified Data.ByteString.Char8 as B
 
@@ -283,6 +283,17 @@ spec =
         it "Continuation with inline comment" $
           shouldBe' (collectF90 "i = &  ! hi \n  42") $
                     pseudoAssign $ flip TIntegerLiteral "42"
+
+        -- posPragmaOffset is the difference between the given line and the current next line.
+        let testPos = initPosition { posPragmaOffset = Just (40 - (2 + 1), "file.f") }
+            testSS = SrcSpan testPos testPos
+            lpToks = fmap ($initSrcSpan) [ flip TId "i", TOpAssign] ++
+                     fmap ($testSS) [flip TIntegerLiteral "42", TEOF ]
+            ppoOf  = posPragmaOffset . ssFrom . getSpan
+
+        it "Continuation with line pragma" $
+          shouldBe (ppoOf <$> collectF90 "i = &\n #line 40 \"file.f\"\n  42") $
+                   ppoOf <$> lpToks
 
       describe "Comment" $ do
         it "Full line comment" $
