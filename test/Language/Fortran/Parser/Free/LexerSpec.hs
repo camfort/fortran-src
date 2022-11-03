@@ -295,8 +295,32 @@ spec =
           shouldBe (ppoOf <$> collectF90 "i = &\n #line 40 \"file.f\"\n  42") $
                    ppoOf <$> lpToks
 
+        it "Continuation with line pragma (tokens)" $
+          shouldBe' (collectF90 "i = &\n #line 40 \"file.f\"\n  42")
+                    lpToks
+
         it "Continuation with line pragma (CPP style)" $
           shouldBe (ppoOf <$> collectF90 "i = &\n # 40 \"file.f\"\n  42") $
+                   ppoOf <$> lpToks
+
+      describe "Line pragma directives" $ do
+        -- posPragmaOffset is the difference between the given line and the current next line.
+        let testPos = initPosition { posPragmaOffset = Just (40 - (2 + 1), "file.f") }
+            testSS = SrcSpan testPos testPos
+            lpToks = fmap ($initSrcSpan) [ flip TId "i", TOpAssign, flip TIntegerLiteral "42", TNewline ] ++
+                     fmap ($testSS) [flip TId "j", TOpAssign, flip TIntegerLiteral "42", TEOF ]
+            ppoOf  = posPragmaOffset . ssFrom . getSpan
+
+        it "Line pragma" $
+          shouldBe (ppoOf <$> collectF90 "i = 42\n#line 40 \"file.f\"\n j = 42") $
+                   ppoOf <$> lpToks
+
+        it "Line pragma (tokens)" $
+          shouldBe' (collectF90 "i = 42\n#line 40 \"file.f\"\n j = 42")
+                    lpToks
+
+        it "Line pragma (CPP style)" $
+          shouldBe (ppoOf <$> collectF90 "i = 42\n# 40 \"file.f\"\n j = 42") $
                    ppoOf <$> lpToks
 
       describe "Comment" $ do
