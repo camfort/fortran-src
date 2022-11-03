@@ -88,7 +88,7 @@ tokens :-
 <0> "/*"                                          { skipCComment }
 <0,scN> "!".*$                                    { adjustComment $ addSpanAndMatch TComment }
 
-<0> $hash.*$                                      { lexHash }
+<0> $hash.*(\n\r|\r\n|\n)                         { resetPar >> toSC 0 >> lexHash }
 
 <0,scN,scT> (\n\r|\r\n|\n)                        { resetPar >> toSC 0 >> addSpan TNewline }
 <0,scN,scI,scT> [\t\ ]+                           ;
@@ -1111,8 +1111,10 @@ processLinePragma m ai =
       | line <- readIntOrBoz lineStr -> do
         let revdropWNQ = reverse . drop 1 . dropWhile (flip notElem "'\"")
         let file       = revdropWNQ . revdropWNQ $ unwords otherWords
+        -- if a newline is present, then the aiPosition is already on the next line
+        let maybe1 | elem '\n' m = 0 | otherwise = 1
         -- lineOffs is the difference between the given line and the current next line
-        let lineOffs   = fromIntegral line - (posLine (aiPosition ai) + 1)
+        let lineOffs   = fromIntegral line - (posLine (aiPosition ai) + maybe1)
         let newP       = (aiPosition ai) { posPragmaOffset = Just (lineOffs, file)
                                          , posColumn = 1 }
         ai { aiPosition = newP }
