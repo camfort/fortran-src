@@ -1050,6 +1050,8 @@ skipContinuation ai' = _skipCont ai' (0::Integer)
         then _advance ai 3
         else if _curChar == '!'
         then _advance ai 2
+        else if _curChar == '#'
+        then _pragma ai ""
         else if _curChar == '&'
         -- This state accepts as if there were no spaces between the broken
         -- line and whatever comes after second &. This is implicitly state (4)
@@ -1065,6 +1067,14 @@ skipContinuation ai' = _skipCont ai' (0::Integer)
       case advanceWithoutContinuation ai of
         Just ai'' -> _skipCont ai'' state
         Nothing -> error "File has ended prematurely during a continuation."
+    -- special handling for line pragmas inside continuations
+    _pragma ai revstr =
+       if currentChar ai == '\n'
+       then _advance (processLinePragma (reverse revstr) ai) (3 :: Integer)
+       else case advanceWithoutContinuation ai of
+         Just ai'' -> _pragma ai'' (currentChar ai:revstr)
+         Nothing -> error "File has ended prematurely during a continuation."
+
 
 -- skip a C comment (read until first "*/")
 skipCComment :: LexAction (Maybe Token)
@@ -1093,22 +1103,27 @@ advance move position =
     _line = posLine position
     _absl = posAbsoluteOffset position
 
--- Handle pragmas that begin with #
-lexHash :: LexAction (Maybe Token)
-lexHash = do
-  ai <- getAlex
-  m <- getMatch
+processLinePragma :: String -> AlexInput -> AlexInput
+processLinePragma m ai =
   case words (drop 1 m) of
     -- 'line' pragma - rewrite the current line and filename
     "line":lineStr:_
       | line <- readIntOrBoz lineStr -> do
         let revdropWNQ = reverse . drop 1 . dropWhile (flip notElem "'\"")
         let file       = revdropWNQ . revdropWNQ $ m
-        let lineOffs   = fromIntegral line - posLine (aiPosition ai) - 1
+        -- lineOffs is the difference between the given line and the current next line
+        let lineOffs   = fromIntegral line - (posLine (aiPosition ai) + 1)
         let newP       = (aiPosition ai) { posPragmaOffset = Just (lineOffs, file)
                                          , posColumn = 1 }
-        putAlex $ ai { aiPosition = newP }
-    _ -> return ()
+        ai { aiPosition = newP }
+    _ -> ai
+
+-- Handle pragmas that begin with #
+lexHash :: LexAction (Maybe Token)
+lexHash = do
+  ai <- getAlex
+  let m = reverse . lexemeMatch . aiLexeme $ ai
+  putAlex $ processLinePragma m ai
   return Nothing
 
 --------------------------------------------------------------------------------
