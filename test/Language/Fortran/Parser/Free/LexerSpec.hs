@@ -295,6 +295,10 @@ spec =
           shouldBe (ppoOf <$> collectF90 "i = &\n #line 40 \"file.f\"\n  42") $
                    ppoOf <$> lpToks
 
+        it "Continuation with line pragma (CPP style)" $
+          shouldBe (ppoOf <$> collectF90 "i = &\n # 40 \"file.f\"\n  42") $
+                   ppoOf <$> lpToks
+
       describe "Comment" $ do
         it "Full line comment" $
           shouldBe' (collectF90 "! = & ! hi \n") $

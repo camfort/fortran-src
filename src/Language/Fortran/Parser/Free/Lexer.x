@@ -1105,12 +1105,12 @@ advance move position =
 
 processLinePragma :: String -> AlexInput -> AlexInput
 processLinePragma m ai =
-  case words (drop 1 m) of
+  case dropWhile ((`elem` ["#", "line", "#line"]) . map toLower) (words m) of
     -- 'line' pragma - rewrite the current line and filename
-    "line":lineStr:_
+    lineStr:otherWords
       | line <- readIntOrBoz lineStr -> do
         let revdropWNQ = reverse . drop 1 . dropWhile (flip notElem "'\"")
-        let file       = revdropWNQ . revdropWNQ $ m
+        let file       = revdropWNQ . revdropWNQ $ unwords otherWords
         -- lineOffs is the difference between the given line and the current next line
         let lineOffs   = fromIntegral line - (posLine (aiPosition ai) + 1)
         let newP       = (aiPosition ai) { posPragmaOffset = Just (lineOffs, file)
