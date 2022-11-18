@@ -1134,7 +1134,11 @@ data ReformatState
 -- Ensures that no non-comment line exceeds 72 columns.
 --
 -- The reformatting should be compatible with fixed and free-form Fortran
--- standards. See: http://fortranwiki.org/fortran/show/Continuation+lines
+-- standards, so called `intersection` format. In this format the
+-- last statement character should not be placed after column 72, however
+-- continuation character should be put at column 73 (it should be ignored in
+-- fixed-form language)
+-- See: http://fortranwiki.org/fortran/show/Continuation+lines
 --
 -- This is a simple, delicate algorithm that must only be used on pretty printer
 -- output, due to relying on particular parser & pretty printer behaviour. In
@@ -1165,17 +1169,11 @@ reformatMixedFormInsertContinuations = go stNewline
 
     -- in statement: break when required
     go (RefmtStStmt col)    (x:xs)
-      | col == maxCol =
-            -- lookahead: if next is newline or EOF, we don't need to break
-            case xs of
-                []   -> x : go (RefmtStStmt (col+1)) xs
-                x':_ ->
-                    case x' of
-                        '\n' -> x : go (RefmtStStmt (col+1)) xs
-                        _    ->
-                            -- pretend to continue, but we know that we'll break
-                            -- on newline next
-                            '&' : go (RefmtStStmt (col+1)) ("\n     &" ++ x:xs)
+      -- Checking if we are at column 73, since col is counted from 0!
+      | col == maxCol && x == '&' = -- already a continuation in `intersection` format
+                        '&' : go (RefmtStStmt (col+1)) xs
+      | col == maxCol = -- making continuation
+                        '&' : '\n' : go stNewline ("     &" ++ x:xs)
       | otherwise     = x : go (RefmtStStmt (col+1)) xs
 
     maxCol = 72

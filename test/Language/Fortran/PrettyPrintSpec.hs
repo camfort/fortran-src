@@ -548,6 +548,19 @@ spec =
                   <> "&\n     &"
                   <> "illy_variable_name = 1"
         reformatMixedFormInsertContinuations input `shouldBe` expect
+      it "correctly handles 72 character long statements" $ do
+        let input  = "      integer*4 :: x, y, z\n"
+                  <> "        x = +(((y - (z - 48)) * ((z + 62) - z)) + (((- z) * x) / (- x)))"
+            expect = "      integer*4 :: x, y, z\n"
+                  <> "        x = +(((y - (z - 48)) * ((z + 62) - z)) + (((- z) * x) / (- x)))"
+        reformatMixedFormInsertContinuations input `shouldBe` expect
+      it "correctly handles 73 character long statements" $ do
+        let input  = "      integer*4 :: x, y, z\n"
+                  <> "        x = + (((y - (z - 48)) * ((z + 62) - z)) + (((- z) * x) / (- x)))"
+            expect = "      integer*4 :: x, y, z\n"
+                  <> "        x = + (((y - (z - 48)) * ((z + 62) - z)) + (((- z) * x) / (- x))&\n"
+                  <> "     &)"
+        reformatMixedFormInsertContinuations input `shouldBe` expect
 
       it "does not continuate a long mixed-form comment line" $ do
         let input  = "      ! a very long, long comment that ends up"
