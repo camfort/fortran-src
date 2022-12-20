@@ -270,7 +270,7 @@ superGraphDataFlow pf sgr = showBBGr (bbgrMap (nmap (map (fmap insLabel))) gr') 
   where
     gr' = superBBGrGraph sgr
     entries = superBBGrEntries sgr
-    dfStr gr = (\ (l, x) -> '\n':l ++ ": " ++ x) =<< [
+    dfStr gr = (\ (l, x) -> "\n********************\n  " ++ l ++ ": " ++ "\n--------------------\n" ++ x ++ "\n") =<< [
                  ("callMap",      show cm)
                , ("entries",      show (bbgrEntries gr))
                , ("exits",        show (bbgrExits gr))
