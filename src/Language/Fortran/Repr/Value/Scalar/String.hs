@@ -34,6 +34,10 @@ deriving stock instance Show SomeFString
 instance Eq SomeFString where
     (SomeFString (FString sl)) == (SomeFString (FString sr)) = sl == sr
 
+instance Ord SomeFString where
+    (SomeFString (FString sl)) <= (SomeFString (FString sr)) = sl <= sr
+
+
 someFString :: Text -> SomeFString
 someFString s =
     case someNatVal (fromIntegral (Text.length s)) of

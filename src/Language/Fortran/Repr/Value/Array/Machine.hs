@@ -32,6 +32,8 @@ import Language.Fortran.Repr.Util ( natVal'' )
 import GHC.TypeNats
 import Language.Fortran.Repr.Compat.Natural
 
+import GHC.Generics
+import Data.Binary
 import qualified Data.Vector.Sized as V
 import Data.Vector.Sized ( Vector )
 import Data.Kind
@@ -45,6 +47,8 @@ type family Size dims where
 -- can conveniently define kinded array types like so
 data FVA (ft :: k -> Type) (fk :: k) (dims :: [NaturalK])
   = FVA { unFVA :: Vector (Size dims) (ft fk) }
+  deriving Generic
+
 deriving stock instance Show (ft fk) => Show (FVA ft fk dims)
 
 -- makes rank 1 array
@@ -67,12 +71,30 @@ instance KnownNats '[] where natVals = []
 
 -- | Wrapper for defining an array of a kind-tagged Fortran type.
 data SomeFVA k ft =
-    forall (fk :: k) (dims :: [NaturalK]). (KnownNats dims, SingKind k, SingI fk)
+    forall (fk :: k) (dims :: [NaturalK]). (KnownNats dims, SingKind k, SingI fk, Generic (FVA ft fk dims))
         => SomeFVA { unSomeFVA :: FVA ft fk dims }
+
+instance Generic (SomeFVA k ft) where
+  from x = undefined
+  to x = undefined
+
+  
 deriving stock instance Show (SomeFVA FTInt    FInt)
 deriving stock instance Show (SomeFVA FTReal   FReal)
 deriving stock instance Show (SomeFVA FTReal   FComplex)
 deriving stock instance Show (SomeFVA NaturalK FString)
+
+instance Binary (SomeFVA FTInt    FInt)
+instance Binary (SomeFVA FTReal   FReal)
+instance Binary (SomeFVA FTReal   FComplex)
+instance Binary (SomeFVA NaturalK FString)
+
+
+instance Eq (Demote k) => Eq (SomeFVA k ft) where
+  x == y = someFVAKind x == someFVAKind y && someFVAShape x == someFVAShape y
+
+instance Ord (Demote k) => Ord (SomeFVA k ft) where
+  x <= y = someFVAKind x <= someFVAKind y && someFVAShape x <= someFVAShape y
 
 someFVAKind :: SomeFVA k ft -> Demote k
 someFVAKind (SomeFVA (_ :: FVA ft fk dims)) = demote @fk
@@ -92,7 +114,13 @@ data FArrayValue
   | FAVComplex (SomeFVA FTReal   FComplex)
   | FAVLogical (SomeFVA FTInt    FInt)
   | FAVString  (SomeFVA NaturalK FString)
+  deriving Generic
+  
 deriving stock instance Show FArrayValue
+deriving stock instance Eq FArrayValue
+deriving stock instance Ord FArrayValue
+
+instance Binary FArrayValue
 
 fArrayValueType :: FArrayValue -> FArrayType
 fArrayValueType = \case

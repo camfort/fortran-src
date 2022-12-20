@@ -38,7 +38,7 @@ data FScalarValue
   | FSVComplex SomeFComplex
   | FSVLogical SomeFInt
   | FSVString  SomeFString
-    deriving stock (Generic, Show, Eq)
+    deriving stock (Generic, Show, Eq, Ord)
 
 -- | Recover a Fortran scalar value's type.
 fScalarValueType :: FScalarValue -> FScalarType
