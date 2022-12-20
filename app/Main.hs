@@ -364,7 +364,7 @@ options =
   , Option ['a']
       ["action"]
       (ReqArg (\a opts -> opts { action = read a }) "ACTION")
-      "lex or parse action"
+      "choose the action, possible values: lex|parse"
   , Option ['t']
       ["typecheck"]
       (NoArg $ \ opts -> opts { action = Typecheck })

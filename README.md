@@ -40,7 +40,7 @@ for the many other options that can be explored for visualisation purposes.
 ```
 Usage: fortran-src [OPTION...] <file>
   -v VERSION, -F VERSION  --fortranVersion=VERSION         Fortran version to use, format: Fortran[66/77/77Legacy/77Extended/90]
-  -a ACTION               --action=ACTION                  lex or parse action
+  -a ACTION               --action=ACTION                  choose the action, possible values: lex|parse
   -t                      --typecheck                      parse and run typechecker
   -R                      --rename                         parse and rename variables
   -B                      --bblocks                        analyse basic blocks
