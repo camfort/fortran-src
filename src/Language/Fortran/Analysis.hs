@@ -31,6 +31,8 @@ import Data.Bifunctor (first)
 
 import           Language.Fortran.Analysis.SemanticTypes (SemType(..))
 
+import qualified Language.Fortran.Repr as Repr
+
 --------------------------------------------------
 
 -- | Basic block
@@ -112,6 +114,7 @@ data Constant
   | ConstUninterpReal String    -- ^ uninterpreted real
   | ConstBinary BinaryOp Constant Constant -- ^ binary operation on potential constants
   | ConstUnary UnaryOp Constant -- ^ unary operation on potential constants
+  | ConstInterpreted Repr.FValue     -- ^ interpreted value
   deriving (Show, Ord, Eq, Typeable, Generic, Data)
 
 instance Out Constant

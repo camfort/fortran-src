@@ -43,6 +43,8 @@ import Data.Maybe
 import Data.List (foldl', foldl1', (\\), union, intersect)
 import Control.Monad.Writer hiding (fix)
 
+import qualified Language.Fortran.Repr.Eval.Value as Repr
+
 --------------------------------------------------
 -- Better names for commonly used types
 type BBNodeMap = IM.IntMap
@@ -403,7 +405,13 @@ genConstExpMap pf = ceMap
     getE = join . (flip IM.lookup ceMap <=< labelOf)
     labelOf = insLabel . getAnnotation
     doExpr :: Expression (Analysis a) -> Maybe Constant
-    doExpr e = case e of
+    doExpr e = 
+      case Repr.runEvalValueSimple (fromList []) (Repr.evalExpr e) of
+        (Right (fvalue, _)) -> Just (ConstInterpreted fvalue)
+        Left err            -> Nothing
+
+        {-
+      case e of
       ExpValue _ _ (ValInteger intStr _) -> Just . ConstInt $ read intStr
       ExpValue _ _ (ValReal r _)    -> Just $ ConstUninterpReal (prettyHsRealLit r) -- TODO
       ExpValue _ _ (ValVariable _)  -> getV e
@@ -411,6 +419,7 @@ genConstExpMap pf = ceMap
       ExpBinary _ _ binOp e1 e2     -> constantFolding <$> liftM2 (ConstBinary binOp) (getE e1) (getE e2)
       ExpUnary _ _ unOp e'           -> constantFolding <$> ConstUnary unOp <$> getE e'
       _ -> Nothing
+      -}
 
 -- | Get constant-expression information and put it into the AST
 -- analysis annotation. Must occur after analyseBBlocks.
