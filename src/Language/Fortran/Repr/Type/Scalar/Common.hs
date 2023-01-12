@@ -1,3 +1,5 @@
+{-# LANGUAGE ConstraintKinds, QuantifiedConstraints #-}
+
 module Language.Fortran.Repr.Type.Scalar.Common where
 
 import Language.Fortran.Repr.Util
@@ -61,3 +63,5 @@ singCompare a b =
       SEQ -> SingEq (unsafeCoerce Refl)
       SLT -> SingLt
       SGT -> SingGt
+
+--type FKind a = forall (fk :: a). (Typeable fk, SingI fk)

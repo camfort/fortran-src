@@ -43,6 +43,12 @@ import Data.Maybe
 import Data.List (foldl', foldl1', (\\), union, intersect)
 import Control.Monad.Writer hiding (fix)
 
+<<<<<<< HEAD
+=======
+--import qualified Language.Fortran.Repr as Repr
+import qualified Language.Fortran.Repr.Eval.Value as Repr
+
+>>>>>>> 63cef41 (Repr: replace some constant folding)
 --------------------------------------------------
 -- Better names for commonly used types
 type BBNodeMap = IM.IntMap

@@ -127,8 +127,7 @@ data Analysis a = Analysis
   , idType         :: Maybe IDType
   , allLhsVarsAnn  :: [Name]
   , constExp       :: Maybe Constant
-  }
-  deriving (Data, Show, Eq, Generic)
+  } deriving stock (Show, Generic, Data, Eq)
 
 instance Functor Analysis where
   fmap f analysis =

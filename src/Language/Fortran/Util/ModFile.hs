@@ -121,7 +121,7 @@ data ModFile = ModFile { mfFilename    :: String
                        , mfTypeEnv     :: FAT.TypeEnv
                        , mfParamVarMap :: ParamVarMap
                        , mfOtherData   :: M.Map String LB.ByteString }
-  deriving (Eq, Ord, Show, Data, Typeable, Generic)
+  deriving (Eq, Show, Data, Typeable, Generic)
 
 instance Binary ModFile
 

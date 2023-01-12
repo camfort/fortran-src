@@ -12,15 +12,18 @@ import Data.Singletons.TH
 import Prelude.Singletons
 import Data.Ord.Singletons
 
+import Data.Binary ( Binary )
+
 $(singletons [d|
     data FTReal
       = FTReal4
       | FTReal8
         deriving stock (Eq, Ord, Show)
     |])
-deriving stock instance Generic FTReal
-deriving stock instance Data    FTReal
-deriving stock instance Enum    FTReal
+deriving stock    instance Generic FTReal
+deriving stock    instance Data    FTReal
+deriving stock    instance Enum    FTReal
+deriving anyclass instance Binary  FTReal
 
 -- | Get the output type from combining two real values of arbitrary kinds (for
 --   example, adding a @REAL(4)@ and a @REAL(8)@).

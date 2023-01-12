@@ -1,4 +1,5 @@
 {-# LANGUAGE ConstraintKinds #-}
+{-# LANGUAGE DerivingVia #-}
 
 -- | Evaluate AST terms to values in the value representation.
 
@@ -29,16 +30,13 @@ import qualified Data.Bits
 
 import Control.Monad.Except
 
--- simple implementation
+-- pure implementation
 import Control.Monad.Reader
 import Control.Monad.Writer
 import qualified Data.Map as Map
 import Data.Map ( Map )
 
--- | A convenience type over 'MonadEval' bringing all requirements into scope.
-type MonadEvalValue m = (MonadEval m, EvalTo m ~ FValue, MonadError Error m)
-
--- | Value evaluation error.
+-- | Error encountered while evaluating a Fortran expression to a value.
 data Error
   = ENoSuchVar F.Name
   | EKindLitBadType F.Name FType
@@ -53,32 +51,48 @@ data Error
 -- TODO best for temp KPs: String, Integer, Text? Word8??
 type KindLit = String
 
+-- | A convenience constraint tuple defining the base requirements of the
+--   'FValue' evaluator.
+--
+-- The evaluator is formed of combinators returning values in this monad. You
+-- may insert your own evaluator which handles monadic actions differently,
+-- provided it can fulfill these constraints.
+type MonadFEvalValue m = (MonadFEval m, EvalTo m ~ FValue, MonadError Error m)
+
 --------------------------------------------------------------------------------
 
--- | A simple pure interpreter for Fortran value evaluation programs.
-type EvalValueSimple = WriterT [String] (ExceptT Error (Reader (Map F.Name FValue)))
+-- | derivingvia helper
+type FEvalValuePureT = WriterT [String] (ExceptT Error (Reader (Map F.Name FValue)))
 
-instance MonadEval EvalValueSimple where
-    type EvalTo EvalValueSimple = FValue
+-- | A simple pure interpreter for Fortran value evaluation programs.
+newtype FEvalValuePure a = FEvalValuePure { unFEvalValuePure :: WriterT [String] (ExceptT Error (Reader (Map F.Name FValue))) a }
+    deriving (Functor, Applicative, Monad) via FEvalValuePureT
+    deriving (MonadReader (Map F.Name FValue)) via FEvalValuePureT
+    deriving (MonadWriter [String]) via FEvalValuePureT
+    deriving (MonadError Error) via FEvalValuePureT
+
+instance MonadFEval FEvalValuePure where
+    type EvalTo FEvalValuePure = FValue
     warn msg = tell [msg]
     lookupFVar nm = do
         m <- ask
         pure $ Map.lookup nm m
 
-runEvalValueSimple
+runEvalFValuePure
     :: Map F.Name FValue
-    -> EvalValueSimple a -> Either Error (a, [String])
-runEvalValueSimple m = flip runReader m . runExceptT . runWriterT
+    -> FEvalValuePure a -> Either Error (a, [String])
+runEvalFValuePure m =
+    flip runReader m . runExceptT . runWriterT . unFEvalValuePure
 
 --------------------------------------------------------------------------------
 
-evalVar :: MonadEvalValue m => F.Name -> m FValue
+evalVar :: MonadFEvalValue m => F.Name -> m FValue
 evalVar name =
     lookupFVar name >>= \case
       Nothing  -> err $ ENoSuchVar name
-      Just val -> return val
+      Just val -> pure val
 
-evalExpr :: MonadEvalValue m => F.Expression a -> m FValue
+evalExpr :: MonadFEvalValue m => F.Expression a -> m FValue
 evalExpr = \case
   F.ExpValue _ _ astVal ->
     case astVal of
@@ -107,26 +121,26 @@ forceVarExpr = \case
   F.ExpValue _ _ (F.ValIntrinsic v) -> v
   _ -> error "program error, sent me an expr that wasn't a name"
 
-evalLit :: MonadEvalValue m => F.Value a -> m FScalarValue
+evalLit :: MonadFEvalValue m => F.Value a -> m FScalarValue
 evalLit = \case
   F.ValInteger i mkp -> do
     evalKp "4" mkp >>= \case
-      "4" -> return $ FSVInt $ SomeFKinded $ FInt4 $ read i
-      "8" -> return $ FSVInt $ SomeFKinded $ FInt8 $ read i
-      "2" -> return $ FSVInt $ SomeFKinded $ FInt2 $ read i
-      "1" -> return $ FSVInt $ SomeFKinded $ FInt1 $ read i
+      "4" -> pure $ FSVInt $ FInt4 $ read i
+      "8" -> pure $ FSVInt $ FInt8 $ read i
+      "2" -> pure $ FSVInt $ FInt2 $ read i
+      "1" -> pure $ FSVInt $ FInt1 $ read i
       k   -> err $ ENoSuchKindForType "INTEGER" k
   F.ValReal r mkp -> do
     evalRealKp (F.exponentLetter (F.realLitExponent r)) mkp >>= \case
-      "4" -> return $ FSVReal $ SomeFKinded $ FReal4 $ F.readRealLit r
-      "8" -> return $ FSVReal $ SomeFKinded $ FReal8 $ F.readRealLit r
+      "4" -> pure $ FSVReal $ FReal4 $ F.readRealLit r
+      "8" -> pure $ FSVReal $ FReal8 $ F.readRealLit r
       k   -> err $ ENoSuchKindForType "REAL" k
   F.ValLogical b mkp -> do
     evalKp "4" mkp >>= \case
-      "4" -> return $ FSVLogical $ SomeFKinded $ FInt4 $ fLogicalNumericFromBool b
-      "8" -> return $ FSVLogical $ SomeFKinded $ FInt8 $ fLogicalNumericFromBool b
-      "2" -> return $ FSVLogical $ SomeFKinded $ FInt2 $ fLogicalNumericFromBool b
-      "1" -> return $ FSVLogical $ SomeFKinded $ FInt1 $ fLogicalNumericFromBool b
+      "4" -> pure $ FSVLogical $ FInt4 $ fLogicalNumericFromBool b
+      "8" -> pure $ FSVLogical $ FInt8 $ fLogicalNumericFromBool b
+      "2" -> pure $ FSVLogical $ FInt2 $ fLogicalNumericFromBool b
+      "1" -> pure $ FSVLogical $ FInt1 $ fLogicalNumericFromBool b
       k   -> err $ ENoSuchKindForType "LOGICAL" k
   F.ValComplex (F.ComplexLit _ _ _cr _ci) ->
     -- TODO annoying & tedious. see Fortran 2008 spec 4.4.2.4
@@ -136,11 +150,11 @@ evalLit = \case
     -- 3. upgrade both parts to that kind
     -- 4. package and return
     err $ EUnsupported "COMPLEX literals"
-  F.ValString s -> return $ FSVString $ someFString $ Text.pack s
+  F.ValString s -> pure $ FSVString $ Text.pack s
   F.ValBoz boz -> do
     warn "requested to evaluate BOZ literal with no context: defaulting to INTEGER(4)"
-    return $ FSVInt $ SomeFKinded $ FInt4 $ F.bozAsTwosComp boz
-  F.ValHollerith s -> return $ FSVString $ someFString $ Text.pack s
+    pure $ FSVInt $ FInt4 $ F.bozAsTwosComp boz
+  F.ValHollerith s -> pure $ FSVString $ Text.pack s
   F.ValIntrinsic{} -> error "you tried to evaluate a lit, but it was an intrinsic name"
   F.ValVariable{} ->  error "you tried to evaluate a lit, but it was a variable name"
   F.ValOperator{} ->  error "you tried to evaluate a lit, but it was a custom operator name"
@@ -152,22 +166,22 @@ evalLit = \case
 err :: MonadError Error m => Error -> m a
 err = throwError
 
-evalKp :: MonadEvalValue m => KindLit -> Maybe (F.KindParam a) -> m KindLit
+evalKp :: MonadFEvalValue m => KindLit -> Maybe (F.KindParam a) -> m KindLit
 evalKp kDef = \case
-  Nothing -> return kDef
+  Nothing -> pure kDef
   Just kp -> case kp of
-    F.KindParamInt _ _ k -> return k
+    F.KindParamInt _ _ k -> pure k
     F.KindParamVar _ _ var ->
       lookupFVar var >>= \case
         Just val -> case val of
-          MkFScalarValue (FSVInt (SomeFKinded i)) ->
-            return $ fIntUOp' show show show show i
+          MkFScalarValue (FSVInt i) ->
+            pure $ fIntUOp' show show show show i
           _ -> err $ EKindLitBadType var (fValueType val)
         Nothing  -> err $ ENoSuchVar var
 
 -- TODO needs cleanup: internal repetition, common parts with evalKp. also needs
 -- a docstring
-evalRealKp :: MonadEvalValue m => F.ExponentLetter -> Maybe (F.KindParam a) -> m KindLit
+evalRealKp :: MonadFEvalValue m => F.ExponentLetter -> Maybe (F.KindParam a) -> m KindLit
 evalRealKp l mkp =
     kindViaKindParam >>= \case
       Nothing ->
@@ -198,12 +212,12 @@ evalRealKp l mkp =
             F.KindParamVar _ _ var ->
               lookupFVar var >>= \case
                 Just val -> case val of
-                  MkFScalarValue (FSVInt (SomeFKinded i)) ->
+                  MkFScalarValue (FSVInt i) ->
                     pure $ Just $ fIntUOp' show show show show i
                   _ -> err $ EKindLitBadType var (fValueType val)
                 Nothing  -> err $ ENoSuchVar var
 
-evalUOp :: MonadEvalValue m => F.UnaryOp -> FValue -> m FValue
+evalUOp :: MonadFEvalValue m => F.UnaryOp -> FValue -> m FValue
 evalUOp op v = do
     v' <- forceScalar v
     case op of
@@ -211,28 +225,28 @@ evalUOp op v = do
       F.Minus -> wrapSOp $ Op.opIcNumericUOpInplace negate v'
       F.Not   -> -- TODO move this to Op (but logicals are a pain)
         case v' of
-          FSVLogical (SomeFKinded bi) ->
-            return $ MkFScalarValue $ FSVLogical $ SomeFKinded $ fLogicalNot bi
+          FSVLogical bi ->
+            pure $ MkFScalarValue $ FSVLogical $ fLogicalNot bi
           _ -> err $ EOp $ Op.EBadArgType1 ["LOGICAL"] $ fScalarValueType v'
       _ -> err $ EUnsupported $ "operator: " <> show op
 
-wrapOp :: MonadEvalValue m => Either Op.Error a -> m a
+wrapOp :: MonadFEvalValue m => Either Op.Error a -> m a
 wrapOp = \case
-  Right a -> return a
+  Right a -> pure a
   Left  e -> err $ EOp e
 
 -- | Wrap the output of an operation that returns a scalar value into the main
 --   evaluator.
-wrapSOp :: MonadEvalValue m => Either Op.Error FScalarValue -> m FValue
+wrapSOp :: MonadFEvalValue m => Either Op.Error FScalarValue -> m FValue
 wrapSOp = \case
-  Right a -> return $ MkFScalarValue a
+  Right a -> pure $ MkFScalarValue a
   Left  e -> err $ EOp e
 
 -- | Evaluate explicit binary operators (ones denoted as such in the AST).
 --
 -- Note that this does not cover all binary operators -- there are many
 -- intrinsics which use function syntax, but are otherwise binary operators.
-evalBOp :: MonadEvalValue m => F.BinaryOp -> FValue -> FValue -> m FValue
+evalBOp :: MonadFEvalValue m => F.BinaryOp -> FValue -> FValue -> m FValue
 evalBOp bop l r = do
     -- TODO also see evalExpr: implement short-circuit eval here
     l' <- forceScalar l
@@ -252,7 +266,7 @@ evalBOp bop l r = do
       F.Concatenation  ->
         case (l', r') of
           (FSVString ls, FSVString rs) ->
-            return $ MkFScalarValue $ FSVString $ concatSomeFString ls rs
+            pure $ MkFScalarValue $ FSVString $ ls <> rs
           _ -> err $ ELazy "concat strings only please"
 
       F.GT  -> defFLogical <$> wrapOp (Op.opIcNumRelBOp (>)  l' r')
@@ -278,9 +292,9 @@ boolXor _     _     = False
 
 defFLogical :: Bool -> FValue
 defFLogical =
-    MkFScalarValue . FSVLogical . SomeFKinded . FInt4 . fLogicalNumericFromBool
+    MkFScalarValue . FSVLogical . FInt4 . fLogicalNumericFromBool
 
-evalFunctionCall :: MonadEvalValue m => F.Name -> [FValue] -> m FValue
+evalFunctionCall :: MonadFEvalValue m => F.Name -> [FValue] -> m FValue
 evalFunctionCall fname args =
     case fname of
 
@@ -298,10 +312,10 @@ evalFunctionCall fname args =
         let [v] = args'
         v' <- forceScalar v
         case v' of
-          FSVInt (SomeFKinded i) -> do
+          FSVInt i -> do
             -- TODO better error handling
             let c    = Data.Char.chr (fIntUOp fromIntegral i)
-            pure $ MkFScalarValue $ FSVString $ someFString $ Text.singleton c
+            pure $ MkFScalarValue $ FSVString $ Text.singleton c
           _ ->
             err $ EOpTypeError $
                 "char: expected INT(x), got "<>show (fScalarValueType v')
@@ -311,8 +325,8 @@ evalFunctionCall fname args =
         let [v] = args'
         v' <- forceScalar v
         case v' of
-          FSVInt (SomeFKinded i) -> do
-            pure $ MkFScalarValue $ FSVInt $ SomeFKinded $ fIntUOpInplace Data.Bits.complement i
+          FSVInt i -> do
+            pure $ MkFScalarValue $ FSVInt $ fIntUOpInplace Data.Bits.complement i
           _ ->
             err $ EOpTypeError $
                 "not: expected INT(x), got "<>show (fScalarValueType v')
@@ -327,8 +341,8 @@ evalFunctionCall fname args =
         case v' of
           FSVInt{} ->
             pure $ MkFScalarValue v'
-          FSVReal (SomeFKinded r) ->
-            pure $ MkFScalarValue $ FSVInt $ SomeFKinded $ FInt4 $ fRealUOp truncate r
+          FSVReal r ->
+            pure $ MkFScalarValue $ FSVInt $ FInt4 $ fRealUOp truncate r
           _ ->
             err $ EOpTypeError $
                 "int: unsupported or unimplemented type: "<>show (fScalarValueType v')
@@ -341,15 +355,15 @@ evalFunctionCall fname args =
         case v' of
           FSVInt{} ->
             pure $ MkFScalarValue v'
-          FSVReal (SomeFKinded r) ->
-            pure $ MkFScalarValue $ FSVInt $ SomeFKinded $ FInt2 $ fRealUOp truncate r
+          FSVReal r ->
+            pure $ MkFScalarValue $ FSVInt $ FInt2 $ fRealUOp truncate r
           _ ->
             err $ EOpTypeError $
                 "int: unsupported or unimplemented type: "<>show (fScalarValueType v')
 
       _      -> err $ EUnsupported $ "function call: " <> fname
 
-evalArg :: MonadEvalValue m => F.Argument a -> m FValue
+evalArg :: MonadFEvalValue m => F.Argument a -> m FValue
 evalArg (F.Argument _ _ _ ae) =
     case ae of
       F.ArgExpr        e -> evalExpr e
@@ -357,33 +371,35 @@ evalArg (F.Argument _ _ _ ae) =
 
 --------------------------------------------------------------------------------
 
-forceScalar :: MonadEvalValue m => FValue -> m FScalarValue
+-- exists because we used to support arrays (now stripped)
+forceScalar :: MonadFEvalValue m => FValue -> m FScalarValue
 forceScalar = \case
-  MkFArrayValue{} -> err $ EUnsupported "no array values in eval for now thx"
-  MkFScalarValue v' -> return v'
+  MkFScalarValue v' -> pure v'
 
-forceUnconsArg :: MonadEvalValue m => [a] -> m (a, [a])
+forceUnconsArg :: MonadFEvalValue m => [a] -> m (a, [a])
 forceUnconsArg = \case
   []   -> err $ EOpTypeError "not enough arguments"
-  a:as -> return (a, as)
+  a:as -> pure (a, as)
 
 -- TODO can I use vector-sized to improve safety here? lol
 -- it's just convenience either way
-forceArgs :: MonadEvalValue m => Int -> [a] -> m [a]
+forceArgs :: MonadFEvalValue m => Int -> [a] -> m [a]
 forceArgs numArgs l =
     if   length l == numArgs
-    then return l
+    then pure l
     else err $ EOpTypeError $
             "expected "<>show numArgs<>" arguments; got "<>show (length l)
 
 evalIntrinsicIor
-    :: MonadEvalValue m => FScalarValue -> FScalarValue -> m FValue
-evalIntrinsicIor l r = wrapSOp $ FSVInt <$> Op.opIor l r
+    :: MonadFEvalValue m => FScalarValue -> FScalarValue -> m FValue
+evalIntrinsicIor l r = case (l, r) of
+  (FSVInt li, FSVInt ri) -> wrapSOp $ FSVInt <$> Op.opIor li ri
+  _ -> err $ ELazy "ior: bad args"
 
 -- https://gcc.gnu.org/onlinedocs/gfortran/MAX.html
 -- TODO should support arrays! at least for >=F2010
 evalIntrinsicMax
-    :: MonadEvalValue m => [FValue] -> m FValue
+    :: MonadFEvalValue m => [FValue] -> m FValue
 evalIntrinsicMax = \case
   []   -> err $ EOpTypeError "max intrinsic expects at least 1 argument"
   v:vs -> do

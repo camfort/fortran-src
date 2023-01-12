@@ -1,6 +1,6 @@
 cabal-version: 1.12
 
--- This file has been generated from package.yaml by hpack version 0.35.0.
+-- This file has been generated from package.yaml by hpack version 0.35.2.
 --
 -- see: https://github.com/sol/hpack
 
@@ -102,7 +102,6 @@ library
       Language.Fortran.Repr.Eval.Type
       Language.Fortran.Repr.Eval.Value
       Language.Fortran.Repr.Eval.Value.Op
-      Language.Fortran.Repr.Eval.Value.Op.Some
       Language.Fortran.Repr.Tmp
       Language.Fortran.Repr.Type
       Language.Fortran.Repr.Type.Array
@@ -114,8 +113,6 @@ library
       Language.Fortran.Repr.Type.Scalar.String
       Language.Fortran.Repr.Util
       Language.Fortran.Repr.Value
-      Language.Fortran.Repr.Value.Array
-      Language.Fortran.Repr.Value.Array.Machine
       Language.Fortran.Repr.Value.Common
       Language.Fortran.Repr.Value.Machine
       Language.Fortran.Repr.Value.Scalar
@@ -142,6 +139,8 @@ library
       Language.Fortran.Util.Position
       Language.Fortran.Util.SecondParameter
       Language.Fortran.Version
+      Text.PrettyPrint.GenericPretty.Orphans
+      Text.PrettyPrint.GenericPretty.ViaShow
   other-modules:
       Paths_fortran_src
   hs-source-dirs:
