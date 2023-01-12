@@ -11,9 +11,16 @@ import Language.Fortran.Repr.Value.Scalar.Common
 import Language.Fortran.Repr.Value.Scalar.Int.Machine
 import Language.Fortran.Repr.Value.Scalar.Real
 import Language.Fortran.Repr.Value.Scalar.Complex
-import Language.Fortran.Repr.Value.Scalar.String
 import Language.Fortran.Repr.Type.Scalar
+
+import Data.Text ( Text )
+import qualified Data.Text as Text
+
 import GHC.Generics ( Generic )
+import Data.Data ( Data )
+import Data.Binary ( Binary )
+import Text.PrettyPrint.GenericPretty ( Out )
+import Text.PrettyPrint.GenericPretty.Orphans()
 
 {- $type-coercion-implementation
 
@@ -33,18 +40,19 @@ kinded, we use the relevant type. To operate unkinded, we use
 
 -- | A Fortran scalar value.
 data FScalarValue
-  = FSVInt     SomeFInt
-  | FSVReal    SomeFReal
-  | FSVComplex SomeFComplex
-  | FSVLogical SomeFInt
-  | FSVString  SomeFString
-    deriving stock (Generic, Show, Eq)
+  = FSVInt     FInt
+  | FSVReal    FReal
+  | FSVComplex FComplex
+  | FSVLogical FInt
+  | FSVString  Text
+    deriving stock (Show, Generic, Data, Eq)
+    deriving anyclass (Binary, Out)
 
 -- | Recover a Fortran scalar value's type.
 fScalarValueType :: FScalarValue -> FScalarType
 fScalarValueType = \case
-  FSVInt     a -> FSTInt     $ someFKindedKind a
-  FSVReal    a -> FSTReal    $ someFKindedKind a
-  FSVComplex a -> FSTComplex $ someFKindedKind a
-  FSVLogical a -> FSTLogical $ someFKindedKind a
-  FSVString  a -> FSTString  $ someFStringLen  a
+  FSVInt     a -> FSTInt     $ fKind a
+  FSVReal    a -> FSTReal    $ fKind a
+  FSVComplex a -> FSTComplex $ fKind a
+  FSVLogical a -> FSTLogical $ fKind a
+  FSVString  a -> FSTString  $ fromIntegral $ Text.length a

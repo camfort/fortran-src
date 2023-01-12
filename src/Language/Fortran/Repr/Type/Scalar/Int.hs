@@ -15,6 +15,8 @@ import Data.Ord.Singletons
 
 import GHC.TypeNats
 
+import Data.Binary ( Binary )
+
 $(singletons [d|
     -- | The Fortran integer type.
     data FTInt
@@ -25,9 +27,10 @@ $(singletons [d|
       | FTInt16 -- ^ @INTEGER(16)@
         deriving stock (Eq, Ord, Show)
     |])
-deriving stock instance Generic FTInt
-deriving stock instance Data    FTInt
-deriving stock instance Enum    FTInt
+deriving stock    instance Generic FTInt
+deriving stock    instance Data    FTInt
+deriving stock    instance Enum    FTInt
+deriving anyclass instance Binary  FTInt
 
 -- | Get the output type from combining two integer values of arbitrary kinds
 --   (for example, adding an @INTEGER(1)@ and an @INTEGER(4)@).
@@ -45,7 +48,6 @@ type family FTIntCombine k1 k2 where
     FTIntCombine _        'FTInt4  = 'FTInt4
     FTIntCombine 'FTInt2  _        = 'FTInt2
     FTIntCombine _        'FTInt2  = 'FTInt2
-    FTIntCombine 'FTInt1  'FTInt1  = 'FTInt1
 
 instance FKinded FTInt where
     type FKindOf 'FTInt1  = 1

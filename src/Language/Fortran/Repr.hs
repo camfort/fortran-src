@@ -11,6 +11,13 @@ or adopted from gfortran).
 The aims for this representation are _correctness_ and _efficiency_. All values
 store enough information on the type level to recover their precise Fortran type
 via inspection.
+
+TODO
+
+  * Data (SYB) doesn't play nice with GADTs. They *are* entirely possible
+    together with singletons, but remain extremely finicky. It was a source of
+    issues during development. So no nice GADTs :(
+
 -}
 
 module Language.Fortran.Repr
@@ -28,7 +35,6 @@ module Language.Fortran.Repr
   -- * Re-exports
   -- ** Fortran types
     module Language.Fortran.Repr.Type
-  , module Language.Fortran.Repr.Type.Array
   , module Language.Fortran.Repr.Type.Scalar
   , module Language.Fortran.Repr.Type.Scalar.Common
   , module Language.Fortran.Repr.Type.Scalar.Int
@@ -38,7 +44,6 @@ module Language.Fortran.Repr
 
   -- ** Fortran values
   , module Language.Fortran.Repr.Value
-  , module Language.Fortran.Repr.Value.Array
   , module Language.Fortran.Repr.Value.Scalar
   , module Language.Fortran.Repr.Value.Scalar.Common
   , module Language.Fortran.Repr.Value.Scalar.Int
@@ -49,7 +54,6 @@ module Language.Fortran.Repr
   ) where
 
 import Language.Fortran.Repr.Type
-import Language.Fortran.Repr.Type.Array
 import Language.Fortran.Repr.Type.Scalar
 import Language.Fortran.Repr.Type.Scalar.Common
 import Language.Fortran.Repr.Type.Scalar.Int
@@ -58,7 +62,6 @@ import Language.Fortran.Repr.Type.Scalar.Complex
 import Language.Fortran.Repr.Type.Scalar.String
 
 import Language.Fortran.Repr.Value
-import Language.Fortran.Repr.Value.Array
 import Language.Fortran.Repr.Value.Scalar
 import Language.Fortran.Repr.Value.Scalar.Common
 import Language.Fortran.Repr.Value.Scalar.Int

@@ -13,10 +13,16 @@ bounds issues, and leave exact behaviour up to the user.
 module Language.Fortran.Repr.Value.Scalar.Int.Idealized where
 
 import Language.Fortran.Repr.Type.Scalar.Int
+import Language.Fortran.Repr.Type.Scalar.Common
 import Language.Fortran.Repr.Value.Scalar.Common
 import Data.Kind
 import Data.Int
 import Data.Singletons
+
+import GHC.Generics ( Generic )
+import Data.Data ( Data )
+import Data.Binary ( Binary )
+import Text.PrettyPrint.GenericPretty ( Out )
 
 type FIntMRep :: FTInt -> Type
 type family FIntMRep k = r | r -> k where
@@ -26,7 +32,9 @@ type family FIntMRep k = r | r -> k where
     FIntMRep 'FTInt8 = Int64
 
 newtype FIntI (k :: FTInt) = FIntI Integer
-    deriving (Show, Eq, Ord) via Integer
+    deriving stock (Show, Generic, Data)
+    deriving (Eq, Ord) via Integer
+    deriving anyclass (Binary, Out)
 
 fIntICheckBounds
     :: forall k rep. (rep ~ FIntMRep k, Bounded rep, Integral rep)
@@ -38,31 +46,18 @@ fIntICheckBounds (FIntI i) =
          then Just "TODO too small"
          else Nothing
 
-type SomeFIntI = SomeFKinded FTInt FIntI
+data SomeFIntI = forall fk. SomeFIntI (FIntI fk)
 deriving stock instance Show SomeFIntI
 instance Eq SomeFIntI where
-    (SomeFKinded (FIntI l)) == (SomeFKinded (FIntI r)) = l == r
+    (SomeFIntI (FIntI l)) == (SomeFIntI (FIntI r)) = l == r
 
 -- this might look silly, but it's because even if we don't do kinded
 -- calculations, we must still kind the output
 someFIntIBOpWrap
     :: (Integer -> Integer -> Integer)
     -> SomeFIntI -> SomeFIntI -> SomeFIntI
-someFIntIBOpWrap f l@(SomeFKinded (FIntI il)) r@(SomeFKinded (FIntI ir)) =
-    case (someFKindedKind l, someFKindedKind r) of
-      (FTInt16, _) -> as @'FTInt16
-      (_, FTInt16) -> as @'FTInt16
-      (FTInt8, _) -> as @'FTInt8
-      (_, FTInt8) -> as @'FTInt8
-      (FTInt4, _) -> as @'FTInt4
-      (_, FTInt4) -> as @'FTInt4
-      (FTInt2, _) -> as @'FTInt2
-      (_, FTInt2) -> as @'FTInt2
-      (FTInt1, FTInt1) -> as @'FTInt1
-  where
-    x = f il ir
-    as :: forall (k :: FTInt). SingI k => SomeFIntI
-    as = SomeFKinded $ FIntI @k x
+someFIntIBOpWrap f (SomeFIntI (FIntI li :: FIntI lfk)) (SomeFIntI (FIntI ri :: FIntI rfk)) =
+    SomeFIntI $ FIntI @(FTIntCombine lfk rfk) $ f li ri
 
 {-
 fIntIBOpWrap
