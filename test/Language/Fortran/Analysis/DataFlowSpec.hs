@@ -2,8 +2,6 @@ module Language.Fortran.Analysis.DataFlowSpec where
 
 import Test.Hspec
 import TestUtil
-import Test.Hspec.QuickCheck
-import Test.QuickCheck (Positive(..))
 
 import Language.Fortran.AST
 import Language.Fortran.Analysis
