@@ -3,7 +3,7 @@
 -- |
 -- Common data structures and functions supporting analysis of the AST.
 module Language.Fortran.Analysis
-  ( initAnalysis, stripAnalysis, Analysis(..), Constant(..)
+  ( initAnalysis, stripAnalysis, Analysis(..)
   , varName, srcName, lvVarName, lvSrcName, isNamedExpression
   , genVar, puName, puSrcName, blockRhsExprs, rhsExprs
   , ModEnv, NameType(..), IDType(..), ConstructType(..)
@@ -30,6 +30,8 @@ import Language.Fortran.Intrinsics (getIntrinsicDefsUses, allIntrinsics)
 import Data.Bifunctor (first)
 
 import           Language.Fortran.Analysis.SemanticTypes (SemType(..))
+
+import Language.Fortran.Repr
 
 --------------------------------------------------
 
@@ -105,18 +107,6 @@ data IDType = IDType
 instance Out IDType
 instance Binary IDType
 
--- | Information about potential / actual constant expressions.
-data Constant
-  = ConstInt Integer            -- ^ interpreted integer
-  | ConstUninterpInt String     -- ^ uninterpreted integer
-  | ConstUninterpReal String    -- ^ uninterpreted real
-  | ConstBinary BinaryOp Constant Constant -- ^ binary operation on potential constants
-  | ConstUnary UnaryOp Constant -- ^ unary operation on potential constants
-  deriving (Show, Ord, Eq, Typeable, Generic, Data)
-
-instance Out Constant
-instance Binary Constant
-
 data Analysis a = Analysis
   { prevAnnotation :: a -- ^ original annotation
   , uniqueName     :: Maybe String -- ^ unique name for function/variable, after variable renaming phase
@@ -126,7 +116,7 @@ data Analysis a = Analysis
   , moduleEnv      :: Maybe ModEnv
   , idType         :: Maybe IDType
   , allLhsVarsAnn  :: [Name]
-  , constExp       :: Maybe Constant
+  , constExp       :: Maybe FValue
   } deriving stock (Show, Generic, Data, Eq)
 
 instance Functor Analysis where

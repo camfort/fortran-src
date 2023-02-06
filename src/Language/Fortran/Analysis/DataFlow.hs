@@ -8,7 +8,7 @@ module Language.Fortran.Analysis.DataFlow
   , genUDMap, genDUMap, duMapToUdMap, UDMap, DUMap
   , genFlowsToGraph, FlowsGraph
   , genVarFlowsToMap, VarFlowsMap
-  , Constant(..), ParameterVarMap, ConstExpMap, genConstExpMap, analyseConstExps, analyseParameterVars, constantFolding
+  , ParameterVarMap, ConstExpMap, genConstExpMap, analyseConstExps, analyseParameterVars
   , genBlockMap, genDefMap, BlockMap, DefMap
   , genCallMap, CallMap
   , loopNodes, genBackEdgeMap, sccWith, BackEdgeMap
@@ -43,12 +43,9 @@ import Data.Maybe
 import Data.List (foldl', foldl1', (\\), union, intersect)
 import Control.Monad.Writer hiding (fix)
 
-<<<<<<< HEAD
-=======
---import qualified Language.Fortran.Repr as Repr
+import qualified Language.Fortran.Repr as Repr
 import qualified Language.Fortran.Repr.Eval.Value as Repr
 
->>>>>>> 63cef41 (Repr: replace some constant folding)
 --------------------------------------------------
 -- Better names for commonly used types
 type BBNodeMap = IM.IntMap
@@ -360,30 +357,13 @@ maxConst = (2::Integer) ^ (31::Integer) - (1::Integer)
 inBounds :: Integer -> Bool
 inBounds x = minConst <= x && x <= maxConst
 
--- | Evaluate possible constant expressions within tree.
-constantFolding :: Constant -> Constant
-constantFolding c = case c of
-  ConstBinary binOp a b | ConstInt x <- constantFolding a
-                        , ConstInt y <- constantFolding b -> case binOp of
-    Addition       | inBounds (x + y) -> ConstInt (x + y)
-    Subtraction    | inBounds (x - y) -> ConstInt (x - y)
-    Multiplication | inBounds (x * y) -> ConstInt (x * y)
-    Division       | y /= 0           -> ConstInt (x `div` y)
-    -- gfortran appears to do real exponentiation (allowing negative exponent)
-    -- and cast back to integer via floor() (?) as required
-    -- but we keep it simple & stick with Haskell-style integer exponentiation
-    Exponentiation | y >= 0           -> ConstInt (x ^ y)
-    _                                 -> ConstBinary binOp (ConstInt x) (ConstInt y)
-  ConstUnary Minus a | ConstInt x <- constantFolding a -> ConstInt (-x)
-  ConstUnary Plus  a                                   -> constantFolding a
-  _ -> c
-
 -- | The map of all parameter variables and their corresponding values
-type ParameterVarMap = M.Map Name Constant
+type ParameterVarMap = M.Map Name Repr.FValue
+
 -- | The map of all expressions and whether they are undecided (not
--- present in map), a constant value (Just Constant), or probably not
--- constant (Nothing).
-type ConstExpMap = ASTExprNodeMap (Maybe Constant)
+-- present in map), a constant value ('Just'), or probably not
+-- constant ('Nothing').
+type ConstExpMap = ASTExprNodeMap (Maybe Repr.FValue)
 
 -- | Generate a constant-expression map with information about the
 -- expressions (identified by insLabel numbering) in the ProgramFile
@@ -400,23 +380,21 @@ genConstExpMap pf = ceMap
       [ (varName v, getE e)
       | st@StParameter{} <- universeBi pf :: [Statement (Analysis a)]
       , (Declarator _ _ v ScalarDecl _ (Just e)) <- universeBi st ]
-    getV :: Expression (Analysis a) -> Maybe Constant
+    getV :: Expression (Analysis a) -> Maybe Repr.FValue
     getV e = constExp (getAnnotation e) `mplus` (join . flip M.lookup pvMap . varName $ e)
 
     -- Generate map of information about 'constant expressions'.
     ceMap = IM.fromList [ (label, doExpr e) | e <- universeBi pf, Just label <- [labelOf e] ]
-    getE :: Expression (Analysis a) -> Maybe Constant
+    getE :: Expression (Analysis a) -> Maybe Repr.FValue
     getE = join . (flip IM.lookup ceMap <=< labelOf)
     labelOf = insLabel . getAnnotation
-    doExpr :: Expression (Analysis a) -> Maybe Constant
-    doExpr e = case e of
-      ExpValue _ _ (ValInteger intStr _) -> Just . ConstInt $ read intStr
-      ExpValue _ _ (ValReal r _)    -> Just $ ConstUninterpReal (prettyHsRealLit r) -- TODO
-      ExpValue _ _ (ValVariable _)  -> getV e
-      -- Recursively seek information about sub-expressions, relying on laziness.
-      ExpBinary _ _ binOp e1 e2     -> constantFolding <$> liftM2 (ConstBinary binOp) (getE e1) (getE e2)
-      ExpUnary _ _ unOp e'           -> constantFolding <$> ConstUnary unOp <$> getE e'
-      _ -> Nothing
+    doExpr :: Expression (Analysis a) -> Maybe Repr.FValue
+    doExpr e =
+        -- TODO constants may use other constants! but genConstExpMap needs more
+        -- changes to support that
+        case Repr.runEvalFValuePure mempty (Repr.evalExpr e) of
+          Left _err -> Nothing
+          Right (a, _msgs) -> Just a
 
 -- | Get constant-expression information and put it into the AST
 -- analysis annotation. Must occur after analyseBBlocks.
