@@ -944,7 +944,7 @@ alexGetByte ai
   -- Skip the continuation line altogether
   | isContinuation ai && _isWhiteInsensitive = skip Continuation ai
   -- Skip the newline before a comment
-  | aiFortranVersion ai == Fortran77Legacy && _isWhiteInsensitive
+  | aiFortranVersion ai >= Fortran77 && _isWhiteInsensitive
   && isNewlineCommentsFollowedByContinuation ai = skip NewlineComment ai
   -- If we are not parsing a Hollerith skip whitespace
   | _curChar `elem` [ ' ', '\t' ] && _isWhiteInsensitive = skip Char ai
