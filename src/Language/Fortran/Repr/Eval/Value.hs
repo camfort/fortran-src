@@ -256,8 +256,11 @@ evalBOp bop l r = do
       -- TODO confirm correct operation (not checked much)
       F.Division -> wrapSOp $ Op.opIcNumericBOpRealIntSep (div) (/) l' r'
 
-      F.Exponentiation -> -- TODO not looked, certainly custom
-        err $ EUnsupported "exponentiation"
+      -- TODO basic - ints only. probably should support floats too.
+      F.Exponentiation ->
+        case (l', r') of
+          (FSVInt li, FSVInt ri) ->
+            pure $ MkFScalarValue $ FSVInt $ fIntBOpInplace (^) li ri
 
       F.Concatenation  ->
         case (l', r') of

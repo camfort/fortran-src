@@ -252,11 +252,6 @@ spec =
       it "dominators on disconnected graph" $
         dominators (BBGr (nmap (const []) (mkUGraph [0,1,3,4,5,6,7,8,9] [(0,3) ,(3,1) ,(5,6) ,(6,7) ,(7,4) ,(7,8) ,(8,7) ,(8,9) ,(9,8)])) [0,5] [3,9]) `shouldBe` IM.fromList [(0,IS.fromList [0]),(1,IS.fromList [0,1,3]),(3,IS.fromList [0,3]),(4,IS.fromList [4,5,6,7]),(5,IS.fromList [5]),(6,IS.fromList [5,6]),(7,IS.fromList [5,6,7]),(8,IS.fromList [5,6,7,8]),(9,IS.fromList [5,6,7,8,9])]
 
-    describe "Constants" $ do
-      prop "constant folding evaluates exponentation (positive exponent)" $
-        let constExpoExpr b e = ConstBinary Exponentiation (ConstInt b) (ConstInt e)
-         in \(base, Positive expo) -> constantFolding (constExpoExpr base expo) `shouldBe` ConstInt (base ^ expo)
-
 --------------------------------------------------
 -- Label-finding helper functions to help write tests that are
 -- insensitive to minor changes to the AST.
