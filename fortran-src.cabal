@@ -295,6 +295,7 @@ test-suite spec
       Language.Fortran.Parser.Free.LexerSpec
       Language.Fortran.Parser.MonadSpec
       Language.Fortran.PrettyPrintSpec
+      Language.Fortran.Repr.EvalSpec
       Language.Fortran.Rewriter.InternalSpec
       Language.Fortran.RewriterSpec
       Language.Fortran.Transformation.Disambiguation.FunctionSpec
