@@ -30,9 +30,9 @@ data FInt
     deriving stock (Show, Generic, Data)
     deriving anyclass (Binary, Out)
 
-instance FKinded' FInt where
-    type FKind FInt = FTInt
-    type FTypeC FInt a = (Integral a, Bits a)
+instance FKinded FInt where
+    type FKindedT FInt = FTInt
+    type FKindedC FInt a = (Integral a, Bits a)
     fKind = \case
       FInt1{} -> FTInt1
       FInt2{} -> FTInt2
@@ -108,16 +108,16 @@ fIntBOpInplace' k1f k2f k4f k8f =
     fIntBOp' (f FInt1 k1f) (f FInt2 k2f) (f FInt4 k4f) (f FInt8 k8f)
   where f cstr bop l r = cstr $ bop l r
 
-fIntUOp :: (forall a. FTypeC FInt a => a -> r) -> FInt -> r
+fIntUOp :: (forall a. FKindedC FInt a => a -> r) -> FInt -> r
 fIntUOp f = fIntUOp' f f f f
 
-fIntUOpInplace :: (forall a. FTypeC FInt a => a -> a) -> FInt -> FInt
+fIntUOpInplace :: (forall a. FKindedC FInt a => a -> a) -> FInt -> FInt
 fIntUOpInplace f = fIntUOpInplace' f f f f
 
-fIntBOp :: (forall a. FTypeC FInt a => a -> a -> r) -> FInt -> FInt -> r
+fIntBOp :: (forall a. FKindedC FInt a => a -> a -> r) -> FInt -> FInt -> r
 fIntBOp f = fIntBOp' f f f f
 
-fIntBOpInplace :: (forall a. FTypeC FInt a => a -> a -> a) -> FInt -> FInt -> FInt
+fIntBOpInplace :: (forall a. FKindedC FInt a => a -> a -> a) -> FInt -> FInt -> FInt
 fIntBOpInplace f = fIntBOpInplace' f f f f
 
 {-

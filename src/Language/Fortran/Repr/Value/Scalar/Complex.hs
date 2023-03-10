@@ -23,9 +23,9 @@ data FComplex
     deriving stock (Show, Generic, Data)
     deriving anyclass (Binary, Out)
 
-instance FKinded' FComplex where
-    type FKind FComplex = FTReal
-    type FTypeC FComplex a = RealFloat a
+instance FKinded FComplex where
+    type FKindedT FComplex = FTReal
+    type FKindedC FComplex a = RealFloat a
     fKind = \case
       FComplex8{}  -> FTReal4
       FComplex16{} -> FTReal8
@@ -62,12 +62,12 @@ fComplexBOpInplace'
 fComplexBOpInplace' k8f k16f = fComplexBOp' k8f FComplex8 k16f FComplex16
 
 fComplexBOp
-    :: (forall a. FTypeC FComplex a => a -> a -> b)
+    :: (forall a. FKindedC FComplex a => a -> a -> b)
     -> (b -> b -> r)
     -> FComplex -> FComplex -> r
 fComplexBOp f g = fComplexBOp' f g f g
 
 fComplexBOpInplace
-    :: (forall a. FTypeC FComplex a => a -> a -> a)
+    :: (forall a. FKindedC FComplex a => a -> a -> a)
     -> FComplex -> FComplex -> FComplex
 fComplexBOpInplace f = fComplexBOpInplace' f f

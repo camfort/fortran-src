@@ -30,5 +30,14 @@ prettyScalarType = \case
   FSTString  l -> "CHARACTER("<>prettyCharLen l<>")"
   FSTCustom  t -> "TYPE("<>t<>")"
 
-prettyKinded :: FKinded a => a -> String -> String
+fScalarTypeKind :: FScalarType -> Maybe FKindLit
+fScalarTypeKind = \case
+  FSTInt     k -> Just $ printFKind k
+  FSTReal    k -> Just $ printFKind k
+  FSTComplex k -> Just $ printFKind (FTComplexWrapper k)
+  FSTLogical k -> Just $ printFKind k
+  FSTString  l -> Just $ fromIntegral l
+  FSTCustom  t -> Nothing
+
+prettyKinded :: FKind a => a -> String -> String
 prettyKinded k name = name<>"("<>show (printFKind k)<>")"
