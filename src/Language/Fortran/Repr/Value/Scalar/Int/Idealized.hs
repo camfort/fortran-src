@@ -13,11 +13,8 @@ bounds issues, and leave exact behaviour up to the user.
 module Language.Fortran.Repr.Value.Scalar.Int.Idealized where
 
 import Language.Fortran.Repr.Type.Scalar.Int
-import Language.Fortran.Repr.Type.Scalar.Common
-import Language.Fortran.Repr.Value.Scalar.Common
 import Data.Kind
 import Data.Int
-import Data.Singletons
 
 import GHC.Generics ( Generic )
 import Data.Data ( Data )

@@ -15,9 +15,9 @@ data FReal
     deriving stock (Show, Generic, Data)
     deriving anyclass (Binary, Out)
 
-instance FKinded' FReal where
-    type FKind FReal = FTReal
-    type FTypeC FReal a = RealFloat a
+instance FKinded FReal where
+    type FKindedT FReal = FTReal
+    type FKindedC FReal a = RealFloat a
     fKind = \case
       FReal4{} -> FTReal4
       FReal8{} -> FTReal8
@@ -56,21 +56,21 @@ fRealBOpInplace' k4f k8f = fRealBOp' (f FReal4 k4f) (f FReal8 k8f)
   where f cstr bop l r = cstr $ bop l r
 
 fRealUOp
-    :: (forall a. FTypeC FReal a => a -> r)
+    :: (forall a. FKindedC FReal a => a -> r)
     -> FReal -> r
 fRealUOp f = fRealUOp' f f
 
 fRealUOpInplace
-    :: (forall a. FTypeC FReal a => a -> a)
+    :: (forall a. FKindedC FReal a => a -> a)
     -> FReal -> FReal
 fRealUOpInplace f = fRealUOpInplace' f f
 
 fRealBOp
-    :: (forall a. FTypeC FReal a => a -> a -> r)
+    :: (forall a. FKindedC FReal a => a -> a -> r)
     -> FReal -> FReal -> r
 fRealBOp f = fRealBOp' f f
 
 fRealBOpInplace
-    :: (forall a. FTypeC FReal a => a -> a -> a)
+    :: (forall a. FKindedC FReal a => a -> a -> a)
     -> FReal -> FReal -> FReal
 fRealBOpInplace f = fRealBOpInplace' f f

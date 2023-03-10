@@ -1,18 +1,13 @@
-{-# LANGUAGE TemplateHaskell, StandaloneKindSignatures, UndecidableInstances #-}
-
 module Language.Fortran.Repr.Type.Scalar.String where
 
 import Language.Fortran.Repr.Compat.Natural
 
 import GHC.Generics ( Generic )
 import Data.Data ( Data )
+import Data.Binary ( Binary )
+import Text.PrettyPrint.GenericPretty ( Out )
+import Text.PrettyPrint.GenericPretty.Orphans()
 
---import Data.Singletons.TH
--- required for deriving instances (seems like bug)
---import Prelude.Singletons
---import Data.Ord.Singletons
-
--- $(singletons [d|
 -- | The length of a CHARACTER value.
 --
 -- IanH provides a great reference on StackOverflow:
@@ -32,11 +27,8 @@ data CharLen
   -- ^ @CHARACTER(LEN=:)@. F2003. Value has deferred length. Must have the
   --   ALLOCATABLE or POINTER attribute.
 
-    deriving stock (Eq, Ord, Show)
---    |])
-
-deriving stock instance Generic CharLen
-deriving stock instance Data    CharLen
+    deriving stock (Show, Generic, Data, Eq, Ord)
+    deriving anyclass (Binary, Out)
 
 prettyCharLen :: Natural -> String
 prettyCharLen l = "LEN="<>show l

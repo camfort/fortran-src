@@ -19,6 +19,8 @@ import Language.Fortran.Repr.Value.Scalar.Logical.Machine
 import Language.Fortran.Repr.Value.Scalar.String
 
 import Language.Fortran.Repr.Type ( FType )
+import Language.Fortran.Repr.Type.Scalar.Common ( FKindLit )
+import Language.Fortran.Repr.Type.Scalar ( fScalarTypeKind )
 
 import Language.Fortran.Repr.Eval.Common
 import qualified Language.Fortran.Repr.Eval.Value.Op as Op
@@ -30,6 +32,8 @@ import qualified Data.Bits
 
 import Control.Monad.Except
 
+import Data.Word ( Word8 )
+
 -- pure implementation
 import Control.Monad.Reader
 import Control.Monad.Writer
@@ -40,16 +44,13 @@ import Data.Map ( Map )
 data Error
   = ENoSuchVar F.Name
   | EKindLitBadType F.Name FType
-  | ENoSuchKindForType String KindLit
+  | ENoSuchKindForType String FKindLit
   | EUnsupported String
   | EOp Op.Error
   | EOpTypeError String
   | ELazy String
   -- ^ Catch-all for non-grouped errors.
     deriving stock (Generic, Show, Eq)
-
--- TODO best for temp KPs: String, Integer, Text? Word8??
-type KindLit = String
 
 -- | A convenience constraint tuple defining the base requirements of the
 --   'FValue' evaluator.
@@ -124,24 +125,24 @@ forceVarExpr = \case
 evalLit :: MonadFEvalValue m => F.Value a -> m FScalarValue
 evalLit = \case
   F.ValInteger i mkp -> do
-    evalKp "4" mkp >>= \case
-      "4" -> pure $ FSVInt $ FInt4 $ read i
-      "8" -> pure $ FSVInt $ FInt8 $ read i
-      "2" -> pure $ FSVInt $ FInt2 $ read i
-      "1" -> pure $ FSVInt $ FInt1 $ read i
-      k   -> err $ ENoSuchKindForType "INTEGER" k
+    evalMKp 4 mkp >>= \case
+      4 -> pure $ FSVInt $ FInt4 $ read i
+      8 -> pure $ FSVInt $ FInt8 $ read i
+      2 -> pure $ FSVInt $ FInt2 $ read i
+      1 -> pure $ FSVInt $ FInt1 $ read i
+      k -> err $ ENoSuchKindForType "INTEGER" k
   F.ValReal r mkp -> do
     evalRealKp (F.exponentLetter (F.realLitExponent r)) mkp >>= \case
-      "4" -> pure $ FSVReal $ FReal4 $ F.readRealLit r
-      "8" -> pure $ FSVReal $ FReal8 $ F.readRealLit r
-      k   -> err $ ENoSuchKindForType "REAL" k
+      4 -> pure $ FSVReal $ FReal4 $ F.readRealLit r
+      8 -> pure $ FSVReal $ FReal8 $ F.readRealLit r
+      k -> err $ ENoSuchKindForType "REAL" k
   F.ValLogical b mkp -> do
-    evalKp "4" mkp >>= \case
-      "4" -> pure $ FSVLogical $ FInt4 $ fLogicalNumericFromBool b
-      "8" -> pure $ FSVLogical $ FInt8 $ fLogicalNumericFromBool b
-      "2" -> pure $ FSVLogical $ FInt2 $ fLogicalNumericFromBool b
-      "1" -> pure $ FSVLogical $ FInt1 $ fLogicalNumericFromBool b
-      k   -> err $ ENoSuchKindForType "LOGICAL" k
+    evalMKp 4 mkp >>= \case
+      4 -> pure $ FSVLogical $ FInt4 $ fLogicalNumericFromBool b
+      8 -> pure $ FSVLogical $ FInt8 $ fLogicalNumericFromBool b
+      2 -> pure $ FSVLogical $ FInt2 $ fLogicalNumericFromBool b
+      1 -> pure $ FSVLogical $ FInt1 $ fLogicalNumericFromBool b
+      k -> err $ ENoSuchKindForType "LOGICAL" k
   F.ValComplex (F.ComplexLit _ _ _cr _ci) ->
     -- TODO annoying & tedious. see Fortran 2008 spec 4.4.2.4
     -- 1. evaluate each part
@@ -166,56 +167,51 @@ evalLit = \case
 err :: MonadError Error m => Error -> m a
 err = throwError
 
-evalKp :: MonadFEvalValue m => KindLit -> Maybe (F.KindParam a) -> m KindLit
-evalKp kDef = \case
+evalKp :: MonadFEvalValue m => F.KindParam a -> m FKindLit
+evalKp = \case
+  F.KindParamInt _ _ k ->
+    -- TODO we may wish to check kind param sensibility here
+    -- easy check is length (<=3)
+    -- to catch the rest, we may need to read to Int16 and check.
+    -- slow and unideal so for now let's assume no bad play such as INTEGER(256)
+    pure $ read k
+  F.KindParamVar _ _ var ->
+    lookupFVar var >>= \case
+      Just val -> case val of
+        MkFScalarValue (FSVInt i) ->
+          pure $ fIntUOp fromIntegral i
+        _ -> err $ EKindLitBadType var (fValueType val)
+      Nothing  -> err $ ENoSuchVar var
+
+evalMKp :: MonadFEvalValue m => FKindLit -> Maybe (F.KindParam a) -> m FKindLit
+evalMKp kDef = \case
   Nothing -> pure kDef
-  Just kp -> case kp of
-    F.KindParamInt _ _ k -> pure k
-    F.KindParamVar _ _ var ->
-      lookupFVar var >>= \case
-        Just val -> case val of
-          MkFScalarValue (FSVInt i) ->
-            pure $ fIntUOp' show show show show i
-          _ -> err $ EKindLitBadType var (fValueType val)
-        Nothing  -> err $ ENoSuchVar var
+  Just kp -> evalKp kp
 
 -- TODO needs cleanup: internal repetition, common parts with evalKp. also needs
 -- a docstring
-evalRealKp :: MonadFEvalValue m => F.ExponentLetter -> Maybe (F.KindParam a) -> m KindLit
-evalRealKp l mkp =
-    kindViaKindParam >>= \case
-      Nothing ->
-        case l of
-          F.ExpLetterE -> pure "4"
-          F.ExpLetterD -> pure "8"
-          F.ExpLetterQ -> do
-            warn "TODO 1.2Q3 REAL literals not supported; defaulting to REAL(8)"
-            evalRealKp F.ExpLetterD mkp
-      Just kkp ->
-        case l of
-          F.ExpLetterE -> -- @1.2E3_8@ syntax is permitted: use @_8@ kind param
-            pure kkp
-          F.ExpLetterD -> do -- @1.2D3_8@ syntax is nonsensical
-            warn $  "TODO exponent letter wasn't E but you gave kind parameter."
-                 <> "\nthis isn't allowed, but we'll default to"
-                 <> " using kind parameter"
-            pure kkp
-          F.ExpLetterQ -> do
-            warn "TODO 1.2Q3 REAL literals not supported; defaulting to REAL(8)"
-            evalRealKp F.ExpLetterD mkp
-  where
-    kindViaKindParam =
-        case mkp of
-          Nothing -> pure Nothing
-          Just kp -> case kp of
-            F.KindParamInt _ _ k -> pure $ Just k
-            F.KindParamVar _ _ var ->
-              lookupFVar var >>= \case
-                Just val -> case val of
-                  MkFScalarValue (FSVInt i) ->
-                    pure $ Just $ fIntUOp' show show show show i
-                  _ -> err $ EKindLitBadType var (fValueType val)
-                Nothing  -> err $ ENoSuchVar var
+evalRealKp :: MonadFEvalValue m => F.ExponentLetter -> Maybe (F.KindParam a) -> m FKindLit
+evalRealKp l = \case
+  Nothing ->
+    case l of
+      F.ExpLetterE -> pure 4
+      F.ExpLetterD -> pure 8
+      F.ExpLetterQ -> do
+        warn "TODO 1.2Q3 REAL literals not supported; defaulting to REAL(8)"
+        pure 8
+  Just kp -> do
+    k <- evalKp kp
+    case l of
+      F.ExpLetterE -> -- @1.2E3_8@ syntax is permitted: use @_8@ kind param
+        pure k
+      F.ExpLetterD -> do -- @1.2D3_8@ syntax is nonsensical
+        warn $  "TODO exponent letter wasn't E but you gave kind parameter."
+             <> "\nthis isn't allowed, but we'll default to"
+             <> " using kind parameter"
+        pure k
+      F.ExpLetterQ -> do
+        warn "TODO 1.2Q3 REAL literals not supported; defaulting to REAL(8)"
+        pure 8
 
 evalUOp :: MonadFEvalValue m => F.UnaryOp -> FValue -> m FValue
 evalUOp op v = do
@@ -297,6 +293,15 @@ defFLogical =
 evalFunctionCall :: MonadFEvalValue m => F.Name -> [FValue] -> m FValue
 evalFunctionCall fname args =
     case fname of
+
+      "kind"  -> do
+        args' <- forceArgs 1 args
+        let [v] = args'
+        v' <- forceScalar v
+        let t = fScalarValueType v'
+        case fScalarTypeKind t of
+          Nothing -> err $ ELazy "called kind with non-kinded scalar"
+          Just k  -> pure $ MkFScalarValue $ FSVInt $ FInt4 (fromIntegral k)
 
       "ior"  -> do
         args' <- forceArgs 2 args

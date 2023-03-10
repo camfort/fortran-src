@@ -92,13 +92,13 @@ someFKindedKind (SomeFKinded (_ :: ft fk)) = demote @fk
 ---
 
 -- | A kinded Fortran value.
-class FKinded' a where
+class FKinded a where
     -- | The Haskell type used to record this Fortran type's kind.
-    type FKind a
+    type FKindedT a
 
     -- | For every Fortran kind of this Fortran type @a@, the underlying
     --   representation @b@ has the given constraints.
-    type FTypeC a b :: Constraint
+    type FKindedC a b :: Constraint
 
     -- | Obtain the kind of a Fortran value.
-    fKind :: a -> FKind a
+    fKind :: a -> FKindedT a
