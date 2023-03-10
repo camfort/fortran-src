@@ -20,9 +20,9 @@ import Text.PrettyPrint.GenericPretty (Out)
 -- The constructor ordering is important, since it's used for the Ord instance
 -- (which is used extensively for pretty printing).
 data FortranVersion = Fortran66
-                    | Fortran77
-                    | Fortran77Extended
-                    | Fortran77Legacy
+                    | Fortran77         -- ^ fairly close to FORTRAN 77 standard
+                    | Fortran77Extended -- ^ F77 with some extensions
+                    | Fortran77Legacy   -- ^ F77 with most extensions
                     | Fortran90
                     | Fortran95
                     | Fortran2003
@@ -60,7 +60,7 @@ selectFortranVersion alias = snd <$> find (\ entry -> fst entry `isInfixOf` map 
 -- Defaults to Fortran 90 if suffix is unrecognized.
 deduceFortranVersion :: FilePath -> FortranVersion
 deduceFortranVersion path
-  | isExtensionOf ".f"      = Fortran77Extended
+  | isExtensionOf ".f"      = Fortran77Legacy
   | isExtensionOf ".for"    = Fortran77
   | isExtensionOf ".fpp"    = Fortran77
   | isExtensionOf ".ftn"    = Fortran77
