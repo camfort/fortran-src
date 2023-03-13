@@ -55,6 +55,14 @@ Usage: fortran-src [OPTION...] <file>
                           --show-flows-from=AST-BLOCK-ID   dump a graph showing flows-from information from the given AST-block ID; prefix with 's' for supergraph
 ```
 
+If you do not pass a `--fortranVersion` flag, the version will be guessed from
+the file name:
+
+  * Files ending in `*.f` are parsed with extended FORTRAN 77 syntax.
+  * Files ending in `*.f90` are parsed with Fortran 90 syntax (and respectively
+    for `*.f2003`/`*.f03`, `*.f2008`/`*.f08`).
+  * Unknown extensions are parsed like `*.f` files.
+
 ## Building
 You will need the GMP library plus header files: on many platforms, this will be
 via the package `libgmp-dev`.
