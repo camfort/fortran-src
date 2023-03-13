@@ -61,9 +61,9 @@ selectFortranVersion alias = snd <$> find (\ entry -> fst entry `isInfixOf` map 
 deduceFortranVersion :: FilePath -> FortranVersion
 deduceFortranVersion path
   | isExtensionOf ".f"      = Fortran77Legacy
-  | isExtensionOf ".for"    = Fortran77
-  | isExtensionOf ".fpp"    = Fortran77
-  | isExtensionOf ".ftn"    = Fortran77
+  | isExtensionOf ".for"    = Fortran77Legacy
+  | isExtensionOf ".fpp"    = Fortran77Legacy
+  | isExtensionOf ".ftn"    = Fortran77Legacy
   | isExtensionOf ".f90"    = Fortran90
   | isExtensionOf ".f95"    = Fortran95
   | isExtensionOf ".f03"    = Fortran2003
