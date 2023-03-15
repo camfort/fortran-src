@@ -20,8 +20,10 @@ import           Language.Fortran.Util.Position ( SrcSpan(..) )
 import           Language.Fortran.Version       ( FortranVersion(..) )
 import           Data.Binary                    ( Binary )
 import           Text.PrettyPrint.GenericPretty ( Out(..) )
-import           Text.PrettyPrint               ( (<+>), parens )
 import           Language.Fortran.PrettyPrint   ( Pretty(..) )
+
+import Data.List.NonEmpty (NonEmpty)
+import qualified Data.List.NonEmpty as NonEmpty
 
 type Kind = Int
 
@@ -40,7 +42,7 @@ data SemType
   | TByte Kind
   | TCharacter CharacterLen Kind
 
-  | TArray SemType Dims
+  | TArray SemType Dimensions
   -- ^ A Fortran array type is represented by a type and a set of dimensions.
 
   | TCustom String
@@ -49,7 +51,7 @@ data SemType
     deriving stock    (Ord, Eq, Show, Data, Generic)
     deriving anyclass (NFData, Binary, Out)
 
-type Dims = Dimensions 'DTStartAndEnd [] Int
+type Dimensions = Dims 'DimTypeUpper NonEmpty Int
 
 -- TODO placeholder, not final or tested
 -- should really attempt to print with kind info, and change to DOUBLE PRECISION
@@ -63,18 +65,19 @@ instance Pretty SemType where
     TLogical _ -> "logical"
     TByte _    -> "byte"
     TCharacter _ _ -> "character"
-    TArray st _ -> pprint' v st <+> parens "(A)"
+    TArray st dims -> pprint' v st <> pprint' v dims
     TCustom str -> pprint' v (TypeCustom str)
 
 -- | Convert 'Dimensions' data type to its previous type synonym
 --   @(Maybe [(Int, Int)])@.
 --
 -- Will not return @Just []@.
-dimensionsToTuples :: Dims -> Maybe [(Int, Int)]
+dimensionsToTuples :: Dimensions -> Maybe [(Int, Int)]
 dimensionsToTuples = \case
-  DExplicitShape ds     -> Just ds
-  DAssumedSize   _ds _d -> Nothing
-  DAssumedShape  _ss    -> Nothing
+  DimsExplicitShape ds     ->
+    Just $ NonEmpty.toList $ fmap (\(Dim lb ub) -> (lb, ub)) ds
+  DimsAssumedSize   _ds _d -> Nothing
+  DimsAssumedShape  _ss    -> Nothing
 
 --------------------------------------------------------------------------------
 
