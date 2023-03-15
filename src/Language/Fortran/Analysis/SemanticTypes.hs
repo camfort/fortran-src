@@ -1,6 +1,12 @@
+{-# LANGUAGE DataKinds #-}
 {-# LANGUAGE OverloadedStrings #-}
 
-module Language.Fortran.Analysis.SemanticTypes where
+module Language.Fortran.Analysis.SemanticTypes
+  ( module Language.Fortran.Analysis.SemanticTypes
+  , module Language.Fortran.Common.Array
+  ) where
+
+import Language.Fortran.Common.Array
 
 import           Data.Data                      ( Data )
 import           Control.DeepSeq                ( NFData )
@@ -34,16 +40,16 @@ data SemType
   | TByte Kind
   | TCharacter CharacterLen Kind
 
-  | TArray SemType Dimensions
-  -- ^ A Fortran array type is defined by a single type, and a set of
-  --   dimensions. Note that assumed-shape arrays which only "store" array rank
-  --   cannot be represented.
+  | TArray SemType Dims
+  -- ^ A Fortran array type is represented by a type and a set of dimensions.
 
   | TCustom String
   -- ^ Constructor to use for F77 structures, F90 DDTs
 
     deriving stock    (Ord, Eq, Show, Data, Generic)
     deriving anyclass (NFData, Binary, Out)
+
+type Dims = Dimensions 'DTStartAndEnd [] Int
 
 -- TODO placeholder, not final or tested
 -- should really attempt to print with kind info, and change to DOUBLE PRECISION
@@ -60,39 +66,15 @@ instance Pretty SemType where
     TArray st _ -> pprint' v st <+> parens "(A)"
     TCustom str -> pprint' v (TypeCustom str)
 
--- | The declared dimensions of an array variable.
---
--- Each dimension is of the form @(dim_lower, dim_upper)@.
---
--- This type should not be used to represent assumed-shape arrays, introduced in
--- F90. They may be represented like @[Int]@ (known rank, known lower bounds).
-data Dimensions
-  = DimensionsCons !(Int, Int) Dimensions
-  -- ^ Another dimension in the dimension list.
-
-  | DimensionsEnd
-  -- ^ No more dimensions.
-
-  | DimensionsFinalStar
-  -- ^ The final dimension is dynamic (represented by a star @*@ in syntax).
-  --   This indicates an assumed-size array.
-    deriving stock    (Ord, Eq, Show, Data, Generic)
-    deriving anyclass (NFData, Binary, Out)
-
 -- | Convert 'Dimensions' data type to its previous type synonym
 --   @(Maybe [(Int, Int)])@.
 --
 -- Will not return @Just []@.
-dimensionsToTuples :: Dimensions -> Maybe [(Int, Int)]
+dimensionsToTuples :: Dims -> Maybe [(Int, Int)]
 dimensionsToTuples = \case
-  DimensionsCons bounds ds -> Just $ reverse $ go [bounds] ds
-  DimensionsEnd       -> Nothing
-  DimensionsFinalStar -> Nothing
-  where
-    go boundss = \case
-      DimensionsCons bounds ds -> go (bounds:boundss) ds
-      DimensionsEnd       -> boundss
-      DimensionsFinalStar -> boundss
+  DExplicitShape ds     -> Just ds
+  DAssumedSize   _ds _d -> Nothing
+  DAssumedShape  _ss    -> Nothing
 
 --------------------------------------------------------------------------------
 
