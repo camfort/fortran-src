@@ -1,4 +1,4 @@
-{-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE UndecidableInstances #-} -- due to instance design :)
 
 module Language.Fortran.Common.Array where
 
@@ -85,13 +85,25 @@ deriving anyclass instance (Binary a, Binary (t a), Binary (t (Dim dt a)))
 deriving stock instance (Ord a, Ord (t a), Ord (t (Dim dt a)))
   => Ord (Dims dt t a)
 
-instance (Foldable t, Functor t, Out (Dim dt a))
+instance (Foldable t, Functor t, Out (Dim dt a), Out a)
   => Out (Dims dt t a) where
     docPrec _ = doc
     doc = Pretty.parens . \case
       DimsExplicitShape ds ->
-        prettyIntersperse (Pretty.text ", ") $ fmap doc ds
-      _ -> mempty
+        prettyIntersperse dimSep $ fmap doc ds
+      DimsAssumedShape ss ->
+        prettyIntersperse dimSep $ fmap go ss
+        where
+          go s = doc s <> Pretty.char ':'
+      DimsAssumedSize mds d ->
+        -- A bit fragile, but hopefully won't explode on empty 'Just's.
+        case mds of
+          Nothing -> prettyLast
+          Just ds -> prettyAfter dimSep (fmap doc ds) <> prettyLast
+        where
+          prettyLast = doc d <> Pretty.text ":*"
+      where
+        dimSep = Pretty.text ", "
 
 instance Out (Dims dt t a) => F.Pretty (Dims dt t a) where
     pprint' _ = doc
@@ -102,3 +114,6 @@ prettyIntersperse dBetween ds =
     case foldMap (\d -> [dBetween, d]) ds of
       []    -> mempty
       _:ds' -> mconcat ds'
+
+prettyAfter :: Foldable t => Pretty.Doc -> t Pretty.Doc -> Pretty.Doc
+prettyAfter dAfter = foldMap (\d -> d <> dAfter)

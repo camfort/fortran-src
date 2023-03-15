@@ -21,6 +21,7 @@ import           Language.Fortran.Version       ( FortranVersion(..) )
 import           Data.Binary                    ( Binary )
 import           Text.PrettyPrint.GenericPretty ( Out(..) )
 import           Language.Fortran.PrettyPrint   ( Pretty(..) )
+import qualified Text.PrettyPrint as Pretty
 
 import Data.List.NonEmpty (NonEmpty)
 import qualified Data.List.NonEmpty as NonEmpty
@@ -59,14 +60,16 @@ type Dimensions = Dims 'DimTypeUpper NonEmpty Int
 -- TypeSpec?
 instance Pretty SemType where
   pprint' v = \case
-    TInteger _ -> "integer"
-    TReal _    -> "real"
-    TComplex _ -> "complex"
-    TLogical _ -> "logical"
-    TByte _    -> "byte"
+    TInteger k -> "integer"<>pd k
+    TReal    k -> "real"<>pd k
+    TComplex k -> "complex"<>pd k
+    TLogical k -> "logical"<>pd k
+    TByte    k -> "byte"<>pd k
     TCharacter _ _ -> "character"
     TArray st dims -> pprint' v st <> pprint' v dims
     TCustom str -> pprint' v (TypeCustom str)
+    where
+      pd = Pretty.parens . doc
 
 -- | Convert 'Dimensions' data type to its previous type synonym
 --   @(Maybe [(Int, Int)])@.
