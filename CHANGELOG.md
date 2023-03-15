@@ -1,3 +1,16 @@
+### 0.13.0 (Mar 14, 2023)
+  * better handling for line directives in free form lexer (#248, @mrd)
+  * don't inline solo includes in relevant F77 parsers (#245, @RaoulHC)
+  * add `-C=opts` CLI option for passing CPP arguments (#250, @mrd)
+  * fix reformatting of 73 character long lines in naive mixed form reformatter
+    (#251, @ksromanov)
+  * assume extended `Fortran77Legacy` rather than `Fortran77` for `*.f`, `*.for`
+    etc. files (#260)
+  * allow comment lines between continuation lines in F77 parser (in standard)
+    (#257, @RaoulHC)
+  * refactor Fortran type & value representation & expression evaluator without
+    Fortran kind-indexed GADTs; replace constant folder (#253, @raehik)
+
 ### 0.12.0 (Oct 19, 2022)
   * clean up F77 include inlining (#245, @RaoulHC)
     * directly export F77 include parser at `f77lIncludesNoTransform`
