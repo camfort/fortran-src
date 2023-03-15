@@ -80,6 +80,7 @@ library
       Language.Fortran.AST.Literal.Boz
       Language.Fortran.AST.Literal.Complex
       Language.Fortran.AST.Literal.Real
+      Language.Fortran.Common.Array
       Language.Fortran.Intrinsics
       Language.Fortran.LValue
       Language.Fortran.Parser
