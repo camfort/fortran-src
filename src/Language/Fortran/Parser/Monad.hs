@@ -78,9 +78,22 @@ class Tok a where
 
 newtype Parse b c a = Parse { unParse :: ParseState b -> ParseResult b c a }
 
-instance (Loc b, LastToken b c, Show c) => Monad (Parse b c) where
-  return a = Parse $ \s -> ParseOk a s
+instance (Loc b, LastToken b c, Show c) => Functor (Parse b c) where
+  fmap f (Parse p) = Parse $ \s -> case p s of
+    ParseOk a s' -> ParseOk (f a) s'
+    ParseFailed e -> ParseFailed e
 
+instance (Loc b, LastToken b c, Show c) => Applicative (Parse b c) where
+  pure a = Parse $ \s -> ParseOk a s
+  (Parse pl) <*> (Parse pr) = Parse $ \s ->
+    case pl s of
+      ParseFailed e -> ParseFailed e
+      ParseOk ab s' ->
+        case pr s' of
+          ParseFailed e -> ParseFailed e
+          ParseOk a s'' -> ParseOk (ab a) s''
+
+instance (Loc b, LastToken b c, Show c) => Monad (Parse b c) where
   (Parse m) >>= f = Parse $ \s ->
     case m s of
       ParseOk a s' -> unParse (f a) s'
@@ -97,13 +110,6 @@ instance (Loc b, LastToken b c, Show c) => MonadFail (Parse b c) where
     , errLastToken  = (getLastToken . psAlexInput) s
     , errFilename   = psFilename s
     , errMsg        = msg }
-
-instance (Loc b, LastToken b c, Show c) => Functor (Parse b c) where
-  fmap = liftM
-
-instance (Loc b, LastToken b c, Show c) => Applicative (Parse b c) where
-  pure  = return
-  (<*>) = ap
 
 instance (Loc b, LastToken b c, Show c) => MonadState (ParseState b) (Parse b c) where
   get = Parse $ \s -> ParseOk s s
