@@ -52,7 +52,7 @@ data SemType
     deriving stock    (Ord, Eq, Show, Data, Generic)
     deriving anyclass (NFData, Binary, Out)
 
-type Dimensions = Dims 'DimTypeUpper NonEmpty Int
+type Dimensions = Dims NonEmpty Int
 
 -- TODO placeholder, not final or tested
 -- should really attempt to print with kind info, and change to DOUBLE PRECISION
