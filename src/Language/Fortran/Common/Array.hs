@@ -12,17 +12,9 @@ import qualified Text.PrettyPrint as Pretty
 
 import qualified Language.Fortran.PrettyPrint as F
 
--- | The data type using this has two values. Are they lower and upper bounds,
---   or lower bound and extent?
-data DimType = DimTypeUpper | DimTypeExtent
-
-data Dim (dt :: DimType) a = Dim
-  { dimLeftLower :: a
-  -- ^ Dimension lower bound.
-
-  , dimRight :: a
-  -- ^ If 'DimType' is 'DimTypeUpper', this is the upper bound. If it is
-  -- 'DimTypeExtent', this is the extent.
+data Dim a = Dim
+  { dimLower :: a -- ^ Dimension lower bound.
+  , dimUpper :: a -- ^ Dimension upper bound.
   } deriving stock (Show, Generic, Data, Eq)
     deriving stock (Functor, Foldable, Traversable)
     deriving anyclass (NFData, Binary)
@@ -32,10 +24,10 @@ data Dim (dt :: DimType) a = Dim
 
 -- | Fortran syntax uses @lower:upper@, so only provide an 'Out' instance for
 --   that style.
-instance Out a => Out (Dim 'DimTypeUpper a) where
+instance Out a => Out (Dim a) where
     doc (Dim lb ub) = doc lb <> Pretty.char ':' <> doc ub
 
-instance Out (Dim dt a) => F.Pretty (Dim dt a) where
+instance Out (Dim a) => F.Pretty (Dim a) where
     pprint' _ = doc
 
 -- | Evaluated dimensions of a Fortran array.
@@ -53,12 +45,12 @@ instance Out (Dim dt a) => F.Pretty (Dim dt a) where
 -- For soundness, consider using a non-empty list type.
 --
 -- 'DimensionType' only matters for explicit and assumed-size (the tuples).
-data Dims (dt :: DimType) t a
+data Dims t a
   = DimsExplicitShape
-      (t (Dim dt a)) -- ^ list of all dimensions
+      (t (Dim a)) -- ^ list of all dimensions
 
   | DimsAssumedSize
-      (Maybe (t (Dim dt a))) -- ^ list of all dimensions except last
+      (Maybe (t (Dim a))) -- ^ list of all dimensions except last
       a          -- ^ lower bound of last dimension
 
   -- | Assumed-shape array dimensions. Here, we only have the lower bound for
@@ -70,23 +62,23 @@ data Dims (dt :: DimType) t a
     deriving stock (Functor, Foldable, Traversable)
 
 -- We have to standalone derive most instances due to @t (a, a)@.
-deriving stock instance (Show a, Show (t a), Show (t (Dim dt a)))
-  => Show (Dims dt t a)
-deriving anyclass instance (NFData a, NFData (t a), NFData (t (Dim dt a)))
-  => NFData (Dims dt t a)
-deriving stock instance (Data a, Data (t a), Data (t (Dim dt a)), Typeable t, Typeable dt)
-  => Data (Dims dt t a)
-deriving stock instance (Eq a, Eq (t a), Eq (t (Dim dt a)))
-  => Eq (Dims dt t a)
-deriving anyclass instance (Binary a, Binary (t a), Binary (t (Dim dt a)))
-  => Binary (Dims dt t a)
+deriving stock instance (Show a, Show (t a), Show (t (Dim a)))
+  => Show (Dims t a)
+deriving anyclass instance (NFData a, NFData (t a), NFData (t (Dim a)))
+  => NFData (Dims t a)
+deriving stock instance (Data a, Data (t a), Data (t (Dim a)), Typeable t)
+  => Data (Dims t a)
+deriving stock instance (Eq a, Eq (t a), Eq (t (Dim a)))
+  => Eq (Dims t a)
+deriving anyclass instance (Binary a, Binary (t a), Binary (t (Dim a)))
+  => Binary (Dims t a)
 
 -- | Meaningless instance, only use transparently.
-deriving stock instance (Ord a, Ord (t a), Ord (t (Dim dt a)))
-  => Ord (Dims dt t a)
+deriving stock instance (Ord a, Ord (t a), Ord (t (Dim a)))
+  => Ord (Dims t a)
 
-instance (Foldable t, Functor t, Out (Dim dt a), Out a)
-  => Out (Dims dt t a) where
+instance (Foldable t, Functor t, Out (Dim a), Out a)
+  => Out (Dims t a) where
     docPrec _ = doc
     doc = Pretty.parens . \case
       DimsExplicitShape ds ->
@@ -105,7 +97,7 @@ instance (Foldable t, Functor t, Out (Dim dt a), Out a)
       where
         dimSep = Pretty.text ", "
 
-instance Out (Dims dt t a) => F.Pretty (Dims dt t a) where
+instance Out (Dims t a) => F.Pretty (Dims t a) where
     pprint' _ = doc
 
 -- Faster is possible for non-@List@s, but this is OK for the general case.
