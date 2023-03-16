@@ -54,22 +54,29 @@ data SemType
 
 type Dimensions = Dims NonEmpty Int
 
--- TODO placeholder, not final or tested
--- should really attempt to print with kind info, and change to DOUBLE PRECISION
--- etc. for <F90. Maybe cheat, use 'recoverSemTypeTypeSpec' and print resulting
--- TypeSpec?
 instance Pretty SemType where
-  pprint' v = \case
-    TInteger k -> "integer"<>pd k
-    TReal    k -> "real"<>pd k
-    TComplex k -> "complex"<>pd k
-    TLogical k -> "logical"<>pd k
-    TByte    k -> "byte"<>pd k
-    TCharacter _ _ -> "character"
-    TArray st dims -> pprint' v st <> pprint' v dims
-    TCustom str -> pprint' v (TypeCustom str)
+  pprint' v
+    | v >= Fortran90 = \case
+      TInteger k -> "integer"<>pd k
+      TReal    k -> "real"<>pd k
+      TComplex k -> "complex"<>pd k
+      TLogical k -> "logical"<>pd k
+      TByte    k -> "byte"<>pd k
+      TCharacter _ _ -> "character(TODO)"
+      TArray st dims -> pprint' v st <> pprint' v dims
+      TCustom str -> pprint' v (TypeCustom str)
+    | otherwise = \case
+      TInteger k -> "integer"<>ad k
+      TReal    k -> "real"<>ad k
+      TComplex k -> "complex"<>ad k
+      TLogical k -> "logical"<>ad k
+      TByte    k -> "byte"<>ad k
+      TCharacter _ _ -> "character*TODO"
+      TArray st dims -> pprint' v st <> pprint' v dims
+      TCustom str -> pprint' v (TypeCustom str)
     where
-      pd = Pretty.parens . doc
+       pd = Pretty.parens . doc
+       ad k = doc '*' <> doc k
 
 -- | Convert 'Dimensions' data type to its previous type synonym
 --   @(Maybe [(Int, Int)])@.
