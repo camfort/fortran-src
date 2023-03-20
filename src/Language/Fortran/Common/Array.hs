@@ -1,4 +1,4 @@
-{-# LANGUAGE UndecidableInstances #-} -- due to instance design :)
+{-# LANGUAGE UndecidableInstances #-} -- required due to instance design
 
 module Language.Fortran.Common.Array where
 
@@ -19,7 +19,8 @@ data Dim a = Dim
     deriving stock (Functor, Foldable, Traversable)
     deriving anyclass (NFData, Binary)
 
-    -- | Meaningless instance, only use transparently.
+    -- | This instance is purely for convenience. No definition of ordering is
+    --   provided, and the implementation may change at any time.
     deriving stock Ord
 
 -- | Fortran syntax uses @lower:upper@, so only provide an 'Out' instance for
@@ -32,19 +33,22 @@ instance Out (Dim a) => F.Pretty (Dim a) where
 
 -- | Evaluated dimensions of a Fortran array.
 --
--- Syntactic datatype; includes lower bound. (Normalized arrays only require the
--- extent.) Also, since Fortran array dimensions can be defined in two ways
--- (@lower:upper@, or @lower@ and dimension extent) but share representation, a
--- type-level switch is included for distinguishing between them.
+-- A known-length dimension is defined by a lower bound and an upper bound. This
+-- data type takes a syntactic view, rather than normalizing lower bound to 0
+-- and passing just dimension extents.
 --
--- Extremely general. You select the list type @t@ (which should be 'Foldable')
--- and the numeric index type @a@ (e.g. 'Int'). The intent is that this type may
--- be quietly wrapped into others with type synonyms and perhaps pattern
--- synonyms.
+-- You select the list type @t@ (which should be 'Functor', 'Foldable' and
+-- 'Traversable') and the numeric index type @a@ (e.g. 'Int').
 --
--- For soundness, consider using a non-empty list type.
+-- Note that using a non-empty list type such as 'Data.List.NonEmpty.NonEmpty'
+-- will disallow representing zero-dimension arrays, which may be useful for
+-- soundness.
 --
--- 'DimensionType' only matters for explicit and assumed-size (the tuples).
+-- Note the following excerpt from the F2018 standard (8.5.8.2 Explicit-shape
+-- array):
+--
+-- > If the upper bound is less than the lower bound, the range is empty, the
+-- > extent in that dimension is zero, and the array is of zero size.
 data Dims t a
   = DimsExplicitShape
       (t (Dim a)) -- ^ list of all dimensions
@@ -61,7 +65,7 @@ data Dims t a
     deriving stock (Generic)
     deriving stock (Functor, Foldable, Traversable)
 
--- We have to standalone derive most instances due to @t (a, a)@.
+-- We have to standalone derive most instances due to the @t@ list-like.
 deriving stock instance (Show a, Show (t a), Show (t (Dim a)))
   => Show (Dims t a)
 deriving anyclass instance (NFData a, NFData (t a), NFData (t (Dim a)))
@@ -73,7 +77,8 @@ deriving stock instance (Eq a, Eq (t a), Eq (t (Dim a)))
 deriving anyclass instance (Binary a, Binary (t a), Binary (t (Dim a)))
   => Binary (Dims t a)
 
--- | Meaningless instance, only use transparently.
+-- | This instance is purely for convenience. No definition of ordering is
+--   provided, and the implementation may change at any time.
 deriving stock instance (Ord a, Ord (t a), Ord (t (Dim a)))
   => Ord (Dims t a)
 
