@@ -1,3 +1,9 @@
+### 0.14.0 (Mar 21, 2023)
+  * provide extended evaluated array dimensions type at
+    `Language.Fortran.Common.Array` (#261, @raehik)
+    * replace the previous `Dimensions` type in
+      `Language.Fortran.Analysis.SemanticTypes`
+
 ### 0.13.0 (Mar 14, 2023)
   * better handling for line directives in free form lexer (#248, @mrd)
   * don't inline solo includes in relevant F77 parsers (#245, @RaoulHC)
