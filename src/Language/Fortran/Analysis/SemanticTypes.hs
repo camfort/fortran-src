@@ -52,7 +52,10 @@ data SemType
     deriving stock    (Ord, Eq, Show, Data, Generic)
     deriving anyclass (NFData, Binary, Out)
 
-type Dimensions = Dims NonEmpty Int
+-- | The main dimension type is a non-empty list of dimensions where each bound
+--   is @'Maybe' 'Int'@. @'Nothing'@ bounds indicate a dynamic bound (e.g. uses
+--   a dummy variable).
+type Dimensions = Dims NonEmpty (Maybe Int)
 
 instance Pretty SemType where
   pprint' v
@@ -81,11 +84,15 @@ instance Pretty SemType where
 -- | Convert 'Dimensions' data type to its previous type synonym
 --   @(Maybe [(Int, Int)])@.
 --
--- Will not return @Just []@.
+-- Drops all information for array dimensions that aren't fully static/known.
 dimensionsToTuples :: Dimensions -> Maybe [(Int, Int)]
 dimensionsToTuples = \case
-  DimsExplicitShape ds     ->
-    Just $ NonEmpty.toList $ fmap (\(Dim lb ub) -> (lb, ub)) ds
+  DimsExplicitShape ds     -> fmap NonEmpty.toList $ traverse go ds
+    where
+      go (Dim mlb mub) = do
+          lb <- mlb
+          ub <- mub
+          pure $ (lb, ub)
   DimsAssumedSize   _ds _d -> Nothing
   DimsAssumedShape  _ss    -> Nothing
 
