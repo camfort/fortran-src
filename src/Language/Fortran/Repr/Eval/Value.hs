@@ -437,3 +437,7 @@ evalIntrinsicMax = \case
           _ ->
             err $ EOpTypeError $
                 "max: unsupported type: "<> show (fScalarValueType vCurMax)
+
+-- | Evaluate a constant expression (F2018 10.1.12).
+evalConstExpr :: MonadFEvalValue m => F.Expression a -> m FValue
+evalConstExpr = evalExpr
