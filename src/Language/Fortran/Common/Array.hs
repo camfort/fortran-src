@@ -12,6 +12,15 @@ import qualified Text.PrettyPrint as Pretty
 
 import qualified Language.Fortran.PrettyPrint as F
 
+-- | A single array dimension with bounds of type @a@.
+--
+--   * @'Num' a => 'Dim' a@ is a static, known-size dimension.
+--   * @'Dim' ('Language.Fortran.AST.Expression' '()')@ is a dimension with
+--     unevaluated bounds expressions. Note that these bounds may be constant
+--     expressions, or refer to dummy variables, or be invalid.
+--   * @'Num' a => 'Dim' ('Maybe' a)@ is a dimension where some bounds are
+--     known, and others are not. This may be useful to record some information
+--     about dynamic explicit-shape arrays.
 data Dim a = Dim
   { dimLower :: a -- ^ Dimension lower bound.
   , dimUpper :: a -- ^ Dimension upper bound.
@@ -31,18 +40,14 @@ instance Out a => Out (Dim a) where
 instance Out (Dim a) => F.Pretty (Dim a) where
     pprint' _ = doc
 
--- | Evaluated dimensions of a Fortran array.
---
--- A known-length dimension is defined by a lower bound and an upper bound. This
--- data type takes a syntactic view, rather than normalizing lower bound to 0
--- and passing just dimension extents.
+-- | Fortran array dimensions, defined by a list of 'Dim's storing lower and
+--   upper bounds.
 --
 -- You select the list type @t@ (which should be 'Functor', 'Foldable' and
--- 'Traversable') and the numeric index type @a@ (e.g. 'Int').
+-- 'Traversable') and the bound type @a@ (e.g. 'Int').
 --
--- Note that using a non-empty list type such as 'Data.List.NonEmpty.NonEmpty'
--- will disallow representing zero-dimension arrays, which may be useful for
--- soundness.
+-- Using a non-empty list type such as 'Data.List.NonEmpty.NonEmpty' will
+-- disallow representing zero-dimension arrays, providing extra soundness.
 --
 -- Note the following excerpt from the F2018 standard (8.5.8.2 Explicit-shape
 -- array):
@@ -50,15 +55,19 @@ instance Out (Dim a) => F.Pretty (Dim a) where
 -- > If the upper bound is less than the lower bound, the range is empty, the
 -- > extent in that dimension is zero, and the array is of zero size.
 data Dims t a
+  -- | Explicit-shape array. All dimensions are known.
   = DimsExplicitShape
       (t (Dim a)) -- ^ list of all dimensions
 
+  -- | Assumed-size array. The final dimension has no upper bound (it is
+  --   obtained from its effective argument). Earlier dimensions may be defined
+  --   like explicit-shape arrays.
   | DimsAssumedSize
       (Maybe (t (Dim a))) -- ^ list of all dimensions except last
-      a          -- ^ lower bound of last dimension
+      a                   -- ^ lower bound of last dimension
 
-  -- | Assumed-shape array dimensions. Here, we only have the lower bound for
-  --   each dimension, and the rank (via length).
+  -- | Assumed-shape array. Shape is taken from effective argument. We store the
+  --   lower bound for each dimension, and thus also the rank (via list length).
   | DimsAssumedShape
       (t a) -- ^ list of lower bounds
 
@@ -105,7 +114,8 @@ instance (Foldable t, Functor t, Out (Dim a), Out a)
 instance Out (Dims t a) => F.Pretty (Dims t a) where
     pprint' _ = doc
 
--- Faster is possible for non-@List@s, but this is OK for the general case.
+-- Faster is possible for non @[]@ list-likes, but this is OK for the general
+-- case.
 prettyIntersperse :: Foldable t => Pretty.Doc -> t Pretty.Doc -> Pretty.Doc
 prettyIntersperse dBetween ds =
     case foldMap (\d -> [dBetween, d]) ds of
@@ -114,3 +124,10 @@ prettyIntersperse dBetween ds =
 
 prettyAfter :: Foldable t => Pretty.Doc -> t Pretty.Doc -> Pretty.Doc
 prettyAfter dAfter = foldMap (\d -> d <> dAfter)
+
+-- | Traverse over the functor in a 'Dims' value with a functor bound type.
+--
+-- For example, to turn a @'Dims' t ('Maybe' a)@ into a @'Maybe' ('Dims' t a)@.
+dimsTraverse :: (Traversable t, Applicative f) => Dims t (f a) -> f (Dims t a)
+dimsTraverse = traverse id
+-- TODO provide a SPECIALIZE clause for the above Maybe case. performance! :)
