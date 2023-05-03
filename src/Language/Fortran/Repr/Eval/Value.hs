@@ -29,6 +29,7 @@ import GHC.Generics ( Generic )
 import qualified Data.Text as Text
 import qualified Data.Char
 import qualified Data.Bits
+import Data.Int
 
 import Control.Monad.Except
 
@@ -45,11 +46,19 @@ data Error
   = ENoSuchVar F.Name
   | EKindLitBadType F.Name FType
   | ENoSuchKindForType String FKindLit
+
   | EUnsupported String
+  -- ^ Syntax which probably should be supported, but (currently) isn't.
+
   | EOp Op.Error
   | EOpTypeError String
+
+  | ESpecial String
+  -- ^ Special value-like expression that we can't evaluate usefully.
+
   | ELazy String
   -- ^ Catch-all for non-grouped errors.
+
     deriving stock (Generic, Show, Eq)
 
 -- | A convenience constraint tuple defining the base requirements of the
@@ -156,13 +165,13 @@ evalLit = \case
     warn "requested to evaluate BOZ literal with no context: defaulting to INTEGER(4)"
     pure $ FSVInt $ FInt4 $ F.bozAsTwosComp boz
   F.ValHollerith s -> pure $ FSVString $ Text.pack s
-  F.ValIntrinsic{} -> error "you tried to evaluate a lit, but it was an intrinsic name"
-  F.ValVariable{} ->  error "you tried to evaluate a lit, but it was a variable name"
-  F.ValOperator{} ->  error "you tried to evaluate a lit, but it was a custom operator name"
-  F.ValAssignment ->  error "you tried to evaluate a lit, but it was an overloaded assignment name"
-  F.ValStar       ->  error "you tried to evaluate a lit, but it was a star"
-  F.ValColon      ->  error "you tried to evaluate a lit, but it was a colon"
-  F.ValType{}     ->  error "not used anywhere, don't know what it is"
+  F.ValIntrinsic{} -> err $ ESpecial "lit was ValIntrinsic{} (intrinsic name)"
+  F.ValVariable{}  -> err $ ESpecial "lit was ValVariable{} (variable name)"
+  F.ValOperator{}  -> err $ ESpecial "lit was ValOperator{} (custom operator name)"
+  F.ValAssignment  -> err $ ESpecial "lit was ValAssignment (overloaded assignment name)"
+  F.ValStar        -> err $ ESpecial "lit was ValStar"
+  F.ValColon       -> err $ ESpecial "lit was ValColon"
+  F.ValType{}      -> err $ ELazy "lit was ValType: not used anywhere, don't know what it is"
 
 err :: MonadError Error m => Error -> m a
 err = throwError
@@ -339,21 +348,20 @@ evalFunctionCall fname args =
             err $ EOpTypeError $
                 "not: expected INT(x), got "<>show (fScalarValueType v')
 
-      "int"  -> do
-        -- TODO a real pain. just implementing common bits for now
-        -- TODO gfortran actually performs some range checks for constants!
-        -- @int(128, 1)@ errors with "this INT(4) is too big for INT(1)".
-        args' <- forceArgs 1 args
-        let [v] = args'
-        v' <- forceScalar v
-        case v' of
-          FSVInt{} ->
-            pure $ MkFScalarValue v'
-          FSVReal r ->
-            pure $ MkFScalarValue $ FSVInt $ FInt4 $ fRealUOp truncate r
-          _ ->
-            err $ EOpTypeError $
-                "int: unsupported or unimplemented type: "<>show (fScalarValueType v')
+      "int"  ->
+        case args of
+          [] -> err $ EOpTypeError $ "int: expected 1 or 2 arguments, got 0"
+          [v] -> do
+            -- @INT(x)@ == @INT(x, 4)@ (F2018 16.9.100:23, pg.381)
+            (MkFScalarValue . FSVInt . FInt4) <$> evalIntrinsicInt4 v
+          [v, vk] -> do
+            vk' <- forceScalar vk
+            case vk' of
+              FSVInt vkI -> (MkFScalarValue . FSVInt) <$> evalIntrinsicInt v vkI
+              _ ->
+                err $ EOpTypeError $
+                    "int: kind argument must be INTEGER, got "<>show (fScalarValueType vk')
+          _ -> err $ EOpTypeError $ "int: expected 1 or 2 arguments, got >2"
 
       -- TODO all lies
       "int2" -> do
@@ -370,6 +378,52 @@ evalFunctionCall fname args =
                 "int: unsupported or unimplemented type: "<>show (fScalarValueType v')
 
       _      -> err $ EUnsupported $ "function call: " <> fname
+
+-- TODO 2023-05-03 raehik: gfortran actually performs some range checks for
+-- constants! @int(128, 1)@ errors with "this INT(4) is too big for INT(1)".
+-- we don't do that currently. just means more plumbing
+evalIntrinsicInt :: MonadFEvalValue m => FValue -> FInt -> m FInt
+evalIntrinsicInt v = fIntUOp go
+  where
+    go :: (MonadFEvalValue m, Num a, Eq a) => a -> m FInt
+    go = \case
+      1 -> FInt1 <$> evalIntrinsicInt1 v
+      2 -> FInt2 <$> evalIntrinsicInt2 v
+      4 -> FInt4 <$> evalIntrinsicInt4 v
+      8 -> FInt8 <$> evalIntrinsicInt8 v
+      _ -> err $ ELazy "int: kind argument wasn't 1, 2, 4 or 8"
+
+-- | @INT(a, 1)@
+evalIntrinsicInt1 :: MonadFEvalValue m => FValue -> m Int8
+evalIntrinsicInt1 = evalIntrinsicIntXCoerce coerceToI1
+  where coerceToI1 = fIntUOp' id fromIntegral fromIntegral fromIntegral
+
+-- | @INT(a, 2)@
+evalIntrinsicInt2 :: MonadFEvalValue m => FValue -> m Int16
+evalIntrinsicInt2 = evalIntrinsicIntXCoerce coerceToI2
+  where coerceToI2 = fIntUOp' fromIntegral id fromIntegral fromIntegral
+
+-- | @INT(a, 4)@, @INT(a)@
+evalIntrinsicInt4 :: MonadFEvalValue m => FValue -> m Int32
+evalIntrinsicInt4 = evalIntrinsicIntXCoerce coerceToI4
+  where coerceToI4 = fIntUOp' fromIntegral fromIntegral id fromIntegral
+
+-- | @INT(a, 8)@
+evalIntrinsicInt8 :: MonadFEvalValue m => FValue -> m Int64
+evalIntrinsicInt8 = evalIntrinsicIntXCoerce coerceToI8
+  where coerceToI8 = fIntUOp' fromIntegral fromIntegral fromIntegral id
+
+evalIntrinsicIntXCoerce
+    :: forall r m
+    .  (MonadFEvalValue m, Integral r) => (FInt -> r) -> FValue -> m r
+evalIntrinsicIntXCoerce coerceToIX v = do
+    v' <- forceScalar v
+    case v' of
+      FSVInt  i -> pure $ coerceToIX i
+      FSVReal r -> pure $ fRealUOp truncate r
+      _ ->
+        err $ EOpTypeError $
+            "int: unsupported or unimplemented type: "<>show (fScalarValueType v')
 
 evalArg :: MonadFEvalValue m => F.Argument a -> m FValue
 evalArg (F.Argument _ _ _ ae) =
