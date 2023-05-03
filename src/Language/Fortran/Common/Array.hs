@@ -54,6 +54,10 @@ instance Out (Dim a) => F.Pretty (Dim a) where
 --
 -- > If the upper bound is less than the lower bound, the range is empty, the
 -- > extent in that dimension is zero, and the array is of zero size.
+--
+-- Note that the 'Foldable' instance does not provide "dimension-like" access to
+-- this type. That is, @'length' (a :: 'Dims' t a)@ will _not_ tell you how many
+-- dimensions 'a' represents. Use 'dimsLength' for that.
 data Dims t a
   -- | Explicit-shape array. All dimensions are known.
   = DimsExplicitShape
@@ -131,3 +135,13 @@ prettyAfter dAfter = foldMap (\d -> d <> dAfter)
 dimsTraverse :: (Traversable t, Applicative f) => Dims t (f a) -> f (Dims t a)
 dimsTraverse = traverse id
 -- TODO provide a SPECIALIZE clause for the above Maybe case. performance! :)
+
+-- | How many dimensions does the given 'Dims' represent?
+dimsLength :: Foldable t => Dims t a -> Int
+dimsLength = \case
+  DimsExplicitShape ds -> length ds
+  DimsAssumedShape ss -> length ss
+  DimsAssumedSize mds _d ->
+    case mds of
+      Nothing -> 1
+      Just ds -> length ds + 1
