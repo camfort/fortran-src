@@ -1,3 +1,12 @@
+### Unreleased
+  * handle more `INT` intrinsic forms
+    [#263](https://github.com/camfort/fortran-src/pull/263)
+  * add more `Language.Fortran.Common.Array` utils
+    [#263](https://github.com/camfort/fortran-src/pull/263)
+  * Analysis.SemanticTypes: use `type Dimensions = Dims NonEmpty (Maybe Int)`
+    instead of `type Dimensions = Dims NonEmpty Int`
+    [#263](https://github.com/camfort/fortran-src/pull/263)
+
 ### 0.14.0 (Mar 21, 2023)
   * provide extended evaluated array dimensions type at
     `Language.Fortran.Common.Array` (#261, @raehik)
