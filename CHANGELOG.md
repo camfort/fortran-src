@@ -1,4 +1,4 @@
-### Unreleased
+### 0.15.0 (May 04, 2023)
   * handle more `INT` intrinsic forms
     [#263](https://github.com/camfort/fortran-src/pull/263)
   * add more `Language.Fortran.Common.Array` utils
