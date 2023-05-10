@@ -7,6 +7,7 @@ module Language.Fortran.Parser.Free.Fortran2003
   , blockParser
   , statementParser
   , expressionParser
+  , includesParser
   ) where
 
 import Language.Fortran.Version
@@ -28,6 +29,7 @@ import qualified Data.List as List
 %name blockParser      BLOCK
 %name statementParser  STATEMENT
 %name expressionParser EXPRESSION
+%name includesParser   INCLUDES
 %monad { LexAction }
 %lexer { lexer } { TEOF _ }
 %tokentype { Token }
@@ -348,6 +350,9 @@ NAME :: { Name } : id { let (TId _ name) = $1 in name }
 IMPORT_NAME_LIST :: { [Expression A0] }
 : IMPORT_NAME_LIST ',' VARIABLE { $3 : $1 }
 | VARIABLE { [ $1 ] }
+
+INCLUDES :: { [ Block A0 ] }
+: BLOCKS NEWLINE { reverse $1 }
 
 BLOCKS :: { [ Block A0 ] } : BLOCKS BLOCK { $2 : $1 } | {- EMPTY -} { [ ] }
 

@@ -17,6 +17,7 @@ module Language.Fortran.Parser
   , f66, f77, f77e, f77l, f90, f95, f2003
 
   -- * Main parsers without post-parse transformation
+  , byVerNoTransform
   , f66NoTransform, f77NoTransform, f77eNoTransform, f77lNoTransform
     , f90NoTransform, f95NoTransform, f2003NoTransform
 
@@ -30,6 +31,10 @@ module Language.Fortran.Parser
   , f66StmtNoTransform, f77StmtNoTransform, f77eStmtNoTransform
     , f77lStmtNoTransform, f90StmtNoTransform, f95StmtNoTransform
     , f2003StmtNoTransform
+  , byVerInclude
+  , f66IncludesNoTransform, f77IncludesNoTransform, f77eIncludesNoTransform
+  , f77lIncludesNoTransform, f90IncludesNoTransform, f95IncludesNoTransform
+  , f2003IncludesNoTransform
 
   -- * Various combinators
   , transformAs, defaultTransformation
@@ -43,7 +48,10 @@ module Language.Fortran.Parser
 
   -- * F77 with inlined includes
   -- $f77includes
-  , f77lInlineIncludes
+  , byVerInlineIncludes
+  , f66InlineIncludes, f77InlineIncludes, f77eInlineIncludes
+  , f77lInlineIncludes, f90InlineIncludes , f95InlineIncludes
+  , f2003InlineIncludes
   ) where
 
 import Language.Fortran.AST
@@ -175,6 +183,18 @@ byVerStmt = \case
   v                 -> error $  "Language.Fortran.Parser.byVerStmt: "
                              <> "no parser available for requested version: "
                              <> show v
+byVerNoTransform :: FortranVersion -> Parser (ProgramFile A0)
+byVerNoTransform = \case
+  Fortran66         -> f66NoTransform
+  Fortran77         -> f77NoTransform
+  Fortran77Legacy   -> f77lNoTransform
+  Fortran77Extended -> f77eNoTransform
+  Fortran90         -> f90NoTransform
+  Fortran95         -> f90NoTransform
+  Fortran2003       -> f2003NoTransform
+  v                 -> error $  "Language.Fortran.Parser.byVerNoTransform: "
+                           <> "no parser available for requested version: "
+                           <> show v
 
 f90Expr :: Parser (Expression A0)
 f90Expr = makeParser initParseStateFreeExpr F90.expressionParser Fortran90
@@ -291,35 +311,47 @@ are thrown as IO exceptions.
 Can be cleaned up and generalized to use for other parsers.
 -}
 
-f77lInlineIncludes
-    :: [FilePath] -> ModFiles -> String -> B.ByteString
-    -> IO (ProgramFile A0)
-f77lInlineIncludes incs mods fn bs = do
-    case f77lNoTransform fn bs of
-      Left e -> liftIO $ throwIO e
-      Right pf -> do
-        let pf' = pfSetFilename fn pf
-        pf'' <- evalStateT (descendBiM (f77lInlineIncludes' incs []) pf') Map.empty
-        let pf''' = runTransform (combinedTypeEnv mods)
-                                 (combinedModuleMap mods)
-                                 (defaultTransformation Fortran77Legacy)
-                                 pf''
-        return pf'''
+f66InlineIncludes, f77InlineIncludes, f77eInlineIncludes, f77lInlineIncludes,
+  f90InlineIncludes, f95InlineIncludes, f2003InlineIncludes
+  :: [FilePath] -> ModFiles -> String -> B.ByteString -> IO (ProgramFile A0)
+f66InlineIncludes = byVerInlineIncludes Fortran66
+f77lInlineIncludes = byVerInlineIncludes Fortran77Legacy
+f77eInlineIncludes = byVerInlineIncludes Fortran77Extended
+f77InlineIncludes = byVerInlineIncludes Fortran77
+f90InlineIncludes = byVerInlineIncludes Fortran90
+f95InlineIncludes = byVerInlineIncludes Fortran95
+f2003InlineIncludes = byVerInlineIncludes Fortran2003
 
-f77lInlineIncludes'
-    :: [FilePath] -> [FilePath] -> Statement A0
+byVerInlineIncludes
+    :: FortranVersion -> [FilePath] -> ModFiles -> String -> B.ByteString
+    -> IO (ProgramFile A0)
+byVerInlineIncludes version incs mods fn bs = do
+  case byVerNoTransform version fn bs of
+    Left e -> liftIO $ throwIO e
+    Right pf -> do
+      let pf' = pfSetFilename fn pf
+      pf'' <- evalStateT (descendBiM (parserInlineIncludes version incs []) pf') Map.empty
+      let pf''' = runTransform (combinedTypeEnv mods)
+                                (combinedModuleMap mods)
+                                (defaultTransformation version)
+                                pf''
+      return pf'''
+
+-- Internal function to go through the includes and inline them
+parserInlineIncludes
+    :: FortranVersion -> [FilePath] -> [FilePath] -> Statement A0
     -> StateT (Map String [Block A0]) IO (Statement A0)
-f77lInlineIncludes' dirs = go
+parserInlineIncludes version dirs = go
   where
     go seen st = case st of
       StInclude a s e@(ExpValue _ _ (ValString path)) Nothing -> do
-        if notElem path seen then do
+        if path `notElem` seen then do
           incMap <- get
           case Map.lookup path incMap of
             Just blocks' -> pure $ StInclude a s e (Just blocks')
             Nothing -> do
               (fullPath, incBs) <- liftIO $ readInDirs dirs path
-              case f77lIncludesNoTransform fullPath incBs of
+              case byVerInclude version fullPath incBs of
                 Right blocks -> do
                   blocks' <- descendBiM (go (path:seen)) blocks
                   modify (Map.insert path blocks')
@@ -328,8 +360,30 @@ f77lInlineIncludes' dirs = go
         else pure st
       _ -> pure st
 
-f77lIncludesNoTransform :: Parser [Block A0]
+f66IncludesNoTransform, f77IncludesNoTransform, f77eIncludesNoTransform,
+  f77lIncludesNoTransform, f90IncludesNoTransform, f95IncludesNoTransform,
+  f2003IncludesNoTransform
+  :: Parser [Block A0]
+f66IncludesNoTransform = makeParserFixed F66.includesParser Fortran66
+f77IncludesNoTransform = makeParserFixed F77.includesParser Fortran77
+f77eIncludesNoTransform = makeParserFixed F77.includesParser Fortran77Extended
 f77lIncludesNoTransform = makeParserFixed F77.includesParser Fortran77Legacy
+f90IncludesNoTransform = makeParserFree F90.includesParser Fortran90
+f95IncludesNoTransform = makeParserFree F95.includesParser Fortran95
+f2003IncludesNoTransform = makeParserFree F2003.includesParser Fortran2003
+
+byVerInclude :: FortranVersion -> Parser [Block A0]
+byVerInclude = \case
+  Fortran66         -> f66IncludesNoTransform
+  Fortran77         -> f77IncludesNoTransform
+  Fortran77Extended -> f77eIncludesNoTransform
+  Fortran77Legacy   -> f77lIncludesNoTransform
+  Fortran90         -> f90IncludesNoTransform
+  Fortran95         -> f95IncludesNoTransform
+  Fortran2003       -> f2003IncludesNoTransform
+  v                 -> error $  "Language.Fortran.Parser.byVerInclude: "
+                           <> "no parser available for requested version: "
+                           <> show v
 
 readInDirs :: [String] -> String -> IO (String, B.ByteString)
 readInDirs [] f = fail $ "cannot find file: " ++ f

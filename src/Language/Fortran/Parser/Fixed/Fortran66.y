@@ -6,6 +6,7 @@ module Language.Fortran.Parser.Fixed.Fortran66
   , blockParser
   , statementParser
   , expressionParser
+  , includesParser
   ) where
 
 import Language.Fortran.Version
@@ -25,6 +26,7 @@ import Prelude hiding ( EQ, LT, GT ) -- Same constructors exist in the AST
 %name blockParser      BLOCK
 %name statementParser  STATEMENT
 %name expressionParser EXPRESSION
+%name includesParser   INCLUDES
 %monad { LexAction }
 %lexer { lexer } { TEOF _ }
 %tokentype { Token }
@@ -138,6 +140,9 @@ MAYBE_ARGUMENTS :: { Maybe (AList Expression A0) }
 | {- Nothing -} { Nothing }
 
 NAME :: { Name } : id { let (TId _ name) = $1 in name }
+
+INCLUDES :: { [ Block A0 ] }
+: BLOCKS NEWLINE { reverse $1 }
 
 BLOCKS :: { [ Block A0 ] }
 : BLOCKS BLOCK { $2 : $1 }
