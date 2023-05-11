@@ -51,9 +51,9 @@ $hash = [\#]
 @label = $digit{1,5}
 @name = $letter $alphanumeric*
 
-@binary = b\'$bit+\'
-@octal  = o\'$octalDigit+\'
-@hex    = z\'$hexDigit+\'
+@binary = b\'$bit+\' | \'$bit+\'b
+@octal  = o\'$octalDigit+\' | \'$octalDigit+\'o
+@hex    = [xz]\'$hexDigit+\' | \'$hexDigit+\'[xz]
 
 @digitString = $digit+
 @kindParam = (@digitString|@name)
