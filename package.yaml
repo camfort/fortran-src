@@ -104,8 +104,6 @@ dependencies:
 - singletons-th   >= 3.0 && < 3.2
 - singletons-base >= 3.0 && < 3.2
 
-- vector-sized ^>= 1.5.0
-
 library:
   source-dirs: src
   ghc-options: -fno-warn-tabs

@@ -202,7 +202,6 @@ library
     , temporary >=1.2 && <1.4
     , text >=1.2 && <2.1
     , uniplate >=1.6 && <2
-    , vector-sized >=1.5.0 && <1.6
   default-language: Haskell2010
   if os(windows)
     cpp-options: -DFS_DISABLE_WIN_BROKEN_TESTS
@@ -267,7 +266,6 @@ executable fortran-src
     , temporary >=1.2 && <1.4
     , text >=1.2 && <2.1
     , uniplate >=1.6 && <2
-    , vector-sized >=1.5.0 && <1.6
   default-language: Haskell2010
   if os(windows)
     cpp-options: -DFS_DISABLE_WIN_BROKEN_TESTS
@@ -365,7 +363,6 @@ test-suite spec
     , temporary >=1.2 && <1.4
     , text >=1.2 && <2.1
     , uniplate >=1.6 && <2
-    , vector-sized >=1.5.0 && <1.6
   default-language: Haskell2010
   if os(windows)
     cpp-options: -DFS_DISABLE_WIN_BROKEN_TESTS
