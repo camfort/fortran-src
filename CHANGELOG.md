@@ -1,3 +1,6 @@
+### 0.15.1 (Jun 22, 2023)
+  * remove unused vector-sized dependency
+
 ### 0.15.0 (May 04, 2023)
   * handle more `INT` intrinsic forms
     [#263](https://github.com/camfort/fortran-src/pull/263)
