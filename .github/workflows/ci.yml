@@ -56,9 +56,9 @@ jobs:
       matrix:
         cabal: [latest]
         ghc:
-        - "9.0.2"
-        - "9.2.4"
-        - "9.4.2"
+        - "9.0"
+        - "9.2"
+        - "9.4"
 
     steps:
 
@@ -81,7 +81,7 @@ jobs:
 
     - name: Setup Haskell build environment
       id: setup-haskell-build-env
-      uses: haskell/actions/setup@v1
+      uses: haskell/actions/setup@v2
       with:
         ghc-version: ${{ matrix.ghc }}
         cabal-version: ${{ matrix.cabal }}
@@ -118,7 +118,7 @@ jobs:
 
     - name: Setup Haskell build environment
       id: setup-haskell-build-env
-      uses: haskell/actions/setup@v1
+      uses: haskell/actions/setup@v2
       with:
         ghc-version: ${{ matrix.ghc }}
         cabal-version: ${{ matrix.cabal }}
@@ -166,7 +166,7 @@ jobs:
 
     - name: Setup Haskell build environment
       id: setup-haskell-build-env
-      uses: haskell/actions/setup@v1
+      uses: haskell/actions/setup@v2
       with:
         ghc-version: ${{ matrix.ghc }}
         cabal-version: ${{ matrix.cabal }}
