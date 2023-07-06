@@ -161,3 +161,7 @@ IRC network. Check in #fortran-src and #camfort . Otherwise, you could get into
 contact with one of the team on the [CamFort team
 page](https://camfort.github.io/team.html) -- or create an issue describing your
 problem and we'll have a look.
+
+### For maintainers
+See `doc/maintainers.md` in
+[camfort/camfort](https://github.com/camfort/camfort).
