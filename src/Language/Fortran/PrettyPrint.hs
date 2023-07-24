@@ -531,11 +531,11 @@ instance Pretty (Statement a) where
       | otherwise = "data" <+> hsep (map (pprint' v) dataGroups)
 
     pprint' v (StAutomatic _ _ decls)
-      | v == Fortran77Extended = "automatic" <+> pprint' v decls
+      | v `elem` [Fortran77Extended, Fortran77Legacy] = "automatic" <+> pprint' v decls
       | otherwise = tooOld v "Automatic statement" Fortran90
 
     pprint' v (StStatic _ _ decls)
-      | v == Fortran77Extended = "static" <+> pprint' v decls
+      | v `elem` [Fortran77Extended, Fortran77Legacy] = "static" <+> pprint' v decls
       | otherwise = tooOld v "Static statement" Fortran90
 
     pprint' v (StNamelist _ _ namelist)
