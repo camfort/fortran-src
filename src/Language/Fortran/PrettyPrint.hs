@@ -542,7 +542,9 @@ instance Pretty (Statement a) where
       | v >= Fortran90 = "namelist" <+> pprint' v namelist
       | otherwise = tooOld v "Namelist statement" Fortran90
 
-    pprint' v (StParameter _ _ aDecls) = "parameter" <+> parens (pprint' v aDecls)
+    -- We reuse the declaration node, but parameter statements use `=` even in
+    -- the older standards
+    pprint' _ (StParameter _ _ aDecls) = "parameter" <+> parens (pprint' Fortran90 aDecls)
 
     pprint' v (StExternal _ _ vars) = "external" <+> pprint' v vars
     pprint' v (StIntrinsic _ _ vars) = "intrinsic" <+> pprint' v vars
@@ -650,7 +652,7 @@ instance Pretty (Statement a) where
     pprint' v (StGotoComputed _ _ labels target) =
       "goto" <+> parens (pprint' v labels) <+> pprint' v target
 
-    pprint' v (StCall _ _ name args) = pprint' v name <+> parens (pprint' v args)
+    pprint' v (StCall _ _ name args) = "call" <+> pprint' v name <+> parens (pprint' v args)
 
     pprint' _ (StContinue _ _) = "continue"
 
