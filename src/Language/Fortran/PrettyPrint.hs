@@ -5,6 +5,7 @@ module Language.Fortran.PrettyPrint where
 
 import Data.Maybe (isJust, isNothing, listToMaybe)
 import Data.List (foldl')
+import qualified Data.List as List
 
 import Prelude hiding (EQ,LT,GT,pred,exp,(<>))
 
@@ -15,11 +16,6 @@ import Language.Fortran.AST.Literal.Complex
 import Language.Fortran.Version
 
 import Text.PrettyPrint
-
-tooOld :: FortranVersion -> String -> FortranVersion -> a
-tooOld currentVersion featureName featureVersion = prettyError $
-    featureName ++ " was introduced in " ++ show featureVersion ++
-    ". You called pretty print with " ++ show currentVersion ++ "."
 
 -- | Continue only if the given version is equal to or older than a "maximum"
 --   version, or emit a runtime error.
@@ -32,6 +28,24 @@ olderThan verMax featureName ver cont =
             ++ " or before. You called pretty print with "
             ++ show ver ++ "."
     else cont
+
+-- | Continue if the given version is one of the given "permitted" versions,
+--   else emit a runtime error.
+continueOnlyFor :: [FortranVersion] -> String -> FortranVersion -> a -> a
+continueOnlyFor permittedVers featureName ver cont =
+    if ver `List.elem` permittedVers then cont
+    else prettyError $
+            featureName
+            ++ " is only available for: " ++ show permittedVers
+            ++ ". You called pretty print with " ++ show ver ++ "."
+
+-- | Emit a runtime error due to bad pretty printing.
+--
+-- Intended to be used in the @otherwise@ guard.
+tooOld :: FortranVersion -> String -> FortranVersion -> a
+tooOld currentVersion featureName featureVersion = prettyError $
+    featureName ++ " was introduced in " ++ show featureVersion ++
+    ". You called pretty print with " ++ show currentVersion ++ "."
 
 (<?>) :: Doc -> Doc -> Doc
 doc1 <?> doc2 = if doc1 == empty || doc2 == empty then empty else doc1 <> doc2
@@ -391,9 +405,9 @@ instance Pretty BaseType where
     pprint' _ TypeReal    = "real"
     pprint' _ TypeDoublePrecision = "double precision"
     pprint' _ TypeComplex = "complex"
-    pprint' v TypeDoubleComplex
-      | v == Fortran77Extended = "double complex"
-      | otherwise = tooOld v "Double complex" Fortran77Extended
+    pprint' v TypeDoubleComplex =
+        continueOnlyFor [Fortran77Extended] "Double complex" v $
+            "double complex"
     pprint' _ TypeLogical = "logical"
     pprint' v TypeCharacter
       | v >= Fortran77 = "character"
@@ -530,13 +544,13 @@ instance Pretty (Statement a) where
       | v >= Fortran90 = "data" <+> pprint' v aDataGroups
       | otherwise = "data" <+> hsep (map (pprint' v) dataGroups)
 
-    pprint' v (StAutomatic _ _ decls)
-      | v `elem` [Fortran77Extended, Fortran77Legacy] = "automatic" <+> pprint' v decls
-      | otherwise = tooOld v "Automatic statement" Fortran90
+    pprint' v (StAutomatic _ _ decls) =
+        continueOnlyFor [Fortran77Extended, Fortran77Legacy] "Automatic statement" v $
+            "automatic" <+> pprint' v decls
 
-    pprint' v (StStatic _ _ decls)
-      | v `elem` [Fortran77Extended, Fortran77Legacy] = "static" <+> pprint' v decls
-      | otherwise = tooOld v "Static statement" Fortran90
+    pprint' v (StStatic _ _ decls) =
+        continueOnlyFor [Fortran77Extended, Fortran77Legacy] "Static statement" v $
+            "static" <+> pprint' v decls
 
     pprint' v (StNamelist _ _ namelist)
       | v >= Fortran90 = "namelist" <+> pprint' v namelist
@@ -671,10 +685,9 @@ instance Pretty (Statement a) where
       "write" <+> parens (pprint' v cilist) <+> pprint' v mIolist
     pprint' v (StPrint _ _ formatId mIolist) =
       "print" <+> pprint' v formatId <> comma <?+> pprint' v mIolist
-    pprint' v (StTypePrint _ _ formatId mIolist)
-      | v == Fortran77Extended
-      = "type" <+> pprint' v formatId <> comma <?+> pprint' v mIolist
-      | otherwise = tooOld v "Type (print) statement" Fortran77Extended
+    pprint' v (StTypePrint _ _ formatId mIolist) =
+        continueOnlyFor [Fortran77Extended] "Type (print) statement" v $
+            "type" <+> pprint' v formatId <> comma <?+> pprint' v mIolist
 
     pprint' v (StOpen _ _ cilist) = "open" <+> parens (pprint' v cilist)
     pprint' v (StClose _ _ cilist) = "close" <+> parens (pprint' v cilist)
