@@ -467,8 +467,12 @@ NONEXECUTABLE_STATEMENT :: { Statement A0 }
 | dimension INITIALIZED_ARRAY_DECLARATORS { StDimension () (getTransSpan $1 $2) (aReverse $2) }
 | common COMMON_GROUPS { StCommon () (getTransSpan $1 $2) (aReverse $2) }
 | equivalence EQUIVALENCE_GROUPS { StEquivalence () (getTransSpan $1 $2) (aReverse $2) }
-| pointer POINTER_LIST { StPointer () (getTransSpan $1 $2) (fromReverseList $2) }
-| data DATA_GROUPS { StData () (getTransSpan $1 $2) (fromReverseList $2) }
+| pointer POINTER_LIST
+  { let pl = fromReverseList $2
+    in StPointer () (getTransSpan $1 pl) pl }
+| data DATA_GROUPS
+  { let dgs = fromReverseList $2
+    in StData () (getTransSpan $1 dgs) dgs }
 | automatic INITIALIZED_DECLARATORS { StAutomatic () (getTransSpan $1 $2) (aReverse $2) }
 | static INITIALIZED_DECLARATORS { StStatic () (getTransSpan $1 $2) (aReverse $2) }
 -- Following is a fake node to make arbitrary FORMAT statements parsable.
