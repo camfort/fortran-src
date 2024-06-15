@@ -21,7 +21,7 @@ data AList t a = AList
   { alistAnno :: a
   , alistSpan :: SrcSpan
   , alistList :: [t a]
-  } deriving stock (Eq, Show, Data, Generic)
+  } deriving stock (Eq, Ord, Show, Data, Generic)
 
 instance Functor t => Functor (AList t) where
   fmap f (AList a s xs) = AList (f a) s (map (fmap f) xs)
@@ -76,7 +76,7 @@ data ATuple t1 t2 a = ATuple
   , atupleSpan :: SrcSpan
   , atupleFst  :: t1 a
   , atupleSnd  :: t2 a
-  } deriving stock (Eq, Show, Data, Generic, Functor)
+  } deriving stock (Eq, Ord, Show, Data, Generic, Functor)
 
 instance FirstParameter (ATuple t1 t2 a) a
 instance SecondParameter (ATuple t1 t2 a) SrcSpan
