@@ -27,6 +27,10 @@ extra-source-files:
     CHANGELOG.md
     test-data/f77-include/foo.f
     test-data/f77-include/no-newline/foo.f
+    test-data/module/leaf.f90
+    test-data/module/mid1.f90
+    test-data/module/mid2.f90
+    test-data/module/top.f90
     test-data/rewriter/replacementsmap-columnlimit/001_foo.f
     test-data/rewriter/replacementsmap-columnlimit/001_foo.f.expected
     test-data/rewriter/replacementsmap-columnlimit/002_other.f
@@ -276,6 +280,7 @@ test-suite spec
   other-modules:
       Language.Fortran.Analysis.BBlocksSpec
       Language.Fortran.Analysis.DataFlowSpec
+      Language.Fortran.Analysis.ModGraphSpec
       Language.Fortran.Analysis.RenamingSpec
       Language.Fortran.Analysis.SemanticTypesSpec
       Language.Fortran.Analysis.TypesSpec
