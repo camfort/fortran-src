@@ -85,12 +85,16 @@ genModGraph mversion includeDirs cppOpts paths = do
         let version = fromMaybe (deduceFortranVersion path) mversion
             mods = map snd fileMods
             parserF0 = Parser.byVerWithMods mods version
-            parserF fn bs = fromRight' $ parserF0 fn bs
+            parserF fn bs =
+              case parserF0 fn bs of
+                Right x -> return x
+                Left  err -> do
+                  error $ show err
         forM_ fileMods $ \ (fileName, mod) -> do
           forM_ [ name | Named name <- M.keys (combinedModuleMap [mod]) ] $ \ name -> do
             _ <- maybeAddModName name . Just $ MOFSMod fileName
             pure ()
-        let pf = parserF path contents
+        pf <- parserF path contents
         mapM_ (perModule path) (childrenBi pf :: [ProgramUnit ()])
         pure ()
   execStateT (mapM_ iter paths) modGraph0
