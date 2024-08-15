@@ -59,6 +59,10 @@ main = do
       paths' <- expandDirs paths
       mg <- genModGraph (fortranVersion opts) (includeDirs opts) (cppOptions opts) paths'
       putStrLn $ modGraphToDOT mg
+    (paths, ShowMakeList) -> do
+      paths' <- expandDirs paths
+      mg <- genModGraph (fortranVersion opts) (includeDirs opts) (cppOptions opts) paths'
+      mapM_ putStrLn (modGraphToList mg)
     -- make: construct a build-dep graph and follow it
     (paths, Make) -> do
       let mvers = fortranVersion opts
@@ -328,7 +332,7 @@ printTypeErrors = putStrLn . showTypeErrors
 
 data Action
   = Lex | Parse | Typecheck | Rename | BBlocks | SuperGraph | Reprint | DumpModFile | Compile
-  | ShowFlows Bool Bool Int | ShowBlocks (Maybe Int) | ShowMakeGraph | Make
+  | ShowFlows Bool Bool Int | ShowBlocks (Maybe Int) | ShowMakeGraph | ShowMakeList | Make
   deriving Eq
 
 instance Read Action where
@@ -423,6 +427,10 @@ options =
       ["show-make-graph"]
       (NoArg $ \ opts -> opts { action = ShowMakeGraph })
       "dump a graph showing the build structure of modules"
+  , Option []
+      ["show-make-list"]
+      (NoArg $ \ opts -> opts { action = ShowMakeList })
+      "dump a list of files in build dependency order (topological sort from the dependency graph)"
   , Option []
       ["show-block-numbers"]
       (OptArg (\a opts -> opts { action = ShowBlocks (a >>= readMaybe) }
