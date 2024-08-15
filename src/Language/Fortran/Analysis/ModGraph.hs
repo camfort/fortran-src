@@ -1,6 +1,6 @@
 -- | Generate a module use-graph.
 module Language.Fortran.Analysis.ModGraph
-  (genModGraph, ModGraph(..), ModOrigin(..), modGraphToDOT, takeNextMods, delModNodes)
+  (genModGraph, ModGraph(..), ModOrigin(..), modGraphToList, modGraphToDOT, takeNextMods, delModNodes)
 where
 
 import Language.Fortran.AST hiding (setName)
@@ -107,6 +107,16 @@ modGraphToDOT ModGraph { mgGraph = gr } = unlines dot
                         ["}\n"])
                     (labNodes gr) ++
           [ "}\n" ]
+
+-- Provides a topological sort of the graph, giving a list of filenames
+modGraphToList :: ModGraph -> [String]
+modGraphToList mg
+  | nxt <- takeNextMods mg
+  , not (null nxt) =
+      let mg' = delModNodes (map fst nxt) mg
+      in [ fn | (_, Just (MOFile fn)) <- nxt ] ++ modGraphToList mg'
+modGraphToList _ = []
+
 
 takeNextMods :: ModGraph -> [(Node, Maybe ModOrigin)]
 takeNextMods ModGraph { mgModNodeMap = mnmap, mgGraph = gr } = noDepFiles
