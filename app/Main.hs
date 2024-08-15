@@ -209,38 +209,6 @@ main = do
         _ -> fail $ usageInfo programName options
     _ -> fail $ usageInfo programName options
 
--- | Expand all paths that are directories into a list of Fortran
--- files from a recursive directory listing.
-expandDirs :: [FilePath] -> IO [FilePath]
-expandDirs = fmap concat . mapM each
-  where
-    each path = do
-      isDir <- doesDirectoryExist path
-      if isDir
-        then listFortranFiles path
-        else pure [path]
-
--- | Get a list of Fortran files under the given directory.
-listFortranFiles :: FilePath -> IO [FilePath]
-listFortranFiles dir = filter isFortran <$> listDirectoryRecursively dir
-  where
-    -- | True if the file has a valid fortran extension.
-    isFortran :: FilePath -> Bool
-    isFortran x = map toLower (takeExtension x) `elem` exts
-      where exts = [".f", ".f90", ".f77", ".f03"]
-
-listDirectoryRecursively :: FilePath -> IO [FilePath]
-listDirectoryRecursively dir = listDirectoryRec dir ""
-  where
-    listDirectoryRec :: FilePath -> FilePath -> IO [FilePath]
-    listDirectoryRec d f = do
-      let fullPath = d </> f
-      isDir <- doesDirectoryExist fullPath
-      if isDir
-      then do
-        conts <- listDirectory fullPath
-        concat <$> mapM (listDirectoryRec fullPath) conts
-      else pure [fullPath]
 
 compileFileToMod :: Maybe FortranVersion -> ModFiles -> FilePath -> Maybe FilePath -> IO ModFile
 compileFileToMod mvers mods path moutfile = do
