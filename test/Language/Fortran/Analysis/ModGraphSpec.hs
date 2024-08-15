@@ -18,7 +18,7 @@ spec =
 -- we are understanding this correctly (via the dependency graph
 -- and then its topological sort).
 testDependencyList = do
-    paths' <- expandDirs ["test-data/module"]
+    paths' <- expandDirs ["test-data" </> "module"]
     mg <- genModGraph (Just Fortran90) ["."] Nothing paths'
     let list = modGraphToList mg
     let files = ["leaf.f90", "mid1.f90", "mid2.f90", "top.f90"]
