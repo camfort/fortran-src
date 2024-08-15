@@ -6,6 +6,7 @@ import TestUtil
 import Language.Fortran.Analysis.ModGraph
 import Language.Fortran.Util.Files (expandDirs)
 import Language.Fortran.Version
+import System.FilePath ((</>))
 
 spec :: Spec
 spec =
@@ -21,5 +22,5 @@ testDependencyList = do
     mg <- genModGraph (Just Fortran90) ["."] Nothing paths'
     let list = modGraphToList mg
     let files = ["leaf.f90", "mid1.f90", "mid2.f90", "top.f90"]
-    let filesWithPaths = map ("test-data/module/" ++) files
+    let filesWithPaths = map (("test-data" </> "module") </>) files
     list `shouldBe` filesWithPaths
