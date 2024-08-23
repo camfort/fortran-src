@@ -97,7 +97,10 @@ genModGraph mversion includeDirs cppOpts paths = do
         pf <- parserF path contents
         mapM_ (perModule path) (childrenBi pf :: [ProgramUnit ()])
         pure ()
-  execStateT (mapM_ iter paths) modGraph0
+  execStateT (mapM_ iter (removeDuplicates paths)) modGraph0
+
+removeDuplicates :: Eq a => [a] -> [a]
+removeDuplicates = foldl (\ acc x -> if x `elem` acc then acc else x : acc) []
 
 modGraphToDOT :: ModGraph -> String
 modGraphToDOT ModGraph { mgGraph = gr } = unlines dot
