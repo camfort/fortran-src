@@ -99,8 +99,13 @@ genModGraph mversion includeDirs cppOpts paths = do
         pure ()
   execStateT (mapM_ iter (removeDuplicates paths)) modGraph0
 
+-- Remove duplicates from a list preserving the left most occurrence.
 removeDuplicates :: Eq a => [a] -> [a]
-removeDuplicates = foldl (\ acc x -> if x `elem` acc then acc else x : acc) []
+removeDuplicates [] = []
+removeDuplicates (x:xs) =
+  if x `elem` xs
+    then x : removeDuplicates (filter (/= x) xs)
+    else x : removeDuplicates xs
 
 modGraphToDOT :: ModGraph -> String
 modGraphToDOT ModGraph { mgGraph = gr } = unlines dot
