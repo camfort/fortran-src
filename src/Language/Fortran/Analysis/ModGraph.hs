@@ -97,7 +97,7 @@ genModGraph mversion includeDirs cppOpts paths = do
         pf <- parserF path contents
         mapM_ (perModule path) (childrenBi pf :: [ProgramUnit ()])
         pure ()
-  execStateT (mapM_ iter (removeDuplicates paths)) modGraph0
+  execStateT (mapM_ iter paths) modGraph0
 
 -- Remove duplicates from a list preserving the left most occurrence.
 removeDuplicates :: Eq a => [a] -> [a]
@@ -122,12 +122,14 @@ modGraphToDOT ModGraph { mgGraph = gr } = unlines dot
 
 -- Provides a topological sort of the graph, giving a list of filenames
 modGraphToList :: ModGraph -> [String]
-modGraphToList mg
-  | nxt <- takeNextMods mg
-  , not (null nxt) =
-      let mg' = delModNodes (map fst nxt) mg
-      in [ fn | (_, Just (MOFile fn)) <- nxt ] ++ modGraphToList mg'
-modGraphToList _ = []
+modGraphToList m = removeDuplicates $ modGraphToList' m
+  where
+    modGraphToList' mg
+      | nxt <- takeNextMods mg
+      , not (null nxt) =
+          let mg' = delModNodes (map fst nxt) mg
+          in [ fn | (_, Just (MOFile fn)) <- nxt ] ++ modGraphToList' mg'
+    modGraphToList' _ = []
 
 
 takeNextMods :: ModGraph -> [(Node, Maybe ModOrigin)]
