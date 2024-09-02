@@ -39,11 +39,11 @@ rGetDirContents d = canonicalizePath d >>= \d' -> go [d'] d'
       fmap concat . mapM f $ ds \\ [".", ".."] -- remove '.' and '..' entries
         where
           f x = do
-            path <- canonicalizePath $ d ++ "/" ++ x
+            path <- canonicalizePath $ d </> x
             g <- doesDirectoryExist path
             if g && notElem path seen then do
               x' <- go (path : seen) path
-              return $ map (\ y -> x ++ "/" ++ y) x'
+              return $ map (\ y -> x </> y) x'
             else return [x]
 
 -- | Run the C Pre Processor over the file before reading into a bytestring
