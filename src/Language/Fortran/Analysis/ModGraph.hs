@@ -1,6 +1,6 @@
 -- | Generate a module use-graph.
 module Language.Fortran.Analysis.ModGraph
-  (genModGraph, ModGraph(..), ModOrigin(..), modGraphToDOT, takeNextMods, delModNodes)
+  (genModGraph, ModGraph(..), ModOrigin(..), modGraphToList, modGraphToDOT, takeNextMods, delModNodes)
 where
 
 import Language.Fortran.AST hiding (setName)
@@ -85,15 +85,27 @@ genModGraph mversion includeDirs cppOpts paths = do
         let version = fromMaybe (deduceFortranVersion path) mversion
             mods = map snd fileMods
             parserF0 = Parser.byVerWithMods mods version
-            parserF fn bs = fromRight' $ parserF0 fn bs
+            parserF fn bs =
+              case parserF0 fn bs of
+                Right x -> return x
+                Left  err -> do
+                  error $ show err
         forM_ fileMods $ \ (fileName, mod) -> do
           forM_ [ name | Named name <- M.keys (combinedModuleMap [mod]) ] $ \ name -> do
             _ <- maybeAddModName name . Just $ MOFSMod fileName
             pure ()
-        let pf = parserF path contents
+        pf <- parserF path contents
         mapM_ (perModule path) (childrenBi pf :: [ProgramUnit ()])
         pure ()
   execStateT (mapM_ iter paths) modGraph0
+
+-- Remove duplicates from a list preserving the left most occurrence.
+removeDuplicates :: Eq a => [a] -> [a]
+removeDuplicates [] = []
+removeDuplicates (x:xs) =
+  if x `elem` xs
+    then x : removeDuplicates (filter (/= x) xs)
+    else x : removeDuplicates xs
 
 modGraphToDOT :: ModGraph -> String
 modGraphToDOT ModGraph { mgGraph = gr } = unlines dot
@@ -107,6 +119,18 @@ modGraphToDOT ModGraph { mgGraph = gr } = unlines dot
                         ["}\n"])
                     (labNodes gr) ++
           [ "}\n" ]
+
+-- Provides a topological sort of the graph, giving a list of filenames
+modGraphToList :: ModGraph -> [String]
+modGraphToList m = removeDuplicates $ modGraphToList' m
+  where
+    modGraphToList' mg
+      | nxt <- takeNextMods mg
+      , not (null nxt) =
+          let mg' = delModNodes (map fst nxt) mg
+          in [ fn | (_, Just (MOFile fn)) <- nxt ] ++ modGraphToList' mg'
+    modGraphToList' _ = []
+
 
 takeNextMods :: ModGraph -> [(Node, Maybe ModOrigin)]
 takeNextMods ModGraph { mgModNodeMap = mnmap, mgGraph = gr } = noDepFiles

@@ -3,6 +3,9 @@ module Language.Fortran.Util.Files
   , runCPP
   , getDirContents
   , rGetDirContents
+  , expandDirs
+  , listFortranFiles
+  , listDirectoryRecursively
   ) where
 
 import qualified Data.Text.Encoding         as T
@@ -10,11 +13,11 @@ import qualified Data.Text.Encoding.Error   as T
 import qualified Data.ByteString.Char8      as B
 import           System.Directory (listDirectory, canonicalizePath,
                                    doesDirectoryExist, getDirectoryContents)
-import           System.FilePath  ((</>))
+import           System.FilePath  ((</>), takeExtension)
 import           System.IO.Temp   (withSystemTempDirectory)
 import           System.Process   (callProcess)
 import           Data.List        ((\\), foldl')
-import           Data.Char        (isNumber)
+import           Data.Char        (isNumber, toLower)
 -- | Obtain a UTF-8 safe 'B.ByteString' representation of a file's contents.
 --
 -- Invalid UTF-8 is replaced with the space character.
@@ -36,11 +39,11 @@ rGetDirContents d = canonicalizePath d >>= \d' -> go [d'] d'
       fmap concat . mapM f $ ds \\ [".", ".."] -- remove '.' and '..' entries
         where
           f x = do
-            path <- canonicalizePath $ d ++ "/" ++ x
+            path <- canonicalizePath $ d </> x
             g <- doesDirectoryExist path
             if g && notElem path seen then do
               x' <- go (path : seen) path
-              return $ map (\ y -> x ++ "/" ++ y) x'
+              return $ map (\ y -> x </> y) x'
             else return [x]
 
 -- | Run the C Pre Processor over the file before reading into a bytestring
@@ -68,3 +71,36 @@ runCPP (Just cppOpts) path   = do
     let ls = B.lines contents
     let ls' = reverse . fst $ foldl' processCPPLine ([], 1) ls
     return $ B.unlines ls'
+
+-- | Expand all paths that are directories into a list of Fortran
+-- files from a recursive directory listing.
+expandDirs :: [FilePath] -> IO [FilePath]
+expandDirs = fmap concat . mapM each
+  where
+    each path = do
+      isDir <- doesDirectoryExist path
+      if isDir
+        then listFortranFiles path
+        else pure [path]
+
+-- | Get a list of Fortran files under the given directory.
+listFortranFiles :: FilePath -> IO [FilePath]
+listFortranFiles dir = filter isFortran <$> listDirectoryRecursively dir
+  where
+    -- | True if the file has a valid fortran extension.
+    isFortran :: FilePath -> Bool
+    isFortran x = map toLower (takeExtension x) `elem` exts
+      where exts = [".f", ".f90", ".f77", ".f03"]
+
+listDirectoryRecursively :: FilePath -> IO [FilePath]
+listDirectoryRecursively dir = listDirectoryRec dir ""
+  where
+    listDirectoryRec :: FilePath -> FilePath -> IO [FilePath]
+    listDirectoryRec d f = do
+      let fullPath = d </> f
+      isDir <- doesDirectoryExist fullPath
+      if isDir
+      then do
+        conts <- listDirectory fullPath
+        concat <$> mapM (listDirectoryRec fullPath) conts
+      else pure [fullPath]
