@@ -55,7 +55,7 @@ module Language.Fortran.Util.ModFile
   , moduleFilename
   , StringMap, extractStringMap, combinedStringMap
   , DeclContext(..), DeclMap, extractDeclMap, combinedDeclMap
-  , extractModuleMap, combinedModuleMap, combinedTypeEnv
+  , extractModuleMap, combinedModuleMap, localisedModuleMap, combinedTypeEnv
   , ParamVarMap, extractParamVarMap, combinedParamVarMap
   , genUniqNameToFilenameMap
   , TimestampStatus(..), checkTimestamps
@@ -217,6 +217,9 @@ decodeModFiles' = fmap (map snd) . decodeModFiles
 combinedModuleMap :: ModFiles -> FAR.ModuleMap
 combinedModuleMap = M.unions . map mfModuleMap
 
+localisedModuleMap :: FAR.ModuleMap -> FAR.ModuleMap
+localisedModuleMap = M.map (M.filter (not . FA.isImported . snd))
+
 -- | Extract the combined module map from a set of ModFiles. Useful
 -- for parsing a Fortran file in a large context of other modules.
 combinedTypeEnv :: ModFiles -> FAT.TypeEnv
@@ -244,13 +247,16 @@ moduleFilename = mfFilename
 --------------------------------------------------
 
 -- | Create a map that links all unique variable/function names in the
--- ModFiles to their corresponding filename.
+-- ModFiles to their corresponding *originating* filename (i.e., where they are declared)
 genUniqNameToFilenameMap :: ModFiles -> M.Map F.Name String
 genUniqNameToFilenameMap = M.unions . map perMF
   where
-    perMF mf = M.fromList [ (n, fname) | modEnv <- M.elems (mfModuleMap mf)
+    perMF mf = M.fromList [ (n, fname) | modEnv <- M.elems localModuleMap
                                        , (n, _) <- M.elems modEnv ]
       where
+        -- Make sure that we remove imported declarations so we can
+        -- properly localise declarations to the originator file.
+        localModuleMap = localisedModuleMap $ mfModuleMap mf
         fname = mfFilename mf
 
 --------------------------------------------------
