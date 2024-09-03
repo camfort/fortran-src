@@ -217,8 +217,12 @@ compileFileToMod mvers mods path moutfile = do
       mmap = combinedModuleMap mods
       tenv = combinedTypeEnv mods
       runCompile = genModFile . fst . analyseTypesWithEnv tenv . analyseRenamesWithModuleMap mmap . initAnalysis
-      parsedPF  = fromRight' $ (Parser.byVerWithMods mods version) path contents
-      mod = runCompile parsedPF
+  parsedPF  <-
+    case (Parser.byVerWithMods mods version) path contents of
+      Right pf -> return pf
+      Left  err -> do
+        fail $ "Error parsing " ++ path ++ ": " ++ show err
+  let mod = runCompile parsedPF
       fspath = path -<.> modFileSuffix `fromMaybe` moutfile
   LB.writeFile fspath $ encodeModFile [mod]
   return mod
