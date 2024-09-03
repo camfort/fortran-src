@@ -1,3 +1,7 @@
+### 0.16.0 (2024)
+  * Added `--show-make-list` option
+  * Some robustness improvements around mod files
+
 ### 0.15.1 (Jun 22, 2023)
   * remove unused vector-sized dependency
 
