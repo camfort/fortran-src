@@ -26,7 +26,6 @@ fromConstInt (MkFScalarValue (FSVInt a)) = Just $ withFInt a
 fromConstInt _          = Nothing
 
 fromConstReal :: FValue -> Maybe Double
--- convert Float to Double
 fromConstReal (MkFScalarValue (FSVReal (FReal4 a))) = Just $ floatToDouble a
   where
     floatToDouble :: Float -> Double
