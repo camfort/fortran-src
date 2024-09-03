@@ -42,5 +42,5 @@ testModuleMaps = do
     let mmap = genUniqNameToFilenameMap modFiles
     -- check that `constant` is declared in leaf.f90
     let Just leaf = M.lookup "leaf_constant_1" mmap
-    leaf `shouldBe` "test-data/module/leaf.f90"
+    leaf `shouldBe` ("test-data" </> "module" </> "leaf.f90")
 
