@@ -6,7 +6,8 @@ module Language.Fortran.Analysis
   ( initAnalysis, stripAnalysis, Analysis(..)
   , varName, srcName, lvVarName, lvSrcName, isNamedExpression
   , genVar, puName, puSrcName, blockRhsExprs, rhsExprs
-  , ModEnv, NameType(..), IDType(..), ConstructType(..)
+  , ModEnv, NameType(..), Locality(..), markAsImported, isImported
+  , IDType(..), ConstructType(..)
   , lhsExprs, isLExpr, allVars, analyseAllLhsVars, analyseAllLhsVars1, allLhsVars
   , blockVarUses, blockVarDefs
   , BB, BBNode, BBGr(..), bbgrMap, bbgrMapM, bbgrEmpty
@@ -77,9 +78,30 @@ type TransFunc f g a = (f (Analysis a) -> f (Analysis a)) -> g (Analysis a) -> g
 type TransFuncM m f g a = (f (Analysis a) -> m (f (Analysis a))) -> g (Analysis a) -> m (g (Analysis a))
 
 -- Describe a Fortran name as either a program unit or a variable.
-data NameType = NTSubprogram | NTVariable | NTIntrinsic deriving (Show, Eq, Ord, Data, Typeable, Generic)
+data Locality =
+    Local     -- locally declared
+  | Imported  -- declared in an imported module
+  deriving (Show, Eq, Ord, Data, Typeable, Generic)
+
+data NameType = NTSubprogram Locality | NTVariable Locality | NTIntrinsic
+  deriving (Show, Eq, Ord, Data, Typeable, Generic)
+
 instance Binary NameType
 instance Out NameType
+
+instance Binary Locality
+instance Out Locality
+
+-- Mark any variables as being imported
+markAsImported :: NameType -> NameType
+markAsImported (NTVariable _) = NTVariable Imported
+markAsImported (NTSubprogram _) = NTSubprogram Imported
+markAsImported x = x
+
+isImported :: NameType -> Bool
+isImported (NTVariable Imported) = True
+isImported (NTSubprogram Imported) = True
+isImported _ = False
 
 -- Module environments are associations between source name and
 -- (unique name, name type) in a specific module.
