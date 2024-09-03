@@ -280,6 +280,7 @@ test-suite spec
   other-modules:
       Language.Fortran.Analysis.BBlocksSpec
       Language.Fortran.Analysis.DataFlowSpec
+      Language.Fortran.Analysis.ModFileSpec
       Language.Fortran.Analysis.ModGraphSpec
       Language.Fortran.Analysis.RenamingSpec
       Language.Fortran.Analysis.SemanticTypesSpec
