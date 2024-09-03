@@ -16,7 +16,6 @@ import Data.Data
 import Data.Generics.Uniplate.Data
 import Data.Graph.Inductive hiding (version)
 import Data.Maybe
-import Data.Either.Combinators ( fromRight' )
 import qualified Data.Map as M
 
 --------------------------------------------------
