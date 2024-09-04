@@ -217,6 +217,8 @@ decodeModFiles' = fmap (map snd) . decodeModFiles
 combinedModuleMap :: ModFiles -> FAR.ModuleMap
 combinedModuleMap = M.unions . map mfModuleMap
 
+-- | Inside the module map, remove all imported declarations so that
+-- we can properly localise declarations to the originator file.
 localisedModuleMap :: FAR.ModuleMap -> FAR.ModuleMap
 localisedModuleMap = M.map (M.filter (not . FA.isImported . snd))
 
