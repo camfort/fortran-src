@@ -1,4 +1,8 @@
-### 0.16.0 (Sept 4, 2024)
+### 0.16.1 (Sep 04, 2024)
+  * Minor fix to `fromConstReal` which was partial.
+  * Added `Ord` instance for `AST` and all its sub data types, allowing, for example, ASTs to be in containers like Data.Set
+
+### 0.16.0 (Sep 04, 2024)
   * Added `--show-make-list` option to give a topological sort on the dependency graph for a source tree
   * Added `--version` option
   * Some robustness improvements around mod files [#286](https://github.com/camfort/fortran-src/pull/286)

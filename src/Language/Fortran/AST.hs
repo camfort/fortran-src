@@ -14,6 +14,9 @@ Useful Fortran standard references:
   * Fortran 90 standard: ANSI X3.198-1992 (also ISO/IEC 1539:1991)
   * Fortran 90 Handbook (J. Adams)
   * Fortran 77 standard: ANSI X3.9-1978
+
+Note that the 'Ord' instances provided here do not guarantee any specific
+behaviour, other than being valid instances (they are largely for convenience).
 -}
 
 module Language.Fortran.AST
@@ -172,7 +175,7 @@ data TypeSpec a = TypeSpec
   , typeSpecSpan :: SrcSpan
   , typeSpecBaseType :: BaseType
   , typeSpecSelector :: Maybe (Selector a)
-  } deriving stock (Eq, Show, Data, Generic, Functor)
+  } deriving stock (Eq, Ord, Show, Data, Generic, Functor)
 
 -- | The "kind selector" of a declaration statement. Tightly bound to
 --   'TypeSpec'.
@@ -195,16 +198,16 @@ data Selector a = Selector
   , selectorSpan :: SrcSpan
   , selectorLength :: Maybe (Expression a)
   , selectorKind   :: Maybe (Expression a)
-  } deriving stock (Eq, Show, Data, Generic, Functor)
+  } deriving stock (Eq, Ord, Show, Data, Generic, Functor)
 
 data MetaInfo = MetaInfo { miVersion :: FortranVersion, miFilename :: String }
-  deriving stock (Eq, Show, Data, Generic)
+  deriving stock (Eq, Ord, Show, Data, Generic)
 
 -- Program structure definition
 data ProgramFile a = ProgramFile
   { programFileMeta :: MetaInfo
   , programFileProgramUnits :: [ ProgramUnit a ]
-  } deriving stock (Eq, Show, Data, Generic, Functor)
+  } deriving stock (Eq, Ord, Show, Data, Generic, Functor)
 
 pfSetFilename :: String -> ProgramFile a -> ProgramFile a
 pfSetFilename fn (ProgramFile mi pus) = ProgramFile (mi { miFilename = fn }) pus
@@ -259,7 +262,7 @@ data ProgramUnit a =
   | PUComment                       -- ^ Program unit-level comment
       a SrcSpan
       (Comment a)
-  deriving stock (Eq, Show, Data, Generic, Functor)
+  deriving stock (Eq, Ord, Show, Data, Generic, Functor)
 
 type Prefixes a = Maybe (AList Prefix a)
 type Suffixes a = Maybe (AList Suffix a)
@@ -277,7 +280,7 @@ emptyPrefixSuffix = (emptyPrefixes, emptySuffixes)
 data Prefix a = PfxRecursive a SrcSpan
               | PfxElemental a SrcSpan
               | PfxPure a SrcSpan
-  deriving stock (Eq, Show, Data, Generic, Functor)
+  deriving stock (Eq, Ord, Show, Data, Generic, Functor)
 
 -- see C1241 & C1242 (Fortran2003)
 validPrefixSuffix :: PrefixSuffix a -> Bool
@@ -291,7 +294,7 @@ validPrefixSuffix (mpfxs, msfxs) =
     sfxs = aStrip' msfxs
 
 data Suffix a = SfxBind a SrcSpan (Maybe (Expression a))
-  deriving stock (Eq, Show, Data, Generic, Functor)
+  deriving stock (Eq, Ord, Show, Data, Generic, Functor)
 
 programUnitBody :: ProgramUnit a -> [Block a]
 programUnitBody (PUMain _ _ _ bs _)              = bs
@@ -323,7 +326,7 @@ programUnitSubprograms PUBlockData{}               = Nothing
 programUnitSubprograms PUComment{}                 = Nothing
 
 newtype Comment a = Comment String
-  deriving stock (Eq, Show, Data, Generic, Functor)
+  deriving stock (Eq, Ord, Show, Data, Generic, Functor)
 
 data Block a =
     BlStatement                              -- ^ Statement
@@ -391,7 +394,7 @@ data Block a =
   | BlComment                                -- ^ Block-level comment
                 a SrcSpan
                 (Comment a)
-  deriving stock (Eq, Show, Data, Generic, Functor)
+  deriving stock (Eq, Ord, Show, Data, Generic, Functor)
 
 data Statement a  =
     StDeclaration
@@ -615,7 +618,7 @@ data Statement a  =
   -- Following is a temporary solution to a complicated FORMAT statement
   -- parsing problem.
   | StFormatBogus         a SrcSpan String
-  deriving stock (Eq, Show, Data, Generic, Functor)
+  deriving stock (Eq, Ord, Show, Data, Generic, Functor)
 
 -- R1214 proc-decl is procedure-entity-name [=> null-init]
 data ProcDecl a = ProcDecl
@@ -623,12 +626,12 @@ data ProcDecl a = ProcDecl
   , procDeclSpan       :: SrcSpan
   , procDeclEntityName :: Expression a
   , procDeclInitName   :: Maybe (Expression a)
-  } deriving stock (Eq, Show, Data, Generic, Functor)
+  } deriving stock (Eq, Ord, Show, Data, Generic, Functor)
 
 -- R1212 proc-interface is interface-name or declaration-type-spec
 data ProcInterface a = ProcInterfaceName a SrcSpan (Expression a)
                      | ProcInterfaceType a SrcSpan (TypeSpec a)
-  deriving stock (Eq, Show, Data, Generic, Functor)
+  deriving stock (Eq, Ord, Show, Data, Generic, Functor)
 
 -- | Part of a FORALL statement. Introduced in Fortran 95.
 data ForallHeader a = ForallHeader
@@ -636,7 +639,7 @@ data ForallHeader a = ForallHeader
   , forallHeaderSpan    :: SrcSpan
   , forallHeaderHeaders :: [ForallHeaderPart a]
   , forallHeaderScaling :: Maybe (Expression a)
-  } deriving stock (Eq, Show, Data, Generic, Functor)
+  } deriving stock (Eq, Ord, Show, Data, Generic, Functor)
 
 data ForallHeaderPart a = ForallHeaderPart
   { forallHeaderPartAnno   :: a
@@ -645,13 +648,13 @@ data ForallHeaderPart a = ForallHeaderPart
   , forallHeaderPartStart  :: Expression a
   , forallHeaderPartEnd    :: Expression a
   , forallHeaderPartStride :: Maybe (Expression a)
-  } deriving stock (Eq, Show, Data, Generic, Functor)
+  } deriving stock (Eq, Ord, Show, Data, Generic, Functor)
 
 data Only = Exclusive | Permissive
-  deriving stock (Eq, Show, Data, Generic)
+  deriving stock (Eq, Ord, Show, Data, Generic)
 
 data ModuleNature = ModIntrinsic | ModNonIntrinsic
-  deriving stock (Eq, Show, Data, Generic)
+  deriving stock (Eq, Ord, Show, Data, Generic)
 
 -- | Part of USE statement. /(F2018 14.2.2)/
 --
@@ -664,7 +667,7 @@ data Use a =
   | UseID
         a SrcSpan
         (Expression a) -- ^ name
-  deriving stock (Eq, Show, Data, Generic, Functor)
+  deriving stock (Eq, Ord, Show, Data, Generic, Functor)
 
 -- TODO potentially should throw Maybe String into ArgumentExpression too?
 data Argument a = Argument
@@ -672,7 +675,7 @@ data Argument a = Argument
   , argumentSpan :: SrcSpan
   , argumentName :: Maybe String
   , argumentExpr :: ArgumentExpression a
-  } deriving stock (Eq, Show, Data, Generic, Functor)
+  } deriving stock (Eq, Ord, Show, Data, Generic, Functor)
 
 -- | Extra data type to disambiguate between plain variable arguments and
 --   expression arguments (due to apparent behaviour of some Fortran compilers
@@ -683,7 +686,7 @@ data Argument a = Argument
 data ArgumentExpression a
   = ArgExpr              (Expression a)
   | ArgExprVar a SrcSpan Name
-  deriving stock (Eq, Show, Data, Generic, Functor)
+  deriving stock (Eq, Ord, Show, Data, Generic, Functor)
 
 instance Annotated ArgumentExpression where
     getAnnotation = \case
@@ -729,17 +732,17 @@ data Attribute a =
   | AttrTarget a SrcSpan
   | AttrValue a SrcSpan
   | AttrVolatile a SrcSpan
-  deriving stock (Eq, Show, Data, Generic, Functor)
+  deriving stock (Eq, Ord, Show, Data, Generic, Functor)
 
 data Intent = In | Out | InOut
-  deriving stock (Eq, Show, Data, Generic)
+  deriving stock (Eq, Ord, Show, Data, Generic)
 
 data ControlPair a = ControlPair
   { controlPairAnno :: a
   , controlPairSpan :: SrcSpan
   , controlPairName :: Maybe String
   , controlPairExpr :: Expression a
-  } deriving stock (Eq, Show, Data, Generic, Functor)
+  } deriving stock (Eq, Ord, Show, Data, Generic, Functor)
 
 -- | Part of ALLOCATE statement.
 --
@@ -754,7 +757,7 @@ data AllocOpt a =
         a SrcSpan
         (Expression a) -- ^ scalar character variable
   | AOSource a SrcSpan (Expression a)
-  deriving stock (Eq, Show, Data, Generic, Functor)
+  deriving stock (Eq, Ord, Show, Data, Generic, Functor)
 
 -- | List of names for an IMPLICIT statement.
 data ImpList a = ImpList
@@ -762,14 +765,14 @@ data ImpList a = ImpList
   , impListSpan :: SrcSpan
   , impListType :: TypeSpec a
   , impListElements :: AList ImpElement a
-  } deriving stock (Eq, Show, Data, Generic, Functor)
+  } deriving stock (Eq, Ord, Show, Data, Generic, Functor)
 
 data ImpElement a = ImpElement
   { impElementAnno :: a
   , impElementSpan :: SrcSpan
   , impElementFrom :: Char
   , impElementTo   :: Maybe Char
-  } deriving stock (Eq, Show, Data, Generic, Functor)
+  } deriving stock (Eq, Ord, Show, Data, Generic, Functor)
 
 -- | A single COMMON block definition.
 --
@@ -779,14 +782,14 @@ data CommonGroup a = CommonGroup
   , commonGroupSpan :: SrcSpan
   , commonGroupName :: Maybe (Expression a)
   , commonGroupVars :: AList Declarator a
-  } deriving stock (Eq, Show, Data, Generic, Functor)
+  } deriving stock (Eq, Ord, Show, Data, Generic, Functor)
 
 data Namelist a = Namelist
   { namelistAnno :: a
   , namelistSpan :: SrcSpan
   , namelistName :: Expression a
   , namelistVars :: AList Expression a
-  } deriving stock (Eq, Show, Data, Generic, Functor)
+  } deriving stock (Eq, Ord, Show, Data, Generic, Functor)
 
 -- | The part of a DATA statement describing a single set of initializations.
 --
@@ -799,7 +802,7 @@ data DataGroup a = DataGroup
   , dataGroupSpan         :: SrcSpan
   , dataGroupNames        :: AList Expression a
   , dataGroupInitializers :: AList Expression a
-  } deriving stock (Eq, Show, Data, Generic, Functor)
+  } deriving stock (Eq, Ord, Show, Data, Generic, Functor)
 
 -- | Field types in pre-Fortran 90 non-standard structure/record/union
 --   extension.
@@ -821,13 +824,13 @@ data StructureItem a =
         (Maybe String)          -- ^ Substructure name
         String                  -- ^ Field name
         (AList StructureItem a) -- ^ Substructure fields
-  deriving stock (Eq, Show, Data, Generic, Functor)
+  deriving stock (Eq, Ord, Show, Data, Generic, Functor)
 
 data UnionMap a = UnionMap
   { unionMapAnno   :: a
   , unionMapSpan   :: SrcSpan
   , unionMapFields :: AList StructureItem a
-  } deriving stock (Eq, Show, Data, Generic, Functor)
+  } deriving stock (Eq, Ord, Show, Data, Generic, Functor)
 
 data FormatItem a =
     FIFormatList            a             SrcSpan   (Maybe String) (AList FormatItem a)
@@ -838,7 +841,7 @@ data FormatItem a =
   | FIFieldDescriptorAIL    a             SrcSpan   (Maybe Integer)   Char          Integer
   | FIBlankDescriptor       a             SrcSpan   Integer
   | FIScaleFactor           a             SrcSpan   Integer
-  deriving stock (Eq, Show, Data, Generic, Functor)
+  deriving stock (Eq, Ord, Show, Data, Generic, Functor)
 
 -- | Part of the newer (Fortran 2003?) FLUSH statement.
 --
@@ -856,7 +859,7 @@ data FlushSpec a
   | FSErr
         a SrcSpan
         (Expression a) -- ^ statement label
-    deriving stock (Eq, Show, Data, Generic, Functor)
+    deriving stock (Eq, Ord, Show, Data, Generic, Functor)
 
 data DoSpecification a = DoSpecification
   { doSpecAnno      :: a
@@ -864,7 +867,7 @@ data DoSpecification a = DoSpecification
   , doSpecInitial   :: Statement a -- ^ Guaranteed to be 'StExpressionAssign'
   , doSpecLimit     :: Expression a
   , doSpecIncrement :: Maybe (Expression a)
-  } deriving stock (Eq, Show, Data, Generic, Functor)
+  } deriving stock (Eq, Ord, Show, Data, Generic, Functor)
 
 data Expression a =
     ExpValue         a SrcSpan (Value a)
@@ -885,7 +888,7 @@ data Expression a =
   -- ^ Array initialisation
   | ExpReturnSpec    a SrcSpan (Expression a)
   -- ^ Function return value specification
-  deriving stock (Eq, Show, Data, Generic, Functor)
+  deriving stock (Eq, Ord, Show, Data, Generic, Functor)
 
 data Index a =
     IxSingle a SrcSpan (Maybe String) (Expression a)
@@ -893,7 +896,7 @@ data Index a =
             (Maybe (Expression a)) -- ^ Lower index
             (Maybe (Expression a)) -- ^ Upper index
             (Maybe (Expression a)) -- ^ Stride
-  deriving stock (Eq, Show, Data, Generic, Functor)
+  deriving stock (Eq, Ord, Show, Data, Generic, Functor)
 
 -- | Values and literals.
 --
@@ -925,7 +928,7 @@ data Value a
   | ValType         String
   | ValStar
   | ValColon                   -- see R402 / C403 in Fortran2003 spec.
-    deriving stock    (Eq, Show, Data, Generic, Functor)
+    deriving stock    (Eq, Ord, Show, Data, Generic, Functor)
     deriving anyclass (NFData, Out)
 
 -- | Declarators. R505 entity-decl from F90 ISO spec.
@@ -949,12 +952,12 @@ data Declarator a = Declarator
   , declaratorType     :: DeclaratorType a
   , declaratorLength   :: Maybe (Expression a)
   , declaratorInitial  :: Maybe (Expression a)
-  } deriving stock (Eq, Show, Data, Generic, Functor)
+  } deriving stock (Eq, Ord, Show, Data, Generic, Functor)
 
 data DeclaratorType a
   = ScalarDecl
   | ArrayDecl (AList DimensionDeclarator a)
-  deriving stock (Eq, Show, Data, Generic, Functor)
+  deriving stock (Eq, Ord, Show, Data, Generic, Functor)
 
 -- | Set a 'Declarator''s initializing expression only if it has none already.
 setInitialisation :: Declarator a -> Expression a -> Declarator a
@@ -968,7 +971,7 @@ data DimensionDeclarator a = DimensionDeclarator
   , dimDeclSpan :: SrcSpan
   , dimDeclLower :: Maybe (Expression a)
   , dimDeclUpper :: Maybe (Expression a)
-  } deriving stock (Eq, Show, Data, Generic, Functor)
+  } deriving stock (Eq, Ord, Show, Data, Generic, Functor)
 
 data UnaryOp =
     Plus

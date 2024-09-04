@@ -71,7 +71,7 @@ instance Eq BozPrefix where
                                 _                            -> False
 
 data Conforming = Conforming | Nonconforming
-    deriving stock    (Eq, Show, Generic, Data, Typeable, Ord)
+    deriving stock    (Eq, Ord, Show, Generic, Data, Typeable)
     deriving anyclass (NFData, Out)
 
 -- | UNSAFE. Parses a BOZ literal constant string.

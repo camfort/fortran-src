@@ -27,7 +27,7 @@ data ComplexLit a = ComplexLit
   , complexLitPos      :: SrcSpan
   , complexLitRealPart :: ComplexPart a
   , complexLitImagPart :: ComplexPart a
-  } deriving stock    (Eq, Show, Data, Typeable, Generic, Functor)
+  } deriving stock    (Eq, Ord, Show, Data, Typeable, Generic, Functor)
     deriving anyclass (NFData, Out)
 
 instance FirstParameter  (ComplexLit a) a
@@ -51,7 +51,7 @@ data ComplexPart a
   = ComplexPartReal   a SrcSpan RealLit (Maybe (KindParam a)) -- ^ signed real lit
   | ComplexPartInt    a SrcSpan String  (Maybe (KindParam a)) -- ^ signed int  lit
   | ComplexPartNamed  a SrcSpan Name                          -- ^ named constant
-    deriving stock    (Eq, Show, Data, Typeable, Generic, Functor)
+    deriving stock    (Eq, Ord, Show, Data, Typeable, Generic, Functor)
     deriving anyclass (NFData, Out)
 
 instance FirstParameter  (ComplexPart a) a

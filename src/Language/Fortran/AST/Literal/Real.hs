@@ -40,13 +40,15 @@ data RealLit = RealLit
   -- ^ A string representing a signed decimal.
   -- ^ Approximate regex: @-? ( [0-9]+ \. [0-9]* | \. [0-9]+ )@
   , realLitExponent    :: Exponent
-  } deriving (Eq, Show, Data, Typeable, Generic, NFData, Out, Ord)
+  } deriving stock (Eq, Ord, Show, Data, Typeable, Generic)
+    deriving anyclass (NFData, Out)
 
 -- | An exponent is an exponent letter (E, D) and a signed integer.
 data Exponent = Exponent
   { exponentLetter :: ExponentLetter
   , exponentNum    :: String
-  } deriving (Eq, Show, Data, Typeable, Generic, NFData, Out, Ord)
+  } deriving stock (Eq, Ord, Show, Data, Typeable, Generic)
+    deriving anyclass (NFData, Out)
 
 -- Note: Some Fortran language references include extensions here. HP's F90
 -- reference provides a Q exponent letter which sets kind to 16.
@@ -54,7 +56,8 @@ data ExponentLetter
   = ExpLetterE -- ^ KIND=4 (float)
   | ExpLetterD -- ^ KIND=8 (double)
   | ExpLetterQ -- ^ KIND=16 ("quad", rare? extension)
-    deriving (Eq, Show, Data, Typeable, Generic, NFData, Out, Ord)
+    deriving stock (Eq, Ord, Show, Data, Typeable, Generic)
+    deriving anyclass (NFData, Out)
 
 -- | Prettify a 'RealLit' in a Haskell-compatible way.
 prettyHsRealLit :: RealLit -> String
