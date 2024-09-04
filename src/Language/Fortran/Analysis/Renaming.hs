@@ -120,7 +120,7 @@ programUnit (PUFunction a s ty rec name args res blocks m_contains) = do
   blocks3     <- mapM renameDeclDecls blocks2 -- handle declarations
   m_contains' <- renameSubPUs m_contains      -- handle contained program units
   blocks4     <- mapM renameBlock blocks3     -- process all uses of variables
-  let env     = M.singleton name (name', NTSubprogram)
+  let env     = M.singleton name (name', NTSubprogram Local)
   let a'      = a { moduleEnv = Just env }    -- also annotate it on the program unit
   popScope
   let pu' = PUFunction a' s ty rec name args' res' blocks4 m_contains'
@@ -133,7 +133,7 @@ programUnit (PUSubroutine a s rec name args blocks m_contains) = do
   blocks2     <- mapM renameDeclDecls blocks1 -- handle declarations
   m_contains' <- renameSubPUs m_contains      -- handle contained program units
   blocks3     <- mapM renameBlock blocks2     -- process all uses of variables
-  let env     = M.singleton name (name', NTSubprogram)
+  let env     = M.singleton name (name', NTSubprogram Local)
   let a'      = a { moduleEnv = Just env }    -- also annotate it on the program unit
   popScope
   let pu' = PUSubroutine a' s rec name args' blocks3 m_contains'
@@ -230,10 +230,16 @@ initialEnv blocks = do
   mMap <- gets moduleMap
   modEnv <- fmap M.unions . forM uses $ \ use -> case use of
     (BlStatement _ _ _ (StUse _ _ (ExpValue _ _ (ValVariable m)) _ _ Nothing)) ->
-      return $ fromMaybe empty (Named m `lookup` mMap)
+      let
+        env = fromMaybe empty (Named m `lookup` mMap)
+        -- mark as imported all the local things from this module
+      in return $ M.map (\ (v, info) -> (v, markAsImported info)) env
+
     (BlStatement _ _ _ (StUse _ _ (ExpValue _ _ (ValVariable m)) _ _ (Just onlyAList)))
       | only <- aStrip onlyAList -> do
       let env = fromMaybe empty (Named m `lookup` mMap)
+      -- mark as imported all the local things from this module
+      env <- return $ M.map (\ (v, info) -> (v, markAsImported info)) env
       -- list of (local name, original name) from USE declaration:
       let localNamePairs = flip mapMaybe only $ \ r -> case r of
             UseID _ _ v@(ExpValue _ _ ValVariable{}) -> Just (varName v, varName v)
@@ -253,7 +259,7 @@ initialEnv blocks = do
 
   -- Include any mappings defined by COMMON blocks: use variable
   -- source name prefixed by name of COMMON block.
-  let common = M.fromList [ (v, (v', NTVariable))
+  let common = M.fromList [ (v, (v', NTVariable Local))
                           | CommonGroup _ _ me1 alist <- universeBi blocks :: [CommonGroup (Analysis a)]
                           , let prefix = case me1 of Just e1 -> srcName e1; _ -> ""
                           , e@(ExpValue _ _ ValVariable{}) <- universeBi (aStrip alist) :: [Expression (Analysis a)]
@@ -325,9 +331,9 @@ getFromEnvsIfSubprogram :: String -> Renamer (Maybe String)
 getFromEnvsIfSubprogram v = do
   mEntry <- getFromEnvsWithType v
   case mEntry of
-    Just (v', NTSubprogram) -> return $ Just v'
-    Just (_, NTVariable)    -> getFromEnv v
-    _                       -> return Nothing
+    Just (v', NTSubprogram _) -> return $ Just v'
+    Just (_, NTVariable _)    -> getFromEnv v
+    _                         -> return Nothing
 
 -- Add a renaming mapping to the environment.
 addToEnv :: String -> String -> NameType -> Renamer ()
@@ -372,10 +378,10 @@ renameSubPUs (Just pus) = skimProgramUnits pus >> Just <$> mapM programUnit pus
 -- to the environment.
 skimProgramUnits :: Data a => [ProgramUnit (Analysis a)] -> Renamer ()
 skimProgramUnits pus = forM_ pus $ \ pu -> case pu of
-  PUModule _ _ name _ _           -> addToEnv name name NTSubprogram
-  PUFunction _ _ _ _ name _ _ _ _ -> addUnique_ name NTSubprogram
-  PUSubroutine _ _ _ name _ _ _   -> addUnique_ name NTSubprogram
-  PUMain _ _ (Just name) _ _      -> addToEnv name name NTSubprogram
+  PUModule _ _ name _ _           -> addToEnv name name (NTSubprogram Local)
+  PUFunction _ _ _ _ name _ _ _ _ -> addUnique_ name (NTSubprogram Local)
+  PUSubroutine _ _ _ name _ _ _   -> addUnique_ name (NTSubprogram Local)
+  PUMain _ _ (Just name) _ _      -> addToEnv name name (NTSubprogram Local)
   _                               -> return ()
 
 ----------
@@ -394,7 +400,8 @@ renameGenericDecls = trans renameExpDecl
 -- declaration that possibly requires the creation of a new unique
 -- mapping.
 renameExpDecl :: Data a => RenamerFunc (Expression (Analysis a))
-renameExpDecl e@(ExpValue _ _ (ValVariable v))  = flip setUniqueName (setSourceName v e) `fmap` maybeAddUnique v NTVariable
+renameExpDecl e@(ExpValue _ _ (ValVariable v))  =
+  flip setUniqueName (setSourceName v e) `fmap` maybeAddUnique v (NTVariable Local)
 -- Intrinsics get unique names for each use.
 renameExpDecl e@(ExpValue _ _ (ValIntrinsic v)) = flip setUniqueName (setSourceName v e) `fmap` addUnique v NTIntrinsic
 renameExpDecl e                                 = return e
@@ -407,7 +414,7 @@ renameInterfaces = trans interface
 
 interface :: Data a => RenamerFunc (Block (Analysis a))
 interface (BlInterface a s (Just e@(ExpValue _ _ (ValVariable v))) abst pus bs) = do
-  e' <- flip setUniqueName (setSourceName v e) `fmap` maybeAddUnique v NTSubprogram
+  e' <- flip setUniqueName (setSourceName v e) `fmap` maybeAddUnique v (NTSubprogram Local)
   pure $ BlInterface a s (Just e') abst pus bs
 interface b = pure b
 
