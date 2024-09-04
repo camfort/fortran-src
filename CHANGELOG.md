@@ -1,4 +1,4 @@
-### 0.16.0 (2024)
+### 0.16.0 (Sept 4, 2024)
   * Added `--show-make-list` option
   * Some robustness improvements around mod files [#286](https://github.com/camfort/fortran-src/pull/286)
   * Helpers to work with the partial evaluation representation [#285](https://github.com/camfort/fortran-src/pull/285)
