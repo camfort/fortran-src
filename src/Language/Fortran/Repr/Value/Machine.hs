@@ -31,3 +31,4 @@ fromConstReal (MkFScalarValue (FSVReal (FReal4 a))) = Just $ floatToDouble a
     floatToDouble :: Float -> Double
     floatToDouble = realToFrac
 fromConstReal (MkFScalarValue (FSVReal (FReal8 a))) = Just $ a
+fromConstReal _ = Nothing
