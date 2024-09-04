@@ -39,6 +39,7 @@ for the many other options that can be explored for visualisation purposes.
 
 ```
 Usage: fortran-src [OPTION...] <file>
+                          --version                        show fortran-src version
   -v VERSION, -F VERSION  --fortranVersion=VERSION         Fortran version to use, format: Fortran[66/77/77Legacy/77Extended/90]
   -a ACTION               --action=ACTION                  choose the action, possible values: lex|parse
   -t                      --typecheck                      parse and run typechecker
@@ -46,10 +47,16 @@ Usage: fortran-src [OPTION...] <file>
   -B                      --bblocks                        analyse basic blocks
   -S                      --supergraph                     analyse super graph of basic blocks
   -r                      --reprint                        Parse and output using pretty printer
+                          --split-long                     when using pretty printer, split long lines via continuations
                           --dot                            output graphs in GraphViz DOT format
                           --dump-mod-file                  dump the information contained within mod files
+  -C[CPP-OPTS]            --cpp[=CPP-OPTS]                 run the C Pre Processor on the Fortran files first
   -I DIR                  --include-dir=DIR                directory to search for precompiled 'mod files'
-  -c                      --compile                        compile an .fsmod file from the input
+  -c                      --summarise, --compile-mod       build an .fsmod file from the input
+  -o FILE                 --output-file=FILE               name of output file (e.g. name of generated fsmod file)
+                          --make-mods, --make              determine dependency order of modules and automatically build .fsmod files
+                          --show-make-graph                dump a graph showing the build structure of modules
+                          --show-make-list                 dump a list of files in build dependency order (topological sort from the dependency graph)
                           --show-block-numbers[=LINE-NUM]  Show the corresponding AST-block identifier number next to every line of code.
                           --show-flows-to=AST-BLOCK-ID     dump a graph showing flows-to information from the given AST-block ID; prefix with 's' for supergraph
                           --show-flows-from=AST-BLOCK-ID   dump a graph showing flows-from information from the given AST-block ID; prefix with 's' for supergraph
@@ -70,7 +77,7 @@ via the package `libgmp-dev`.
 Haskell library dependencies are listed in `package.yaml`. fortran-src supports
 building with Stack or Cabal.
 
-fortran-src supports **GHC 9.0 through GHC 9.2**. We regularly test at least the
+fortran-src supports **GHC 9.0 through GHC 9.4**. We regularly test at least the
 minimum and maximum supported GHCs. Releases prior to/newer than those may have
 issues. We welcome fixes that would let us support a wider range of compilers.
 
