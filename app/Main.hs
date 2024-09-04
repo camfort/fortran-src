@@ -50,11 +50,16 @@ import qualified Language.Fortran.Parser.Free.Lexer  as Free
 programName :: String
 programName = "fortran-src"
 
+showVersion :: String
+showVersion = "0.16.0"
+
 main :: IO ()
 main = do
   args <- getArgs
   (opts, parsedArgs) <- compileArgs args
   case (parsedArgs, action opts) of
+    (paths, ShowMyVersion) -> do
+      putStrLn $ "fortran-src version: " ++ showVersion
     (paths, ShowMakeGraph) -> do
       paths' <- expandDirs paths
       mg <- genModGraph (fortranVersion opts) (includeDirs opts) (cppOptions opts) paths'
@@ -305,6 +310,7 @@ printTypeErrors = putStrLn . showTypeErrors
 data Action
   = Lex | Parse | Typecheck | Rename | BBlocks | SuperGraph | Reprint | DumpModFile | Compile
   | ShowFlows Bool Bool Int | ShowBlocks (Maybe Int) | ShowMakeGraph | ShowMakeList | Make
+  | ShowMyVersion
   deriving Eq
 
 instance Read Action where
@@ -333,7 +339,11 @@ initOptions = Options Nothing Parse Default Nothing [] Nothing False
 
 options :: [OptDescr (Options -> Options)]
 options =
-  [ Option ['v','F']
+  [ Option []
+      ["version"]
+      (NoArg $ \ opts -> opts { action = ShowMyVersion })
+      "show fortran-src version"
+  , Option ['v','F']
       ["fortranVersion"]
       (ReqArg (\v opts -> opts { fortranVersion = selectFortranVersion v }) "VERSION")
       "Fortran version to use, format: Fortran[66/77/77Legacy/77Extended/90]"
