@@ -1,3 +1,6 @@
+### 0.16.2
+  * Small change to allow a path to be added when building mod-file naming map
+
 ### 0.16.1 (Sep 04, 2024)
   * Minor fix to `fromConstReal` which was partial.
   * Added `Ord` instance for `AST` and all its sub data types, allowing, for example, ASTs to be in containers like Data.Set

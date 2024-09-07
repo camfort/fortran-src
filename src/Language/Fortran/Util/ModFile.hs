@@ -80,7 +80,7 @@ import Data.Maybe
 import GHC.Generics (Generic)
 import System.Directory ( doesFileExist, getModificationTime )
 import qualified System.FilePath
-import System.FilePath ( (-<.>), (</>) )
+import System.FilePath ( (-<.>), (</>), normalise )
 import System.IO ( hPutStrLn, stderr )
 
 --------------------------------------------------
@@ -250,11 +250,13 @@ moduleFilename = mfFilename
 
 -- | Create a map that links all unique variable/function names in the
 -- ModFiles to their corresponding *originating* filename (i.e., where they are declared)
-genUniqNameToFilenameMap :: ModFiles -> M.Map F.Name String
-genUniqNameToFilenameMap = M.unions . map perMF
+genUniqNameToFilenameMap :: FilePath -> ModFiles -> M.Map F.Name String
+genUniqNameToFilenameMap localPath = M.unions . map perMF
   where
-    perMF mf = M.fromList [ (n, fname) | modEnv <- M.elems localModuleMap
-                                       , (n, _) <- M.elems modEnv ]
+    perMF mf = M.fromList
+                [ (n, normalise $ localPath </> fname)
+                   | modEnv <- M.elems localModuleMap
+                   , (n, _) <- M.elems modEnv ]
       where
         -- Make sure that we remove imported declarations so we can
         -- properly localise declarations to the originator file.
