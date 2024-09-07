@@ -34,12 +34,13 @@ pParser name = do
 -- of the variable `constant` to the leaf module, whilst understanding
 -- in the `mid1` and `mid2` modules that it is an imported declaration.
 testModuleMaps = do
-    paths <- expandDirs ["test-data" </> "module"]
+    let fixturePath = "test-data" </> "module"
+    paths <- expandDirs [fixturePath]
     -- parse all files into mod files
     pfs <- mapM (\p -> pParser p) paths
     let modFiles = map genModFile pfs
     -- get unique name to filemap
-    let mmap = genUniqNameToFilenameMap modFiles
+    let mmap = genUniqNameToFilenameMap "" modFiles
     -- check that `constant` is declared in leaf.f90
     let Just leaf = M.lookup "leaf_constant_1" mmap
     leaf `shouldBe` ("test-data" </> "module" </> "leaf.f90")
