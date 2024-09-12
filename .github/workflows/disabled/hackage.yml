@@ -34,7 +34,7 @@ jobs:
     # My issue on haskell/actions: https://github.com/haskell/actions/issues/41
     # This also requires us to do a deep fetch, else we don't get the Git commit
     # history we need to rewrite mod times.
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v2
       with:
         fetch-depth: 0
     - name: Set all tracked file modification times to the time of their last commit
@@ -56,7 +56,7 @@ jobs:
     - run: cabal freeze
 
     - name: Cache global Cabal store
-      uses: actions/cache@v4
+      uses: actions/cache@v2
       with:
         path: ~/.cabal/store
         key: hackage-deps-${{ runner.os }}-ghc_${{ env.ghc }}
