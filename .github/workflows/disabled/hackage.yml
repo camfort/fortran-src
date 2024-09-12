@@ -68,14 +68,14 @@ jobs:
     - run: cabal sdist
 
     - name: Upload Hackage sdist
-      uses: actions/upload-artifact@v2
+      uses: actions/upload-artifact@v4
       with:
         path: dist-newstyle/sdist/${{ env.package_name }}-*.tar.gz
         name: ${{ env.package_name }}-sdist-${{ github.sha }}.tar.gz
         if-no-files-found: error
 
     - name: Upload Hackage Haddock docs
-      uses: actions/upload-artifact@v2
+      uses: actions/upload-artifact@v4
       with:
         path: dist-newstyle/${{ env.package_name }}-*-docs.tar.gz
         name: ${{ env.package_name }}-hackage-haddocks-${{ github.sha }}.tar.gz

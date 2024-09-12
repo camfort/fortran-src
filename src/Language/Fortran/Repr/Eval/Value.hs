@@ -25,6 +25,8 @@ import Language.Fortran.Repr.Type.Scalar ( fScalarTypeKind )
 import Language.Fortran.Repr.Eval.Common
 import qualified Language.Fortran.Repr.Eval.Value.Op as Op
 
+import qualified Language.Fortran.Analysis as FA
+
 import GHC.Generics ( Generic )
 import qualified Data.Text as Text
 import qualified Data.Char
@@ -102,11 +104,11 @@ evalVar name =
       Nothing  -> err $ ENoSuchVar name
       Just val -> pure val
 
-evalExpr :: MonadFEvalValue m => F.Expression a -> m FValue
+evalExpr :: MonadFEvalValue m => F.Expression (FA.Analysis a) -> m FValue
 evalExpr = \case
-  F.ExpValue _ _ astVal ->
+  e@(F.ExpValue _ _ astVal) ->
     case astVal of
-      F.ValVariable name -> evalVar name
+      F.ValVariable name -> evalVar (FA.varName e)
       -- TODO: Do same with ValIntrinsic??? idk...
       _ -> MkFScalarValue <$> evalLit astVal
   F.ExpUnary  _ _ uop e   -> do
@@ -125,13 +127,13 @@ evalExpr = \case
     evalFunctionCall (forceVarExpr ve) evaledArgs
   _ -> err $ EUnsupported "Expression constructor"
 
-forceVarExpr :: F.Expression a -> F.Name
+forceVarExpr :: F.Expression (FA.Analysis a) -> F.Name
 forceVarExpr = \case
   F.ExpValue _ _ (F.ValVariable v) -> v
   F.ExpValue _ _ (F.ValIntrinsic v) -> v
   _ -> error "program error, sent me an expr that wasn't a name"
 
-evalLit :: MonadFEvalValue m => F.Value a -> m FScalarValue
+evalLit :: MonadFEvalValue m => F.Value (FA.Analysis a) -> m FScalarValue
 evalLit = \case
   F.ValInteger i mkp -> do
     evalMKp 4 mkp >>= \case
@@ -176,7 +178,7 @@ evalLit = \case
 err :: MonadError Error m => Error -> m a
 err = throwError
 
-evalKp :: MonadFEvalValue m => F.KindParam a -> m FKindLit
+evalKp :: MonadFEvalValue m => F.KindParam (FA.Analysis a) -> m FKindLit
 evalKp = \case
   F.KindParamInt _ _ k ->
     -- TODO we may wish to check kind param sensibility here
@@ -192,14 +194,14 @@ evalKp = \case
         _ -> err $ EKindLitBadType var (fValueType val)
       Nothing  -> err $ ENoSuchVar var
 
-evalMKp :: MonadFEvalValue m => FKindLit -> Maybe (F.KindParam a) -> m FKindLit
+evalMKp :: MonadFEvalValue m => FKindLit -> Maybe (F.KindParam (FA.Analysis a)) -> m FKindLit
 evalMKp kDef = \case
   Nothing -> pure kDef
   Just kp -> evalKp kp
 
 -- TODO needs cleanup: internal repetition, common parts with evalKp. also needs
 -- a docstring
-evalRealKp :: MonadFEvalValue m => F.ExponentLetter -> Maybe (F.KindParam a) -> m FKindLit
+evalRealKp :: MonadFEvalValue m => F.ExponentLetter -> Maybe (F.KindParam (FA.Analysis a)) -> m FKindLit
 evalRealKp l = \case
   Nothing ->
     case l of
@@ -425,7 +427,7 @@ evalIntrinsicIntXCoerce coerceToIX v = do
         err $ EOpTypeError $
             "int: unsupported or unimplemented type: "<>show (fScalarValueType v')
 
-evalArg :: MonadFEvalValue m => F.Argument a -> m FValue
+evalArg :: MonadFEvalValue m => F.Argument (FA.Analysis a) -> m FValue
 evalArg (F.Argument _ _ _ ae) =
     case ae of
       F.ArgExpr        e -> evalExpr e
@@ -493,5 +495,5 @@ evalIntrinsicMax = \case
                 "max: unsupported type: "<> show (fScalarValueType vCurMax)
 
 -- | Evaluate a constant expression (F2018 10.1.12).
-evalConstExpr :: MonadFEvalValue m => F.Expression a -> m FValue
+evalConstExpr :: MonadFEvalValue m => F.Expression (FA.Analysis a) -> m FValue
 evalConstExpr = evalExpr

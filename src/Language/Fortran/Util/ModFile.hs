@@ -139,7 +139,7 @@ emptyModFile = ModFile "" M.empty M.empty M.empty M.empty M.empty M.empty
 -- | Extracts the module map, declaration map and type analysis from
 -- an analysed and renamed ProgramFile, then inserts it into the
 -- ModFile.
-regenModFile :: forall a. Data a => F.ProgramFile (FA.Analysis a) -> ModFile -> ModFile
+regenModFile :: forall a. (Data a) => F.ProgramFile (FA.Analysis a) -> ModFile -> ModFile
 regenModFile pf mf = mf { mfModuleMap   = extractModuleMap pf
                         , mfDeclMap     = extractDeclMap pf
                         , mfTypeEnv     = FAT.extractTypeEnv pf
@@ -148,7 +148,7 @@ regenModFile pf mf = mf { mfModuleMap   = extractModuleMap pf
 
 -- | Generate a fresh ModFile from the module map, declaration map and
 -- type analysis of a given analysed and renamed ProgramFile.
-genModFile :: forall a. Data a => F.ProgramFile (FA.Analysis a) -> ModFile
+genModFile :: forall a. (Data a) => F.ProgramFile (FA.Analysis a) -> ModFile
 genModFile = flip regenModFile emptyModFile
 
 -- | Looks up the raw "other data" that may be stored in a ModFile by

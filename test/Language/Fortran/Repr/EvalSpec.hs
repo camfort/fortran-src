@@ -10,6 +10,8 @@ import Language.Fortran.AST
 import Language.Fortran.Repr
 import Language.Fortran.Repr.Eval.Value
 
+import Language.Fortran.Analysis
+
 import Data.Int
 
 spec :: Spec
@@ -29,15 +31,15 @@ shouldEvalTo checkVal prog =
           -- _ -> expectationFailure "not a scalar"
       Left e -> expectationFailure (show e)
 
-expBinary :: BinaryOp -> Expression () -> Expression () -> Expression ()
-expBinary = ExpBinary () u
+expBinary :: BinaryOp -> Expression (Analysis ()) -> Expression (Analysis ()) -> Expression (Analysis ())
+expBinary = ExpBinary (analysis0 ()) u
 
-expValue :: Value () -> Expression ()
-expValue = ExpValue () u
+expValue :: Value (Analysis ()) -> Expression (Analysis ())
+expValue = ExpValue (analysis0 ()) u
 
 -- | default kind. take integral-like over String because nicer to write :)
-valInteger :: (Integral a, Show a) => a -> Value ()
+valInteger :: (Integral a, Show a) => a -> Value (Analysis ())
 valInteger i = ValInteger (show i) Nothing
 
-expValInt :: (Integral a, Show a) => a -> Expression ()
+expValInt :: (Integral a, Show a) => a -> Expression (Analysis ())
 expValInt = expValue . valInteger
