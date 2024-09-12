@@ -374,7 +374,7 @@ genConstExpMap pf = ceMap
     -- Generate map of information about 'constant expressions'.
     ceMap = IM.fromList [ (label, doExpr e) | e <- universeBi pf, Just label <- [labelOf e] ]
 
-    -- Initial map of parameteri declarations
+    -- Initial map of parameter declarations
     pvMap :: M.Map Name Repr.FValue
     pvMap = execState (recursivelyProcessDecls declarations) M.empty
 
