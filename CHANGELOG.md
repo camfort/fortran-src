@@ -1,5 +1,6 @@
 ### 0.16.2
   * Small change to allow a path to be added when building mod-file naming map
+  * Improvements to the power of constant propagation and constant expression evaluation.
 
 ### 0.16.1 (Sep 04, 2024)
   * Minor fix to `fromConstReal` which was partial.
