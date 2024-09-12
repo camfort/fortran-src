@@ -17,11 +17,11 @@ jobs:
     runs-on: ubuntu-latest
     name: Ubuntu / Stack / test
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v4
 
     # relative paths are relative to the project directory
     - name: Cache Stack build artifacts (user + project)
-      uses: actions/cache@v2
+      uses: actions/cache@v4
       with:
         path: |
           ~/.stack
@@ -41,7 +41,7 @@ jobs:
       run: stack --no-terminal install
 
     - name: Upload executable
-      uses: actions/upload-artifact@v2
+      uses: actions/upload-artifact@v4
       with:
         path: ~/.local/bin/${{ env.EXE_NAME }}
         name: ${{ env.EXE_NAME }}-ubuntu-stack-${{ github.sha }}
@@ -69,7 +69,7 @@ jobs:
     # My issue on haskell/actions: https://github.com/haskell/actions/issues/41
     # This also requires us to do a deep fetch, else we don't get the Git commit
     # history we need to rewrite mod times.
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v4
       with:
         fetch-depth: 0
     - name: Set all tracked file modification times to the time of their last commit
@@ -81,7 +81,7 @@ jobs:
 
     - name: Setup Haskell build environment
       id: setup-haskell-build-env
-      uses: haskell/actions/setup@v2
+      uses: haskell/actions/setup@v4
       with:
         ghc-version: ${{ matrix.ghc }}
         cabal-version: ${{ matrix.cabal }}
@@ -89,7 +89,7 @@ jobs:
     - run: cabal freeze
 
     - name: Cache Cabal build artifacts
-      uses: actions/cache@v2
+      uses: actions/cache@v4
       with:
         path: |
           ${{ steps.setup-haskell-build-env.outputs.cabal-store }}
@@ -114,11 +114,11 @@ jobs:
     steps:
 
     # TODO figure out timestamp fixer on Mac (no Mac available to test)
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v4
 
     - name: Setup Haskell build environment
       id: setup-haskell-build-env
-      uses: haskell/actions/setup@v2
+      uses: haskell/actions/setup@v4
       with:
         ghc-version: ${{ matrix.ghc }}
         cabal-version: ${{ matrix.cabal }}
@@ -126,7 +126,7 @@ jobs:
     - run: cabal freeze
 
     - name: Cache Cabal build artifacts
-      uses: actions/cache@v2
+      uses: actions/cache@v4
       with:
         path: |
           ${{ steps.setup-haskell-build-env.outputs.cabal-store }}
@@ -143,10 +143,10 @@ jobs:
       env:
         HSPEC_OPTIONS: --color
 
-    # note that Cabal uses symlinks -- actions/upload-artifact@v2 apparently
+    # note that Cabal uses symlinks -- actions/upload-artifact@v4 apparently
     # dereferences for us
     - name: Upload executable
-      uses: actions/upload-artifact@v2
+      uses: actions/upload-artifact@v4
       with:
         path: ~/.cabal/bin/${{ env.EXE_NAME }}
         name: ${{ env.EXE_NAME }}-macos-ghc-${{ matrix.ghc }}-cabal-${{ github.sha }}
@@ -162,11 +162,11 @@ jobs:
         ghc: ["9.2"]
     steps:
     # TODO figure out timestamp fixer on Windows (need Bash)
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v4
 
     - name: Setup Haskell build environment
       id: setup-haskell-build-env
-      uses: haskell/actions/setup@v2
+      uses: haskell/actions/setup@v4
       with:
         ghc-version: ${{ matrix.ghc }}
         cabal-version: ${{ matrix.cabal }}
@@ -174,7 +174,7 @@ jobs:
     - run: cabal freeze
 
     - name: Cache Cabal build artifacts
-      uses: actions/cache@v2
+      uses: actions/cache@v4
       with:
         path: |
           ${{ steps.setup-haskell-build-env.outputs.cabal-store }}
@@ -192,7 +192,7 @@ jobs:
         HSPEC_OPTIONS: --color
 
     - name: Upload executable
-      uses: actions/upload-artifact@v2
+      uses: actions/upload-artifact@v4
       with:
         path: "C:/cabal/bin/${{ env.EXE_NAME }}.exe"
         name: ${{ env.EXE_NAME }}-windows-ghc-${{ matrix.ghc }}-cabal-${{ github.sha }}.exe
