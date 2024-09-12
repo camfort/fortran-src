@@ -409,9 +409,11 @@ genConstExpMap pf = ceMap
           Nothing       -> map))
       recursivelyProcessDecls stmts
 
+    -- Evaluate an expression down to a value
     getE0 :: M.Map Name Repr.FValue -> Expression (Analysis a) -> Maybe (Repr.FValue)
     getE0 pvMap e = either (const Nothing) (Just . fst) (Repr.runEvalFValuePure pvMap (Repr.evalExpr e))
 
+    -- Lookup an expression in the constants maps
     getE :: Expression (Analysis a) -> Maybe Repr.FValue
     getE = join . (flip IM.lookup ceMap <=< labelOf)
 
@@ -422,10 +424,7 @@ genConstExpMap pf = ceMap
         -- TODO constants may use other constants! but genConstExpMap needs more
         -- changes to support that
         case Repr.runEvalFValuePure pvMap (Repr.evalExpr e) of
-          Left _err ->
-            case e of
-              ExpValue _ _ (ValVariable{}) -> Nothing
-              _ -> Nothing
+          Left _err -> Nothing
           Right (a, _msgs) ->
             case e of
               ExpValue _ _ (ValVariable{}) -> Just a
