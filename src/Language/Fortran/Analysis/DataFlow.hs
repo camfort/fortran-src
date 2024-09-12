@@ -425,10 +425,7 @@ genConstExpMap pf = ceMap
         -- changes to support that
         case Repr.runEvalFValuePure pvMap (Repr.evalExpr e) of
           Left _err -> Nothing
-          Right (a, _msgs) ->
-            case e of
-              ExpValue _ _ (ValVariable{}) -> Just a
-              _ -> Just a
+          Right (a, _msgs) -> Just a
 
 -- | Get constant-expression information and put it into the AST
 -- analysis annotation. Must occur after analyseBBlocks.
