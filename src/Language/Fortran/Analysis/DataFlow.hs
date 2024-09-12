@@ -409,20 +409,6 @@ genConstExpMap pf = ceMap
           Nothing       -> map))
       recursivelyProcessDecls stmts
 
-    -- -- Generate map of 'parameter' variables, obtaining their value from ceMap below, lazily.
-    -- pvMapIter :: M.Map Name Repr.FValue -> M.Map Name Repr.FValue
-    -- pvMapIter map0 = map0 `M.union` M.fromList $
-    --   [ (varName v, expr)
-    --   | st@(StDeclaration _ _ (TypeSpec _ _ _ _) _ _) <- universeBi pf :: [Statement (Analysis a)]
-    --   , AttrParameter _ _ <- universeBi st :: [Attribute (Analysis a)]
-    --   , (Declarator _ _ v ScalarDecl _ (Just e)) <- universeBi st
-    --   , expr <- getE0 map0 e ]
-    --   ++
-    --   [ (varName v, expr)
-    --   | st@StParameter{} <- universeBi pf :: [Statement (Analysis a)]
-    --   , (Declarator _ _ v ScalarDecl _ (Just e)) <- universeBi st
-    --   , expr <- getE0 map0 e ]
-
     getE0 :: M.Map Name Repr.FValue -> Expression (Analysis a) -> Maybe (Repr.FValue)
     getE0 pvMap e = either (const Nothing) (Just . fst) (Repr.runEvalFValuePure pvMap (Repr.evalExpr e))
 
