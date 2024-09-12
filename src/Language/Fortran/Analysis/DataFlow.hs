@@ -368,33 +368,82 @@ type ConstExpMap = ASTExprNodeMap (Maybe Repr.FValue)
 -- | Generate a constant-expression map with information about the
 -- expressions (identified by insLabel numbering) in the ProgramFile
 -- pf (must have analysis initiated & basic blocks generated) .
-genConstExpMap :: forall a. Data a => ProgramFile (Analysis a) -> ConstExpMap
+genConstExpMap :: forall a. (Data a) => ProgramFile (Analysis a) -> ConstExpMap
 genConstExpMap pf = ceMap
   where
-    -- Generate map of 'parameter' variables, obtaining their value from ceMap below, lazily.
-    pvMap = M.fromList $
-      [ (varName v, getE e)
-      | st@(StDeclaration _ _ (TypeSpec _ _ _ _) _ _) <- universeBi pf :: [Statement (Analysis a)]
-      , AttrParameter _ _ <- universeBi st :: [Attribute (Analysis a)]
-      , (Declarator _ _ v ScalarDecl _ (Just e)) <- universeBi st ] ++
-      [ (varName v, getE e)
-      | st@StParameter{} <- universeBi pf :: [Statement (Analysis a)]
-      , (Declarator _ _ v ScalarDecl _ (Just e)) <- universeBi st ]
-    getV :: Expression (Analysis a) -> Maybe Repr.FValue
-    getV e = constExp (getAnnotation e) `mplus` (join . flip M.lookup pvMap . varName $ e)
-
     -- Generate map of information about 'constant expressions'.
     ceMap = IM.fromList [ (label, doExpr e) | e <- universeBi pf, Just label <- [labelOf e] ]
+
+    -- Initial map of parameteri declarations
+    pvMap :: M.Map Name Repr.FValue
+    pvMap = execState (recursivelyProcessDecls declarations) M.empty
+
+    -- Gather all the declarations in order
+    declarations :: [Statement (Analysis a)]
+    declarations =
+      flip filter (universeBi pf :: [Statement (Analysis a)]) $
+          \case
+              StDeclaration{} -> True
+              StParameter{}   -> True
+              _               -> False
+
+    recursivelyProcessDecls :: [Statement (Analysis a)] -> State (M.Map Name Repr.FValue) ()
+    recursivelyProcessDecls [] = return ()
+    recursivelyProcessDecls (stmt:stmts) = do
+      let internalDecls =
+            case stmt of
+              (StDeclaration _ _ (TypeSpec _ _ _ _) _ _) ->
+                -- Gather up all the declarations that are contain in this StDeclaration
+                -- (there could be many)
+                [ (varName v, e)
+                   | (Declarator _ _ v _ _ (Just e)) <- universeBi stmt :: [Declarator (Analysis a)]
+                    , AttrParameter _ _ <- universeBi stmt :: [Attribute (Analysis a)] ]
+
+              StParameter{} ->
+                [(varName v, e) | (Declarator _ _ v ScalarDecl _ (Just e)) <- universeBi stmt ]
+              _ -> []
+      -- Now process these decls
+      forM_ internalDecls (\(v, e) -> modify (\map ->
+        case getE0 map e of
+          Just evalExpr -> M.insert v evalExpr map
+          Nothing       -> map))
+      recursivelyProcessDecls stmts
+
+    -- -- Generate map of 'parameter' variables, obtaining their value from ceMap below, lazily.
+    -- pvMapIter :: M.Map Name Repr.FValue -> M.Map Name Repr.FValue
+    -- pvMapIter map0 = map0 `M.union` M.fromList $
+    --   [ (varName v, expr)
+    --   | st@(StDeclaration _ _ (TypeSpec _ _ _ _) _ _) <- universeBi pf :: [Statement (Analysis a)]
+    --   , AttrParameter _ _ <- universeBi st :: [Attribute (Analysis a)]
+    --   , (Declarator _ _ v ScalarDecl _ (Just e)) <- universeBi st
+    --   , expr <- getE0 map0 e ]
+    --   ++
+    --   [ (varName v, expr)
+    --   | st@StParameter{} <- universeBi pf :: [Statement (Analysis a)]
+    --   , (Declarator _ _ v ScalarDecl _ (Just e)) <- universeBi st
+    --   , expr <- getE0 map0 e ]
+
+    getE0 :: M.Map Name Repr.FValue -> Expression (Analysis a) -> Maybe (Repr.FValue)
+    getE0 pvMap e = either (const Nothing) (Just . fst) (Repr.runEvalFValuePure pvMap (Repr.evalExpr e))
+
     getE :: Expression (Analysis a) -> Maybe Repr.FValue
     getE = join . (flip IM.lookup ceMap <=< labelOf)
+
     labelOf = insLabel . getAnnotation
+
     doExpr :: Expression (Analysis a) -> Maybe Repr.FValue
     doExpr e =
         -- TODO constants may use other constants! but genConstExpMap needs more
         -- changes to support that
-        case Repr.runEvalFValuePure mempty (Repr.evalExpr e) of
-          Left _err -> Nothing
-          Right (a, _msgs) -> Just a
+        case Repr.runEvalFValuePure pvMap (Repr.evalExpr e) of
+          Left _err ->
+            case e of
+              ExpValue _ _ (ValVariable{}) -> Nothing
+              _ -> Nothing
+          Right (a, _msgs) ->
+            case e of
+              ExpValue _ _ (ValVariable{}) -> Just a
+              _ -> Just a
 
 -- | Get constant-expression information and put it into the AST
 -- analysis annotation. Must occur after analyseBBlocks.
