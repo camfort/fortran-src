@@ -103,8 +103,9 @@ data DeclContext = DCMain | DCBlockData | DCModule F.ProgramUnitName
 instance Binary DeclContext
 
 -- | Map of unique variable name to the unique name of the program
--- unit where it was defined, and the corresponding SrcSpan.
-type DeclMap = M.Map F.Name (DeclContext, P.SrcSpan)
+-- unit where it was defined, its source name,
+-- and the corresponding SrcSpan.
+type DeclMap = M.Map F.Name (DeclContext, F.Name, P.SrcSpan)
 
 -- | A map of aliases => strings, in order to save space and share
 -- structure for repeated strings.
@@ -120,7 +121,8 @@ data ModFile = ModFile { mfFilename    :: String
                        , mfDeclMap     :: DeclMap
                        , mfTypeEnv     :: FAT.TypeEnv
                        , mfParamVarMap :: ParamVarMap
-                       , mfOtherData   :: M.Map String LB.ByteString }
+                       , mfOtherData   :: M.Map String LB.ByteString
+                      }
   deriving (Eq, Show, Data, Typeable, Generic)
 
 instance Binary ModFile
@@ -250,18 +252,23 @@ moduleFilename = mfFilename
 
 -- | Create a map that links all unique variable/function names in the
 -- ModFiles to their corresponding *originating* filename (i.e., where they are declared)
-genUniqNameToFilenameMap :: FilePath -> ModFiles -> M.Map F.Name String
-genUniqNameToFilenameMap localPath = M.unions . map perMF
+-- paired with their source name (maybe)
+genUniqNameToFilenameMap :: FilePath -> ModFiles -> M.Map F.Name (String, Maybe F.Name)
+genUniqNameToFilenameMap localPath m = M.unions . map perMF $ m
   where
     perMF mf = M.fromList
-                [ (n, normalise $ localPath </> fname)
-                   | modEnv <- M.elems localModuleMap
-                   , (n, _) <- M.elems modEnv ]
+                $ [ (n, (fname, Nothing))
+                     | (_p, modEnv) <- M.toList localModuleMap
+                     , (n, _) <- M.elems modEnv ]
+              -- decl map information
+               <>  [(n, (fname, Just srcName)) | (n, (_dc, srcName, _)) <- M.toList declMap ]
+
       where
         -- Make sure that we remove imported declarations so we can
         -- properly localise declarations to the originator file.
         localModuleMap = localisedModuleMap $ mfModuleMap mf
-        fname = mfFilename mf
+        declMap        = mfDeclMap mf
+        fname = normalise $ localPath </> mfFilename mf
 
 --------------------------------------------------
 
@@ -288,28 +295,28 @@ extractDeclMap pf = M.fromList . concatMap (blockDecls . nameAndBlocks) $ univer
   where
     -- Extract variable names, source spans from declarations (and
     -- from function return variable if present)
-    blockDecls :: (DeclContext, Maybe (F.Name, P.SrcSpan), [F.Block (FA.Analysis a)]) -> [(F.Name, (DeclContext, P.SrcSpan))]
+    blockDecls :: (DeclContext, Maybe (F.Name, F.Name, P.SrcSpan), [F.Block (FA.Analysis a)]) -> [(F.Name, (DeclContext, F.Name, P.SrcSpan))]
     blockDecls (dc, mret, bs)
       | Nothing        <- mret = map decls (universeBi bs)
-      | Just (ret, ss) <- mret = (ret, (dc, ss)):map decls (universeBi bs)
+      | Just (ret, srcName, ss) <- mret = (ret, (dc, srcName, ss)):map decls (universeBi bs)
       where
-        decls d = let (v, ss) = declVarName d in (v, (dc, ss))
+        decls d = let (v, srcName, ss) = declVarName d in (v, (dc, srcName, ss))
 
     -- Extract variable name and source span from declaration
-    declVarName :: F.Declarator (FA.Analysis a) -> (F.Name, P.SrcSpan)
-    declVarName (F.Declarator _ _ e _ _ _)  = (FA.varName e, P.getSpan e)
+    declVarName :: F.Declarator (FA.Analysis a) -> (F.Name, F.Name, P.SrcSpan)
+    declVarName (F.Declarator _ _ e _ _ _)  = (FA.varName e, FA.srcName e, P.getSpan e)
 
     -- Extract context identifier, a function return value (+ source
     -- span) if present, and a list of contained blocks
-    nameAndBlocks :: F.ProgramUnit (FA.Analysis a) -> (DeclContext, Maybe (F.Name, P.SrcSpan), [F.Block (FA.Analysis a)])
+    nameAndBlocks :: F.ProgramUnit (FA.Analysis a) -> (DeclContext, Maybe (F.Name, F.Name, P.SrcSpan), [F.Block (FA.Analysis a)])
     nameAndBlocks pu = case pu of
       F.PUMain       _ _ _ b _            -> (DCMain, Nothing, b)
       F.PUModule     _ _ _ b _            -> (DCModule $ FA.puName pu, Nothing, b)
       F.PUSubroutine _ _ _ _ _ b _        -> (DCSubroutine (FA.puName pu, FA.puSrcName pu), Nothing, b)
       F.PUFunction   _ _ _ _ _ _ mret b _
         | Nothing   <- mret
-        , F.Named n <- FA.puName pu       -> (DCFunction (FA.puName pu, FA.puSrcName pu), Just (n, P.getSpan pu), b)
-        | Just ret <- mret                -> (DCFunction (FA.puName pu, FA.puSrcName pu), Just (FA.varName ret, P.getSpan ret), b)
+        , F.Named n <- FA.puName pu       -> (DCFunction (FA.puName pu, FA.puSrcName pu), Just (n, n, P.getSpan pu), b)
+        | Just ret <- mret                -> (DCFunction (FA.puName pu, FA.puSrcName pu), Just (FA.varName ret, FA.srcName ret, P.getSpan ret), b)
         | otherwise                       -> error $ "nameAndBlocks: un-named function with no return value! " ++ show (FA.puName pu) ++ " at source-span " ++ show (P.getSpan pu)
       F.PUBlockData  _ _ _ b              -> (DCBlockData, Nothing, b)
       F.PUComment    {}                   -> (DCBlockData, Nothing, []) -- no decls inside of comments, so ignore it
