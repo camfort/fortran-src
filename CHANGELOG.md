@@ -1,3 +1,6 @@
+### 0.16.3
+  * Store source names for local declarations in .fsmod files.
+
 ### 0.16.2 (Sep 13, 2024)
   * Small change to allow a path to be added when building mod-file naming map
   * Improvements to the power of constant propagation and constant expression evaluation.
