@@ -23,7 +23,6 @@ module Language.Fortran.Parser
 
   -- * Other parsers
   , f90Expr
-  , f77lIncludesNoTransform
   , byVerFromFilename
 
   -- ** Statement

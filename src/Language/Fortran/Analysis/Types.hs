@@ -23,6 +23,7 @@ import Data.Maybe (maybeToList)
 import Data.List (find, foldl')
 import Control.Monad.State.Strict
 import Control.Monad.Reader
+import Control.Monad -- required for mtl-2.3 (GHC 9.6)
 import Data.Generics.Uniplate.Data
 import Data.Data
 import Language.Fortran.Analysis
