@@ -1,6 +1,6 @@
 cabal-version: 1.12
 
--- This file has been generated from package.yaml by hpack version 0.37.0.
+-- This file has been generated from package.yaml by hpack version 0.35.2.
 --
 -- see: https://github.com/sol/hpack
 
@@ -200,9 +200,9 @@ library
     , mtl >=2.2 && <3
     , pretty >=1.1 && <2
     , process >=1.2.0.0
-    , singletons >=3.0 && <3.2
-    , singletons-base >=3.0 && <3.2
-    , singletons-th >=3.0 && <3.2
+    , singletons ==3.0.*
+    , singletons-base >=3.0 && <3.3
+    , singletons-th >=3.0 && <3.3
     , temporary >=1.2 && <1.4
     , text >=1.2 && <2.1
     , uniplate >=1.6 && <2
@@ -264,9 +264,9 @@ executable fortran-src
     , mtl >=2.2 && <3
     , pretty >=1.1 && <2
     , process >=1.2.0.0
-    , singletons >=3.0 && <3.2
-    , singletons-base >=3.0 && <3.2
-    , singletons-th >=3.0 && <3.2
+    , singletons ==3.0.*
+    , singletons-base >=3.0 && <3.3
+    , singletons-th >=3.0 && <3.3
     , temporary >=1.2 && <1.4
     , text >=1.2 && <2.1
     , uniplate >=1.6 && <2
@@ -363,9 +363,9 @@ test-suite spec
     , mtl >=2.2 && <3
     , pretty >=1.1 && <2
     , process >=1.2.0.0
-    , singletons >=3.0 && <3.2
-    , singletons-base >=3.0 && <3.2
-    , singletons-th >=3.0 && <3.2
+    , singletons ==3.0.*
+    , singletons-base >=3.0 && <3.3
+    , singletons-th >=3.0 && <3.3
     , temporary >=1.2 && <1.4
     , text >=1.2 && <2.1
     , uniplate >=1.6 && <2
