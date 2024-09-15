@@ -13,6 +13,7 @@ import Data.List (unfoldr, foldl')
 import Control.Monad
 import Control.Monad.State.Lazy hiding (fix)
 import Control.Monad.Writer hiding (fix)
+import Control.Monad ( forM_ ) -- required for mtl-2.3 (GHC 9.6)
 import Text.PrettyPrint.GenericPretty (pretty, Out)
 import Text.PrettyPrint               (render)
 import Language.Fortran.Analysis

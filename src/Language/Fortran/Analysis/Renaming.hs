@@ -20,6 +20,7 @@ import qualified Data.List as L
 import Data.Map (insert, empty, lookup, Map)
 import qualified Data.Map.Strict as M
 import Control.Monad.State.Strict
+import Control.Monad -- required for mtl-2.3 (GHC 9.6)
 import Data.Generics.Uniplate.Data
 import Data.Data
 import Data.Functor.Identity (Identity)

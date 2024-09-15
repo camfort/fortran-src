@@ -15,7 +15,7 @@ import qualified Language.Fortran.Parser.Free.Fortran95 as F95
 import qualified Language.Fortran.Parser.Free.Lexer     as Free
 
 import qualified Data.List as List
-import Data.Foldable(forM_)
+import Control.Monad ( forM_ )
 import qualified Data.ByteString.Char8 as B
 import Control.Exception (evaluate)
 

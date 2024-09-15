@@ -71,6 +71,7 @@ import qualified Language.Fortran.Util.Position     as P
 import           Language.Fortran.Util.Files ( getDirContents )
 
 import Control.Monad.State
+import Control.Monad -- required for mtl-2.3 (GHC 9.6)
 import Data.Binary (Binary, encode, decodeOrFail)
 import qualified Data.ByteString.Lazy.Char8 as LB
 import Data.Data

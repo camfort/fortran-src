@@ -10,8 +10,8 @@ import Language.Fortran.Util.ModFile
 import Language.Fortran.Util.Files
 
 import Prelude hiding (mod)
-import Control.Monad
 import Control.Monad.State.Strict
+import Control.Monad ( forM_ ) -- required for mtl-2.3 (GHC 9.6)
 import Data.Data
 import Data.Generics.Uniplate.Data
 import Data.Graph.Inductive hiding (version)

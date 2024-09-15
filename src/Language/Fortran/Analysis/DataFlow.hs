@@ -42,6 +42,7 @@ import Data.Graph.Inductive hiding (trc, dom, order, inn, out, rc)
 import Data.Maybe
 import Data.List (foldl', foldl1', (\\), union, intersect)
 import Control.Monad.Writer hiding (fix)
+import Control.Monad -- required for mtl-2.3 (GHC 9.6)
 
 import qualified Language.Fortran.Repr as Repr
 import qualified Language.Fortran.Repr.Eval.Value as Repr
