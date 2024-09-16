@@ -272,6 +272,11 @@ evalBOp bop l r = do
         case (l', r') of
           (FSVInt li, FSVInt ri) ->
             pure $ MkFScalarValue $ FSVInt $ fIntBOpInplace (^) li ri
+          (FSVReal lr, FSVReal ri) ->
+            pure $ MkFScalarValue $ FSVReal $ fRealBOpInplace' exp exp lr ri
+              where
+                exp x y = x ** y
+          _ -> err $ ELazy "exponentiation: unsupported types"
 
       F.Concatenation  ->
         case (l', r') of
