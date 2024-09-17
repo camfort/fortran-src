@@ -190,9 +190,9 @@ library
     , array ==0.5.*
     , base >=4.6 && <5
     , binary >=0.8.3.0 && <0.11
-    , bytestring >=0.10 && <0.12
+    , bytestring >=0.10 && <0.13
     , containers >=0.5 && <0.7
-    , deepseq ==1.4.*
+    , deepseq >=1.4 && <1.6
     , directory >=1.2 && <2
     , either >=5.0.1.1 && <5.1
     , fgl ==5.*
@@ -201,10 +201,10 @@ library
     , pretty >=1.1 && <2
     , process >=1.2.0.0
     , singletons ==3.0.*
-    , singletons-base >=3.0 && <3.3
-    , singletons-th >=3.0 && <3.3
+    , singletons-base >=3.0 && <3.4
+    , singletons-th >=3.0 && <3.4
     , temporary >=1.2 && <1.4
-    , text >=1.2 && <2.1
+    , text >=1.2 && <2.2
     , uniplate >=1.6 && <2
   default-language: Haskell2010
   if os(windows)
@@ -253,9 +253,9 @@ executable fortran-src
     , array ==0.5.*
     , base >=4.6 && <5
     , binary >=0.8.3.0 && <0.11
-    , bytestring >=0.10 && <0.12
+    , bytestring >=0.10 && <0.13
     , containers >=0.5 && <0.7
-    , deepseq ==1.4.*
+    , deepseq >=1.4 && <1.6
     , directory >=1.2 && <2
     , either >=5.0.1.1 && <5.1
     , fgl ==5.*
@@ -265,10 +265,10 @@ executable fortran-src
     , pretty >=1.1 && <2
     , process >=1.2.0.0
     , singletons ==3.0.*
-    , singletons-base >=3.0 && <3.3
-    , singletons-th >=3.0 && <3.3
+    , singletons-base >=3.0 && <3.4
+    , singletons-th >=3.0 && <3.4
     , temporary >=1.2 && <1.4
-    , text >=1.2 && <2.1
+    , text >=1.2 && <2.2
     , uniplate >=1.6 && <2
   default-language: Haskell2010
   if os(windows)
@@ -351,9 +351,9 @@ test-suite spec
     , array ==0.5.*
     , base >=4.6 && <5
     , binary >=0.8.3.0 && <0.11
-    , bytestring >=0.10 && <0.12
+    , bytestring >=0.10 && <0.13
     , containers >=0.5 && <0.7
-    , deepseq ==1.4.*
+    , deepseq >=1.4 && <1.6
     , directory >=1.2 && <2
     , either >=5.0.1.1 && <5.1
     , fgl ==5.*
@@ -364,10 +364,10 @@ test-suite spec
     , pretty >=1.1 && <2
     , process >=1.2.0.0
     , singletons ==3.0.*
-    , singletons-base >=3.0 && <3.3
-    , singletons-th >=3.0 && <3.3
+    , singletons-base >=3.0 && <3.4
+    , singletons-th >=3.0 && <3.4
     , temporary >=1.2 && <1.4
-    , text >=1.2 && <2.1
+    , text >=1.2 && <2.2
     , uniplate >=1.6 && <2
   default-language: Haskell2010
   if os(windows)

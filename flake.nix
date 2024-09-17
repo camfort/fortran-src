@@ -46,7 +46,28 @@
 
         haskellProjects.ghc96 = {
           basePackages = pkgs.haskell.packages.ghc96;
+          devShell = {
+            tools = hp: {
+              # disable these while unused (often slow/annoying to build)
+              haskell-language-server = null;
+              ghcid = null;
+              hlint = null;
+            };
+          };
         };
+
+        haskellProjects.ghc98 = {
+          basePackages = pkgs.haskell.packages.ghc98;
+          devShell = {
+            tools = hp: {
+              # disable these while unused (often slow/annoying to build)
+              haskell-language-server = null;
+              ghcid = null;
+              hlint = null;
+            };
+          };
+        };
+
       };
     };
 }
