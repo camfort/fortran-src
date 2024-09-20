@@ -257,11 +257,12 @@ genUniqNameToFilenameMap :: FilePath -> ModFiles -> M.Map F.Name (String, Maybe 
 genUniqNameToFilenameMap localPath m = M.unions . map perMF $ m
   where
     perMF mf = M.fromList
-                $ [ (n, (fname, Nothing))
+                $ [ (n, (normalise $ localPath </> fname, Nothing))
                      | (_p, modEnv) <- M.toList localModuleMap
                      , (n, _) <- M.elems modEnv ]
               -- decl map information
-               <>  [(n, (fname, Just srcName)) | (n, (_dc, srcName, _)) <- M.toList declMap ]
+               <>  [(n, (normalise $ localPath </> fname, Just srcName))
+                  | (n, (_dc, srcName, _)) <- M.toList declMap ]
 
       where
         -- Make sure that we remove imported declarations so we can
