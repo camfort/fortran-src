@@ -118,7 +118,7 @@ main = do
                         Right a -> a
           outfmt    = outputFormat opts
           mmap      = combinedModuleMap mods
-          tenv      = combinedTypeEnv mods
+          tenv      = stripExtended $ combinedTypeEnv mods
           pvm       = combinedParamVarMap mods
 
       let runTypes = analyseAndCheckTypesWithEnv tenv . analyseRenamesWithModuleMap mmap . initAnalysis
@@ -143,7 +143,7 @@ main = do
         Lex        -> ioError $ userError $ usageInfo programName options
         Parse      -> pp parsedPF
         Typecheck  -> let (pf, _, errs) = runTypes parsedPF in
-                        printTypeErrors errs >> printTypes (extractTypeEnv pf)
+                        printTypeErrors errs >> printTypes (extractTypeEnvExtended pf)
         Rename     -> pp $ runRenamer parsedPF
         BBlocks    -> putStrLn $ runBBlocks parsedPF
         SuperGraph -> putStrLn $ runSuperGraph parsedPF
@@ -220,7 +220,7 @@ compileFileToMod mvers mods path moutfile = do
   contents <- flexReadFile path
   let version = fromMaybe (deduceFortranVersion path) mvers
       mmap = combinedModuleMap mods
-      tenv = combinedTypeEnv mods
+      tenv = stripExtended $ combinedTypeEnv mods
       runCompile = genModFile . fst . analyseTypesWithEnv tenv . analyseRenamesWithModuleMap mmap . initAnalysis
   parsedPF  <-
     case (Parser.byVerWithMods mods version) path contents of
@@ -295,12 +295,14 @@ showStringMap :: StringMap -> String
 showStringMap = showGenericMap
 showModuleMap :: ModuleMap -> String
 showModuleMap = concatMap (\ (n, m) -> show n ++ ":\n" ++ (unlines . map ("  "++) . lines . showGenericMap $ m)) . M.toList
-showTypes :: TypeEnv -> String
+showTypes :: TypeEnvExtended -> String
 showTypes tenv =
-    flip concatMap (M.toList tenv) $
-      \ (name, IDType { idVType = vt, idCType = ct }) ->
-        printf "%s\t\t%s %s\n" name (drop 1 $ maybe "  -" show vt) (drop 2 $ maybe "   " show ct)
-printTypes :: TypeEnv -> IO ()
+  let sortedInfo = sortBy (\(_, (_, sp1, _)) (_, (_, sp2, _)) -> compare sp1 sp2) $ M.toList tenv
+  in
+    flip concatMap sortedInfo $
+      \ (_, (name, sp, IDType { idVType = vt, idCType = ct })) ->
+        printf "%s\t %s\t\t%s %s\n" (show $ ssFrom sp) name (drop 1 $ maybe "  -" show vt) (drop 2 $ maybe "   " show ct)
+printTypes :: TypeEnvExtended -> IO ()
 printTypes = putStrLn . showTypes
 showTypeErrors :: [TypeError] -> String
 showTypeErrors errs = unlines [ show ss ++ ": " ++ msg | (msg, ss) <- sortBy (comparing snd) errs ]

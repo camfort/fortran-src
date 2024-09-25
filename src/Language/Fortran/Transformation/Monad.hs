@@ -9,6 +9,7 @@ module Language.Fortran.Transformation.Monad
 import Prelude hiding (lookup)
 import Control.Monad.State.Lazy hiding (state)
 import Data.Data
+import qualified Data.Map as M
 
 import Language.Fortran.Analysis
 import Language.Fortran.Analysis.Types
@@ -22,13 +23,14 @@ type Transform a = State (TransformationState a)
 
 runTransform
     :: Data a
-    => TypeEnv -> ModuleMap -> Transform a () -> ProgramFile a -> ProgramFile a
+    => TypeEnvExtended -> ModuleMap -> Transform a () -> ProgramFile a -> ProgramFile a
 runTransform env mmap trans pf =
     stripAnalysis . transProgramFile . execState trans $ initState
   where
-    (pf', _) = analyseTypesWithEnv env . analyseRenamesWithModuleMap mmap . initAnalysis $ pf
+    (pf', _) = analyseTypesWithEnv (removeExtendedInfo env) . analyseRenamesWithModuleMap mmap . initAnalysis $ pf
     initState = TransformationState
       { transProgramFile = pf' }
+    removeExtendedInfo = M.map (\(_, _, t) -> t)
 
 getProgramFile :: Transform a (ProgramFile (Analysis a))
 getProgramFile = gets transProgramFile
