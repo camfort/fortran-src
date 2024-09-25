@@ -26,7 +26,7 @@ instance Binary Position
 instance NFData Position
 
 instance Show Position where
-  show (Position _ c l _ _) = show l ++ ':' : show c
+  show (Position _ c l _ _) = show l ++ ':' : show (c - 1)
 
 initPosition :: Position
 initPosition = Position
