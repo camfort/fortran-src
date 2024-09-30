@@ -2,8 +2,11 @@ module Language.Fortran.Analysis.Types
   ( analyseTypes
   , analyseTypesWithEnv
   , analyseAndCheckTypesWithEnv
+  , stripExtended
   , extractTypeEnv
+  , extractTypeEnvExtended
   , TypeEnv
+  , TypeEnvExtended
   , TypeError
   , deriveSemTypeFromDeclaration
   , deriveSemTypeFromTypeSpec
@@ -36,6 +39,11 @@ import Language.Fortran.Version (FortranVersion(..))
 
 -- | Mapping of names to type information.
 type TypeEnv = M.Map Name IDType
+-- | Mapping of names to type information with more information about the source
+type TypeEnvExtended = M.Map Name (Name, SrcSpan, IDType)
+
+stripExtended :: TypeEnvExtended -> TypeEnv
+stripExtended = M.map (\(_, _, t) -> t)
 
 -- | Information about a detected type error.
 type TypeError = (String, SrcSpan)
@@ -120,6 +128,24 @@ extractTypeEnv pf = M.union puEnv expEnv
     expEnv = M.fromList [ (n, ty) | e@(ExpValue _ _ ValVariable{}) <- universeBi pf :: [Expression (Analysis a)]
                                   , let n = varName e
                                   , ty <- maybeToList (idType (getAnnotation e)) ]
+
+extractTypeEnvExtended :: forall a. Data a => ProgramFile (Analysis a) -> TypeEnvExtended
+extractTypeEnvExtended pf = M.union puEnv expEnv
+  where
+    puEnv = M.fromList [ (n, (srcName, getSpan pu, ty)) | pu <- universeBi pf :: [ProgramUnit (Analysis a)]
+                                 , Named n <- [puName pu]
+                                 , Named srcName <- [puSrcName pu]
+                                 , ty <- maybeToList (idType (getAnnotation pu)) ]
+    expEnv = M.fromList [ (n, (srcName e, sp, ty)) | e@(ExpValue _ _ ValVariable{}) <- universeBi pf :: [Expression (Analysis a)]
+                                  , let n = varName e
+                                  , sp <- getDeclarator n
+                                  , ty <- maybeToList (idType (getAnnotation e)) ]
+    getDeclarator v' =
+        [ sp | d@(Declarator _ sp ev _ _ _) <- universeBi pf :: [Declarator (Analysis a)]
+             , varName ev == v' ]
+
+
+
 
 type TransType f g a = (f (Analysis a) -> Infer (f (Analysis a))) -> g (Analysis a) -> Infer (g (Analysis a))
 annotateTypes :: Data a => ProgramFile (Analysis a) -> Infer (ProgramFile (Analysis a))

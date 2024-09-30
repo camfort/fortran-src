@@ -120,7 +120,7 @@ data ModFile = ModFile { mfFilename    :: String
                        , mfStringMap   :: StringMap
                        , mfModuleMap   :: FAR.ModuleMap
                        , mfDeclMap     :: DeclMap
-                       , mfTypeEnv     :: FAT.TypeEnv
+                       , mfTypeEnv     :: FAT.TypeEnvExtended
                        , mfParamVarMap :: ParamVarMap
                        , mfOtherData   :: M.Map String LB.ByteString
                       }
@@ -145,7 +145,7 @@ emptyModFile = ModFile "" M.empty M.empty M.empty M.empty M.empty M.empty
 regenModFile :: forall a. (Data a) => F.ProgramFile (FA.Analysis a) -> ModFile -> ModFile
 regenModFile pf mf = mf { mfModuleMap   = extractModuleMap pf
                         , mfDeclMap     = extractDeclMap pf
-                        , mfTypeEnv     = FAT.extractTypeEnv pf
+                        , mfTypeEnv     = FAT.extractTypeEnvExtended pf
                         , mfParamVarMap = extractParamVarMap pf
                         , mfFilename    = F.pfGetFilename pf }
 
@@ -227,7 +227,7 @@ localisedModuleMap = M.map (M.filter (not . FA.isImported . snd))
 
 -- | Extract the combined module map from a set of ModFiles. Useful
 -- for parsing a Fortran file in a large context of other modules.
-combinedTypeEnv :: ModFiles -> FAT.TypeEnv
+combinedTypeEnv :: ModFiles -> FAT.TypeEnvExtended
 combinedTypeEnv = M.unions . map mfTypeEnv
 
 -- | Extract the combined declaration map from a set of
