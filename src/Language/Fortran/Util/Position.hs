@@ -26,6 +26,9 @@ instance Binary Position
 instance NFData Position
 
 instance Show Position where
+  -- Column number decrement by 1 as the lexer generates column numbers
+  -- starting at position 1
+  -- See PR https://github.com/camfort/fortran-src/pull/292
   show (Position _ c l _ _) = show l ++ ':' : show (c - 1)
 
 initPosition :: Position
