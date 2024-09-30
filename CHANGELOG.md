@@ -1,3 +1,7 @@
+### 0.16.3 (Sep 30, 2024)
+  * Store source names for local declarations in .fsmod files.
+  * Constant evaluator now handles real-integer exponent and real-real exponent expression
+
 ### 0.16.2 (Sep 13, 2024)
   * Small change to allow a path to be added when building mod-file naming map
   * Improvements to the power of constant propagation and constant expression evaluation.
