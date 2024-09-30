@@ -272,6 +272,13 @@ evalBOp bop l r = do
         case (l', r') of
           (FSVInt li, FSVInt ri) ->
             pure $ MkFScalarValue $ FSVInt $ fIntBOpInplace (^) li ri
+          (FSVReal lr, FSVReal ri) ->
+            pure $ MkFScalarValue $ FSVReal $ fRealBOpInplace' (**) (**) lr ri
+          (FSVReal lr, FSVInt ri) ->
+            -- Handle case of a real raised to an integer power.
+            pure $ MkFScalarValue $ FSVReal $ fRealBOpInplace' (**) (**) lr (FReal8 $ withFInt ri)
+
+--          _ -> err $ ELazy "exponentiation: unsupported types"
 
       F.Concatenation  ->
         case (l', r') of
