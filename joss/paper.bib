@@ -28,24 +28,6 @@
   bibsource = {dblp computer science bibliography, http://dblp.org}
 }
 
-@article{DBLP:journals/jocs/OrchardRO15,
-  author    = {Orchard, Dominic and
-               Rice, Andrew and
-               Oshmyan, Oleg},
-  title     = {Evolving Fortran types with inferred units-of-measure},
-  journal   = {J. Comput. Science},
-  volume    = {9},
-  pages     = {156--162},
-  year      = {2015},
-  url       = {http://dx.doi.org/10.1016/j.jocs.2015.04.018},
-  doi       = {10.1016/j.jocs.2015.04.018},
-  timestamp = {Mon, 13 Jul 2015 11:12:24 +0200},
-  biburl    = {http://dblp.dagstuhl.de/rec/bib/journals/jocs/OrchardRO15},
-  bibsource = {dblp computer science bibliography, http://dblp.org}
-}
-
-
-
 @article{DBLP:journals/cse/ContrastinRDO16,
   author    = {Mistral Contrastin and
                Andrew C. Rice and
@@ -115,14 +97,21 @@
 }
 
 @article{orchard2017verifying,
-  title={Verifying spatial properties of array computations},
-  author={Orchard, Dominic and Contrastin, Mistral and Danish, Matthew and Rice, Andrew},
-  journal={Proceedings of the ACM on Programming Languages},
-  volume={1},
-  number={OOPSLA},
-  pages={75},
-  year={2017},
-  publisher={ACM}
+  author       = {Dominic A. Orchard and
+                  Mistral Contrastin and
+                  Matthew Danish and
+                  Andrew C. Rice},
+  title        = {Verifying spatial properties of array computations},
+  journal      = {Proc. {ACM} Program. Lang.},
+  volume       = {1},
+  number       = {{OOPSLA}},
+  pages        = {75:1--75:30},
+  year         = {2017},
+  url          = {https://doi.org/10.1145/3133899},
+  doi          = {10.1145/3133899},
+  timestamp    = {Sat, 30 Sep 2023 10:23:24 +0200},
+  biburl       = {https://dblp.org/rec/journals/pacmpl/OrchardCDR17.bib},
+  bibsource    = {dblp computer science bibliography, https://dblp.org}
 }
 
 @inproceedings{contrastin2016lightning,
@@ -170,27 +159,39 @@
 
 
 @article{backus1978history,
-  title={The history of {F}ortran {I}, {II}, and {III}},
-  author={Backus, John},
-  journal={ACM Sigplan Notices},
-  volume={13},
-  number={8},
-  pages={165--180},
-  year={1978},
-  publisher={ACM New York, NY, USA}
+author = {Backus, John},
+title = {The history of {FORTRAN I, II, and III}},
+year = {1978},
+issue_date = {August 1978},
+publisher = {Association for Computing Machinery},
+address = {New York, NY, USA},
+volume = {13},
+number = {8},
+issn = {0362-1340},
+url = {https://doi.org/10.1145/960118.808380},
+doi = {10.1145/960118.808380},
+abstract = {Before 1954 almost all programming was done in machine language or assembly language. Programmers rightly regarded their work as a complex, creative art that required human inventiveness to produce an efficient program. Much of their effort was devoted to overcoming the difficulties created by the computers of that era: the lack of index registers, the lack of built- in floating point operations, restricted instruction sets (which might have AND but not OR, for example), and primitive input- output arrangements. Given the nature of computers, the services which “automatic programming” performed for the programmer were concerned with overcoming the machine's shortcomings. Thus the primary concern of some “automatic programming” systems was to allow the use of symbolic addresses and decimal numbers (e.g., the MIDAC Input Translation Program [Brown and Carr 1954]).But most of the larger “automatic. Programming” systems (with the exception of Laning and Zierler's algebraic system [Laning and Zierler 1954] and the A-2 compiler [Remington Rand 1953; Moser 1954]) simply provided a synthetic “computer” with an order code different from that of the real machine. This synthetic computer usually had floating point instructions and index registers and had improved input-output commands; it was therefore much easier to program than its real counterpart.},
+journal = {SIGPLAN Not.},
+month = aug,
+pages = {165–180},
+numpages = {16}
 }
+
 
 @article{vanderbauwhede2022making,
-  title={Making legacy Fortran code type safe through automated program transformation},
-  author={Vanderbauwhede, Wim},
-  journal={The Journal of Supercomputing},
-  volume={78},
-  number={2},
-  pages={2988--3028},
-  year={2022},
-  publisher={Springer}
+  author       = {Wim Vanderbauwhede},
+  title        = {Making legacy {F}ortran code type safe through automated program transformation},
+  journal      = {The Journal of Supercomputing},
+  volume       = {78},
+  number       = {2},
+  pages        = {2988--3028},
+  year         = {2022},
+  url          = {https://doi.org/10.1007/s11227-021-03839-9},
+  doi          = {10.1007/S11227-021-03839-9},
+  timestamp    = {Tue, 08 Feb 2022 10:40:59 +0100},
+  biburl       = {https://dblp.org/rec/journals/tjs/Vanderbauwhede22.bib},
+  bibsource    = {dblp computer science bibliography, https://dblp.org}
 }
-
 @inproceedings{urmaetal2014,
 author = {Urma, Raoul-Gabriel and Orchard, Dominic and Mycroft, Alan},
 title = {Programming Language Evolution Workshop Report},
@@ -223,7 +224,8 @@ series = {PLE '14}
   number={4},
   pages={1487--1520},
   year={2017},
-  publisher={Copernicus GmbH}
+  publisher={Copernicus GmbH},
+  doi={10.5194/gmd-10-1487-2017}
 }
 
 @misc{plusFORT,
@@ -290,19 +292,29 @@ note = {Retrieved November 2023}
 }
 
 @misc{danish2024incremental,
-      title={Incremental units-of-measure verification},
-      author={Matthew Danish and Dominic Orchard and Andrew Rice},
-      year={2024},
-      eprint={2406.02174},
-      archivePrefix={arXiv},
-      primaryClass={cs.PL}
+  author       = {Matthew Danish and
+                  Dominic Orchard and
+                  Andrew Rice},
+  title        = {Incremental units-of-measure verification},
+  journal      = {CoRR},
+  volume       = {abs/2406.02174},
+  year         = {2024},
+  url          = {https://doi.org/10.48550/arXiv.2406.02174},
+  doi          = {10.48550/ARXIV.2406.02174},
+  eprinttype    = {arXiv},
+  eprint       = {2406.02174},
+  timestamp    = {Fri, 05 Jul 2024 16:54:14 +0200},
+  biburl       = {https://dblp.org/rec/journals/corr/abs-2406-02174.bib},
+  bibsource    = {dblp computer science bibliography, https://dblp.org}
 }
 
 @inproceedings{mendez2014climate,
-  title={Climate models: challenges for Fortran development tools},
-  author={M{\'e}ndez, Mariano and Tinetti, Fernando G and Overbey, Jeffrey L},
+  author={Méndez, Mariano and Tinetti, Fernando G. and Overbey, Jeffrey L.},
   booktitle={2014 Second International Workshop on Software Engineering for High Performance Computing in Computational Science and Engineering},
-  pages={6--12},
+  title={{Climate Models: Challenges for Fortran Development Tools}},
   year={2014},
-  organization={IEEE}
-}
+  volume={},
+  number={},
+  pages={6-12},
+  keywords={Meteorology;Analytical models;Predictive models;Computational modeling;Complexity theory;Standards;Software},
+  doi={10.1109/SE-HPCCSE.2014.7}}
