@@ -2,12 +2,12 @@
 title: 'fortran-src: Fortran static analysis infrastructure'
 tags:
   - Fortran
-
-# TODO should attempt to add all relevant authors
+  - static analysis
+  - tooling
 authors:
 - name: Mistral Contrastin
   orcid: 0000-0002-5409-7122
-  affiliation: 1,2
+  affiliation: "1, 2"
 - name: Raoul Hidalgo Charman
   orcid: 0000-0002-8401-7672
   affiliation: 3
@@ -19,57 +19,53 @@ authors:
   affiliation: 5
 - name: Dominic Orchard
   orcid: 0000-0002-7058-7842
-  affiliation: 5,6
+  affiliation: "5, 6"
 - name: Andrew Rice
   orcid: 0000-0002-4677-8032
-  affiliation: 1,7
+  affiliation: "1, 7"
 - name: Jason Xu
   orcid: 0000-0003-3310-0756
   affiliation: 3
 
 affiliations:
-- name: Department of Computer Science and Technology, University of Cambridge
+- name: Department of Computer Science and Technology, University of Cambridge, UK
   index: 1
-- name : Meta
+- name : Meta, US
   index: 2
-- name : Bloomberg
+- name : Bloomberg, US
   index: 3
-- name : Utrecht University
+- name : Utrecht University, Netherlands
   index: 4
-- name: School of Computing, University of Kent
+- name: School of Computing, University of Kent, UK
   index: 5
-- name: Institute of Computing for Climate Science, University of Cambridge
+- name: Institute of Computing for Climate Science, University of Cambridge, UK
   index: 6
-- name : GitHub
+- name : GitHub, US
   index: 7
 
 date: TODO
 bibliography: paper.bib
 ---
 
-
 # Summary
+
 fortran-src is an open-source Haskell library and command-line application
 for the lexing, parsing,
 and static analysis of Fortran source code. It provides an
- interface to build other Fortran language tools, e.g., for
+ interface to build other tools, e.g., for
 static analysis, automated refactoring, verification, and compilation.
 The library supports FORTRAN 66, FORTRAN 77, Fortran 90, Fortran 95,
 some legacy extensions, and partially Fortran 2003, with
 a shared Abstract Syntax Tree representation.
-The library has been deployed in several
-language tool projects in academia and industry.
+The library has been deployed in several language tool projects in academia and industry.
 
 # Statement of need
 
-As one of the oldest surviving programming languages [@backus1978history], Fortran
-underpins a vast amount of software; Fortran is not only a mainstay
-of legacy software, but is also used to write new software. Fortran remains a popular
-language in the international scientific community; @vanderbauwhede2022making
-reports data from 2016 on the UK's \`\`Archer'' supercomputer, showing the
+As one of the oldest surviving programming languages [@backus1978history], Fortran underpins a vast amount of software; Fortran is not only a mainstay
+of legacy software, but is also used to write new software. Fortran remains a popular language in the international scientific community; @vanderbauwhede2022making reports data from 2016 on the UK's \`\`Archer'' supercomputer, showing the
 vast majority of use being Fortran code. Fortran is
 particularly notable for its prevalence in earth sciences, e.g., for
-implementing global climate models that then inform international policy
+implementing global climate models that inform international policy
 decisions [@mendez2014climate]. In 2024, Fortran re-entered the Top 10 programming languages in
 the [TIOBE Index](https://www.tiobe.com/tiobe-index/), showing its enduring popularity.
 The continued use of Fortran, particularly in
@@ -77,17 +73,16 @@ scientific contexts, was the catalyst for this software package.
 
 A challenge in writing language tools for Fortran is its long
 history. There have been several major language standards (FORTRAN
-I-IV, FORTRAN 66 and 77, Fortran 90, 95, 2003, 2008, etc.) or
-_restandardisations_. Newer standards often deprecate features
-which are known to be a ready source of errors, or were difficult to
+I-IV, FORTRAN 66 and 77, Fortran 90, 95, 2003, 2008, etc.).
+Newer standards often deprecate features
+which are known to be a ready source of errors, or difficult to
 specify or understand. However, compilers often support an amalgam of features across
 standards (@urmaetal2014).
-This enables developers to keep using deprecated features, or mix
-language standards.
-This complicates the task of developing new tools for manipulating Fortran
+This enables developers to keep using deprecated features and mix
+language standards. This complicates the development of new tools for manipulating Fortran
 source code; one must tame the weight of decades of language evolution.
 
-This package, fortran-src, provides an open-source unified core for
+Our package, fortran-src, provides an open-source unified core for
 statically analysing Fortran code across language standards, with
 a focus on legacy code over cutting-edge modern Fortran. It is both
 a standalone tool and a library, providing
@@ -104,7 +99,7 @@ General commerical static analysis tools, like Coverity\footnote{\url{https://ww
 and Understand\footnote{\url{https://scitools.com/}}, can also handle Fortran. Photran\footnote{\url{https://projects.eclipse.org/projects/tools.ptp.photran}}
 is an open source plugin for refactoring in Eclipse,
 but does not provide more general static analysis facilities.
-More recent work has developed open source
+More recent work has developed open-source
 tools for refactoring Fortran [@vanderbauwhede2022making]:
 [RefactorF4Acc](https://github.com/wimvanderbauwhede/RefactorF4Acc)\footnote{\url{https://github.com/wimvanderbauwhede/RefactorF4Acc}} is an
  open-source tool for upgrading FORTRAN 77 code to Fortran 95.
@@ -123,8 +118,8 @@ build new tools.
   * Exporting to JSON.
 
 fortran-src is primarily a Haskell library but it also packages a command-line
-tool for analysis. By exporting parsed code to JSON, the
-parsing and standard analyses that fortran-src provides may be utilized by
+tool. By exporting parsed code to JSON, the
+parsing and analyses that fortran-src provides may be utilized by
 non-Haskell tools.
 
 The library's top-level module is `Language.Fortran`.
@@ -136,8 +131,8 @@ front end: either to take the approach of many compilers, allowing an amalgam of
 its hand-written parser), or to
 enforce language standards at the exclusion of some code that is
 accepted by major compilers. fortran-src takes roughly the latter
-approach, though it also has an extended Fortran 77 mode for supporting
-legacy extensions influenced by vendor-specific compilers that have been popular in the past.
+approach, though it has an extended Fortran 77 mode for supporting
+legacy extensions influenced by vendor-specific compilers popular in the past.
 
 The Fortran language has evolved through two broad syntactic forms:
 
@@ -147,8 +142,7 @@ The Fortran language has evolved through two broad syntactic forms:
     and continuation markers. The character `C` in column 1 indicates a comment line
     to be ignored by the compiler, else the line properly begins from column 7.
 
-  * _free source form_, first specified in Fortran 90 and subsequent versions of
-    the standards, which has fewer restrictions on line format and a different method
+  * _free source form_, first specified in Fortran 90 and subsequent standards, which has fewer restrictions on the line format and a different method
     of encoding line continuations.
 
 Therefore, two lexers are provided: the fixed form lexer, for handling earlier
@@ -156,32 +150,12 @@ versions of the language: FORTRAN 66 and FORTRAN 77 (and additional
 `Legacy` and `Extended` modes), and the free form lexer, for Fortran
 90 onwards.
 
-<!--
-The fixed form lexer (`Language.Fortran.Parser.Fixed.Lexer`) handles
-the expectation that the first 6 columns of a line are reserved for
-code labels and continuation line markers, with code starting at
-column 7, and with comment lines starting with `C` in the first
-column. Only the first 72 columns are scanned (i.e., anything after is
-ignored).
-
-The free form lexer (`Language.Fortran.Parser.Free.Lexer`) is less
-constrained but still has to manage continuation-line markers which
-break statements across multiple lines.
--->
-
 fortran-src defines one parser per supported standard (grouped
 under `Language.Fortran.Parser.Fixed` and `Language.Fortran.Parser.Free` depending
 on the lexing form), plus a parser
 for handling non-standard extended features.
-Each parser uses the source form that its standard specifies.
 Later standards such as Fortran 2003 are generally comparable to Fortran
-90, but with additional syntactic constructs. The parser `gate' certain features by the language standard being parsed.
-
-<!-- Parsers are grouped by
-fixed or free form, thus parsers for FORTRAN 66 and FORTRAN 77 are
-within the `Language.Fortran.Parser.Fixed` namespace and the rest are within
-`Language.Fortran.Parser.Free`. A top-level module (`Language.Fortran.Parser`)
-provides a unified point of access to the underlying parsers. -->
+90, but with additional syntactic constructs. The parser `gates' certain features by the language standard being parsed.
 
 The lexers are auto-generated via the [`alex`](https://github.com/haskell/alex) tool.
 The suite of parsers is automatically generated from
@@ -198,16 +172,14 @@ the type of "annotations" that can be stored in the nodes of the
 tree. For example, the top-level of the AST is the `ProgramFile a`
   type, which comprises a list of `ProgramUnit a` values, parameterised
   by the annotation type `a` (i.e., that is the generic type parameter).
-  The annotation facility is useful for collecting information about types within the nodes
-of the tree, or flagging whether the particular node of the tree has been
-rewritten or refactored.
+  The annotation facility is useful for collecting information about types within the tree nodes or flagging whether the particular node of the tree has been rewritten.
 
 Some simple transformations are provided on ASTs:
 
 * Grouping transformation, turning unstructured ASTs into structured ASTs;
 (`Language.Fortran.Transformation.Grouping`);
 * Disambiguation of array indexing vs. function calls (as they share
-the same syntax in Fortran) (`Language.Fortran.Transformation.Disambiguation`);
+the same syntax in Fortran) (`Language.Fortran.Transformation.Disambiguation`),
 and intrinsic calls from regular function calls,
 (`Language.Fortran.Transformation.Disambiguation.Intrinsic`),
 e.g.
@@ -221,8 +193,7 @@ depending on whether the code is FORTRAN 66 or not).
 
 ## Static analyses
 
-The table below summarises the current static analysis techniques
-available within fortran-src, (grouped under `Language.Fortran.Analysis`).
+Static analysis techniques available within fortran-src:
 
 * Control-flow analysis (building a super graph) (`Language.Fortran.Analysis.BBlocks`);
 * General data flow analyses (`Language.Fortran.Analysis.DataFlow`), including:
@@ -235,11 +206,11 @@ available within fortran-src, (grouped under `Language.Fortran.Analysis`).
 * Type analysis (`Language.Fortran.Analysis.Types`);
 * Module graph analysis (`Language.Fortran.Analysis.ModGraph`);
 
-A representation, abstracted away from the details of the syntax tree,
+An abstract representation
 is provided for evaluation of expressions and for semantic analysis
 (`Language.Fortran.Repr`).  Constant expression evaluation
 (`Language.Fortran.Repr.Eval.Value`) leverages this representation
-and enables some symbolic manipulation too, essentially providing some partial evaluation.
+and enables some symbolic manipulation too, providing some partial evaluation.
 
 A demonstration of fortran-src for static analysis is provided
 by a small demo tool which detects if an allocatable array is used
@@ -247,14 +218,14 @@ before it has been allocated.\footnote{\url{https://github.com/camfort/allocate-
 
 ## Pretty printing, reprinting, and rewriting
 
-A commonly required feature of language tools is to generate source code.
+A common feature of language tools is to generate source code.
 We thus provide pretty printing features to generate textual source
 code from the internal AST (`Language.Fortran.PrettyPrint`).
 
 Furthermore, fortran-src provides a diff-like patching feature for
-(unparsed) Fortran source code that accounts for the fixed form style,
-handling the fixed form lexing of lines, and comments in its
-application of patches (`Language.Fortran.Rewriter`). This aids in the development of refactoring tools.
+(unparsed) Fortran source code that accounts for the fixed-form style,
+handling the fixed-form lexing of lines, and comments in its
+application of patches (`Language.Fortran.Rewriter`). This aids development of refactoring tools.
 
 # Work building on fortran-src
 
@@ -268,42 +239,28 @@ by the EPSRC under the project title \emph{CamFort: Automated evolution and
 whose aim was to (1) develop practical tools for scientists to
 help reduce the accidental complexity of models through
 evolving a code base, and (2) provide tools for automatically verifying
-that any maintenance/evolution activity preserves the model's
-behaviour. The work resulted in the CamFort tool
-of which fortran-src was the core infrastructure.
+properties of code. The work resulted in the CamFort tool
+of which fortran-src is the core infrastructure.
 
-CamFort provides facilities for automatically refactoring
-deprecated or dangerous programming patterns, with the goal of helping
+CamFort provides automatic refactoring of
+deprecated or error-prone programming patterns, with the goal of helping
 to meet core quality requirements, such as maintainability
 (@DBLP:conf/oopsla/OrchardR13). For example, it can rewrite
 EQUIVALENCE and COMMON blocks (both of which were deprecated in the
 Fortran 90 standard) into more modern Fortran style.
 
- <!-- These
-refactorings also help expose any programming bugs arising from bad
-programming practices. -->
-
-The bulk of the features are however focussed on code analysis and
-lightweight verification (@contrastin2016lightning). Source-code
+CamFort also provides code analysis and
+lightweight verification tools (@contrastin2016lightning). Source-code
 annotations (comments) provide specifications of certain aspects of a
 program's meaning or behaviour. CamFort can then check that code
-conforms to these specifications. CamFort can also suggest places to
-insert specifications and, in some cases, infer the specifications
-of existing code. Facilities include: units-of-measure typing
+conforms to these specifications (and for some features can suggest places to insert specifications or infer specifications
+from existing code). Facilities include: units-of-measure typing
 (@DBLP:journals/corr/abs-2011-06094,@DBLP:journals/jocs/OrchardRO15,@danish2024incremental),
 array access patterns (for capturing the shape of stencil computations)
 (@orchard2017verifying), deductive reasoning via pre- and
 post-conditions in Hoare logic style, and various code safety checks.
 
-<!-->
-such as memory safety by ensuring every ALLOCATE has a DEALLOCATE,
-robustness by analysing the use of conditionals on floating-point
-numbers, and performance bug checks on arrays (e.g., that the order of
-array indexing using induction variables matches the order of enclosing
-loops defining those induction variables).
--->
-
-CamFort also provides an advanced rewriting alogrithm for
+CamFort also provides an advanced rewriting alogrithm
 that fuses a depth-first traversal of the AST with a textual diff algorithm
 on the original source code, called "reprinting" (@clarke2017scrap).
 
@@ -311,20 +268,12 @@ CamFort has been previously
 deployed at the Met Office, with its analysis tooling run on the Unified
 Model (@walters2017met) to ensure internal code quality standards are met.
 
-<!--
- The reprinter is parameterised by `reprintings`
-which hook into each node and allow nodes which have been refactored by CamFort
-to have the pretty printer applied to them. The resulting outputs from each
-node are stitched into the position from which they originated in the
-input source file. This further enables the
-development of refactoring tools that need to perform transformations on source code text.
--->
 
 ## fortran-vars memory model library
 
 `fortran-vars` is a static analysis library built on top of `fortran-src`. Many
 static analysis questions depend on knowing the value and type of
-expressions. `fortran-vars` provides an API to answer this fundamental question.
+expressions. `fortran-vars` provides an API to answer this question.
 It has modules for symbol table construction, constant expression evaluation, and type
 checking.
 Additionally, `fortran-vars` provides a memory model to resolve aliases
@@ -397,4 +346,3 @@ over the years (in alphabetical order of surname):
 * Jay Torry
 
 # References
-<!-- references get automatically placed here -->
