@@ -30,9 +30,9 @@ authors:
 affiliations:
 - name: Department of Computer Science and Technology, University of Cambridge, UK
   index: 1
-- name : Meta, US
+- name : Meta
   index: 2
-- name : Bloomberg, US
+- name : Bloomberg
   index: 3
 - name : Utrecht University, Netherlands
   index: 4
@@ -40,7 +40,7 @@ affiliations:
   index: 5
 - name: Institute of Computing for Climate Science, University of Cambridge, UK
   index: 6
-- name : GitHub, US
+- name : GitHub
   index: 7
 
 date: TODO
