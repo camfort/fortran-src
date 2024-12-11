@@ -1105,20 +1105,28 @@ advance move position =
 
 processLinePragma :: String -> AlexInput -> AlexInput
 processLinePragma m ai =
-  case dropWhile ((`elem` ["#", "line", "#line"]) . map toLower) (words m) of
-    -- 'line' pragma - rewrite the current line and filename
-    lineStr:otherWords
-      | line <- readIntOrBoz lineStr -> do
-        let revdropWNQ = reverse . drop 1 . dropWhile (flip notElem "'\"")
-        let file       = revdropWNQ . revdropWNQ $ unwords otherWords
-        -- if a newline is present, then the aiPosition is already on the next line
-        let maybe1 | elem '\n' m = 0 | otherwise = 1
-        -- lineOffs is the difference between the given line and the current next line
-        let lineOffs   = fromIntegral line - (posLine (aiPosition ai) + maybe1)
-        let newP       = (aiPosition ai) { posPragmaOffset = Just (lineOffs, file)
-                                         , posColumn = 1 }
-        ai { aiPosition = newP }
-    _ -> ai
+  let wordsm = words m
+      isLinePragma x = x `elem` ["#", "line", "#line"]
+  in -- If this is a line pragma then process this
+     if length wordsm > 0 && isLinePragma (head wordsm)
+     || (length wordsm > 1 && isLinePragma (head (tail wordsm)))
+     then
+        case dropWhile ((`elem` ["#", "line", "#line"]) . map toLower) wordsm of
+          -- 'line' pragma - rewrite the current line and filename
+          lineStr:otherWords
+            | line <- readIntOrBoz lineStr -> do
+              let revdropWNQ = reverse . drop 1 . dropWhile (flip notElem "'\"")
+              let file       = revdropWNQ . revdropWNQ $ unwords otherWords
+              -- if a newline is present, then the aiPosition is already on the next line
+              let maybe1 | elem '\n' m = 0 | otherwise = 1
+              -- lineOffs is the difference between the given line and the current next line
+              let lineOffs   = fromIntegral line - (posLine (aiPosition ai) + maybe1)
+              let newP       = (aiPosition ai) { posPragmaOffset = Just (lineOffs, file)
+                                              , posColumn = 1 }
+              ai { aiPosition = newP }
+          _ -> ai
+     -- Otherwise this is probably a CPP directive or some other pragma so ignore
+     else ai
 
 -- Handle pragmas that begin with #
 lexHash :: LexAction (Maybe Token)
