@@ -95,7 +95,7 @@ parseBoz s =
       | p' == 'x' = Just $ BozPrefixZ Nonconforming
       | otherwise = Nothing
       where p' = Char.toLower p
-    errInvalid = error "Language.Fortran.AST.BOZ.parseBoz: invalid BOZ string"
+    errInvalid = error ("Language.Fortran.AST.BOZ.parseBoz: invalid BOZ string: " <> show s)
     -- | Remove the first and last elements in a list.
     shave = tail . init
 
