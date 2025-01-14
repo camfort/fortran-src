@@ -48,7 +48,6 @@ bibliography: paper.bib
 ---
 
 # Summary
-
 fortran-src is an open-source Haskell library and command-line application
 for the lexing, parsing,
 and static analysis of Fortran source code. It provides an
@@ -94,9 +93,9 @@ A variety of other tools exist for analysing Fortran, but most are commercial an
 plusFORT\footnote{\url{https://polyhedron.com/?product=plusfort}} (which includes the SPAG refactoring tool),
 the SimCon fpt tool\footnote{\url{http://simconglobal.com/fpt_summary.html}} (which includes further verification
 features like dimensional analysis), and Forcheck\footnote{\url{https://codework.com/solutions/developer-tools/forcheck-fortran-analysis/}}.
-General commerical static analysis tools, like Coverity\footnote{\url{https://www.synopsys.com/software-integrity/static-analysis-tools-sast/coverity.html}}
+General commercial static analysis tools, like Coverity\footnote{\url{https://www.synopsys.com/software-integrity/static-analysis-tools-sast/coverity.html}}
 and Understand\footnote{\url{https://scitools.com/}}, can also handle Fortran. Photran\footnote{\url{https://projects.eclipse.org/projects/tools.ptp.photran}}
-is an open source plugin for refactoring in Eclipse,
+is an open-source plugin for refactoring in Eclipse,
 but does not provide more general static analysis facilities.
 More recent work has developed open-source
 tools for refactoring Fortran [@vanderbauwhede2022making]:
