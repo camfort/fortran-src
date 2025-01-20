@@ -60,7 +60,7 @@ The library has been deployed in several language tool projects in academia and 
 # Statement of need
 
 As one of the oldest surviving programming languages [@backus1978history], Fortran underpins a vast amount of software; Fortran is not only a mainstay
-of legacy software, but is also used to write new software. Fortran remains a popular language in the international scientific community; @vanderbauwhede2022making reports data from 2016 on the UK's \`\`Archer'' supercomputer, showing the
+of legacy software, but is also used to write new software. Fortran remains a popular language in the international scientific community; @vanderbauwhede2022making reports data from 2016 on the UK's Archer supercomputer, showing the
 vast majority of use being Fortran code. Fortran is
 particularly notable for its prevalence in earth sciences, e.g., for
 implementing climate models that inform international policy
@@ -71,11 +71,11 @@ scientific contexts, was the catalyst for this software package.
 
 A challenge in writing language tools for Fortran is its long
 history. There have been several major language standards (FORTRAN
-I-IV, FORTRAN 66 and 77, Fortran 90, 95, 2003, 2008, etc.).
+I-IV, FORTRAN 66 and 77, Fortran 90, 95, 2003, 2008, etc.)
 Newer standards often deprecate features
-which are known to be a ready source of errors, or difficult to
+that are known to be a ready source of errors, or difficult to
 specify or understand. However, compilers often support an amalgam of features across
-standards (@urmaetal2014),
+standards [@urmaetal2014],
 enabling developers to keep using deprecated features and mix
 language standards. This complicates the development of new tools for manipulating Fortran
 source code; one must tame the weight of decades of language evolution.
@@ -144,30 +144,30 @@ by the EPSRC under the project title \emph{CamFort: Automated evolution and
 whose aim was to (1) develop practical tools for scientists to
 help reduce the accidental complexity of models through
 evolving a code base, and (2) provide tools for automatically verifying
-properties of code. The work resulted in the CamFort tool
+properties of code. The work resulted in the CamFort tool,
 of which fortran-src is the core infrastructure.
 
 CamFort provides automatic refactoring of
 deprecated or error-prone programming patterns, with the goal of helping
 to meet core quality requirements, such as maintainability
-(@DBLP:conf/oopsla/OrchardR13). It can rewrite
+[@DBLP:conf/oopsla/OrchardR13]. It can rewrite
 EQUIVALENCE and COMMON blocks (both of which were deprecated in the
 Fortran 90 standard) into more modern style.
 
 CamFort also provides code analysis and
-lightweight verification tools (@contrastin2016lightning). Source-code
+lightweight verification tools [@contrastin2016lightning]. Source-code
 annotations (comments) provide specifications of certain aspects of a
 program's meaning or behaviour. CamFort can check that code
 conforms to these specifications (and for some features can suggest places to insert specifications or infer specifications
 from existing code). Facilities include: units-of-measure typing
-(@DBLP:journals/corr/abs-2011-06094,@DBLP:journals/jocs/OrchardRO15,@danish2024incremental),
+[@DBLP:journals/corr/abs-2011-06094; @DBLP:journals/jocs/OrchardRO15; @danish2024incremental],
 array access patterns (for capturing the shape of stencil computations)
-(@orchard2017verifying), deductive reasoning via pre- and
+[@orchard2017verifying], deductive reasoning via pre- and
 post-conditions in Hoare logic style, and various code safety checks.
 
 CamFort has been previously
 deployed at the Met Office, with its analysis tooling run on the Unified
-Model (@walters2017met) to ensure internal code quality standards are met.
+Model [@walters2017met] to ensure internal code quality standards are met.
 
 
 ## fortran-vars memory model library
@@ -204,7 +204,7 @@ behaviour.
 
 # Project maintenance and documentation
 
-fortran-src may be built and used on Windows, Mac and Linux systems using a recent version of the
+fortran-src may be built and used on Windows, Mac, and Linux systems using a recent version of the
 [Glasgow Haskell Compiler](https://www.haskell.org/ghc/). The project includes
 an expansive test suite covering various parsing edge cases and behaviours,
 which is automatically executed for changes to the project (on the above three
