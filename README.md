@@ -1,7 +1,7 @@
 # fortran-src
 ![CI status badge](https://github.com/camfort/fortran-src/actions/workflows/ci.yml/badge.svg)
 
-Provides lexing/parsing and early static analyses of Fortran code. The following
+fortran-src is an open-source Haskell library and command-line application for the lexing, parsing, and static analysis of Fortran source code. It provides an interface to build other tools, e.g., for static analysis, automated refactoring, verification, and compilation. The following
 Fortran standards are covered:
 
   * FORTRAN 66 (ANSI X3.9-1966)
@@ -13,12 +13,29 @@ Fortran standards are covered:
 Parsing is configurable, and you can select the Fortran standard to target,
 including special extended modes for nonstandard FORTRAN 77.
 
-Includes data flow and basic block analysis, a renamer, and type analysis.
+Various static analyses are provided including:
+
+* Control-flow analysis (building a super graph) (Language.Fortran.Analysis.BBlocks);
+* General data flow analyses (Language.Fortran.Analysis.DataFlow), including:
+* Reaching definitions;
+* Def-use/use-def;
+* Constant evaluation;
+* Constant propagation;
+* Live variable analysis;
+* Induction variable analysis.
+* Type analysis (Language.Fortran.Analysis.Types);
+* Module graph analysis (Language.Fortran.Analysis.ModGraph);
 
 This package primarily exports a Haskell library, but also builds an executable
-that can be used for testing and debugging. For example usage, see the
-[CamFort](https://github.com/camfort/camfort) project, which uses fortran-src as
-its front end.
+that can be used for testing and debugging. 
+
+The library is the basis of the [CamFort verification tool](https://github.com/camfort/camfort).
+
+## Statement of Need
+
+Fortran remains a popular language in the international scientific community. It is not only a mainstay of legacy software, but is also used to write new software. Fortran is particularly notable for its prevalence in earth sciences, e.g., for implementing climate models that inform international policy decisions. In 2024, Fortran re-entered the Top 10 programming languages in the TIOBE Index, showing its enduring popularity. The continued use of Fortran, particularly in scientific contexts, was the catalyst for this software package. A challenge in writing language tools for Fortran is its long history. There have been several major language standards (FORTRAN I-IV, FORTRAN 66 and 77, Fortran 90, 95, 2003, 2008, etc.) Newer standards often deprecate features that are known to be a ready source of errors, or difficult to specify or understand. However, compilers often support an amalgam of features across standards, enabling developers to use deprecated features and mix language standards. This complicates the development of new tools for manipulating Fortran source code; one must tame the weight of decades of language evolution.
+
+Our package, `fortran-src`, provides an open-source unified core for statically analysing Fortran code across language standards, with a focus on legacy code over cutting-edge modern Fortran. It is both a standalone tool and a library, providing a suite of standard static analyses as a basis for further programming language tools and systems.
 
 ## Obtaining
 We provide [prebuilt binaries](https://github.com/camfort/fortran-src/releases)
