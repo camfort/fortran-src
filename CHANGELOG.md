@@ -1,3 +1,7 @@
+### 0.16.4 (Feb 07, 2025)
+  * Small fix around parsing of BOZ constants.
+  * This version was reviewed for JOSS.
+
 ### 0.16.3 (Sep 30, 2024)
   * Store source names for local declarations in .fsmod files.
   * Constant evaluator now handles real-integer exponent and real-real exponent expression

@@ -51,7 +51,7 @@ programName :: String
 programName = "fortran-src"
 
 showVersion :: String
-showVersion = "0.16.3"
+showVersion = "0.16.4"
 
 main :: IO ()
 main = do
