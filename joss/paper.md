@@ -22,7 +22,7 @@ authors:
   affiliation: "5, 6"
 - name: Andrew Rice
   orcid: 0000-0002-4677-8032
-  affiliation: "1, 7"
+  affiliation: "1"
 - name: Jason Xu
   orcid: 0000-0003-3310-0756
   affiliation: 3
@@ -30,7 +30,7 @@ authors:
 affiliations:
 - name: Department of Computer Science and Technology, University of Cambridge, UK
   index: 1
-- name : Meta
+- name : Meta, London, UK
   index: 2
 - name : Bloomberg
   index: 3
@@ -40,8 +40,6 @@ affiliations:
   index: 5
 - name: Institute of Computing for Climate Science, University of Cambridge, UK
   index: 6
-- name : GitHub
-  index: 7
 
 date: TODO
 bibliography: paper.bib
