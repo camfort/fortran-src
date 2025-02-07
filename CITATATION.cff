@@ -1,0 +1,62 @@
+cff-version: "1.2.0"
+authors:
+- family-names: Contrastin
+  given-names: Mistral
+  orcid: "https://orcid.org/0000-0002-5409-7122"
+- family-names: Charman
+  given-names: Raoul Hidalgo
+  orcid: "https://orcid.org/0000-0002-8401-7672"
+- family-names: Danish
+  given-names: Matthew
+  orcid: "https://orcid.org/0000-0002-7186-387X"
+- family-names: Orchard
+  given-names: Benjamin
+  orcid: "https://orcid.org/0000-0002-7543-7675"
+- family-names: Orchard
+  given-names: Dominic
+  orcid: "https://orcid.org/0000-0002-7058-7842"
+- family-names: Rice
+  given-names: Andrew
+  orcid: "https://orcid.org/0000-0002-4677-8032"
+- family-names: Xu
+  given-names: Jason
+  orcid: "https://orcid.org/0000-0003-3310-0756"
+doi: 10.5281/zenodo.14831853
+message: If you use this software, please cite our article in the
+  Journal of Open Source Software.
+preferred-citation:
+  authors:
+  - family-names: Contrastin
+    given-names: Mistral
+    orcid: "https://orcid.org/0000-0002-5409-7122"
+  - family-names: Charman
+    given-names: Raoul Hidalgo
+    orcid: "https://orcid.org/0000-0002-8401-7672"
+  - family-names: Danish
+    given-names: Matthew
+    orcid: "https://orcid.org/0000-0002-7186-387X"
+  - family-names: Orchard
+    given-names: Benjamin
+    orcid: "https://orcid.org/0000-0002-7543-7675"
+  - family-names: Orchard
+    given-names: Dominic
+    orcid: "https://orcid.org/0000-0002-7058-7842"
+  - family-names: Rice
+    given-names: Andrew
+    orcid: "https://orcid.org/0000-0002-4677-8032"
+  - family-names: Xu
+    given-names: Jason
+    orcid: "https://orcid.org/0000-0003-3310-0756"
+  date-published: 2025-02-07
+  doi: 10.21105/joss.07571
+  issn: 2475-9066
+  issue: 106
+  journal: Journal of Open Source Software
+  publisher:
+    name: Open Journals
+  start: 7571
+  title: "fortran-src: Fortran static analysis infrastructure"
+  type: article
+  url: "https://joss.theoj.org/papers/10.21105/joss.07571"
+  volume: 10
+title: "fortran-src: Fortran static analysis infrastructure"
