@@ -15,8 +15,7 @@ author:         Mistral Contrastin,
                 Matthew Danish,
                 Dominic Orchard,
                 Andrew Rice
-maintainer:     me@madgen.net,
-                Ben Orchard
+maintainer:     Dominic Orchard <dom.orchard@gmail.com>
 license:        Apache-2.0
 license-file:   LICENSE
 build-type:     Simple
