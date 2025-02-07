@@ -32,7 +32,7 @@ affiliations:
   index: 1
 - name : Meta, London, UK
   index: 2
-- name : Bloomberg
+- name : Bloomberg, US
   index: 3
 - name : Utrecht University, Netherlands
   index: 4
