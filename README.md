@@ -1,5 +1,7 @@
 # fortran-src
 ![CI status badge](https://github.com/camfort/fortran-src/actions/workflows/ci.yml/badge.svg)
+[![DOI](https://joss.theoj.org/papers/10.21105/joss.07571/status.svg)](https://doi.org/10.21105/joss.07571)
+
 
 fortran-src is an open-source Haskell library and command-line application for the lexing, parsing, and static analysis of Fortran source code. It provides an interface to build other tools, e.g., for static analysis, automated refactoring, verification, and compilation. The following
 Fortran standards are covered:
