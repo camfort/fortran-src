@@ -1,5 +1,5 @@
 {-| Utils for both lexers. -}
-module Language.Fortran.Parser.LexerUtils ( readIntOrBoz ) where
+module Language.Fortran.Parser.LexerUtils ( readIntOrBoz, unescapeSpecialChars) where
 
 import Language.Fortran.AST.Literal.Boz
 import Numeric
@@ -16,3 +16,17 @@ readIntOrBoz s = do
 readSToMaybe :: [(a, b)] -> Maybe a
 readSToMaybe = \case (x, _):_ -> Just x
                      _        -> Nothing
+
+
+-- | Pretty prints exception message that contains things like carriage return, indents, etc.
+unescapeSpecialChars :: String -> String
+unescapeSpecialChars [] = []
+unescapeSpecialChars ('\\' : c : rest) =
+  case c of
+    'n'  -> '\n' : unescapeSpecialChars rest
+    't'  -> '\t' : unescapeSpecialChars rest
+    'r'  -> '\r' : unescapeSpecialChars rest
+    '\\' -> '\\' : unescapeSpecialChars rest
+    _    -> '\\' : c : unescapeSpecialChars rest
+unescapeSpecialChars (c : rest) =
+  c : unescapeSpecialChars rest
