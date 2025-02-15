@@ -30,7 +30,7 @@ import Language.Fortran.Parser.Monad
 import Language.Fortran.Version
 import Language.Fortran.Util.FirstParameter
 import Language.Fortran.Util.Position
-import Language.Fortran.Parser.LexerUtils ( readIntOrBoz )
+import Language.Fortran.Parser.LexerUtils ( readIntOrBoz, unescapeSpecialChars )
 import Language.Fortran.AST.Literal.Boz
 
 }
@@ -1128,7 +1128,7 @@ lexer' = do
     AlexEOF -> return $ TEOF $ SrcSpan (getPos alexInput) (getPos alexInput)
     AlexError _ -> do
       parseState <- get
-      fail $ psFilename parseState ++ " - lexing failed: " ++ show (psAlexInput parseState)
+      fail $ psFilename parseState ++ " - lexing failed: " ++ (unescapeSpecialChars $ show (psAlexInput parseState))
     AlexSkip newAlex _ -> putAlex newAlex >> lexer'
     AlexToken newAlex _ action -> do
       putAlex newAlex
