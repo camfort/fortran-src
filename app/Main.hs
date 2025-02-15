@@ -16,7 +16,7 @@ import System.Directory
 import System.FilePath
 import Text.PrettyPrint.GenericPretty (pp, pretty, Out)
 import Text.Read (readMaybe)
-import Data.List (sortBy, intercalate, isSuffixOf)
+import Data.List (sortBy, intercalate, isSuffixOf, union)
 import Data.Ord (comparing)
 import Data.Char (toLower)
 import Data.Maybe (listToMaybe, fromMaybe, maybeToList)
@@ -113,6 +113,7 @@ main = do
       contents <- runCPP (cppOptions opts) path -- only runs CPP if cppOptions is not Nothing
       mods <- decodeModFiles' $ includeDirs opts
       let version   = fromMaybe (deduceFortranVersion path) (fortranVersion opts)
+          version   = makeQualifiedVersion version $ compilerOptions opts
           parsedPF  = case (Parser.byVerWithMods mods version) path contents of
                         Left  a -> error $ show a
                         Right a -> a
@@ -327,17 +328,18 @@ instance Read Action where
 data OutputFormat = Default | DOT deriving Eq
 
 data Options = Options
-  { fortranVersion  :: Maybe FortranVersion
-  , action          :: Action
-  , outputFormat    :: OutputFormat
-  , outputFile      :: Maybe FilePath
-  , includeDirs     :: [String]
-  , cppOptions      :: Maybe String -- ^ Nothing: no CPP; Just x: run CPP with options x.
+  { fortranVersion         :: Maybe FortranVersion
+  , fortranCompilerOptions :: [CompilerOption]
+  , action                 :: Action
+  , outputFormat           :: OutputFormat
+  , outputFile             :: Maybe FilePath
+  , includeDirs            :: [String]
+  , cppOptions             :: Maybe String -- ^ Nothing: no CPP; Just x: run CPP with options x.
   , useContinuationReformatter :: Bool
   }
 
 initOptions :: Options
-initOptions = Options Nothing Parse Default Nothing [] Nothing False
+initOptions = Options Nothing [] Parse Default Nothing [] Nothing False
 
 options :: [OptDescr (Options -> Options)]
 options =
@@ -434,6 +436,14 @@ options =
                                     num                      -> opts { action = ShowFlows True False (read num) }
               ) "AST-BLOCK-ID")
       "dump a graph showing flows-from information from the given AST-block ID; prefix with 's' for supergraph"
+  , Option []
+      ["deprecated-constructs"]
+      (OptArg (\a opts -> 
+                case a of
+                  Just "dec-structure" -> opts { fortranCompilerOptions = union [DecStructure] (fortranCompilerOptions opts) }
+                  otherwise -> opts -- todo: warning?
+              ) "DEPRECATED-CONSTRUCTS")
+      "Support for deprecated constructs. (dec-structure)"
   ]
 
 compileArgs :: [ String ] -> IO (Options, [ String ])

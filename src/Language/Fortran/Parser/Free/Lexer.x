@@ -147,6 +147,11 @@ tokens :-
 <0> "entry"                                       { addSpan TEntry }
 <0> "include"                                     { addSpan TInclude }
 
+-- deprecated / non-standard declarations 
+<0> "structure"    / { legacyDECStructureP }      { addSpan TStructure }
+<0> "endstructure" / { legacyDECStructureP }      { addSpan TEndStructure }
+
+
 -- Type def related
 <0,scT> "type"                                    { addSpan TType }
 <scN> "type" / { allocateP }                      { addSpan TType }
@@ -338,6 +343,10 @@ tokens :-
 -- Predicated lexer helpers
 --------------------------------------------------------------------------------
 
+legacyDECStructureP :: User -> AlexInput -> Int -> AlexInput -> Bool
+legacyDECStructureP (User qfv _) _ _ _ = hasDecStructure qfv
+
+
 formatP :: User -> AlexInput -> Int -> AlexInput -> Bool
 formatP _ _ _ ai
   | Just TFormat{} <- aiPreviousToken ai = True
@@ -397,14 +406,14 @@ opP _ _ _ ai
   | otherwise = False
 
 partOfExpOrPointerAssignmentP :: User -> AlexInput -> Int -> AlexInput -> Bool
-partOfExpOrPointerAssignmentP (User fv pc) _ _ ai =
+partOfExpOrPointerAssignmentP (User qfv pc) _ _ ai =
     case unParse (lexer $ f False (0::Integer)) ps of
       ParseOk True _ -> True
       _ -> False
   where
     ps = ParseState
       { psAlexInput = ai { aiStartCode = StartCode scN Return }
-      , psVersion = fv
+      , psVersion = qfv
       , psFilename = "<unknown>"
       , psParanthesesCount = pc
       , psContext = [ ConStart ] }
@@ -612,7 +621,7 @@ prevTokenConstr :: AlexInput -> Maybe Constr
 prevTokenConstr ai = toConstr <$> aiPreviousToken ai
 
 nextTokenConstr :: User -> AlexInput -> Maybe Constr
-nextTokenConstr (User fv pc) ai =
+nextTokenConstr (User qfv pc) ai =
     case unParse lexer' parseState of
       ParseOk token _ -> Just $ toConstr token
       _ -> Nothing
@@ -620,7 +629,7 @@ nextTokenConstr (User fv pc) ai =
     parseState = ParseState
       { psAlexInput = ai
       , psParanthesesCount = pc
-      , psVersion = fv
+      , psVersion = qfv
       , psFilename = "<unknown>"
       , psContext = [ ConStart ] }
 
@@ -880,6 +889,7 @@ data AlexInput = AlexInput
   , aiStartCode                 :: {-# UNPACK #-} !StartCode
   , aiPreviousToken             :: !(Maybe Token)
   , aiPreviousTokensInLine      :: !([ Token ])
+  , aiFortranVersion            :: !QualifiedFortranVersion
   } deriving (Show)
 
 instance Loc AlexInput where
@@ -890,8 +900,8 @@ instance LastToken AlexInput Token where
 
 type LexAction a = Parse AlexInput Token a
 
-vanillaAlexInput :: String -> B.ByteString -> AlexInput
-vanillaAlexInput fn bs = AlexInput
+vanillaAlexInput :: String -> QualifiedFortranVersion -> B.ByteString -> AlexInput
+vanillaAlexInput fn qfv bs = AlexInput
   { aiSourceBytes          = bs
   , aiPosition             = initPosition { posFilePath = fn }
   , aiEndOffset            = B.length bs
@@ -899,7 +909,9 @@ vanillaAlexInput fn bs = AlexInput
   , aiLexeme               = initLexeme
   , aiStartCode            = StartCode 0 Return
   , aiPreviousToken        = Nothing
-  , aiPreviousTokensInLine = [ ] }
+  , aiPreviousTokensInLine = [ ]
+  , aiFortranVersion       = qfv
+   }
 
 updateLexeme :: Char -> Position -> AlexInput -> AlexInput
 updateLexeme !char !p !ai = ai { aiLexeme = Lexeme (char:match) start' p isCmt' }
@@ -909,7 +921,7 @@ updateLexeme !char !p !ai = ai { aiLexeme = Lexeme (char:match) start' p isCmt' 
     isCmt'                     = isCmt || (null match && char == '!')
 
 -- Fortran version and parantheses count to be used by alexScanUser
-data User = User FortranVersion ParanthesesCount
+data User = User QualifiedFortranVersion ParanthesesCount
 
 --------------------------------------------------------------------------------
 -- Definitions needed for alexScanUser
@@ -1225,6 +1237,8 @@ data Token =
   -- Program unit related
   | TProgram            SrcSpan
   | TEndProgram         SrcSpan
+  | TStructure          SrcSpan
+  | TEndStructure       SrcSpan
   | TFunction           SrcSpan
   | TEndFunction        SrcSpan
   | TResult             SrcSpan
