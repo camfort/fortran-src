@@ -474,6 +474,7 @@ extended77P qfv _ _ _ =
   case getLanguageRevision qfv of
     Fortran77Extended -> True
     Fortran77Legacy   -> True
+    otherwise         -> False
 
 legacy77P :: QualifiedFortranVersion -> AlexInput -> Int -> AlexInput -> Bool
 legacy77P qfv _ _ _ = getLanguageRevision qfv == Fortran77Legacy
@@ -904,8 +905,8 @@ instance LastToken AlexInput Token where
 
 type LexAction a = Parse AlexInput Token a
 
-vanillaAlexInput :: String -> QualifiedFortranVersion -> B.ByteString -> AlexInput
-vanillaAlexInput fn qfv bs = AlexInput
+vanillaAlexInput :: QualifiedFortranVersion -> String -> B.ByteString -> AlexInput
+vanillaAlexInput qfv fn bs = AlexInput
   { aiSourceBytes = bs
   , aiEndOffset = B.length bs
   , aiPosition = initPosition { posFilePath = fn }

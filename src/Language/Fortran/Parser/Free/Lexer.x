@@ -900,8 +900,8 @@ instance LastToken AlexInput Token where
 
 type LexAction a = Parse AlexInput Token a
 
-vanillaAlexInput :: String -> QualifiedFortranVersion -> B.ByteString -> AlexInput
-vanillaAlexInput fn qfv bs = AlexInput
+vanillaAlexInput :: QualifiedFortranVersion -> String -> B.ByteString -> AlexInput
+vanillaAlexInput qfv fn bs = AlexInput
   { aiSourceBytes          = bs
   , aiPosition             = initPosition { posFilePath = fn }
   , aiEndOffset            = B.length bs
