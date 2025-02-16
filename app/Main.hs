@@ -57,6 +57,7 @@ main :: IO ()
 main = do
   args <- getArgs
   (opts, parsedArgs) <- compileArgs args
+  let compilerOpts = fortranCompilerOptions opts
   case (parsedArgs, action opts) of
     (paths, ShowMyVersion) -> do
       putStrLn $ "fortran-src version: " ++ showVersion
@@ -92,7 +93,7 @@ main = do
                       decodeOneModFile modPath
                     CompileFile -> do
                       putStr $ "Summarising " ++ fnPath ++ "..."
-                      mod <- compileFileToMod mvers mods fnPath Nothing
+                      mod <- compileFileToMod mvers compilerOpts mods fnPath Nothing
                       putStrLn "done"
                       pure [mod]
 
@@ -108,7 +109,8 @@ main = do
 
     (paths, Compile) -> do
       mods <- decodeModFiles' $ includeDirs opts
-      mapM_ (\ p -> compileFileToMod (fortranVersion opts) mods p (outputFile opts)) paths
+      let compilerOpts = fortranCompilerOptions opts
+      mapM_ (\ p -> compileFileToMod (fortranVersion opts) compilerOpts mods p (outputFile opts)) paths
     (path:_, actionOpt) -> do
       contents <- runCPP (cppOptions opts) path -- only runs CPP if cppOptions is not Nothing
       mods <- decodeModFiles' $ includeDirs opts
@@ -216,11 +218,11 @@ main = do
     _ -> fail $ usageInfo programName options
 
 
-compileFileToMod :: Maybe FortranVersion -> ModFiles -> FilePath -> Maybe FilePath -> IO ModFile
-compileFileToMod mvers mods path moutfile = do
+compileFileToMod :: Maybe FortranVersion -> [CompilerOption] -> ModFiles -> FilePath -> Maybe FilePath -> IO ModFile
+compileFileToMod mvers opts mods path moutfile = do
   contents <- flexReadFile path
-  let version          = fromMaybe (deduceFortranVersion path) mvers
-      qualifiedVersion = makeQualifiedVersion version []
+  let languageRevision = fromMaybe (deduceFortranVersion path) mvers
+      qualifiedVersion = makeQualifiedVersion languageRevision opts
       mmap             = combinedModuleMap mods
       tenv             = stripExtended $ combinedTypeEnv mods
       runCompile       = genModFile . fst . analyseTypesWithEnv tenv . analyseRenamesWithModuleMap mmap . initAnalysis
