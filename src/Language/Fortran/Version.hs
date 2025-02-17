@@ -11,6 +11,7 @@ module Language.Fortran.Version
   , getLanguageRevision
   , addCompilerOption
   , makeQualifiedVersion
+  , getCompilerOptions
   ) where
 
 import           Data.Char (toLower)
@@ -47,6 +48,9 @@ getLanguageRevision :: QualifiedFortranVersion -> FortranVersion
 getLanguageRevision (VanillaVersion v) = v
 getLanguageRevision (QualifiedVersion v _) = v
 
+getCompilerOptions :: QualifiedFortranVersion -> [CompilerOption]
+getCompilerOptions (VanillaVersion _) = []
+getCompilerOptions (QualifiedVersion _ opts) = opts
 -- Check if a specific compiler option is enabled
 hasCompilerOption :: CompilerOption -> QualifiedFortranVersion -> Bool
 hasCompilerOption _ (VanillaVersion _) = False

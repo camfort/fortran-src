@@ -93,7 +93,7 @@ main = do
                       decodeOneModFile modPath
                     CompileFile -> do
                       putStr $ "Summarising " ++ fnPath ++ "..."
-                      mod <- compileFileToMod mvers compilerOpts mods fnPath Nothing
+                      mod <- compileFileToMod mvers (fortranCompilerOptions opts) mods fnPath Nothing
                       putStrLn "done"
                       pure [mod]
 
@@ -110,7 +110,7 @@ main = do
     (paths, Compile) -> do
       mods <- decodeModFiles' $ includeDirs opts
       let compilerOpts = fortranCompilerOptions opts
-      mapM_ (\ p -> compileFileToMod (fortranVersion opts) compilerOpts mods p (outputFile opts)) paths
+      mapM_ (\ p -> compileFileToMod (fortranVersion opts) (fortranCompilerOptions opts) mods p (outputFile opts)) paths
     (path:_, actionOpt) -> do
       contents <- runCPP (cppOptions opts) path -- only runs CPP if cppOptions is not Nothing
       mods <- decodeModFiles' $ includeDirs opts
