@@ -39,11 +39,11 @@ data Context =
   deriving (Show, Eq)
 
 data ParseState a = ParseState
-  { psAlexInput :: a
+  { psAlexInput        :: a
   , psParanthesesCount :: ParanthesesCount
-  , psVersion :: FortranVersion  -- To differentiate lexing behaviour
-  , psFilename :: String -- To save correct source location in AST
-  , psContext :: [ Context ]
+  , psVersion          :: QualifiedFortranVersion  -- To differentiate lexing behaviour
+  , psFilename         :: String -- To save correct source location in AST
+  , psContext          :: [ Context ]
   }
   deriving (Show)
 
@@ -160,7 +160,7 @@ execParse m s = snd (runParseUnsafe m s)
 -- Parser helper functions
 -------------------------------------------------------------------------------
 
-getVersion :: (Loc a, LastToken a b, Show b) => Parse a b FortranVersion
+getVersion :: (Loc a, LastToken a b, Show b) => Parse a b QualifiedFortranVersion
 getVersion = do
   s <- get
   return (psVersion s)
