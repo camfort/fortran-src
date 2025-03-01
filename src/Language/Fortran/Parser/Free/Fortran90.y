@@ -86,6 +86,7 @@ import qualified Data.List as List
   endSubroutine               { TEndSubroutine _ }
   structure                   { TStructure _ }
   endStructure                { TEndStructure _ }
+  record                      { TRecord _ }
   blockData                   { TBlockData _ }
   endBlockData                { TEndBlockData _ }
   module                      { TModule _ }
@@ -986,6 +987,7 @@ TYPE_SPEC :: { TypeSpec A0 }
 | complex   KIND_SELECTOR { TypeSpec () (getSpan ($1, $2)) TypeComplex $2 }
 | character CHAR_SELECTOR { TypeSpec () (getSpan ($1, $2)) TypeCharacter $2 }
 | logical   KIND_SELECTOR { TypeSpec () (getSpan ($1, $2)) TypeLogical $2 }
+| record '/' NAME '/'     { TypeSpec () (getSpan ($1, $2)) (TypeCustom $3) Nothing }
 | type      '(' id ')'
   { let TId _ id = $3
     in TypeSpec () (getTransSpan $1 $4) (TypeCustom id) Nothing }

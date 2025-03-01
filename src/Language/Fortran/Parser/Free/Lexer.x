@@ -148,9 +148,9 @@ tokens :-
 <0> "include"                                     { addSpan TInclude }
 
 -- deprecated / non-standard declarations 
-<0> "structure"    / { legacyDECStructureP }      { addSpan TStructure }
+<0> "structure"         / { legacyDECStructureP } { addSpan TStructure }
 <0> "end"\ *"structure" / { legacyDECStructureP } { addSpan TEndStructure }
-
+<0> "record".           / { legacyDECStructureP } { addSpan TRecord }
 
 -- Type def related
 <0,scT> "type"                                    { addSpan TType }
@@ -1239,6 +1239,7 @@ data Token =
   | TEndProgram         SrcSpan
   | TStructure          SrcSpan
   | TEndStructure       SrcSpan
+  | TRecord             SrcSpan
   | TFunction           SrcSpan
   | TEndFunction        SrcSpan
   | TResult             SrcSpan
