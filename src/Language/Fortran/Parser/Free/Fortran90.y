@@ -536,8 +536,6 @@ NONEXECUTABLE_STATEMENT :: { Statement A0 }
 
 | structure MAYBE_NAME NEWLINE STRUCTURE_DECLARATIONS endStructure
   { StStructure () (getTransSpan $1 $5) $2 (fromReverseList $4) }
---| structure MAYBE_NAME NAME NEWLINE STRUCTURE_DECLARATIONS endStructure NEWLINE
---  { Just $ StructStructure () (getTransSpan $1 $7) $2 $3 (fromReverseList $5) }
 
 MAYBE_NAME :: { Maybe Name }
 : '/' NAME '/' { Just $2 }
@@ -552,6 +550,9 @@ STRUCTURE_DECLARATION_STATEMENT :: { Maybe (StructureItem A0) }
 : DECLARATION_STATEMENT NEWLINE
   { let StDeclaration () s t attrs decls = $1
     in Just $ StructFields () s t attrs decls }
+| structure MAYBE_NAME NAME NEWLINE STRUCTURE_DECLARATIONS endStructure NEWLINE
+  { Just $ StructStructure () (getTransSpan $1 $7) $2 $3 (fromReverseList $5) }
+
 
 
 EXECUTABLE_STATEMENT :: { Statement A0 }
