@@ -19,6 +19,7 @@ import Language.Fortran.Parser.Free.Utils
 import Language.Fortran.AST
 
 import Prelude hiding ( EQ, LT, GT ) -- Same constructors exist in the AST
+import Data.Maybe ( isNothing, fromJust )
 import Data.Either ( partitionEithers )
 import qualified Data.List as List
 
@@ -83,6 +84,8 @@ import qualified Data.List as List
   recursive                   { TRecursive _ }
   subroutine                  { TSubroutine _ }
   endSubroutine               { TEndSubroutine _ }
+  structure                   { TStructure _ }
+  endStructure                { TEndStructure _ }
   blockData                   { TBlockData _ }
   endBlockData                { TEndBlockData _ }
   module                      { TModule _ }
@@ -528,6 +531,28 @@ NONEXECUTABLE_STATEMENT :: { Statement A0 }
 -- Must be fixed in the future. TODO
 | format blob
   { let TBlob s blob = $2 in StFormatBogus () (getTransSpan $1 s) blob }
+
+| DECLARATION_STATEMENT { $1 }
+
+| structure MAYBE_NAME NEWLINE STRUCTURE_DECLARATIONS endStructure
+  { StStructure () (getTransSpan $1 $5) $2 (fromReverseList $4) }
+--| structure MAYBE_NAME NAME NEWLINE STRUCTURE_DECLARATIONS endStructure NEWLINE
+--  { Just $ StructStructure () (getTransSpan $1 $7) $2 $3 (fromReverseList $5) }
+
+MAYBE_NAME :: { Maybe Name }
+: '/' NAME '/' { Just $2 }
+| {- empty -}  { Nothing }
+
+STRUCTURE_DECLARATIONS :: { [StructureItem A0] }
+: STRUCTURE_DECLARATIONS STRUCTURE_DECLARATION_STATEMENT
+  { if isNothing $2 then $1 else fromJust $2 : $1 }
+| STRUCTURE_DECLARATION_STATEMENT { if isNothing $1 then [] else [fromJust $1] }
+
+STRUCTURE_DECLARATION_STATEMENT :: { Maybe (StructureItem A0) }
+: DECLARATION_STATEMENT NEWLINE
+  { let StDeclaration () s t attrs decls = $1
+    in Just $ StructFields () s t attrs decls }
+
 
 EXECUTABLE_STATEMENT :: { Statement A0 }
 : allocate '(' DATA_REFS MAYBE_ALLOC_OPT_LIST ')'

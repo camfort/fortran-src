@@ -149,7 +149,7 @@ tokens :-
 
 -- deprecated / non-standard declarations 
 <0> "structure"    / { legacyDECStructureP }      { addSpan TStructure }
-<0> "endstructure" / { legacyDECStructureP }      { addSpan TEndStructure }
+<0> "end"\ *"structure" / { legacyDECStructureP } { addSpan TEndStructure }
 
 
 -- Type def related
