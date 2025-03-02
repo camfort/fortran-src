@@ -34,7 +34,7 @@ countUnrenamed e = length [ () | ExpValue Analysis { uniqueName = Nothing } _ Va
         uniE_PF = universeBi
 
 fortran90Parser :: String -> ProgramFile A0
-fortran90Parser = Parser.parseUnsafe Parser.f90 . B.pack
+fortran90Parser = Parser.parseUnsafe (Parser.f90 []) . B.pack
 
 spec :: Spec
 spec = do

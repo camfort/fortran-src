@@ -139,15 +139,15 @@ getSingleParsedBlock p c =
 -- TODO Runs internal transformations, which means we aren't explicitly asking
 -- for a grouping transformation. Bit weird.
 getSingleParsedBlock95 :: String -> Block A0
-getSingleParsedBlock95 = getSingleParsedBlock Parser.f95
+getSingleParsedBlock95 = getSingleParsedBlock $ Parser.f95 []
 
 -- TODO Runs internal transformations, which means we aren't explicitly asking
 -- for a grouping transformation. Bit weird.
 getSingleParsedBlock77 :: String -> Block A0
-getSingleParsedBlock77 = getSingleParsedBlock Parser.f77
+getSingleParsedBlock77 = getSingleParsedBlock $ Parser.f77 []
 
 getSingleParsedBlock77Legacy :: String -> Block A0
-getSingleParsedBlock77Legacy = getSingleParsedBlock Parser.f77lNoTransform
+getSingleParsedBlock77Legacy = getSingleParsedBlock $ Parser.f77lNoTransform []
 
 type SimpleSpan = (Int, Int, Int, Int)
 

@@ -25,7 +25,7 @@ spec =
 pParser :: String -> IO (ProgramFile (Analysis A0))
 pParser name = do
   contents <- flexReadFile name
-  let pf = Parser.byVerWithMods [] Fortran90 name contents
+  let pf = Parser.byVerWithMods [] (VanillaVersion Fortran90) name contents
   case pf of
     Right pf -> return $  rename . analyseBBlocks . analyseRenames . initAnalysis $ pf
     Left err -> error $ "Error parsing " ++ name ++ ": " ++ show err

@@ -10,7 +10,7 @@ import qualified Language.Fortran.Parser as Parser
 import qualified Data.ByteString.Char8 as B
 
 pParser :: String -> ProgramFile (Analysis A0)
-pParser = initAnalysis . Parser.parseUnsafe Parser.f77e . B.pack
+pParser = initAnalysis . Parser.parseUnsafe (Parser.f77e []) . B.pack
 
 spec :: Spec
 spec =
