@@ -548,13 +548,11 @@ STRUCTURE_DECLARATIONS :: { [StructureItem A0] }
 | STRUCTURE_DECLARATION_STATEMENT { if isNothing $1 then [] else [fromJust $1] }
 
 STRUCTURE_DECLARATION_STATEMENT :: { Maybe (StructureItem A0) }
-: DECLARATION_STATEMENT NEWLINE
+: DECLARATION_STATEMENT MAYBE_COMMENT NEWLINE
   { let StDeclaration () s t attrs decls = $1
     in Just $ StructFields () s t attrs decls }
-| structure MAYBE_NAME NAME NEWLINE STRUCTURE_DECLARATIONS endStructure NEWLINE
-  { Just $ StructStructure () (getTransSpan $1 $7) $2 $3 (fromReverseList $5) }
-
-
+| structure MAYBE_NAME NAME MAYBE_COMMENT NEWLINE STRUCTURE_DECLARATIONS endStructure MAYBE_COMMENT NEWLINE
+  { Just $ StructStructure () (getTransSpan $1 $9) $2 $3 (fromReverseList $6) }
 
 EXECUTABLE_STATEMENT :: { Statement A0 }
 : allocate '(' DATA_REFS MAYBE_ALLOC_OPT_LIST ')'
