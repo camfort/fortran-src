@@ -157,7 +157,6 @@ f90Mods   = transformAs Fortran90         . f90NoTransform
 f95Mods   = transformAs Fortran95         . f95NoTransform
 f2003Mods = transformAs Fortran2003       . f2003NoTransform
 
--- todo: generated parser isn't type checking with FortranVersion anymore
 f66NoTransform, f77NoTransform, f77eNoTransform, f77lNoTransform,
   f90NoTransform, f95NoTransform, f2003NoTransform
     :: [CompilerOption] -> Parser (ProgramFile A0)
@@ -169,7 +168,6 @@ f90NoTransform   = makeParserFree  F90.programParser   . makeQualifiedVersion Fo
 f95NoTransform   = makeParserFree  F95.programParser   . makeQualifiedVersion Fortran95        
 f2003NoTransform = makeParserFree  F2003.programParser . makeQualifiedVersion Fortran2003      
 
--- todo: generated parser isn't type checking with FortranVersion anymore
 f66StmtNoTransform, f77StmtNoTransform, f77eStmtNoTransform, f77lStmtNoTransform,
   f90StmtNoTransform, f95StmtNoTransform, f2003StmtNoTransform
     :: [CompilerOption] -> Parser (Statement A0)
@@ -203,7 +201,6 @@ byVerNoTransform = \case
   Fortran2003       -> f2003NoTransform
   v                 -> failUnknownVersion "Language.Fortran.Parser.byVerNoTransform" v
 
--- todo: generated parser isn't type checking with FortranVersion anymore
 f90Expr :: Parser (Expression A0)
 f90Expr = makeParser initParseStateFreeExpr F90.expressionParser (makeQualifiedVersion Fortran90 [])
 
