@@ -131,13 +131,6 @@ modsByVersion who mods fv opts =
     Fortran2003       -> f2003Mods opts mods
     v                 -> failUnknownVersion who v
 
--- parserForVersion Fortran66         input = F66.programParser input
--- parserForVersion Fortran77         input = F77.programParser input 
--- parserForVersion Fortran77Extended input = F77.programParser input 
--- parserForVersion Fortran77Legacy   input = F77.programParser input 
--- parserForVersion Fortran90         input = F90.programParser input 
--- parserForVersion Fortran95         input = F95.programParser input 
--- parserForVersion Fortran2003       input = Fortran2003.programParser input 
 
 byVerWithMods :: ModFiles -> QualifiedFortranVersion -> Parser (ProgramFile A0)
 byVerWithMods mods (VanillaVersion version)           = modsByVersion "Language.Fortran.Parser.byVerWithMods" mods version []
