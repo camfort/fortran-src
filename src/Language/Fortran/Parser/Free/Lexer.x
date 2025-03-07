@@ -107,6 +107,7 @@ tokens :-
 <scN> "="                                         { addSpan TOpAssign}
 <scN> "=>"                                        { addSpan TArrow }
 <scN> "%"                                         { addSpan TPercent }
+<scN> "." / { legacyDECStructureP }               { addSpan TPercent }
 
 <0,scI> @name / { partOfExpOrPointerAssignmentP } { addSpanAndMatch TId }
 <0> @name / { constructNameP }                    { addSpanAndMatch TId }
@@ -406,7 +407,7 @@ opP _ _ _ ai
   | otherwise = False
 
 partOfExpOrPointerAssignmentP :: User -> AlexInput -> Int -> AlexInput -> Bool
-partOfExpOrPointerAssignmentP (User qfv pc) _ _ ai =
+partOfExpOrPointerAssignmentP u@(User qfv pc) pre pos ai =
     case unParse (lexer $ f False (0::Integer)) ps of
       ParseOk True _ -> True
       _ -> False
@@ -417,6 +418,7 @@ partOfExpOrPointerAssignmentP (User qfv pc) _ _ ai =
       , psFilename = "<unknown>"
       , psParanthesesCount = pc
       , psContext = [ ConStart ] }
+    legacyDECStructureSupported = legacyDECStructureP u pre pos ai
     f leftParSeen parCount token
       | not leftParSeen =
         case token of
@@ -424,6 +426,7 @@ partOfExpOrPointerAssignmentP (User qfv pc) _ _ ai =
           TSemiColon{} -> return False
           TEOF{} -> return False
           TPercent{} -> return True
+          TDot{} -> return legacyDECStructureSupported
           TArrow{} -> return True
           TOpAssign{} -> return True
           TLeftPar{} -> lexer $ f True 1
@@ -434,6 +437,7 @@ partOfExpOrPointerAssignmentP (User qfv pc) _ _ ai =
           TOpAssign{} -> return True
           TArrow{} -> return True
           TPercent{} -> return True
+          TDot{} -> return legacyDECStructureSupported
           TLeftPar{} -> lexer $ f True 1
           TLeftPar2{} -> lexer $ f True 1
           _ -> return False
@@ -1206,6 +1210,7 @@ data Token =
   | TDoubleColon        SrcSpan
   | TOpAssign           SrcSpan
   | TArrow              SrcSpan
+  | TDot                SrcSpan
   | TPercent            SrcSpan
   | TLeftPar            SrcSpan
   | TLeftPar2           SrcSpan
