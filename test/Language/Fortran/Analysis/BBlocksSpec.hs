@@ -15,7 +15,7 @@ import qualified Data.ByteString.Char8 as B
 
 pParser :: String -> ProgramFile (Analysis ())
 pParser source =
-    case Parser.f77e "<unknown>" (B.pack source) of
+    case Parser.f77e [] "<unknown>" (B.pack source) of
       Left err -> error $ show err
       Right pf -> rename . analyseBBlocks . analyseRenames . initAnalysis $ pf
 

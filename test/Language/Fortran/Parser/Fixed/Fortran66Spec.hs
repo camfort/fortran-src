@@ -14,11 +14,11 @@ import Prelude hiding ( LT )
 import qualified Data.ByteString.Char8 as B
 
 parseWith :: Parse Fixed.AlexInput Fixed.Token a -> String -> a
-parseWith p = parseUnsafe (makeParserFixed p Fortran66) . B.pack
+parseWith p = parseUnsafe (makeParserFixed p (VanillaVersion Fortran66)) . B.pack
 
 eParser :: String -> Expression ()
 eParser = parseUnsafe p . B.pack
-  where p = makeParser initParseStateFixedExpr F66.expressionParser Fortran66
+  where p = makeParser initParseStateFixedExpr F66.expressionParser (VanillaVersion Fortran66)
 
 sParser :: String -> Statement ()
 sParser = parseWith F66.statementParser

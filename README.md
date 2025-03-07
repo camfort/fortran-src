@@ -143,6 +143,16 @@ We support the latest recommended version of Cabal (as of 2021-09-17, Cabal 3.4)
 cabal build
 ```
 
+You can leverage cabal to initialize a ghci session, and call the main function like such:
+
+```shell
+cabal repl
+
+:load app/Main.hs
+
+:main --version
+```
+
 ### Testing
 Unit tests are stored in `test`. Run with `stack test` or `cabal test`.
 
