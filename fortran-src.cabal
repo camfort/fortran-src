@@ -200,8 +200,8 @@ library
     , pretty >=1.1 && <2
     , process >=1.2.0.0
     , singletons ==3.0.*
-    , singletons-base >=3.0 && <3.4
-    , singletons-th >=3.0 && <3.4
+    , singletons-base >=3.0 && <3.6
+    , singletons-th >=3.0 && <3.6
     , temporary >=1.2 && <1.4
     , text >=1.2 && <2.2
     , uniplate >=1.6 && <2
@@ -264,8 +264,8 @@ executable fortran-src
     , pretty >=1.1 && <2
     , process >=1.2.0.0
     , singletons ==3.0.*
-    , singletons-base >=3.0 && <3.4
-    , singletons-th >=3.0 && <3.4
+    , singletons-base >=3.0 && <3.6
+    , singletons-th >=3.0 && <3.6
     , temporary >=1.2 && <1.4
     , text >=1.2 && <2.2
     , uniplate >=1.6 && <2
