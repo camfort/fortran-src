@@ -14,7 +14,7 @@ import qualified Data.ByteString.Char8 as B
 
 collectFreeTokens :: FortranVersion -> B.ByteString -> [Token]
 collectFreeTokens fv bs =
-    collectTokens lexer' $ initParseStateFree "<unknown>" fv bs
+    collectTokens lexer' $ initParseStateFree "<unknown>" (VanillaVersion fv) bs
 
 collectF90 :: String -> [Token]
 collectF90 = collectFreeTokens Fortran90 . B.pack

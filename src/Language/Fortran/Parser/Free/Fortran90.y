@@ -19,6 +19,7 @@ import Language.Fortran.Parser.Free.Utils
 import Language.Fortran.AST
 
 import Prelude hiding ( EQ, LT, GT ) -- Same constructors exist in the AST
+import Data.Maybe ( isNothing, fromJust )
 import Data.Either ( partitionEithers )
 import qualified Data.List as List
 
@@ -83,6 +84,9 @@ import qualified Data.List as List
   recursive                   { TRecursive _ }
   subroutine                  { TSubroutine _ }
   endSubroutine               { TEndSubroutine _ }
+  structure                   { TStructure _ }
+  endStructure                { TEndStructure _ }
+  record                      { TRecord _ }
   blockData                   { TBlockData _ }
   endBlockData                { TEndBlockData _ }
   module                      { TModule _ }
@@ -529,6 +533,27 @@ NONEXECUTABLE_STATEMENT :: { Statement A0 }
 | format blob
   { let TBlob s blob = $2 in StFormatBogus () (getTransSpan $1 s) blob }
 
+| DECLARATION_STATEMENT { $1 }
+
+| structure MAYBE_NAME NEWLINE STRUCTURE_DECLARATIONS endStructure
+  { StStructure () (getTransSpan $1 $5) $2 (fromReverseList $4) }
+
+MAYBE_NAME :: { Maybe Name }
+: '/' NAME '/' { Just $2 }
+| {- empty -}  { Nothing }
+
+STRUCTURE_DECLARATIONS :: { [StructureItem A0] }
+: STRUCTURE_DECLARATIONS STRUCTURE_DECLARATION_STATEMENT
+  { if isNothing $2 then $1 else fromJust $2 : $1 }
+| STRUCTURE_DECLARATION_STATEMENT { if isNothing $1 then [] else [fromJust $1] }
+
+STRUCTURE_DECLARATION_STATEMENT :: { Maybe (StructureItem A0) }
+: DECLARATION_STATEMENT MAYBE_COMMENT NEWLINE
+  { let StDeclaration () s t attrs decls = $1
+    in Just $ StructFields () s t attrs decls }
+| structure MAYBE_NAME NAME MAYBE_COMMENT NEWLINE STRUCTURE_DECLARATIONS endStructure MAYBE_COMMENT NEWLINE
+  { Just $ StructStructure () (getTransSpan $1 $9) $2 $3 (fromReverseList $6) }
+
 EXECUTABLE_STATEMENT :: { Statement A0 }
 : allocate '(' DATA_REFS MAYBE_ALLOC_OPT_LIST ')'
   { StAllocate () (getTransSpan $1 $5) Nothing (fromReverseList $3) $4 }
@@ -960,6 +985,7 @@ TYPE_SPEC :: { TypeSpec A0 }
 | complex   KIND_SELECTOR { TypeSpec () (getSpan ($1, $2)) TypeComplex $2 }
 | character CHAR_SELECTOR { TypeSpec () (getSpan ($1, $2)) TypeCharacter $2 }
 | logical   KIND_SELECTOR { TypeSpec () (getSpan ($1, $2)) TypeLogical $2 }
+| record '/' NAME '/'     { TypeSpec () (getSpan ($1, $2)) (TypeCustom $3) Nothing }
 | type      '(' id ')'
   { let TId _ id = $3
     in TypeSpec () (getTransSpan $1 $4) (TypeCustom id) Nothing }

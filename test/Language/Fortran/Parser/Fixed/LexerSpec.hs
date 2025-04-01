@@ -13,30 +13,30 @@ import Language.Fortran.Version
 import Data.List (isPrefixOf)
 import qualified Data.ByteString.Char8 as B
 
-initState :: FortranVersion -> B.ByteString -> ParseState AlexInput
+initState :: QualifiedFortranVersion -> B.ByteString -> ParseState AlexInput
 initState = initParseStateFixed "<unknown>"
 
-collectFixedTokens :: FortranVersion -> B.ByteString -> [Token]
-collectFixedTokens fv bs =
-    collectTokens lexer' $ initState fv bs
+collectFixedTokens :: QualifiedFortranVersion -> B.ByteString -> [Token]
+collectFixedTokens qfv bs =
+    collectTokens lexer' $ initState qfv bs
 
 collectFixedTokens' :: FortranVersion -> String -> [Token]
-collectFixedTokens' v = collectFixedTokens v . B.pack
+collectFixedTokens' v = collectFixedTokens (VanillaVersion v) . B.pack
 
-collectFixedTokensSafe :: FortranVersion -> B.ByteString -> Maybe [Token]
+collectFixedTokensSafe :: QualifiedFortranVersion -> B.ByteString -> Maybe [Token]
 collectFixedTokensSafe fv bs =
     collectTokensSafe lexer' $ initState fv bs
 
 lex66 :: String -> Maybe Token
-lex66 = collectToLex Fortran66
+lex66 = collectToLex (VanillaVersion Fortran66)
 
 safeLex66 :: String -> Maybe Token
-safeLex66 = collectToLexSafe Fortran66
+safeLex66 = collectToLexSafe (VanillaVersion Fortran66)
 
 lex77 :: String -> Maybe Token
-lex77 = collectToLex Fortran77
+lex77 = collectToLex (VanillaVersion Fortran77)
 
-collectToLex :: FortranVersion -> String -> Maybe Token
+collectToLex :: QualifiedFortranVersion -> String -> Maybe Token
 collectToLex version srcInput = dropUntil2 $ collectFixedTokens version (B.pack srcInput)
   where
     dropUntil2 [] = Nothing
@@ -44,7 +44,7 @@ collectToLex version srcInput = dropUntil2 $ collectFixedTokens version (B.pack 
     dropUntil2 [a,_] = Just a
     dropUntil2 (_:xs) = dropUntil2 xs
 
-collectToLexSafe :: FortranVersion -> String -> Maybe Token
+collectToLexSafe :: QualifiedFortranVersion -> String -> Maybe Token
 collectToLexSafe version srcInput = dropUntil2 $ collectFixedTokensSafe version (B.pack srcInput)
   where
     dropUntil2 (Just [a,_]) = Just a
@@ -142,7 +142,7 @@ spec =
 
     describe "lexN" $
       it "`lexN 5` parses lexes next five characters" $
-        (lexemeMatch . aiLexeme) (evalParse (lexN 5 >> getAlex) (initState Fortran66 (B.pack "helloWorld"))) `shouldBe` reverse "hello"
+        (lexemeMatch . aiLexeme) (evalParse (lexN 5 >> getAlex) (initState (VanillaVersion Fortran66) (B.pack "helloWorld"))) `shouldBe` reverse "hello"
 
     describe "lexHollerith" $ do
       it "lexes Hollerith '7hmistral'" $
