@@ -480,7 +480,7 @@ instance Pretty (Statement a) where
       | otherwise = prettyError "unhandled version"
 
     pprint' v (StStructure _ _ mName itemList) =
-        olderThan Fortran77Legacy "Structure" v $
+        continueOnlyFor [Fortran77Legacy, Fortran90Legacy] "Structure" v $
           "structure"
           <+> (if isJust mName then "/" <> pprint' v mName <> "/" else empty)
           <> newline
@@ -545,11 +545,11 @@ instance Pretty (Statement a) where
       | otherwise = "data" <+> hsep (map (pprint' v) dataGroups)
 
     pprint' v (StAutomatic _ _ decls) =
-        continueOnlyFor [Fortran77Extended, Fortran77Legacy] "Automatic statement" v $
+        continueOnlyFor [Fortran77Extended, Fortran77Legacy, Fortran90Legacy] "Automatic statement" v $
             "automatic" <+> pprint' v decls
 
     pprint' v (StStatic _ _ decls) =
-        continueOnlyFor [Fortran77Extended, Fortran77Legacy] "Static statement" v $
+        continueOnlyFor [Fortran77Extended, Fortran77Legacy, Fortran90Legacy] "Static statement" v $
             "static" <+> pprint' v decls
 
     pprint' v (StNamelist _ _ namelist)
