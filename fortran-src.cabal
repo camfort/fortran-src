@@ -1,6 +1,6 @@
 cabal-version: 1.12
 
--- This file has been generated from package.yaml by hpack version 0.35.2.
+-- This file has been generated from package.yaml by hpack version 0.36.0.
 --
 -- see: https://github.com/sol/hpack
 
@@ -15,7 +15,8 @@ author:         Mistral Contrastin,
                 Matthew Danish,
                 Dominic Orchard,
                 Andrew Rice
-maintainer:     Dominic Orchard <dom.orchard@gmail.com>
+maintainer:     me@madgen.net,
+                Ben Orchard
 license:        Apache-2.0
 license-file:   LICENSE
 build-type:     Simple
@@ -30,6 +31,8 @@ extra-source-files:
     test-data/module/mid1.f90
     test-data/module/mid2.f90
     test-data/module/top.f90
+    test-data/pragma.f90
+    test-data/pragma.f90.expected
     test-data/rewriter/replacementsmap-columnlimit/001_foo.f
     test-data/rewriter/replacementsmap-columnlimit/001_foo.f.expected
     test-data/rewriter/replacementsmap-columnlimit/002_other.f
@@ -61,6 +64,10 @@ extra-source-files:
     test-data/rewriter/replacementsmap-simple/005_unicode.f
     test-data/rewriter/replacementsmap-simple/005_unicode.f.expected
     test-data/rewriter/temp-failure/fail.f
+    test-data/small.f90
+    test-data/small.f90.expected
+    test-data/st.expected
+    test-data/st2.expected
 
 source-repository head
   type: git
@@ -200,8 +207,8 @@ library
     , pretty >=1.1 && <2
     , process >=1.2.0.0
     , singletons ==3.0.*
-    , singletons-base >=3.0 && <3.6
-    , singletons-th >=3.0 && <3.6
+    , singletons-base >=3.0 && <3.4
+    , singletons-th >=3.0 && <3.4
     , temporary >=1.2 && <1.4
     , text >=1.2 && <2.2
     , uniplate >=1.6 && <2
@@ -264,8 +271,8 @@ executable fortran-src
     , pretty >=1.1 && <2
     , process >=1.2.0.0
     , singletons ==3.0.*
-    , singletons-base >=3.0 && <3.6
-    , singletons-th >=3.0 && <3.6
+    , singletons-base >=3.0 && <3.4
+    , singletons-th >=3.0 && <3.4
     , temporary >=1.2 && <1.4
     , text >=1.2 && <2.2
     , uniplate >=1.6 && <2
