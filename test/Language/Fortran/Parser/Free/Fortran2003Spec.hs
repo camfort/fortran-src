@@ -56,6 +56,13 @@ spec =
             st = StUse () u (varGen "mod") Nothing Permissive (Just renames)
         sParser "use :: mod, sprod => prod, a => b" `shouldBe'` st
 
+      it "parses simple procedure with no args" $ do
+        let st = StProcedure () u (Just (ProcInterfaceName () u (varGen "name")))
+                                  Nothing
+                                  (AList () u [ProcDecl () u (varGen "other_name") Nothing] )
+        sParser "procedure(name) :: other_name" `shouldBe'` st
+
+
       it "parses procedure (interface-name, attribute, proc-decl)" $ do
         let call = ExpFunctionCall () u (varGen "c") (aEmpty () u)
             st = StProcedure () u (Just (ProcInterfaceName () u (varGen "a")))
