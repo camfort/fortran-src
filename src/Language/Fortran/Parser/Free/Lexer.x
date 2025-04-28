@@ -146,6 +146,12 @@ tokens :-
 <0,scI> "return"                                  { addSpan TReturn }
 <0> "entry"                                       { addSpan TEntry }
 <0> "include"                                     { addSpan TInclude }
+<0> "structure"    / { legacy90P }                { addSpan TStructure  }
+<0> "end"\ *"structure" / { legacy90P }           { addSpan TEndStructure  }
+<0> "union"       / { legacy90P }                 { addSpan TUnion }
+<0> "end"\ *"union" / { legacy90P }               { addSpan TEndUnion }
+<0> "map"                                         { addSpan TMap }
+<0> "end"\ *"map"                                 { addSpan TEndMap }
 
 -- Type def related
 <0,scT> "type"                                    { addSpan TType }
@@ -633,6 +639,9 @@ fillConstr = toConstr . ($ undefined)
 --------------------------------------------------------------------------------
 -- Lexer helpers
 --------------------------------------------------------------------------------
+
+legacy90P :: User -> AlexInput -> Int -> AlexInput -> Bool
+legacy90P (User fv _) _ _ _ = fv == Fortran90Legacy
 
 adjustComment :: LexAction (Maybe Token) -> LexAction (Maybe Token)
 adjustComment action = do
@@ -1252,6 +1261,12 @@ data Token =
   | TReturn             SrcSpan
   | TEntry              SrcSpan
   | TInclude            SrcSpan
+  | TStructure          SrcSpan
+  | TEndStructure       SrcSpan
+  | TUnion              SrcSpan
+  | TEndUnion           SrcSpan
+  | TMap                SrcSpan
+  | TEndMap             SrcSpan
   -- language-binding-spec
   | TBind               SrcSpan
   | TC                  SrcSpan
