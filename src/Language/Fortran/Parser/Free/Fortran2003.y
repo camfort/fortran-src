@@ -583,9 +583,9 @@ NONEXECUTABLE_STATEMENT :: { Statement A0 }
 | save { StSave () (getSpan $1) Nothing }
 
 -- according to IBM F2003 docs, dcolon is always required
-| procedure '(' MAYBE_PROC_INTERFACE ')' ATTRIBUTE_LIST '::' PROC_DECLS
+| procedure '(' MAYBE_PROC_INTERFACE ')' MAYBE_ATTRIBUTE_LIST '::' PROC_DECLS
   { let declAList = fromReverseList $7
-    in StProcedure () (getTransSpan $1 $7) $3 (Just (fromReverseList $5)) declAList }
+    in StProcedure () (getTransSpan $1 $7) $3 $5 declAList }
 
 | dimension MAYBE_DCOLON INITIALIZED_DECLARATOR_LIST
   { let declAList = fromReverseList $3
@@ -1037,6 +1037,14 @@ DECLARATION_STATEMENT :: { Statement A0 }
 | TYPE_SPEC INITIALIZED_DECLARATOR_LIST
   { let { declAList = fromReverseList $2 }
     in StDeclaration () (getTransSpan $1 declAList) $1 Nothing declAList }
+
+MAYBE_ATTRIBUTE_LIST :: { Maybe (AList Attribute A0) }
+: ',' NE_ATTRIBUTE_LIST { Just $ fromReverseList $2 }
+| {- EMPTY -} { Nothing }
+
+NE_ATTRIBUTE_LIST :: { [ Attribute A0 ] }
+: NE_ATTRIBUTE_LIST ',' ATTRIBUTE_SPEC { $3 : $1 }
+| ATTRIBUTE_SPEC { [ $1 ] }
 
 ATTRIBUTE_LIST :: { [ Attribute A0 ] }
 : ATTRIBUTE_LIST ',' ATTRIBUTE_SPEC { $3 : $1 }
