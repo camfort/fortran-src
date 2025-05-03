@@ -105,6 +105,8 @@ dependencies:
 - singletons-th   >= 3.0 && < 3.4
 - singletons-base >= 3.0 && < 3.4
 
+- QuickCheck >=2.10 && <2.15
+
 library:
   source-dirs: src
   ghc-options: -fno-warn-tabs
