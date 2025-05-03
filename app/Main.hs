@@ -16,7 +16,7 @@ import System.Directory
 import System.FilePath
 import Text.PrettyPrint.GenericPretty (pp, pretty, Out)
 import Text.Read (readMaybe)
-import Data.List (sortBy, intercalate, isSuffixOf)
+import Data.List (sortBy, intercalate, isSuffixOf, union)
 import Data.Ord (comparing)
 import Data.Char (toLower)
 import Data.Maybe (listToMaybe, fromMaybe, maybeToList)
@@ -57,6 +57,7 @@ main :: IO ()
 main = do
   args <- getArgs
   (opts, parsedArgs) <- compileArgs args
+  let compilerOpts = fortranCompilerOptions opts
   case (parsedArgs, action opts) of
     (paths, ShowMyVersion) -> do
       putStrLn $ "fortran-src version: " ++ showVersion
@@ -92,7 +93,7 @@ main = do
                       decodeOneModFile modPath
                     CompileFile -> do
                       putStr $ "Summarising " ++ fnPath ++ "..."
-                      mod <- compileFileToMod mvers mods fnPath Nothing
+                      mod <- compileFileToMod mvers (fortranCompilerOptions opts) mods fnPath Nothing
                       putStrLn "done"
                       pure [mod]
 
@@ -108,18 +109,20 @@ main = do
 
     (paths, Compile) -> do
       mods <- decodeModFiles' $ includeDirs opts
-      mapM_ (\ p -> compileFileToMod (fortranVersion opts) mods p (outputFile opts)) paths
+      let compilerOpts = fortranCompilerOptions opts
+      mapM_ (\ p -> compileFileToMod (fortranVersion opts) (fortranCompilerOptions opts) mods p (outputFile opts)) paths
     (path:_, actionOpt) -> do
       contents <- runCPP (cppOptions opts) path -- only runs CPP if cppOptions is not Nothing
       mods <- decodeModFiles' $ includeDirs opts
-      let version   = fromMaybe (deduceFortranVersion path) (fortranVersion opts)
-          parsedPF  = case (Parser.byVerWithMods mods version) path contents of
-                        Left  a -> error $ show a
-                        Right a -> a
-          outfmt    = outputFormat opts
-          mmap      = combinedModuleMap mods
-          tenv      = stripExtended $ combinedTypeEnv mods
-          pvm       = combinedParamVarMap mods
+      let version          = fromMaybe (deduceFortranVersion path) (fortranVersion opts)
+          qualifiedVersion = makeQualifiedVersion version $ fortranCompilerOptions opts
+          parsedPF         = case (Parser.byVerWithMods mods qualifiedVersion) path contents of
+                               Left  a -> error $ show a
+                               Right a -> a
+          outfmt           = outputFormat opts
+          mmap             = combinedModuleMap mods
+          tenv             = stripExtended $ combinedTypeEnv mods
+          pvm              = combinedParamVarMap mods
 
       let runTypes = analyseAndCheckTypesWithEnv tenv . analyseRenamesWithModuleMap mmap . initAnalysis
       let runRenamer = stripAnalysis . rename . analyseRenamesWithModuleMap mmap . initAnalysis
@@ -137,9 +140,9 @@ main = do
                  , insLabel (getAnnotation b) == Just astBlockId ]
       case actionOpt of
         Lex | version `elem` [ Fortran66, Fortran77, Fortran77Extended, Fortran77Legacy ] ->
-          print $ Parser.collectTokens Fixed.lexer' $ initParseStateFixed "<unknown>" version contents
+          print $ Parser.collectTokens Fixed.lexer' $ initParseStateFixed "<unknown>" qualifiedVersion contents
         Lex | version `elem` [Fortran90, Fortran2003, Fortran2008] ->
-          print $ Parser.collectTokens Free.lexer'  $ initParseStateFree "<unknown>" version contents
+          print $ Parser.collectTokens Free.lexer'  $ initParseStateFree "<unknown>" qualifiedVersion contents
         Lex        -> ioError $ userError $ usageInfo programName options
         Parse      -> pp parsedPF
         Typecheck  -> let (pf, _, errs) = runTypes parsedPF in
@@ -215,15 +218,16 @@ main = do
     _ -> fail $ usageInfo programName options
 
 
-compileFileToMod :: Maybe FortranVersion -> ModFiles -> FilePath -> Maybe FilePath -> IO ModFile
-compileFileToMod mvers mods path moutfile = do
+compileFileToMod :: Maybe FortranVersion -> [CompilerOption] -> ModFiles -> FilePath -> Maybe FilePath -> IO ModFile
+compileFileToMod mvers opts mods path moutfile = do
   contents <- flexReadFile path
-  let version = fromMaybe (deduceFortranVersion path) mvers
-      mmap = combinedModuleMap mods
-      tenv = stripExtended $ combinedTypeEnv mods
-      runCompile = genModFile . fst . analyseTypesWithEnv tenv . analyseRenamesWithModuleMap mmap . initAnalysis
+  let languageRevision = fromMaybe (deduceFortranVersion path) mvers
+      qualifiedVersion = makeQualifiedVersion languageRevision opts
+      mmap             = combinedModuleMap mods
+      tenv             = stripExtended $ combinedTypeEnv mods
+      runCompile       = genModFile . fst . analyseTypesWithEnv tenv . analyseRenamesWithModuleMap mmap . initAnalysis
   parsedPF  <-
-    case (Parser.byVerWithMods mods version) path contents of
+    case (Parser.byVerWithMods mods qualifiedVersion) path contents of
       Right pf -> return pf
       Left  err -> do
         fail $ "Error parsing " ++ path ++ ": " ++ show err
@@ -327,17 +331,18 @@ instance Read Action where
 data OutputFormat = Default | DOT deriving Eq
 
 data Options = Options
-  { fortranVersion  :: Maybe FortranVersion
-  , action          :: Action
-  , outputFormat    :: OutputFormat
-  , outputFile      :: Maybe FilePath
-  , includeDirs     :: [String]
-  , cppOptions      :: Maybe String -- ^ Nothing: no CPP; Just x: run CPP with options x.
+  { fortranVersion         :: Maybe FortranVersion
+  , fortranCompilerOptions :: [CompilerOption]
+  , action                 :: Action
+  , outputFormat           :: OutputFormat
+  , outputFile             :: Maybe FilePath
+  , includeDirs            :: [String]
+  , cppOptions             :: Maybe String -- ^ Nothing: no CPP; Just x: run CPP with options x.
   , useContinuationReformatter :: Bool
   }
 
 initOptions :: Options
-initOptions = Options Nothing Parse Default Nothing [] Nothing False
+initOptions = Options Nothing [] Parse Default Nothing [] Nothing False
 
 options :: [OptDescr (Options -> Options)]
 options =
@@ -434,6 +439,14 @@ options =
                                     num                      -> opts { action = ShowFlows True False (read num) }
               ) "AST-BLOCK-ID")
       "dump a graph showing flows-from information from the given AST-block ID; prefix with 's' for supergraph"
+  , Option []
+      ["deprecated-constructs"]
+      (OptArg (\a opts -> 
+                case a of
+                  Just "dec-structure" -> opts { fortranCompilerOptions = union [DecStructure] (fortranCompilerOptions opts) }
+                  otherwise -> opts -- todo: warning?
+              ) "DEPRECATED-CONSTRUCTS")
+      "Support for deprecated constructs. (dec-structure)"
   ]
 
 compileArgs :: [ String ] -> IO (Options, [ String ])

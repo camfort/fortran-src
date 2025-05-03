@@ -11,7 +11,7 @@ import Language.Fortran.Util.Position
 vanillaParseState :: ParseState String
 vanillaParseState = ParseState
   { psAlexInput = ""
-  , psVersion = Fortran66
+  , psVersion = VanillaVersion Fortran66
   , psFilename = "<unknown>"
   , psParanthesesCount = ParanthesesCount 0 False
   , psContext = [ ConStart ]
@@ -40,7 +40,7 @@ instance LastToken SomeInput String where
 vanillaSomeInput :: ParseState SomeInput
 vanillaSomeInput = ParseState
   { psAlexInput = initSomeInput
-  , psVersion = Fortran66
+  , psVersion = VanillaVersion Fortran66
   , psFilename = "some.f"
   , psParanthesesCount = ParanthesesCount 0 False
   , psContext = [ ConStart ]
@@ -51,7 +51,7 @@ spec =
   describe "ParserMonad" $ do
     describe "Parse" $ do
       it "should give out correct version" $
-        evalParse getVersion vanillaParseState `shouldBe` Fortran66
+        evalParse getVersion vanillaParseState `shouldBe` VanillaVersion Fortran66
 
       it "satisfies read after write equals to what is written" $
         let ai = evalParse (putAlex "l'enfer" >> getAlex) vanillaParseState in

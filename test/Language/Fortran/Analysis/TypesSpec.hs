@@ -22,10 +22,10 @@ typedProgramFile :: Data a => ProgramFile a -> ProgramFile (Analysis a)
 typedProgramFile = fst . analyseTypes . analyseRenames . initAnalysis
 
 legacy77Parser :: String -> ProgramFile A0
-legacy77Parser = Parser.parseUnsafe Parser.f77l . B.pack
+legacy77Parser = Parser.parseUnsafe (Parser.f77l []) . B.pack
 
 fortran90Parser :: String -> ProgramFile A0
-fortran90Parser = Parser.parseUnsafe Parser.f90 . B.pack
+fortran90Parser = Parser.parseUnsafe (Parser.f90 []) . B.pack
 
 uniExpr :: ProgramFile (Analysis A0) -> [Expression (Analysis A0)]
 uniExpr = universeBi
