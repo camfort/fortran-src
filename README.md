@@ -59,7 +59,7 @@ for the many other options that can be explored for visualisation purposes.
 ```
 Usage: fortran-src [OPTION...] <file>
                           --version                        show fortran-src version
-  -v VERSION, -F VERSION  --fortranVersion=VERSION         Fortran version to use, format: Fortran[66/77/77Legacy/77Extended/90]
+  -v VERSION, -F VERSION  --fortranVersion=VERSION         Fortran version to use, format: Fortran[66/77/77Legacy/77Extended/90/2003]
   -a ACTION               --action=ACTION                  choose the action, possible values: lex|parse
   -t                      --typecheck                      parse and run typechecker
   -R                      --rename                         parse and rename variables
