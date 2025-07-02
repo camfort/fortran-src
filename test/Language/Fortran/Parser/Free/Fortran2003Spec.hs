@@ -180,4 +180,17 @@ spec =
             expBinVars op x1 x2 = ExpBinary () u op (expValVar x1) (expValVar x2)
         bParser text `shouldBe'` expected
 
+    describe "allocate statement" $ do
+      it "parses allocated nested in another statement" $ do
+        let text = "if(y) allocate(x,stat=ierr_allocate)"
+        let expected = StIfLogical () u
+                    (ExpValue () u (ValVariable "y")) (StAllocate () u Nothing
+                        (AList  {alistAnno = (),
+                                 alistSpan = u,
+                                 alistList = [ExpValue () u (ValVariable "x")]})
+                        (Just AList {alistAnno = (),
+                                     alistSpan = u,
+                                     alistList = [AOStat () u (ExpValue () u (ValVariable "ierr_allocate"))]}))
+        sParser text `shouldBe'` expected
+
     specFreeCommon bParser sParser eParser
