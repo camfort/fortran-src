@@ -1,4 +1,4 @@
-### 0.16.6
+### 0.16.7
   * Added mention of Fortran 2003 version support in the help message
   * Improved parsing of `allocate` statements
 
