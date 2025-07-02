@@ -1,3 +1,7 @@
+### 0.16.6
+  * Added mention of Fortran 2003 version support in the help message
+  * Improved parsing of `allocate` statements
+
 ### 0.16.5
   * Small fix to Fortran 2003 parsing around `procedure` statements.
 
