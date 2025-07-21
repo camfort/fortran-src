@@ -456,11 +456,20 @@ parenLevel = foldl' f 0
             | fillConstr TRightPar == toConstr tok = n - 1
             | otherwise                            = n
 
+-- Detect whether the current line is part of an allocate statement
+-- (which may be prepended with other tokens, e.g., if this is an `if` statement
+-- with aan allocate statement inside on a single line).
+allocateStatement :: [Token] -> Maybe [Token]
+allocateStatement (hd1:hd2:rest)
+  | toConstr hd1 `elem` [fillConstr TAllocate, fillConstr TDeallocate]
+  , toConstr hd2 == fillConstr TLeftPar
+  = Just rest
+  | otherwise = allocateStatement (hd2:rest)
+allocateStatement _ = Nothing
+
 allocateP :: User -> AlexInput -> Int -> AlexInput -> Bool
 allocateP _ _ _ ai
-  | alloc:lpar:rest <- prevTokens
-  , toConstr alloc `elem` [fillConstr TAllocate, fillConstr TDeallocate]
-  , fillConstr TLeftPar  == toConstr lpar
+  | Just rest <- allocateStatement (prevTokens)
   = null rest || (followsComma && parenLevel prevTokens == 1)
   | otherwise = False
   where

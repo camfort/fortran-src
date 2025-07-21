@@ -56,6 +56,13 @@ spec =
             st = StUse () u (varGen "mod") Nothing Permissive (Just renames)
         sParser "use :: mod, sprod => prod, a => b" `shouldBe'` st
 
+      it "parses simple procedure with no args" $ do
+        let st = StProcedure () u (Just (ProcInterfaceName () u (varGen "name")))
+                                  Nothing
+                                  (AList () u [ProcDecl () u (varGen "other_name") Nothing] )
+        sParser "procedure(name) :: other_name" `shouldBe'` st
+
+
       it "parses procedure (interface-name, attribute, proc-decl)" $ do
         let call = ExpFunctionCall () u (varGen "c") (aEmpty () u)
             st = StProcedure () u (Just (ProcInterfaceName () u (varGen "a")))
@@ -172,5 +179,18 @@ spec =
             expValVar x = ExpValue () u (ValVariable x)
             expBinVars op x1 x2 = ExpBinary () u op (expValVar x1) (expValVar x2)
         bParser text `shouldBe'` expected
+
+    describe "allocate statement" $ do
+      it "parses allocated nested in another statement" $ do
+        let text = "if(y) allocate(x,stat=ierr_allocate)"
+        let expected = StIfLogical () u
+                    (ExpValue () u (ValVariable "y")) (StAllocate () u Nothing
+                        (AList  {alistAnno = (),
+                                 alistSpan = u,
+                                 alistList = [ExpValue () u (ValVariable "x")]})
+                        (Just AList {alistAnno = (),
+                                     alistSpan = u,
+                                     alistList = [AOStat () u (ExpValue () u (ValVariable "ierr_allocate"))]}))
+        sParser text `shouldBe'` expected
 
     specFreeCommon bParser sParser eParser

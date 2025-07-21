@@ -1,3 +1,10 @@
+### 0.16.7
+  * Added mention of Fortran 2003 version support in the help message
+  * Improved parsing of `allocate` statements
+
+### 0.16.5
+  * Small fix to Fortran 2003 parsing around `procedure` statements.
+
 ### 0.16.4 (Feb 07, 2025)
   * Small fix around parsing of BOZ constants.
   * This version was reviewed for JOSS.

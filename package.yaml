@@ -1,5 +1,5 @@
 name: fortran-src
-version: '0.16.4'
+version: '0.16.7'
 synopsis: Parsers and analyses for Fortran standards 66, 77, 90, 95 and 2003 (partial).
 description: >-
   Provides lexing, parsing, and basic analyses of Fortran code covering
@@ -12,7 +12,7 @@ tested-with: GHC >= 9.0
 github: camfort/fortran-src
 bug-reports: https://github.com/camfort/fortran-src/issues
 author: [Mistral Contrastin, Matthew Danish, Dominic Orchard, Andrew Rice]
-maintainer: [me@madgen.net, Ben Orchard]
+maintainer: [Dominic Orchard]
 category: Language
 license: Apache-2.0
 license-file: LICENSE
