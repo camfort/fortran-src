@@ -187,7 +187,7 @@ library
   build-depends:
       GenericPretty >=1.2.2 && <2
     , array ==0.5.*
-    , base >=4.6 && <5
+    , base >=4.6 && <4.22
     , binary >=0.8.3.0 && <0.11
     , bytestring >=0.10 && <0.13
     , containers >=0.5 && <0.7
@@ -199,9 +199,9 @@ library
     , mtl >=2.2 && <3
     , pretty >=1.1 && <2
     , process >=1.2.0.0
-    , singletons ==3.0.*
-    , singletons-base >=3.0 && <3.4
-    , singletons-th >=3.0 && <3.4
+    , singletons >=3.0 && <3.6
+    , singletons-base >=3.0 && <3.6
+    , singletons-th >=3.0 && <3.6
     , temporary >=1.2 && <1.4
     , text >=1.2 && <2.2
     , uniplate >=1.6 && <2
@@ -250,7 +250,7 @@ executable fortran-src
   build-depends:
       GenericPretty >=1.2.2 && <2
     , array ==0.5.*
-    , base >=4.6 && <5
+    , base >=4.6 && <4.22
     , binary >=0.8.3.0 && <0.11
     , bytestring >=0.10 && <0.13
     , containers >=0.5 && <0.7
@@ -263,9 +263,9 @@ executable fortran-src
     , mtl >=2.2 && <3
     , pretty >=1.1 && <2
     , process >=1.2.0.0
-    , singletons ==3.0.*
-    , singletons-base >=3.0 && <3.4
-    , singletons-th >=3.0 && <3.4
+    , singletons >=3.0 && <3.6
+    , singletons-base >=3.0 && <3.6
+    , singletons-th >=3.0 && <3.6
     , temporary >=1.2 && <1.4
     , text >=1.2 && <2.2
     , uniplate >=1.6 && <2
@@ -348,7 +348,7 @@ test-suite spec
       GenericPretty >=1.2.2 && <2
     , QuickCheck >=2.10 && <2.15
     , array ==0.5.*
-    , base >=4.6 && <5
+    , base >=4.6 && <4.22
     , binary >=0.8.3.0 && <0.11
     , bytestring >=0.10 && <0.13
     , containers >=0.5 && <0.7
@@ -362,9 +362,9 @@ test-suite spec
     , mtl >=2.2 && <3
     , pretty >=1.1 && <2
     , process >=1.2.0.0
-    , singletons ==3.0.*
-    , singletons-base >=3.0 && <3.4
-    , singletons-th >=3.0 && <3.4
+    , singletons >=3.0 && <3.6
+    , singletons-base >=3.0 && <3.6
+    , singletons-th >=3.0 && <3.6
     , temporary >=1.2 && <1.4
     , text >=1.2 && <2.2
     , uniplate >=1.6 && <2

@@ -8,7 +8,7 @@ description: >-
   analysis, a renamer, and type analysis. For example usage, see the
   @<https://hackage.haskell.org/package/camfort CamFort>@ project, which uses
   fortran-src as its front end.
-tested-with: GHC >= 9.0
+tested-with: GHC >= 9.0 && < 9.12
 github: camfort/fortran-src
 bug-reports: https://github.com/camfort/fortran-src/issues
 author: [Mistral Contrastin, Matthew Danish, Dominic Orchard, Andrew Rice]
@@ -80,7 +80,7 @@ ghc-options:
 #- -Werror # appears bad to do in distribution, can be useful for development
 
 dependencies:
-- base >=4.6 && <5
+- base >=4.6 && <4.22
 - mtl >=2.2 && <3
 - array >=0.5 && <0.6
 - uniplate >=1.6 && <2
@@ -99,11 +99,11 @@ dependencies:
 - either ^>=5.0.1.1
 - process >= 1.2.0.0
 
-- singletons      >= 3.0 && < 3.1
+- singletons      >= 3.0 && < 3.6
 
-# 3.0 = GHC 9.0, 3.1 = GHC 9.2, 3.1.1 = GHC 9.4, 3.2 = GHC 9.6, 3.3 = GHC 9.8
-- singletons-th   >= 3.0 && < 3.4
-- singletons-base >= 3.0 && < 3.4
+# 3.0 = GHC 9.0, 3.1 = GHC 9.2, 3.1.1 = GHC 9.4, 3.2 = GHC 9.6, 3.3 = GHC 9.8, 3.5 = GHC 9.10
+- singletons-th   >= 3.0 && < 3.6
+- singletons-base >= 3.0 && < 3.6
 
 library:
   source-dirs: src
