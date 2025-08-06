@@ -21,7 +21,7 @@ jobs:
 
     # relative paths are relative to the project directory
     - name: Cache Stack build artifacts (user + project)
-      uses: actions/cache@v2
+      uses: actions/cache@v3
       with:
         path: |
           ~/.stack
