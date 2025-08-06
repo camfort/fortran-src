@@ -84,7 +84,7 @@ jobs:
       uses: haskell/actions/setup@v2
       with:
         ghc-version: ${{ matrix.ghc }}
-        cabal-version: ${{ matrix.cabal }}
+        cabal-version: 'latest'
 
     - run: cabal freeze
 
@@ -121,7 +121,7 @@ jobs:
       uses: haskell/actions/setup@v2
       with:
         ghc-version: ${{ matrix.ghc }}
-        cabal-version: ${{ matrix.cabal }}
+        cabal-version: 'latest'
 
     - run: cabal freeze
 
@@ -169,7 +169,7 @@ jobs:
       uses: haskell/actions/setup@v2
       with:
         ghc-version: ${{ matrix.ghc }}
-        cabal-version: ${{ matrix.cabal }}
+        cabal-version: 'latest'
 
     - run: cabal freeze
 
