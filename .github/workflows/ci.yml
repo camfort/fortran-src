@@ -139,7 +139,7 @@ jobs:
       run: cabal install
 
     - name: Test
-      run: cabal test --test-show-details=streaming
+      run: cabal test --enable-tests --test-show-details=streaming
       env:
         HSPEC_OPTIONS: --color
 
