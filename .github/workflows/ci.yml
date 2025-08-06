@@ -197,3 +197,10 @@ jobs:
         path: "C:/cabal/bin/${{ env.EXE_NAME }}.exe"
         name: ${{ env.EXE_NAME }}-windows-ghc-${{ matrix.ghc }}-cabal-${{ github.sha }}.exe
         if-no-files-found: error
+
+    - name: Upload cabal build logs
+      if: failure()
+      uses: actions/upload-artifact@v4
+      with:
+        name: cabal-build-logs
+        path: C:\cabal\logs\
