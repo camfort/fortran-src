@@ -86,7 +86,7 @@ jobs:
         ghc-version: ${{ matrix.ghc }}
         cabal-version: 'latest'
 
-    - run: cabal freeze
+    - run: cabal freeze --enable-tests
 
     - name: Cache Cabal build artifacts
       uses: actions/cache@v4
@@ -123,7 +123,7 @@ jobs:
         ghc-version: ${{ matrix.ghc }}
         cabal-version: 'latest'
 
-    - run: cabal freeze
+    - run: cabal freeze --enable-tests
 
     - name: Cache Cabal build artifacts
       uses: actions/cache@v4
@@ -171,7 +171,7 @@ jobs:
         ghc-version: ${{ matrix.ghc }}
         cabal-version: 'latest'
 
-    - run: cabal freeze
+    - run: cabal freeze --enable-tests
 
     - name: Cache Cabal build artifacts
       uses: actions/cache@v4
