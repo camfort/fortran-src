@@ -96,7 +96,7 @@ via the package `libgmp-dev`.
 Haskell library dependencies are listed in `package.yaml`. fortran-src supports
 building with Stack or Cabal.
 
-fortran-src supports **GHC 9.0 through GHC 9.4**. We regularly test at least the
+fortran-src supports **GHC 9.0 through GHC 9.12** (as of Aug 2025). We regularly test at least the
 minimum and maximum supported GHCs. Releases prior to/newer than those may have
 issues. We welcome fixes that would let us support a wider range of compilers.
 
