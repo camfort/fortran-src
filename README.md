@@ -3,7 +3,12 @@
 [![DOI](https://joss.theoj.org/papers/10.21105/joss.07571/status.svg)](https://doi.org/10.21105/joss.07571)
 
 
-fortran-src is an open-source Haskell library and command-line application for the lexing, parsing, and static analysis of Fortran source code. It provides an interface to build other tools, e.g., for static analysis, automated refactoring, verification, and compilation. The following
+fortran-src is an open-source Haskell library and command-line application for the lexing, parsing, and static analysis of Fortran source code. It provides an interface to build other tools, e.g., for static analysis, automated refactoring, verification, and compilation.
+
+> To cite this work, or for a high-level overview, please take a look at our paper: [Contrastin et al., (2025). fortran-src: Fortran static analysis infrastructure. Journal of Open Source Software, 10(106), 7571, https://doi.org/10.21105/joss.07571](https://joss.theoj.org/papers/10.21105/joss.07571)
+
+
+The following
 Fortran standards are covered:
 
   * FORTRAN 66 (ANSI X3.9-1966)
