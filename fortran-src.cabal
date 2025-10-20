@@ -84,6 +84,7 @@ library
       Language.Fortran.AST.Literal.Complex
       Language.Fortran.AST.Literal.Real
       Language.Fortran.Common.Array
+      Language.Fortran.Generate
       Language.Fortran.Intrinsics
       Language.Fortran.LValue
       Language.Fortran.Parser
@@ -186,6 +187,7 @@ library
     , happy >=1.19
   build-depends:
       GenericPretty >=1.2.2 && <2
+    , QuickCheck >=2.10 && <2.15
     , array ==0.5.*
     , base >=4.6 && <4.22
     , binary >=0.8.3.0 && <0.11
@@ -249,6 +251,7 @@ executable fortran-src
   ghc-options: -Wall -fno-warn-tabs
   build-depends:
       GenericPretty >=1.2.2 && <2
+    , QuickCheck >=2.10 && <2.15
     , array ==0.5.*
     , base >=4.6 && <4.22
     , binary >=0.8.3.0 && <0.11
