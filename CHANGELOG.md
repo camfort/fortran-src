@@ -1,4 +1,5 @@
-### (unreleased)
+### 0.16.8
+  * Package build support up to GHC 9.12
   * Fixed pretty printing of array semantic types
 
 ### 0.16.7
