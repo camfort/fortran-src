@@ -20,11 +20,11 @@ import qualified Data.ByteString.Char8 as B
 import Control.Exception (evaluate)
 
 parseWith :: Parse Free.AlexInput Free.Token a -> String -> a
-parseWith p = parseUnsafe (makeParserFree p Fortran95) . B.pack
+parseWith p = parseUnsafe (makeParserFree p $ VanillaVersion Fortran95) . B.pack
 
 eParser :: String -> Expression ()
 eParser = parseUnsafe p . B.pack
-  where p = makeParser initParseStateFreeExpr F95.expressionParser Fortran95
+  where p = makeParser initParseStateFreeExpr F95.expressionParser $ VanillaVersion Fortran95
 
 sParser :: String -> Statement ()
 sParser = parseWith F95.statementParser
