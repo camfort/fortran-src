@@ -1,3 +1,6 @@
+### (unreleased)
+  * Fixed pretty printing of array semantic types
+
 ### 0.16.7
   * Added mention of Fortran 2003 version support in the help message
   * Improved parsing of `allocate` statements

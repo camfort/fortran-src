@@ -1,3 +1,6 @@
+{-# LANGUAGE OverloadedLists #-}
+{-# LANGUAGE OverloadedStrings #-}
+
 module Language.Fortran.Analysis.SemanticTypesSpec where
 
 import Test.Hspec
@@ -6,6 +9,10 @@ import TestUtil
 import Language.Fortran.Analysis.SemanticTypes
 import Language.Fortran.AST
 import Language.Fortran.Version
+
+import Language.Fortran.PrettyPrint
+import Text.PrettyPrint hiding ((<>))
+import Text.PrettyPrint.GenericPretty
 
 spec :: Spec
 spec = do
@@ -29,3 +36,9 @@ spec = do
       let semtype  = TCharacter CharLenStar 1
           typespec = TypeSpec () u TypeCharacter (Just (Selector () u (Just (ExpValue () u ValStar)) Nothing))
        in recoverSemTypeTypeSpec () u Fortran90 semtype `shouldBe` typespec
+
+    it "prints semantic type with dimensions" $ do
+      let dims = DimsExplicitShape ( [ Dim (Just 1) (Just 3), Dim (Just 1) (Just 4) ] )
+      let semtype  = TArray (TReal 8) dims
+      pprint Fortran90 semtype Nothing `shouldBe` "real(8)(1:3, 1:4)"
+

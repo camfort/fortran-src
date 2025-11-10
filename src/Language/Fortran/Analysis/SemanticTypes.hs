@@ -66,7 +66,7 @@ instance Pretty SemType where
       TLogical k -> "logical"<>pd k
       TByte    k -> "byte"<>pd k
       TCharacter _ _ -> "character(TODO)"
-      TArray st dims -> pprint' v st <> pprint' v dims
+      TArray st dims -> pprint' v st <> pdims v dims
       TCustom str -> pprint' v (TypeCustom str)
     | otherwise = \case
       TInteger k -> "integer"<>ad k
@@ -75,11 +75,13 @@ instance Pretty SemType where
       TLogical k -> "logical"<>ad k
       TByte    k -> "byte"<>ad k
       TCharacter _ _ -> "character*TODO"
-      TArray st dims -> pprint' v st <> pprint' v dims
+      TArray st dims -> pprint' v st <> pdims v dims
       TCustom str -> pprint' v (TypeCustom str)
     where
        pd = Pretty.parens . doc
        ad k = doc '*' <> doc k
+       pdims v dims = maybe Pretty.empty (pprint' v) (dimsTraverse dims)
+
 
 -- | Convert 'Dimensions' data type to its previous type synonym
 --   @(Maybe [(Int, Int)])@.
