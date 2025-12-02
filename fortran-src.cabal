@@ -30,6 +30,8 @@ extra-source-files:
     test-data/module/mid1.f90
     test-data/module/mid2.f90
     test-data/module/top.f90
+    test-data/pragma.f90
+    test-data/pragma.f90.expected
     test-data/rewriter/replacementsmap-columnlimit/001_foo.f
     test-data/rewriter/replacementsmap-columnlimit/001_foo.f.expected
     test-data/rewriter/replacementsmap-columnlimit/002_other.f
@@ -61,6 +63,10 @@ extra-source-files:
     test-data/rewriter/replacementsmap-simple/005_unicode.f
     test-data/rewriter/replacementsmap-simple/005_unicode.f.expected
     test-data/rewriter/temp-failure/fail.f
+    test-data/small.f90
+    test-data/small.f90.expected
+    test-data/st.expected
+    test-data/st2.expected
 
 source-repository head
   type: git
