@@ -489,18 +489,27 @@ spec =
     specFreeCommon bParser sParser eParser
 
     describe "Legacy Extensions" $ do
+      it "parses automatic and static statements" $ do
+        let decl = declVariable () u (varGen "x") Nothing Nothing
+            autoStmt = StAutomatic () u (AList () u [decl])
+            staticStmt = StStatic () u (AList () u [decl])
+            autoSrc = "automatic x"
+            staticSrc = "static x"
+        resetSrcSpan (slParser autoSrc) `shouldBe` autoStmt
+        resetSrcSpan (slParser staticSrc) `shouldBe` staticStmt
+
       it "parses structure/union/map blocks" $ do
         let src = init
-                $ unlines [ "      structure /foo/"
-                          , "        union"
-                          , "          map"
-                          , "            integer i"
-                          , "          end map"
-                          , "          map"
-                          , "            real r"
-                          , "          end map"
-                          , "        end union"
-                          , "      end structure"]
+                $ unlines [ "structure /foo/"
+                          , "  union"
+                          , "    map"
+                          , "      integer i"
+                          , "    end map"
+                          , "    map"
+                          , "      real r"
+                          , "    end map"
+                          , "  end union"
+                          , "end structure"]
             ds = [ UnionMap () u $ AList () u
                     [StructFields () u (TypeSpec () u TypeInteger Nothing) Nothing $
                     AList () u [declVariable () u (varGen "i") Nothing Nothing]]
@@ -510,3 +519,33 @@ spec =
                   ]
             st = StStructure () u (Just "foo") $ AList () u [StructUnion () u $ AList () u ds]
         resetSrcSpan (slParser src) `shouldBe` st
+
+      it "parses nested structure blocks" $ do
+        let src = init
+                $ unlines [ "structure /foo/"
+                          , "  structure /bar/ baz"
+                          , "    integer qux"
+                          , "  end structure"
+                          , "end structure"]
+            var = declVariable () u (varGen "qux") Nothing Nothing
+            innerst = StructStructure () u (Just "bar") "baz"
+              $ AList () u [StructFields () u (TypeSpec () u TypeInteger Nothing) Nothing
+                $ AList () u [var]]
+            st = StStructure () u (Just "foo") $ AList () u [innerst]
+        resetSrcSpan (slParser src) `shouldBe` st
+
+      it "parses structure data references" $ do
+        let st      = StPrint () u expStar $ Just $ AList () u [foobar]
+            foobar  = ExpDataRef () u (varGen "foo") (varGen "bar")
+            expStar = ExpValue () u ValStar
+        sParser "print *, foo % bar" `shouldBe'` st
+
+      it "parses character declarations with unspecified lengths" $ do
+        let src = "character s*(*)"
+            st = StDeclaration () u (TypeSpec () u TypeCharacter Nothing) Nothing $
+                 AList () u [declVariable () u
+                               (varGen "s")
+                               (Just (ExpValue () u ValStar))
+                               Nothing]
+        resetSrcSpan (slParser src) `shouldBe` st
+
