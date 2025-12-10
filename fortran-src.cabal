@@ -1,11 +1,11 @@
 cabal-version: 1.12
 
--- This file has been generated from package.yaml by hpack version 0.38.0.
+-- This file has been generated from package.yaml by hpack version 0.38.1.
 --
 -- see: https://github.com/sol/hpack
 
 name:           fortran-src
-version:        0.16.7
+version:        0.16.8
 synopsis:       Parsers and analyses for Fortran standards 66, 77, 90, 95 and 2003 (partial).
 description:    Provides lexing, parsing, and basic analyses of Fortran code covering standards: FORTRAN 66, FORTRAN 77, Fortran 90, Fortran 95, Fortran 2003 (partial) and some legacy extensions. Includes data flow and basic block analysis, a renamer, and type analysis. For example usage, see the @<https://hackage.haskell.org/package/camfort CamFort>@ project, which uses fortran-src as its front end.
 category:       Language
@@ -20,7 +20,7 @@ license:        Apache-2.0
 license-file:   LICENSE
 build-type:     Simple
 tested-with:
-    GHC >= 9.0
+    GHC == 9.0, GHC == 9.2, GHC == 9.4, GHC == 9.6, GHC == 9.8, GHC == 9.10, GHC == 9.12
 extra-source-files:
     README.md
     CHANGELOG.md
@@ -193,7 +193,7 @@ library
   build-depends:
       GenericPretty >=1.2.2 && <2
     , array ==0.5.*
-    , base >=4.6 && <5
+    , base >=4.6 && <4.22
     , binary >=0.8.3.0 && <0.11
     , bytestring >=0.10 && <0.13
     , containers >=0.5 && <0.7
@@ -205,9 +205,9 @@ library
     , mtl >=2.2 && <3
     , pretty >=1.1 && <2
     , process >=1.2.0.0
-    , singletons ==3.0.*
-    , singletons-base >=3.0 && <3.4
-    , singletons-th >=3.0 && <3.4
+    , singletons >=3.0 && <3.6
+    , singletons-base >=3.0 && <3.6
+    , singletons-th >=3.0 && <3.6
     , temporary >=1.2 && <1.4
     , text >=1.2 && <2.2
     , uniplate >=1.6 && <2
@@ -256,7 +256,7 @@ executable fortran-src
   build-depends:
       GenericPretty >=1.2.2 && <2
     , array ==0.5.*
-    , base >=4.6 && <5
+    , base >=4.6 && <4.22
     , binary >=0.8.3.0 && <0.11
     , bytestring >=0.10 && <0.13
     , containers >=0.5 && <0.7
@@ -269,9 +269,9 @@ executable fortran-src
     , mtl >=2.2 && <3
     , pretty >=1.1 && <2
     , process >=1.2.0.0
-    , singletons ==3.0.*
-    , singletons-base >=3.0 && <3.4
-    , singletons-th >=3.0 && <3.4
+    , singletons >=3.0 && <3.6
+    , singletons-base >=3.0 && <3.6
+    , singletons-th >=3.0 && <3.6
     , temporary >=1.2 && <1.4
     , text >=1.2 && <2.2
     , uniplate >=1.6 && <2
@@ -354,7 +354,7 @@ test-suite spec
       GenericPretty >=1.2.2 && <2
     , QuickCheck >=2.10 && <2.15
     , array ==0.5.*
-    , base >=4.6 && <5
+    , base >=4.6 && <4.22
     , binary >=0.8.3.0 && <0.11
     , bytestring >=0.10 && <0.13
     , containers >=0.5 && <0.7
@@ -368,9 +368,9 @@ test-suite spec
     , mtl >=2.2 && <3
     , pretty >=1.1 && <2
     , process >=1.2.0.0
-    , singletons ==3.0.*
-    , singletons-base >=3.0 && <3.4
-    , singletons-th >=3.0 && <3.4
+    , singletons >=3.0 && <3.6
+    , singletons-base >=3.0 && <3.6
+    , singletons-th >=3.0 && <3.6
     , temporary >=1.2 && <1.4
     , text >=1.2 && <2.2
     , uniplate >=1.6 && <2
