@@ -30,8 +30,6 @@ extra-source-files:
     test-data/module/mid1.f90
     test-data/module/mid2.f90
     test-data/module/top.f90
-    test-data/pragma.f90
-    test-data/pragma.f90.expected
     test-data/rewriter/replacementsmap-columnlimit/001_foo.f
     test-data/rewriter/replacementsmap-columnlimit/001_foo.f.expected
     test-data/rewriter/replacementsmap-columnlimit/002_other.f
