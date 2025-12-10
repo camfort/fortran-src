@@ -61,10 +61,6 @@ extra-source-files:
     test-data/rewriter/replacementsmap-simple/005_unicode.f
     test-data/rewriter/replacementsmap-simple/005_unicode.f.expected
     test-data/rewriter/temp-failure/fail.f
-    test-data/small.f90
-    test-data/small.f90.expected
-    test-data/st.expected
-    test-data/st2.expected
 
 source-repository head
   type: git
