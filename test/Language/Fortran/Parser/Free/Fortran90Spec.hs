@@ -520,6 +520,34 @@ spec =
             st = StStructure () u (Just "foo") $ AList () u [StructUnion () u $ AList () u ds]
         resetSrcSpan (slParser src) `shouldBe` st
 
+      it "parses structure/union/map blocks with comments" $ do
+        let src = init
+                $ unlines [ "structure /foo/"
+                          , "! comment before union"
+                          , "  union"
+                          , "! comment inside union, before map"
+                          , "    map"
+                          , "! comment inside map"
+                          , "      integer i"
+                          , "    end map"
+                          , "! comment between maps"
+                          , "    map"
+                          , "      real r"
+                          , "    end map"
+                          , "! comment after map"
+                          , "  end union"
+                          , "! comment after union"
+                          , "end structure"]
+            ds = [ UnionMap () u $ AList () u
+                   [StructFields () u (TypeSpec () u TypeInteger Nothing) Nothing $
+                    AList () u [declVariable () u (varGen "i") Nothing Nothing]]
+                 , UnionMap () u $ AList () u
+                   [StructFields () u (TypeSpec () u TypeReal Nothing) Nothing $
+                    AList () u [declVariable () u (varGen "r") Nothing Nothing]]
+                 ]
+            st = StStructure () u (Just "foo") $ AList () u [StructUnion () u $ AList () u ds]
+        resetSrcSpan (slParser src) `shouldBe` st
+
       it "parses nested structure blocks" $ do
         let src = init
                 $ unlines [ "structure /foo/"
@@ -540,6 +568,7 @@ spec =
             expStar = ExpValue () u ValStar
         sParser "print *, foo % bar" `shouldBe'` st
 
+
       it "parses character declarations with unspecified lengths" $ do
         let src = "character s*(*)"
             st = StDeclaration () u (TypeSpec () u TypeCharacter Nothing) Nothing $
@@ -548,4 +577,32 @@ spec =
                                (Just (ExpValue () u ValStar))
                                Nothing]
         resetSrcSpan (slParser src) `shouldBe` st
+
+      it "parses array initializers with legacy slash syntax" $ do
+        let src = "integer xs(3) / 1, 2, 3 /"
+            inits = [intGen 1, intGen 2, intGen 3]
+            st = StDeclaration () u (TypeSpec () u TypeInteger Nothing) Nothing $
+                 AList () u [declArray () u
+                               (varGen "xs")
+                               (AList () u [DimensionDeclarator () u Nothing (Just (intGen 3))])
+                               Nothing
+                               (Just (ExpInitialisation () u $ AList () u inits))]
+        resetSrcSpan (slParser src) `shouldBe` st
+
+      it "parses character array initializers with legacy slash syntax" $ do
+        let src = "character xs(2)*5 / 'hello', 'world' /"
+            inits = [ExpValue () u (ValString "hello"), ExpValue () u (ValString "world")]
+            st = StDeclaration () u (TypeSpec () u TypeCharacter Nothing) Nothing $
+                 AList () u [declArray () u
+                               (varGen "xs")
+                               (AList () u [DimensionDeclarator () u Nothing (Just (intGen 2))])
+                               (Just (intGen 5))
+                               (Just (ExpInitialisation () u $ AList () u inits))]
+        resetSrcSpan (slParser src) `shouldBe` st
+
+    describe "Non-Legacy Mode" $ do
+      it "fails to parse array initializers with legacy slash syntax in non-legacy mode" $ do
+        let src = "integer xs(3) / 1, 2, 3 /"
+        -- sParser uses non-legacy Fortran90, should fail on legacy syntax
+        evaluate (sParser src) `shouldThrow` anyException
 
