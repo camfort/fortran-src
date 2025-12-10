@@ -269,13 +269,13 @@ tokens :-
 -- Predicated lexer helpers
 --------------------------------------------------------------------------------
 
-(&&&) :: (FortranVersion -> AlexInput -> Int -> AlexInput -> Bool)
-      -> (FortranVersion -> AlexInput -> Int -> AlexInput -> Bool)
-      -> (FortranVersion -> AlexInput -> Int -> AlexInput -> Bool)
-f &&& g = \ fv ai1 i ai2 -> f fv ai1 i ai2 && g fv ai1 i ai2
+(&&&) :: (QualifiedFortranVersion -> AlexInput -> Int -> AlexInput -> Bool)
+      -> (QualifiedFortranVersion -> AlexInput -> Int -> AlexInput -> Bool)
+      -> (QualifiedFortranVersion -> AlexInput -> Int -> AlexInput -> Bool)
+f &&& g = \ qfv ai1 i ai2 -> f qfv ai1 i ai2 && g qfv ai1 i ai2
 
-formatExtendedP :: FortranVersion -> AlexInput -> Int -> AlexInput -> Bool
-formatExtendedP fv _ _ ai = fv `elem` [Fortran77Extended, Fortran77Legacy] &&
+formatExtendedP :: QualifiedFortranVersion -> AlexInput -> Int -> AlexInput -> Bool
+formatExtendedP qfv _ _ ai = getLanguageRevision qfv `elem` [Fortran77Extended, Fortran77Legacy] &&
   case xs of
     [ TFormat _, _ ] -> False
     [ TLabel _ _, TFormat _ ] -> False
@@ -283,37 +283,37 @@ formatExtendedP fv _ _ ai = fv `elem` [Fortran77Extended, Fortran77Legacy] &&
   where
     xs = take 2 . reverse . aiPreviousTokensInLine $ ai
 
-implicitType77P :: FortranVersion -> AlexInput -> Int -> AlexInput -> Bool
-implicitType77P fv b c d = fortran77P fv b c d && implicitStP fv b c d
+implicitType77P :: QualifiedFortranVersion -> AlexInput -> Int -> AlexInput -> Bool
+implicitType77P qfv b c d = fortran77P qfv b c d && implicitStP qfv b c d
 
-implicitTypeExtendedP :: FortranVersion -> AlexInput -> Int -> AlexInput -> Bool
-implicitTypeExtendedP fv b c d = extended77P fv b c d && implicitStP fv b c d
+implicitTypeExtendedP :: QualifiedFortranVersion -> AlexInput -> Int -> AlexInput -> Bool
+implicitTypeExtendedP qfv b c d = extended77P qfv b c d && implicitStP qfv b c d
 
-implicitStP :: FortranVersion -> AlexInput -> Int -> AlexInput -> Bool
+implicitStP :: QualifiedFortranVersion -> AlexInput -> Int -> AlexInput -> Bool
 implicitStP _ _ _ ai = checkPreviousTokensInLine f ai
   where
     f (TImplicit _) = True
     f _ = False
 
-extendedIdP :: FortranVersion -> AlexInput -> Int -> AlexInput -> Bool
-extendedIdP fv a b ai = fv `elem` [Fortran77Extended, Fortran77Legacy] && idP fv a b ai
+extendedIdP :: QualifiedFortranVersion -> AlexInput -> Int -> AlexInput -> Bool
+extendedIdP qfv a b ai = getLanguageRevision qfv `elem` [Fortran77Extended, Fortran77Legacy] && idP qfv a b ai
 
-legacyIdP :: FortranVersion -> AlexInput -> Int -> AlexInput -> Bool
-legacyIdP fv a b ai = fv == Fortran77Legacy && idP fv a b ai
+legacyIdP :: QualifiedFortranVersion -> AlexInput -> Int -> AlexInput -> Bool
+legacyIdP qfv a b ai = getLanguageRevision qfv == Fortran77Legacy && idP qfv a b ai
 
-idP :: FortranVersion -> AlexInput -> Int -> AlexInput -> Bool
-idP fv ao i ai = not (doP fv ai) && not (ifP fv ao i ai)
-             && (equalFollowsP fv ai || rParFollowsP fv ai)
+idP :: QualifiedFortranVersion -> AlexInput -> Int -> AlexInput -> Bool
+idP qfv ao i ai = not (doP qfv ai) && not (ifP qfv ao i ai)
+             && (equalFollowsP qfv ai || rParFollowsP qfv ai)
 
-doP :: FortranVersion -> AlexInput -> Bool
-doP fv ai = isPrefixOf "do" (reverse . lexemeMatch . aiLexeme $ ai) &&
+doP :: QualifiedFortranVersion -> AlexInput -> Bool
+doP qfv ai = isPrefixOf "do" (reverse . lexemeMatch . aiLexeme $ ai) &&
     case unParse (lexer $ f (0::Integer)) ps of
       ParseOk True _ -> True
       _ -> False
   where
     ps = ParseState
       { psAlexInput = ai { aiStartCode = st}
-      , psVersion = fv
+      , psVersion = qfv
       , psFilename = "<unknown>"
       , psParanthesesCount = ParanthesesCount 0 False
       , psContext = [ ConStart ] }
@@ -330,15 +330,15 @@ doP fv ai = isPrefixOf "do" (reverse . lexemeMatch . aiLexeme $ ai) &&
         TRightPar{} -> lexer $ f (n-1)
         _ -> lexer $ f n
 
-ifP :: FortranVersion -> AlexInput -> Int -> AlexInput -> Bool
-ifP fv _ _ ai = "if" == (reverse . lexemeMatch . aiLexeme $ ai) &&
+ifP :: QualifiedFortranVersion -> AlexInput -> Int -> AlexInput -> Bool
+ifP qfv _ _ ai = "if" == (reverse . lexemeMatch . aiLexeme $ ai) &&
     case unParse (lexer $ f) ps of
       ParseOk True _ -> True
       _ -> False
   where
     ps = ParseState
       { psAlexInput = ai { aiStartCode = st}
-      , psVersion = fv
+      , psVersion = qfv
       , psFilename = "<unknown>"
       , psParanthesesCount = ParanthesesCount 0 False
       , psContext = [ ConStart ] }
@@ -348,15 +348,15 @@ ifP fv _ _ ai = "if" == (reverse . lexemeMatch . aiLexeme $ ai) &&
         TLeftPar{} -> return True
         _ -> return False
 
-functionP :: FortranVersion -> AlexInput -> Int -> AlexInput -> Bool
-functionP fv _ _ ai = "function" == (reverse . lexemeMatch . aiLexeme $ ai) &&
+functionP :: QualifiedFortranVersion -> AlexInput -> Int -> AlexInput -> Bool
+functionP qfv _ _ ai = "function" == (reverse . lexemeMatch . aiLexeme $ ai) &&
     case unParse (lexer $ f) ps of
       ParseOk True _ -> True
       _ -> False
   where
     ps = ParseState
       { psAlexInput = ai { aiStartCode = st}
-      , psVersion = fv
+      , psVersion = qfv
       , psFilename = "<unknown>"
       , psParanthesesCount = ParanthesesCount 0 False
       , psContext = [ ConStart ] }
@@ -367,21 +367,21 @@ functionP fv _ _ ai = "function" == (reverse . lexemeMatch . aiLexeme $ ai) &&
         TLeftPar{} -> return True
         _ -> return False
 
-hollerithP :: FortranVersion -> AlexInput -> Int -> AlexInput -> Bool
+hollerithP :: QualifiedFortranVersion -> AlexInput -> Int -> AlexInput -> Bool
 hollerithP _ _ _ ai = isDigit (lookBack 2 ai)
 
-notToP :: FortranVersion -> AlexInput -> Int -> AlexInput -> Bool
+notToP :: QualifiedFortranVersion -> AlexInput -> Int -> AlexInput -> Bool
 notToP _ _ _ ai = not $ "to" `isPrefixOf` (reverse . lexemeMatch . aiLexeme $ ai)
 
-equalFollowsP :: FortranVersion -> AlexInput -> Bool
-equalFollowsP fv ai =
+equalFollowsP :: QualifiedFortranVersion -> AlexInput -> Bool
+equalFollowsP qfv ai =
     case unParse (lexer $ f False (0::Integer)) ps of
       ParseOk True _ -> True
       _ -> False
   where
     ps = ParseState
       { psAlexInput = ai { aiStartCode = st}
-      , psVersion = fv
+      , psVersion = qfv
       , psFilename = "<unknown>"
       , psParanthesesCount = ParanthesesCount 0 False
       , psContext = [ ConStart ] }
@@ -410,15 +410,15 @@ equalFollowsP fv ai =
         TRightPar{} -> lexer $ f True (n - 1)
         _ -> lexer $ f True n
 
-rParFollowsP :: FortranVersion -> AlexInput -> Bool
-rParFollowsP fv ai =
+rParFollowsP :: QualifiedFortranVersion -> AlexInput -> Bool
+rParFollowsP qfv ai =
     case unParse (lexer $ f) ps of
       ParseOk True _ -> True
       _ -> False
   where
     ps = ParseState
       { psAlexInput = ai { aiStartCode = st}
-      , psVersion = fv
+      , psVersion = qfv
       , psFilename = "<unknown>"
       , psParanthesesCount = ParanthesesCount 0 False
       , psContext = [ ConStart ] }
@@ -427,17 +427,17 @@ rParFollowsP fv ai =
         TRightPar{} -> return True
         _ -> return False
 
-commentP :: FortranVersion -> AlexInput -> Int -> AlexInput -> Bool
+commentP :: QualifiedFortranVersion -> AlexInput -> Int -> AlexInput -> Bool
 commentP _ aiOld _ aiNew = atColP 1 aiOld && _endsWithLine
   where
     _endsWithLine = (posColumn . aiPosition) aiNew /= 1
 
-bangCommentP :: FortranVersion -> AlexInput -> Int -> AlexInput -> Bool
+bangCommentP :: QualifiedFortranVersion -> AlexInput -> Int -> AlexInput -> Bool
 bangCommentP _ _ _ aiNew = _endsWithLine
   where
     _endsWithLine = (posColumn . aiPosition) aiNew /= 1
 
-withinLabelColsP :: FortranVersion -> AlexInput -> Int -> AlexInput -> Bool
+withinLabelColsP :: QualifiedFortranVersion -> AlexInput -> Int -> AlexInput -> Bool
 withinLabelColsP _ aiOld _ aiNew = getCol aiOld >= 1 && getCol aiNew <= 6
   where
     getCol = posColumn . aiPosition
@@ -449,7 +449,7 @@ atColP n ai = (posColumn . aiPosition) ai == n
 -- by looking at previous token. Since exponent can only follow a "." or an
 -- integer token. Anything other previous token will prevent matching the input
 -- as an exponent token.
-exponentP :: FortranVersion -> AlexInput -> Int -> AlexInput -> Bool
+exponentP :: QualifiedFortranVersion -> AlexInput -> Int -> AlexInput -> Bool
 exponentP _ _ _ ai =
   case aiPreviousTokensInLine ai of
     -- real*8 d8 is not an exponent
@@ -458,18 +458,26 @@ exponentP _ _ _ ai =
     TDot{} : _ -> True
     _ -> False
 
-fortran66P :: FortranVersion -> AlexInput -> Int -> AlexInput -> Bool
-fortran66P fv _ _ _ = fv == Fortran66
+fortran66P :: QualifiedFortranVersion -> AlexInput -> Int -> AlexInput -> Bool
+fortran66P qfv _ _ _ = getLanguageRevision qfv == Fortran66
 
-fortran77P :: FortranVersion -> AlexInput -> Int -> AlexInput -> Bool
-fortran77P fv _ _ _ = fv == Fortran77 || fv == Fortran77Extended || fv == Fortran77Legacy
+fortran77P :: QualifiedFortranVersion -> AlexInput -> Int -> AlexInput -> Bool
+fortran77P qfv _ _ _ = 
+  case getLanguageRevision qfv of
+    Fortran77         -> True
+    Fortran77Extended -> True
+    Fortran77Legacy   -> True
+    otherwise         -> False
 
-extended77P :: FortranVersion -> AlexInput -> Int -> AlexInput -> Bool
-extended77P fv _ _ _ = fv == Fortran77Extended || fv == Fortran77Legacy
+extended77P :: QualifiedFortranVersion -> AlexInput -> Int -> AlexInput -> Bool
+extended77P qfv _ _ _ = 
+  case getLanguageRevision qfv of
+    Fortran77Extended -> True
+    Fortran77Legacy   -> True
+    otherwise         -> False
 
-legacy77P :: FortranVersion -> AlexInput -> Int -> AlexInput -> Bool
-legacy77P fv _ _ _ = fv == Fortran77Legacy
-
+legacy77P :: QualifiedFortranVersion -> AlexInput -> Int -> AlexInput -> Bool
+legacy77P qfv _ _ _ = getLanguageRevision qfv == Fortran77Legacy
 
 --------------------------------------------------------------------------------
 -- Lexer helpers
@@ -886,7 +894,7 @@ data AlexInput = AlexInput
   , aiCaseSensitive             :: Bool
   , aiInComment                 :: Bool
   , aiInFormat                  :: Bool
-  , aiFortranVersion            :: FortranVersion
+  , aiFortranVersion            :: QualifiedFortranVersion
   } deriving (Show)
 
 instance Loc AlexInput where
@@ -897,8 +905,8 @@ instance LastToken AlexInput Token where
 
 type LexAction a = Parse AlexInput Token a
 
-vanillaAlexInput :: String -> FortranVersion -> B.ByteString -> AlexInput
-vanillaAlexInput fn fv bs = AlexInput
+vanillaAlexInput :: QualifiedFortranVersion -> String -> B.ByteString -> AlexInput
+vanillaAlexInput qfv fn bs = AlexInput
   { aiSourceBytes = bs
   , aiEndOffset = B.length bs
   , aiPosition = initPosition { posFilePath = fn }
@@ -912,7 +920,7 @@ vanillaAlexInput fn fv bs = AlexInput
   , aiCaseSensitive = False
   , aiInComment = False
   , aiInFormat = False
-  , aiFortranVersion = fv
+  , aiFortranVersion = qfv
   }
 
 updateLexeme :: Maybe Char -> Position -> AlexInput -> AlexInput
@@ -944,16 +952,16 @@ alexGetByte ai
   -- Skip the continuation line altogether
   | isContinuation ai && _isWhiteInsensitive = skip Continuation ai
   -- Skip comment lines "between" continuations
-  | aiFortranVersion ai >= Fortran77 && _isWhiteInsensitive
+  | (getLanguageRevision $ aiFortranVersion ai) >= Fortran77 && _isWhiteInsensitive
   && isNewlineCommentsFollowedByContinuation ai = skip NewlineComment ai
   -- If we are not parsing a Hollerith skip whitespace
   | _curChar `elem` [ ' ', '\t' ] && _isWhiteInsensitive = skip Char ai
   -- Ignore inline comments
-  | aiFortranVersion ai == Fortran77Legacy && _isWhiteInsensitive
+  | (getLanguageRevision $ aiFortranVersion ai) == Fortran77Legacy && _isWhiteInsensitive
     && not _inFormat && _curChar == '!' && not _blankLine
   = skip Comment ai
   -- Ignore comments after column 72 in fortran77
-  | aiFortranVersion ai == Fortran77Legacy && not (aiInComment ai)
+  | (getLanguageRevision $ aiFortranVersion ai) == Fortran77Legacy && not (aiInComment ai)
     && posColumn _position > 72 && _curChar /= '\n'
   = skip Comment ai
   -- Read genuine character and advance. Also covers white sensitivity.
@@ -1140,6 +1148,6 @@ lexer' = do
           return token
         Nothing -> lexer'
 
-alexScanUser :: FortranVersion -> AlexInput -> Int -> AlexReturn (LexAction (Maybe Token))
+alexScanUser :: QualifiedFortranVersion -> AlexInput -> Int -> AlexReturn (LexAction (Maybe Token))
 
 }

@@ -82,8 +82,9 @@ genModGraph mversion includeDirs cppOpts paths = do
         contents <- liftIO $ runCPP cppOpts path
         fileMods <- liftIO $ decodeModFiles includeDirs
         let version = fromMaybe (deduceFortranVersion path) mversion
+            qualifiedVersion = makeQualifiedVersion version []
             mods = map snd fileMods
-            parserF0 = Parser.byVerWithMods mods version
+            parserF0 = Parser.byVerWithMods mods qualifiedVersion
             parserF fn bs =
               case parserF0 fn bs of
                 Right x -> return x

@@ -16,11 +16,11 @@ import qualified Language.Fortran.Parser.Free.Lexer       as Free
 import qualified Data.ByteString.Char8 as B
 
 parseWith :: Parse Free.AlexInput Free.Token a -> String -> a
-parseWith p = parseUnsafe (makeParserFree p Fortran2003) . B.pack
+parseWith p = parseUnsafe (makeParserFree p $ VanillaVersion Fortran2003) . B.pack
 
 eParser :: String -> Expression ()
 eParser = parseUnsafe p . B.pack
-  where p = makeParser initParseStateFreeExpr F2003.expressionParser Fortran2003
+  where p = makeParser initParseStateFreeExpr F2003.expressionParser $ VanillaVersion Fortran2003
 
 sParser :: String -> Statement ()
 sParser = parseWith F2003.statementParser

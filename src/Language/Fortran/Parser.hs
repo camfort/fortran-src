@@ -105,7 +105,10 @@ throwIOLeft = \case Right a -> pure a
 
 --------------------------------------------------------------------------------
 
-byVer :: FortranVersion -> Parser (ProgramFile A0)
+failUnknownVersion :: String -> FortranVersion -> a
+failUnknownVersion who v = error $ who <> ": no parser available for requested version: " <> show v
+
+byVer :: FortranVersion -> [CompilerOption] -> Parser (ProgramFile A0)
 byVer = \case
   Fortran66         -> f66
   Fortran77         -> f77
@@ -114,63 +117,69 @@ byVer = \case
   Fortran90         -> f90
   Fortran95         -> f95
   Fortran2003       -> f2003
-  v                 -> error $  "Language.Fortran.Parser.byVer: "
-                             <> "no parser available for requested version: "
-                             <> show v
+  v                 -> failUnknownVersion "Language.Fortran.Parser.byVer" v
 
-byVerWithMods :: ModFiles -> FortranVersion -> Parser (ProgramFile A0)
-byVerWithMods mods = \case
-  Fortran66         -> f66Mods mods
-  Fortran77         -> f77Mods mods
-  Fortran77Extended -> f77eMods mods
-  Fortran77Legacy   -> f77lMods mods
-  Fortran90         -> f90Mods mods
-  Fortran95         -> f95Mods mods
-  Fortran2003       -> f2003Mods mods
-  v                 -> error $ "Language.Fortran.Parser.byVerWithMods: no parser available for requested version: " <> show v
+modsByVersion :: String -> ModFiles -> FortranVersion -> [CompilerOption] -> Parser (ProgramFile A0)
+modsByVersion who mods fv opts =
+  case fv of
+    Fortran66         -> f66Mods opts mods 
+    Fortran77         -> f77Mods opts mods
+    Fortran77Extended -> f77eMods opts mods
+    Fortran77Legacy   -> f77lMods opts mods
+    Fortran90         -> f90Mods opts mods
+    Fortran95         -> f95Mods opts mods
+    Fortran2003       -> f2003Mods opts mods
+    v                 -> failUnknownVersion who v
 
-f66, f77, f77e, f77l, f90, f95, f2003 :: Parser (ProgramFile A0)
-f66   = f66Mods   []
-f77   = f77Mods   []
-f77e  = f77eMods  []
-f77l  = f77lMods  []
-f90   = f90Mods   []
-f95   = f95Mods   []
-f2003 = f2003Mods []
+
+byVerWithMods :: ModFiles -> QualifiedFortranVersion -> Parser (ProgramFile A0)
+byVerWithMods mods (VanillaVersion version)           = modsByVersion "Language.Fortran.Parser.byVerWithMods" mods version []
+byVerWithMods mods (QualifiedVersion version options) = modsByVersion "Language.Fortran.Parser.byVerWithMods" mods version options
+  
+  
+
+f66, f77, f77e, f77l, f90, f95, f2003 :: [CompilerOption] -> Parser (ProgramFile A0)
+f66   = flip f66Mods   []
+f77   = flip f77Mods   []
+f77e  = flip f77eMods  [] 
+f77l  = flip f77lMods  []
+f90   = flip f90Mods   []
+f95   = flip f95Mods   []
+f2003 = flip f2003Mods []
 
 f66Mods, f77Mods, f77eMods, f77lMods, f90Mods, f95Mods, f2003Mods
-    :: ModFiles -> Parser (ProgramFile A0)
-f66Mods   = transformAs Fortran66         f66NoTransform
-f77Mods   = transformAs Fortran77         f77NoTransform
-f77eMods  = transformAs Fortran77Extended f77eNoTransform
-f77lMods  = transformAs Fortran77Legacy   f77lNoTransform
-f90Mods   = transformAs Fortran90         f90NoTransform
-f95Mods   = transformAs Fortran95         f95NoTransform
-f2003Mods = transformAs Fortran2003       f2003NoTransform
+    :: [CompilerOption] -> ModFiles -> Parser (ProgramFile A0)
+f66Mods   = transformAs Fortran66         . f66NoTransform
+f77Mods   = transformAs Fortran77         . f77NoTransform
+f77eMods  = transformAs Fortran77Extended . f77eNoTransform
+f77lMods  = transformAs Fortran77Legacy   . f77lNoTransform
+f90Mods   = transformAs Fortran90         . f90NoTransform
+f95Mods   = transformAs Fortran95         . f95NoTransform
+f2003Mods = transformAs Fortran2003       . f2003NoTransform
 
 f66NoTransform, f77NoTransform, f77eNoTransform, f77lNoTransform,
   f90NoTransform, f95NoTransform, f2003NoTransform
-    :: Parser (ProgramFile A0)
-f66NoTransform   = makeParserFixed F66.programParser   Fortran66
-f77NoTransform   = makeParserFixed F77.programParser   Fortran77
-f77eNoTransform  = makeParserFixed F77.programParser   Fortran77Extended
-f77lNoTransform  = makeParserFixed F77.programParser   Fortran77Legacy
-f90NoTransform   = makeParserFree  F90.programParser   Fortran90
-f95NoTransform   = makeParserFree  F95.programParser   Fortran95
-f2003NoTransform = makeParserFree  F2003.programParser Fortran2003
+    :: [CompilerOption] -> Parser (ProgramFile A0)
+f66NoTransform   = makeParserFixed F66.programParser   . makeQualifiedVersion Fortran66
+f77NoTransform   = makeParserFixed F77.programParser   . makeQualifiedVersion Fortran77        
+f77eNoTransform  = makeParserFixed F77.programParser   . makeQualifiedVersion Fortran77Extended
+f77lNoTransform  = makeParserFixed F77.programParser   . makeQualifiedVersion Fortran77Legacy  
+f90NoTransform   = makeParserFree  F90.programParser   . makeQualifiedVersion Fortran90        
+f95NoTransform   = makeParserFree  F95.programParser   . makeQualifiedVersion Fortran95        
+f2003NoTransform = makeParserFree  F2003.programParser . makeQualifiedVersion Fortran2003      
 
 f66StmtNoTransform, f77StmtNoTransform, f77eStmtNoTransform, f77lStmtNoTransform,
   f90StmtNoTransform, f95StmtNoTransform, f2003StmtNoTransform
-    :: Parser (Statement A0)
-f66StmtNoTransform   = makeParserFixed F66.statementParser   Fortran66
-f77StmtNoTransform   = makeParserFixed F77.statementParser   Fortran77
-f77eStmtNoTransform  = makeParserFixed F77.statementParser   Fortran77Extended
-f77lStmtNoTransform  = makeParserFixed F77.statementParser   Fortran77Legacy
-f90StmtNoTransform   = makeParserFree  F90.statementParser   Fortran90
-f95StmtNoTransform   = makeParserFree  F95.statementParser   Fortran95
-f2003StmtNoTransform = makeParserFree  F2003.statementParser Fortran2003
+    :: [CompilerOption] -> Parser (Statement A0)
+f66StmtNoTransform   = makeParserFixed F66.statementParser   . makeQualifiedVersion Fortran66
+f77StmtNoTransform   = makeParserFixed F77.statementParser   . makeQualifiedVersion Fortran77
+f77eStmtNoTransform  = makeParserFixed F77.statementParser   . makeQualifiedVersion Fortran77Extended
+f77lStmtNoTransform  = makeParserFixed F77.statementParser   . makeQualifiedVersion Fortran77Legacy
+f90StmtNoTransform   = makeParserFree  F90.statementParser   . makeQualifiedVersion Fortran90
+f95StmtNoTransform   = makeParserFree  F95.statementParser   . makeQualifiedVersion Fortran95
+f2003StmtNoTransform = makeParserFree  F2003.statementParser . makeQualifiedVersion Fortran2003
 
-byVerStmt :: FortranVersion -> Parser (Statement A0)
+byVerStmt :: FortranVersion -> [CompilerOption] -> Parser (Statement A0)
 byVerStmt = \case
   Fortran66         -> f66StmtNoTransform
   Fortran77         -> f77StmtNoTransform
@@ -179,10 +188,9 @@ byVerStmt = \case
   Fortran90         -> f90StmtNoTransform
   Fortran95         -> f95StmtNoTransform
   Fortran2003       -> f2003StmtNoTransform
-  v                 -> error $  "Language.Fortran.Parser.byVerStmt: "
-                             <> "no parser available for requested version: "
-                             <> show v
-byVerNoTransform :: FortranVersion -> Parser (ProgramFile A0)
+  v                 -> failUnknownVersion "Language.Fortran.Parser.byVerStmt" v
+
+byVerNoTransform :: FortranVersion -> [CompilerOption] -> Parser (ProgramFile A0)
 byVerNoTransform = \case
   Fortran66         -> f66NoTransform
   Fortran77         -> f77NoTransform
@@ -191,16 +199,14 @@ byVerNoTransform = \case
   Fortran90         -> f90NoTransform
   Fortran95         -> f90NoTransform
   Fortran2003       -> f2003NoTransform
-  v                 -> error $  "Language.Fortran.Parser.byVerNoTransform: "
-                           <> "no parser available for requested version: "
-                           <> show v
+  v                 -> failUnknownVersion "Language.Fortran.Parser.byVerNoTransform" v
 
 f90Expr :: Parser (Expression A0)
-f90Expr = makeParser initParseStateFreeExpr F90.expressionParser Fortran90
+f90Expr = makeParser initParseStateFreeExpr F90.expressionParser (makeQualifiedVersion Fortran90 [])
 
 -- | Obtain a Fortran parser by assuming the version from the filename provided.
-byVerFromFilename :: Parser (ProgramFile A0)
-byVerFromFilename fn = byVer v fn
+byVerFromFilename :: [CompilerOption] -> Parser (ProgramFile A0)
+byVerFromFilename opts fn = byVer v opts fn
   where v = deduceFortranVersion fn
 
 --------------------------------------------------------------------------------
@@ -237,13 +243,13 @@ defaultTransformation = \case
 
 --------------------------------------------------------------------------------
 
-type StateInit s = String -> FortranVersion -> B.ByteString -> ParseState s
-type ParserMaker ai tok a = Parse ai tok a -> FortranVersion -> Parser a
+type StateInit s = String -> QualifiedFortranVersion -> B.ByteString -> ParseState s
+type ParserMaker ai tok a = Parse ai tok a -> QualifiedFortranVersion -> Parser a
 
 makeParser
     :: (Loc ai, LastToken ai tok, Show tok)
     => StateInit ai -> ParserMaker ai tok a
-makeParser fInitState p fv fn = fromParseResult . runParse p . fInitState fn fv
+makeParser fInitState p qfv fn = fromParseResult . runParse p . fInitState fn qfv
 
 makeParserFixed :: ParserMaker Fixed.AlexInput Fixed.Token a
 makeParserFixed = makeParser initParseStateFixed
@@ -252,12 +258,12 @@ makeParserFree :: ParserMaker Free.AlexInput Free.Token a
 makeParserFree = makeParser initParseStateFree
 
 initParseStateFixed :: StateInit Fixed.AlexInput
-initParseStateFixed fn fv bs = initParseState fn fv ai
-  where ai = Fixed.vanillaAlexInput fn fv bs
+initParseStateFixed fn qfv bs = initParseState fn qfv ai
+  where ai = Fixed.vanillaAlexInput qfv fn bs
 
 initParseStateFree :: StateInit Free.AlexInput
-initParseStateFree fn fv bs = initParseState fn fv ai
-  where ai = Free.vanillaAlexInput fn bs
+initParseStateFree fn qfv bs = initParseState fn qfv ai
+  where ai = Free.vanillaAlexInput qfv fn bs
 
 -- | Initialize free-form parser state with the lexer configured for standalone
 --   expression parsing.
@@ -265,22 +271,22 @@ initParseStateFree fn fv bs = initParseState fn fv ai
 -- The free-form lexer needs a non-default start code for lexing standaloe
 -- expressions.
 initParseStateFreeExpr :: StateInit Free.AlexInput
-initParseStateFreeExpr fn fv bs = st
+initParseStateFreeExpr fn qfv bs = st
   { psAlexInput = ai { Free.aiStartCode = Free.StartCode Free.scN Free.Return } }
   where
-    ai = Free.vanillaAlexInput fn bs
-    st = initParseStateFree fn fv bs
+    ai = Free.vanillaAlexInput qfv fn bs
+    st = initParseStateFree fn qfv bs
 
 -- checked in generated file: 1=assn, 4=iif, 6=st
 -- 6, 1, 4 seem best in order. Looks like 6 is correct.
 -- TODO guesswork, relies on internal behaviour :/
 initParseStateFixedExpr :: StateInit Fixed.AlexInput
-initParseStateFixedExpr fn fv bs = st
+initParseStateFixedExpr fn qfv bs = st
   { psAlexInput = ai { Fixed.aiStartCode = 6
                      , Fixed.aiWhiteSensitiveCharCount = 0 } }
   where
-    ai = Fixed.vanillaAlexInput fn fv bs
-    st = initParseStateFixed fn fv bs
+    ai = Fixed.vanillaAlexInput qfv fn bs
+    st = initParseStateFixed fn qfv bs
 
 -- | Convenience wrapper to easily use a parser unsafely.
 --
@@ -293,10 +299,10 @@ parseUnsafe p bs =
       Right a -> a
 
 -- | Helper for preparing initial parser state for the different lexers.
-initParseState :: FilePath -> FortranVersion -> ai -> ParseState ai
-initParseState fn fv ai = ParseState
+initParseState :: FilePath -> QualifiedFortranVersion -> ai -> ParseState ai
+initParseState fn qfv ai = ParseState
   { psAlexInput = ai
-  , psVersion = fv
+  , psVersion = qfv
   , psFilename = fn
   , psParanthesesCount = ParanthesesCount 0 False
   , psContext = [ ConStart ] }
@@ -313,32 +319,35 @@ Can be cleaned up and generalized to use for other parsers.
 f66InlineIncludes, f77InlineIncludes, f77eInlineIncludes, f77lInlineIncludes,
   f90InlineIncludes, f95InlineIncludes, f2003InlineIncludes
   :: [FilePath] -> ModFiles -> String -> B.ByteString -> IO (ProgramFile A0)
-f66InlineIncludes = byVerInlineIncludes Fortran66
-f77lInlineIncludes = byVerInlineIncludes Fortran77Legacy
-f77eInlineIncludes = byVerInlineIncludes Fortran77Extended
-f77InlineIncludes = byVerInlineIncludes Fortran77
-f90InlineIncludes = byVerInlineIncludes Fortran90
-f95InlineIncludes = byVerInlineIncludes Fortran95
-f2003InlineIncludes = byVerInlineIncludes Fortran2003
+f66InlineIncludes   = byVerInlineIncludes (makeQualifiedVersion Fortran66         [])
+f77lInlineIncludes  = byVerInlineIncludes (makeQualifiedVersion Fortran77Legacy   [])
+f77eInlineIncludes  = byVerInlineIncludes (makeQualifiedVersion Fortran77Extended [])
+f77InlineIncludes   = byVerInlineIncludes (makeQualifiedVersion Fortran77         [])
+f90InlineIncludes   = byVerInlineIncludes (makeQualifiedVersion Fortran90         [])
+f95InlineIncludes   = byVerInlineIncludes (makeQualifiedVersion Fortran95         [])
+f2003InlineIncludes = byVerInlineIncludes (makeQualifiedVersion Fortran2003       [])
 
 byVerInlineIncludes
-    :: FortranVersion -> [FilePath] -> ModFiles -> String -> B.ByteString
+    :: QualifiedFortranVersion -> [FilePath] -> ModFiles -> String -> B.ByteString
     -> IO (ProgramFile A0)
 byVerInlineIncludes version incs mods fn bs = do
-  case byVerNoTransform version fn bs of
+  case byVerNoTransform languageRevisison compilerOptions fn bs of
     Left e -> liftIO $ throwIO e
     Right pf -> do
       let pf' = pfSetFilename fn pf
       pf'' <- evalStateT (descendBiM (parserInlineIncludes version incs []) pf') Map.empty
       let pf''' = runTransform (combinedTypeEnv mods)
                                 (combinedModuleMap mods)
-                                (defaultTransformation version)
+                                (defaultTransformation languageRevisison)
                                 pf''
       return pf'''
+  where
+    languageRevisison = getLanguageRevision version
+    compilerOptions = getCompilerOptions version
 
 -- Internal function to go through the includes and inline them
 parserInlineIncludes
-    :: FortranVersion -> [FilePath] -> [FilePath] -> Statement A0
+    :: QualifiedFortranVersion -> [FilePath] -> [FilePath] -> Statement A0
     -> StateT (Map String [Block A0]) IO (Statement A0)
 parserInlineIncludes version dirs = go
   where
@@ -363,26 +372,25 @@ f66IncludesNoTransform, f77IncludesNoTransform, f77eIncludesNoTransform,
   f77lIncludesNoTransform, f90IncludesNoTransform, f95IncludesNoTransform,
   f2003IncludesNoTransform
   :: Parser [Block A0]
-f66IncludesNoTransform = makeParserFixed F66.includesParser Fortran66
-f77IncludesNoTransform = makeParserFixed F77.includesParser Fortran77
-f77eIncludesNoTransform = makeParserFixed F77.includesParser Fortran77Extended
-f77lIncludesNoTransform = makeParserFixed F77.includesParser Fortran77Legacy
-f90IncludesNoTransform = makeParserFree F90.includesParser Fortran90
-f95IncludesNoTransform = makeParserFree F95.includesParser Fortran95
-f2003IncludesNoTransform = makeParserFree F2003.includesParser Fortran2003
+f66IncludesNoTransform   = makeParserFixed F66.includesParser   (makeQualifiedVersion Fortran66         [])
+f77IncludesNoTransform   = makeParserFixed F77.includesParser   (makeQualifiedVersion Fortran77         [])
+f77eIncludesNoTransform  = makeParserFixed F77.includesParser   (makeQualifiedVersion Fortran77Extended [])
+f77lIncludesNoTransform  = makeParserFixed F77.includesParser   (makeQualifiedVersion Fortran77Legacy   [])
+f90IncludesNoTransform   = makeParserFree  F90.includesParser   (makeQualifiedVersion Fortran90         [])
+f95IncludesNoTransform   = makeParserFree  F95.includesParser   (makeQualifiedVersion Fortran95         [])
+f2003IncludesNoTransform = makeParserFree  F2003.includesParser (makeQualifiedVersion Fortran2003       [])
 
-byVerInclude :: FortranVersion -> Parser [Block A0]
-byVerInclude = \case
-  Fortran66         -> f66IncludesNoTransform
-  Fortran77         -> f77IncludesNoTransform
-  Fortran77Extended -> f77eIncludesNoTransform
-  Fortran77Legacy   -> f77lIncludesNoTransform
-  Fortran90         -> f90IncludesNoTransform
-  Fortran95         -> f95IncludesNoTransform
-  Fortran2003       -> f2003IncludesNoTransform
-  v                 -> error $  "Language.Fortran.Parser.byVerInclude: "
-                           <> "no parser available for requested version: "
-                           <> show v
+byVerInclude :: QualifiedFortranVersion -> Parser [Block A0]
+byVerInclude qfv = 
+  case getLanguageRevision qfv of
+    Fortran66         -> f66IncludesNoTransform
+    Fortran77         -> f77IncludesNoTransform
+    Fortran77Extended -> f77eIncludesNoTransform
+    Fortran77Legacy   -> f77lIncludesNoTransform
+    Fortran90         -> f90IncludesNoTransform
+    Fortran95         -> f95IncludesNoTransform
+    Fortran2003       -> f2003IncludesNoTransform
+    v                 -> failUnknownVersion "Language.Fortran.Parser.byVerInclude" v
 
 readInDirs :: [String] -> String -> IO (String, B.ByteString)
 readInDirs [] f = fail $ "cannot find file: " ++ f

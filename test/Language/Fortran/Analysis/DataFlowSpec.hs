@@ -28,9 +28,9 @@ data F90 = F90
 class Parser t where
     parser :: t -> String -> ProgramFile A0
 instance Parser F77 where
-    parser F77 = Parser.parseUnsafe Parser.f77e . B.pack
+    parser F77 = Parser.parseUnsafe (Parser.f77e []) . B.pack
 instance Parser F90 where
-    parser F90 = Parser.parseUnsafe Parser.f90 . B.pack
+    parser F90 = Parser.parseUnsafe (Parser.f90 []) . B.pack
 
 pParser :: Parser t => t -> String -> ProgramFile (Analysis ())
 pParser version source = rename . analyseBBlocks . analyseRenames . initAnalysis

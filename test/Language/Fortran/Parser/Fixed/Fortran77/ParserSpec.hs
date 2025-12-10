@@ -15,7 +15,7 @@ import Data.List ( intercalate )
 import qualified Data.ByteString.Char8 as B
 
 parseWith :: FortranVersion -> Parse Fixed.AlexInput Fixed.Token a -> String -> a
-parseWith fv p = parseUnsafe (makeParserFixed p fv) . B.pack
+parseWith fv p = parseUnsafe (makeParserFixed p (VanillaVersion fv)) . B.pack
 
 pParser :: String -> ProgramFile ()
 pParser = parseWith Fortran77 F77.programParser
@@ -28,7 +28,7 @@ sParser = parseWith Fortran77 F77.statementParser
 
 eParser :: String -> Expression ()
 eParser = parseUnsafe p . B.pack
-  where p = makeParser initParseStateFixedExpr F77.expressionParser Fortran77
+  where p = makeParser initParseStateFixedExpr F77.expressionParser (VanillaVersion Fortran77)
 
 plParser :: String -> ProgramFile ()
 plParser = parseWith Fortran77Legacy F77.programParser

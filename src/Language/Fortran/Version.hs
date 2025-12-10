@@ -2,9 +2,16 @@
 
 module Language.Fortran.Version
   ( FortranVersion(..)
+  , QualifiedFortranVersion(..)
+  , CompilerOption(..)
   , fortranVersionAliases
   , selectFortranVersion
   , deduceFortranVersion
+  , hasDecStructure
+  , getLanguageRevision
+  , addCompilerOption
+  , makeQualifiedVersion
+  , getCompilerOptions
   ) where
 
 import           Data.Char (toLower)
@@ -28,6 +35,41 @@ data FortranVersion = Fortran66
                     | Fortran2003
                     | Fortran2008
                     deriving (Ord, Eq, Data, Typeable, Generic)
+
+data CompilerOption = DecStructure -- | represents -fdec-structure (gfortran, DEC extensions), also supported in intel fortran
+                    deriving (Show, Ord, Eq, Data, Typeable, Generic)
+
+data QualifiedFortranVersion = VanillaVersion FortranVersion
+                             | QualifiedVersion FortranVersion [CompilerOption]
+                             deriving (Show, Ord, Eq, Data, Typeable, Generic)
+
+-- Extract the base Fortran version
+getLanguageRevision :: QualifiedFortranVersion -> FortranVersion
+getLanguageRevision (VanillaVersion v) = v
+getLanguageRevision (QualifiedVersion v _) = v
+
+getCompilerOptions :: QualifiedFortranVersion -> [CompilerOption]
+getCompilerOptions (VanillaVersion _) = []
+getCompilerOptions (QualifiedVersion _ opts) = opts
+-- Check if a specific compiler option is enabled
+hasCompilerOption :: CompilerOption -> QualifiedFortranVersion -> Bool
+hasCompilerOption _ (VanillaVersion _) = False
+hasCompilerOption opt (QualifiedVersion _ opts) = opt `elem` opts
+
+-- Add a compiler option to a QualifiedFortranVersion
+addCompilerOption :: CompilerOption -> QualifiedFortranVersion -> QualifiedFortranVersion
+addCompilerOption opt (VanillaVersion v) = QualifiedVersion v [opt]
+addCompilerOption opt (QualifiedVersion v opts)
+  | opt `elem` opts = QualifiedVersion v opts  -- Avoid duplicates?
+  | otherwise = QualifiedVersion v (opt : opts)
+
+-- | Check for Fortran77Legacy language revision or DecStructure compiler option
+hasDecStructure :: QualifiedFortranVersion -> Bool
+hasDecStructure qfv = getLanguageRevision  qfv == Fortran77Legacy || hasCompilerOption DecStructure qfv
+
+makeQualifiedVersion :: FortranVersion -> [CompilerOption] -> QualifiedFortranVersion
+makeQualifiedVersion version [] = VanillaVersion version
+makeQualifiedVersion version opts = QualifiedVersion version opts
 
 instance Show FortranVersion where
   show Fortran66         = "Fortran 66"
