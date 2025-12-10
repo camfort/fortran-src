@@ -94,6 +94,8 @@ import Data.Maybe ( fromJust, isNothing, isJust )
   endstructure                { TEndStructure _ }
   endunion                    { TEndUnion _ }
   endmap                      { TEndMap _ }
+  automatic                   { TAutomatic _ }
+  static                      { TStatic _ }
   contains                    { TContains _ }
   use                         { TUse _ }
   only                        { TOnly _ }
@@ -537,6 +539,12 @@ NONEXECUTABLE_STATEMENT :: { Statement A0 }
   { let TBlob s blob = $2 in StFormatBogus () (getTransSpan $1 s) blob }
 | structure MAYBE_NAME NEWLINE STRUCTURE_DECLARATIONS endstructure
   { StStructure () (getTransSpan $1 $5) $2 (fromReverseList $4) }
+| automatic INITIALIZED_DECLARATOR_LIST
+  { let alist = fromReverseList $2
+    in StAutomatic () (getTransSpan $1 alist) alist }
+| static INITIALIZED_DECLARATOR_LIST
+  { let alist = fromReverseList $2
+    in StStatic () (getTransSpan $1 alist) alist }
 
 MAYBE_NAME :: { Maybe Name }
 : '/' NAME '/' { Just $2 }

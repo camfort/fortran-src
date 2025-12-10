@@ -152,6 +152,8 @@ tokens :-
 <0> "end"\ *"union" / { legacy90P }               { addSpan TEndUnion }
 <0> "map"                                         { addSpan TMap }
 <0> "end"\ *"map"                                 { addSpan TEndMap }
+<0> "automatic" / { legacy90P }                    { addSpan TAutomatic }
+<0> "static" / { legacy90P }                       { addSpan TStatic }
 
 -- Type def related
 <0,scT> "type"                                    { addSpan TType }
@@ -1276,6 +1278,8 @@ data Token =
   | TEndUnion           SrcSpan
   | TMap                SrcSpan
   | TEndMap             SrcSpan
+  | TAutomatic          SrcSpan
+  | TStatic             SrcSpan
   -- language-binding-spec
   | TBind               SrcSpan
   | TC                  SrcSpan

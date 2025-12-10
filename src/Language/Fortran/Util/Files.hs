@@ -12,7 +12,7 @@ import qualified Data.Text.Encoding         as T
 import qualified Data.Text.Encoding.Error   as T
 import qualified Data.ByteString.Char8      as B
 import           System.Directory (listDirectory, canonicalizePath,
-                                   doesDirectoryExist, getDirectoryContents)
+                                   doesDirectoryExist, getDirectoryContents, doesFileExist)
 import           System.FilePath  ((</>), takeExtension)
 import           System.IO.Temp   (withSystemTempDirectory)
 import           System.Process   (callProcess)
