@@ -17,21 +17,24 @@ import qualified Language.Fortran.Parser.Free.Lexer     as Free
 --import qualified Data.List as List
 import qualified Data.ByteString.Char8 as B
 
-parseWith :: Parse Free.AlexInput Free.Token a -> String -> a
-parseWith p = parseUnsafe (makeParserFree p Fortran90) . B.pack
+parseWith :: FortranVersion -> Parse Free.AlexInput Free.Token a -> String -> a
+parseWith v p = parseUnsafe (makeParserFree p v) . B.pack
 
 eParser :: String -> Expression ()
 eParser = parseUnsafe p . B.pack
   where p = makeParser initParseStateFreeExpr F90.expressionParser Fortran90
 
 sParser :: String -> Statement ()
-sParser = parseWith F90.statementParser
+sParser = parseWith Fortran90 F90.statementParser
+
+slParser :: String -> Statement ()
+slParser = parseWith Fortran90Legacy F90.statementParser
 
 bParser :: String -> Block ()
-bParser = parseWith F90.blockParser
+bParser = parseWith Fortran90 F90.blockParser
 
 fParser :: String -> ProgramUnit ()
-fParser = parseWith F90.functionParser
+fParser = parseWith Fortran90 F90.functionParser
 
 {- Useful for parser debugging; Lexes the given source code.
 fTok :: String -> [Token]
@@ -484,3 +487,83 @@ spec =
       sParser "use stats_lib, only: a, b => c, operator(+), assignment(=)" `shouldBe'` st
 
     specFreeCommon bParser sParser eParser
+
+    describe "Legacy Extensions" $ do
+      it "parses automatic and static statements" $ do
+        let decl = declVariable () u (varGen "x") Nothing Nothing
+            autoStmt = StAutomatic () u (AList () u [decl])
+            staticStmt = StStatic () u (AList () u [decl])
+            autoSrc = "automatic x"
+            staticSrc = "static x"
+        resetSrcSpan (slParser autoSrc) `shouldBe` autoStmt
+        resetSrcSpan (slParser staticSrc) `shouldBe` staticStmt
+
+      it "parses structure/union/map blocks" $ do
+        let src = init
+                $ unlines [ "structure /foo/"
+                          , "  union"
+                          , "    map"
+                          , "      integer i"
+                          , "    end map"
+                          , "    map"
+                          , "      real r"
+                          , "    end map"
+                          , "  end union"
+                          , "end structure"]
+            ds = [ UnionMap () u $ AList () u
+                    [StructFields () u (TypeSpec () u TypeInteger Nothing) Nothing $
+                    AList () u [declVariable () u (varGen "i") Nothing Nothing]]
+                  , UnionMap () u $ AList () u
+                    [StructFields () u (TypeSpec () u TypeReal Nothing) Nothing $
+                    AList () u [declVariable () u (varGen "r") Nothing Nothing]]
+                  ]
+            st = StStructure () u (Just "foo") $ AList () u [StructUnion () u $ AList () u ds]
+        resetSrcSpan (slParser src) `shouldBe` st
+
+      it "parses structure/union/map blocks with comments" $ do
+        let src = init
+                $ unlines [ "structure /foo/"
+                          , "! comment before union"
+                          , "  union"
+                          , "! comment inside union, before map"
+                          , "    map"
+                          , "! comment inside map"
+                          , "      integer i"
+                          , "    end map"
+                          , "! comment between maps"
+                          , "    map"
+                          , "      real r"
+                          , "    end map"
+                          , "! comment after map"
+                          , "  end union"
+                          , "! comment after union"
+                          , "end structure"]
+            ds = [ UnionMap () u $ AList () u
+                   [StructFields () u (TypeSpec () u TypeInteger Nothing) Nothing $
+                    AList () u [declVariable () u (varGen "i") Nothing Nothing]]
+                 , UnionMap () u $ AList () u
+                   [StructFields () u (TypeSpec () u TypeReal Nothing) Nothing $
+                    AList () u [declVariable () u (varGen "r") Nothing Nothing]]
+                 ]
+            st = StStructure () u (Just "foo") $ AList () u [StructUnion () u $ AList () u ds]
+        resetSrcSpan (slParser src) `shouldBe` st
+
+      it "parses nested structure blocks" $ do
+        let src = init
+                $ unlines [ "structure /foo/"
+                          , "  structure /bar/ baz"
+                          , "    integer qux"
+                          , "  end structure"
+                          , "end structure"]
+            var = declVariable () u (varGen "qux") Nothing Nothing
+            innerst = StructStructure () u (Just "bar") "baz"
+              $ AList () u [StructFields () u (TypeSpec () u TypeInteger Nothing) Nothing
+                $ AList () u [var]]
+            st = StStructure () u (Just "foo") $ AList () u [innerst]
+        resetSrcSpan (slParser src) `shouldBe` st
+
+      it "parses structure data references" $ do
+        let st      = StPrint () u expStar $ Just $ AList () u [foobar]
+            foobar  = ExpDataRef () u (varGen "foo") (varGen "bar")
+            expStar = ExpValue () u ValStar
+        sParser "print *, foo % bar" `shouldBe'` st

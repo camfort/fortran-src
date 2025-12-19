@@ -21,6 +21,7 @@ import Language.Fortran.AST
 import Prelude hiding ( EQ, LT, GT ) -- Same constructors exist in the AST
 import Data.Either ( partitionEithers )
 import qualified Data.List as List
+import Data.Maybe ( fromJust, isNothing, isJust )
 
 }
 
@@ -87,6 +88,14 @@ import qualified Data.List as List
   endBlockData                { TEndBlockData _ }
   module                      { TModule _ }
   endModule                   { TEndModule _ }
+  structure                   { TStructure _ }
+  union                       { TUnion _ }
+  map                         { TMap _ }
+  endstructure                { TEndStructure _ }
+  endunion                    { TEndUnion _ }
+  endmap                      { TEndMap _ }
+  automatic                   { TAutomatic _ }
+  static                      { TStatic _ }
   contains                    { TContains _ }
   use                         { TUse _ }
   only                        { TOnly _ }
@@ -528,6 +537,43 @@ NONEXECUTABLE_STATEMENT :: { Statement A0 }
 -- Must be fixed in the future. TODO
 | format blob
   { let TBlob s blob = $2 in StFormatBogus () (getTransSpan $1 s) blob }
+| structure MAYBE_NAME NEWLINE STRUCTURE_DECLARATIONS endstructure
+  { StStructure () (getTransSpan $1 $5) $2 (fromReverseList $4) }
+| automatic INITIALIZED_DECLARATOR_LIST
+  { let alist = fromReverseList $2
+    in StAutomatic () (getTransSpan $1 alist) alist }
+| static INITIALIZED_DECLARATOR_LIST
+  { let alist = fromReverseList $2
+    in StStatic () (getTransSpan $1 alist) alist }
+
+MAYBE_NAME :: { Maybe Name }
+: '/' NAME '/' { Just $2 }
+| {- empty -}  { Nothing }
+
+STRUCTURE_DECLARATIONS :: { [StructureItem A0] }
+: STRUCTURE_DECLARATIONS STRUCTURE_DECLARATION_STATEMENT
+  { if isNothing $2 then $1 else fromJust $2 : $1 }
+| STRUCTURE_DECLARATION_STATEMENT { if isNothing $1 then [] else [fromJust $1] }
+
+STRUCTURE_DECLARATION_STATEMENT :: { Maybe (StructureItem A0) }
+: DECLARATION_STATEMENT NEWLINE
+  { let StDeclaration () s t attrs decls = $1
+    in Just $ StructFields () s t attrs decls }
+| union NEWLINE UNION_MAPS endunion NEWLINE
+  { Just $ StructUnion () (getTransSpan $1 $5) (fromReverseList $3) }
+| structure MAYBE_NAME NAME NEWLINE STRUCTURE_DECLARATIONS endstructure NEWLINE
+  { Just $ StructStructure () (getTransSpan $1 $7) $2 $3 (fromReverseList $5) }
+| comment NEWLINE { Nothing }
+
+UNION_MAPS :: { [ UnionMap A0 ] }
+: UNION_MAPS UNION_MAP { if isNothing $2 then $1 else fromJust $2 : $1 }
+| UNION_MAP { if isNothing $1 then [] else [fromJust $1] }
+
+UNION_MAP :: { Maybe (UnionMap A0) }
+: map NEWLINE STRUCTURE_DECLARATIONS endmap NEWLINE
+  { Just $ UnionMap () (getTransSpan $1 $5) (fromReverseList $3) }
+| comment NEWLINE { Nothing }
+
 
 EXECUTABLE_STATEMENT :: { Statement A0 }
 : allocate '(' DATA_REFS MAYBE_ALLOC_OPT_LIST ')'
