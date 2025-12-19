@@ -1,5 +1,5 @@
 ### 0.16.9
-  * Added support for legacy features in Fortran 90 free-form style
+  * Added support for legacy features in Fortran 90 free-form style (selected via `--fortranVersion=Fortran90Legacy`)
 
 ### 0.16.8
   * Package build support up to GHC 9.12
