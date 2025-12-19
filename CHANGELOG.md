@@ -1,3 +1,6 @@
+### 0.16.9
+  * Added support for legacy features in Fortran 90 free-form style
+
 ### 0.16.8
   * Package build support up to GHC 9.12
   * Fixed pretty printing of array semantic types
