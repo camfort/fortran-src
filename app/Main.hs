@@ -348,7 +348,7 @@ options =
   , Option ['v','F']
       ["fortranVersion"]
       (ReqArg (\v opts -> opts { fortranVersion = selectFortranVersion v }) "VERSION")
-      "Fortran version to use, format: Fortran[66/77/77Legacy/77Extended/90/2003]"
+      "Fortran version to use, format: Fortran[66/77/77Legacy/77Extended/90/90Legacy/2003]"
   , Option ['a']
       ["action"]
       (ReqArg (\a opts -> opts { action = read a }) "ACTION")
