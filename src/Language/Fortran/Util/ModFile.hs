@@ -147,7 +147,9 @@ regenModFile pf mf = mf { mfModuleMap   = extractModuleMap pf
                         , mfDeclMap     = extractDeclMap pf
                         , mfTypeEnv     = FAT.extractTypeEnvExtended pf
                         , mfParamVarMap = extractParamVarMap pf
-                        , mfFilename    = F.pfGetFilename pf }
+                        -- Store only the basename for portability; the .fsmod
+                        -- file's location provides the directory context
+                        , mfFilename    = System.FilePath.takeFileName (F.pfGetFilename pf) }
 
 -- | Generate a fresh ModFile from the module map, declaration map and
 -- type analysis of a given analysed and renamed ProgramFile.

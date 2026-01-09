@@ -39,8 +39,8 @@ testModuleMaps = do
     -- parse all files into mod files
     pfs <- mapM (\p -> pParser p) paths
     let modFiles = map genModFile pfs
-    -- get unique name to filemap
-    let mmap = genUniqNameToFilenameMap "" modFiles
+    -- get unique name to filemap (pass the directory as localPath)
+    let mmap = genUniqNameToFilenameMap fixturePath modFiles
     -- check that `constant` is declared in leaf.f90
     let Just (leaf, _) = M.lookup "leaf_constant_1" mmap
     leaf `shouldBe` ("test-data" </> "module" </> "leaf.f90")
