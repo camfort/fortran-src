@@ -373,7 +373,7 @@ spec =
           pprint Fortran90 bl Nothing `shouldBe` text expect
 
         it "prints vanilla labeled do loop" $ do
-          let body2 = body ++ [ BlStatement () u (Just $ intGen 42) (StContinue () u) ]
+          let body2 = body
           let bl = BlDo () u Nothing Nothing (Just $ intGen 42) (Just doSpec) body2 (Just $ intGen 42)
           let expect = unlines [ "      do 42 i = 1, 9, 2"
                                , "        print *, i"
