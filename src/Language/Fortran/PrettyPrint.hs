@@ -339,7 +339,7 @@ instance IndentablePretty (Block a) where
               ("do" <+> pprint' v tLabel <+> pprint' v doSpec <> newline) <>
               pprint v body nextI <>
               if isJust el -- If there is an end label, show a labelled continue
-                then pprint' v el `overlay` indent i ("continue" <+> newline)
+                then pprint' v el `overlay` indent i ("continue" <> newline)
                 else empty
           Nothing ->
             prettyError "Fortran 77 and earlier versions only have labeled DO blocks"

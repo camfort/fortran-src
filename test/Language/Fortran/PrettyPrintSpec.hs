@@ -378,7 +378,7 @@ spec =
           let expect = unlines [ "      do 42 i = 1, 9, 2"
                                , "        print *, i"
                                , "        i = (i - 1)"
-                               , "42      continue" ]
+                               , "42    continue" ]
           pprint Fortran77 bl (Just 6) `shouldBe` text expect
 
       describe "If" $ do
