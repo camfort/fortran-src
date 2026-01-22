@@ -624,7 +624,9 @@ testParseReprint version inputFile expectedFile = do
     Left err -> expectationFailure $ "Parse error: " ++ show err
     Right pf -> do
       let reprinted = B.pack $ show $ pprint version pf Nothing
-      reprinted `shouldBe` expectedContent
+      -- Normalize line endings: remove \r for cross-platform compatibility
+      let normalize = B.filter (/= '\r')
+      normalize reprinted `shouldBe` normalize expectedContent
 
 valueExpressions :: Expression () -> Maybe (Expression ())
 valueExpressions e@ExpValue{} = Just e
