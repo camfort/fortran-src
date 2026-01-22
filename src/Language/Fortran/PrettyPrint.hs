@@ -328,9 +328,12 @@ instance IndentablePretty (Block a) where
           (pprint' v mn <?> colon <+>
           "do" <+> pprint' v tl <+> pprint' v doSpec <> newline) <>
         pprint v body nextI <>
-        if isJust tl && isNothing mn
-          then empty
-          else labeledIndent el ("end do" <+> pprint' v mn <> newline)
+        case (tl, mn, el) of
+          -- Labeled do with end label: print labeled continue
+          (Just _, Nothing, Just _) ->
+            indent i (pprint' v el <> " " <> "continue" <> newline)
+          -- Named do or unlabeled do: print end do
+          _ -> labeledIndent el ("end do" <+> pprint' v mn <> newline)
 
       | otherwise =
         case tl of
