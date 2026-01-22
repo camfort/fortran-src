@@ -1,0 +1,8 @@
+      program contal
+      implicit none
+      integer i
+      do 42 i = 1, 9, 2
+        print *, i
+        i = (i - 1)
+42    continue
+      end
