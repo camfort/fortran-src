@@ -174,7 +174,7 @@ collectNonLabeledDoBlocks targetLabel blocks =
                            BlStatement _ _ _ StContinue{} -> []
                            _                              -> [b]
 
-
+-- Compare two labels (which are stored via expressions)
 compLabel :: Maybe (Expression a) -> Maybe (Expression a) -> Bool
 compLabel (Just (ExpValue _ _ (ValInteger l1 _)))
           (Just (ExpValue _ _ (ValInteger l2 _))) = strip l1 == strip l2
