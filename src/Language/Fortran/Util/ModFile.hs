@@ -210,6 +210,12 @@ decodeModFiles = foldM (\ modFiles d -> do
             return [(modFileName, emptyModFile)]
           Right mods -> do
             hPutStrLn stderr $ modFileName ++ ": successfully parsed precompiled file."
+            -- Check if the source files referenced in mfFilename exist
+            forM_ mods $ \ mf -> do
+              let srcFile = d </> mfFilename mf
+              exists <- doesFileExist srcFile
+              unless exists $
+                hPutStrLn stderr $ modFileName ++ ": Warning: source file not found: " ++ srcFile
             return $ map (modFileName,) mods
       return $ addedModFiles ++ modFiles
     ) [] -- can't use emptyModFiles
