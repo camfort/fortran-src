@@ -82,8 +82,8 @@ main = do
             , not (null nxt) = do
                 let fnPaths = [ fn | (_, Just (MOFile fn)) <- nxt ]
                 newMods <- fmap concat . forM fnPaths $ \ fnPath -> do
-                  tsStatus <- checkTimestamps fnPath
-                  case tsStatus of
+                  hashStatus <- checkModFileHash fnPath
+                  case hashStatus of
                     NoSuchFile -> do
                       putStr $ "Does not exist: " ++ fnPath
                       pure [emptyModFile]
@@ -221,7 +221,8 @@ compileFileToMod mvers mods path moutfile = do
   let version = fromMaybe (deduceFortranVersion path) mvers
       mmap = combinedModuleMap mods
       tenv = stripExtended $ combinedTypeEnv mods
-      runCompile = genModFile . fst . analyseTypesWithEnv tenv . analyseRenamesWithModuleMap mmap . initAnalysis
+      sourceHash = computeSourceHash contents
+      runCompile = genModFile sourceHash . fst . analyseTypesWithEnv tenv . analyseRenamesWithModuleMap mmap . initAnalysis
   parsedPF  <-
     case (Parser.byVerWithMods mods version) path contents of
       Right pf -> return pf

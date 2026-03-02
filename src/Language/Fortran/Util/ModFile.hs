@@ -23,9 +23,16 @@ renamer. The other data is up to you.
 Note that the encoder and decoder work on lists of ModFile so that one
 fsmod-file may contain information about multiple Fortran files.
 
+Each ModFile includes a source hash (XXH3-64, 8 bytes) to verify that the
+precompiled information matches the current source file. Use
+'checkSourceHash' to validate before using a ModFile.
+
 One typical usage might look like:
 
-> let modFile1 = genModFile programFile
+> contents <- flexReadFile path
+> let sourceHash = computeSourceHash contents
+> -- ... parse contents into programFile ...
+> let modFile1 = genModFile sourceHash programFile
 > let modFile2 = alterModFileData (const (Just ...)) "mydata" modFile1
 > let bytes    = encodeModFile [modFile2]
 > ...
@@ -45,6 +52,9 @@ module Language.Fortran.Util.ModFile
     ModFile, ModFiles, emptyModFile, emptyModFiles, modFileSuffix
   , lookupModFileData, getLabelsModFileData, alterModFileData, alterModFileDataF
 
+  -- * Source hashing
+  , SourceHash, computeSourceHash, computeFileHash
+
   -- * Creation
   , genModFile, regenModFile
 
@@ -58,7 +68,7 @@ module Language.Fortran.Util.ModFile
   , extractModuleMap, combinedModuleMap, localisedModuleMap, combinedTypeEnv
   , ParamVarMap, extractParamVarMap, combinedParamVarMap
   , genUniqNameToFilenameMap
-  , TimestampStatus(..), checkTimestamps
+  , HashStatus(..), checkModFileHash, checkSourceHash, checkTimestamps
   ) where
 
 import qualified Language.Fortran.AST               as F
@@ -73,18 +83,29 @@ import           Language.Fortran.Util.Files ( getDirContents )
 import Control.Monad.State
 import Control.Monad -- required for mtl-2.3 (GHC 9.6)
 import Data.Binary (Binary, encode, decodeOrFail)
+import Data.Bits (shiftR, (.&.))
+import qualified Data.ByteString as B
+import qualified Data.ByteString.Lazy as BL
 import qualified Data.ByteString.Lazy.Char8 as LB
+import qualified Data.ByteString.Unsafe as BU
 import Data.Data
+import qualified Data.Digest.XXHash.FFI.C as XXH
 import Data.Generics.Uniplate.Operations
 import qualified Data.Map.Strict as M
 import Data.Maybe
+import Data.Word (Word8, Word64)
+import Foreign.C.Types (CSize(..), CULLong(..))
 import GHC.Generics (Generic)
 import System.Directory ( doesFileExist, getModificationTime )
 import qualified System.FilePath
 import System.FilePath ( (-<.>), (</>), normalise )
 import System.IO ( hPutStrLn, stderr )
+import System.IO.Unsafe ( unsafePerformIO )
 
 --------------------------------------------------
+
+-- | Type alias for source file hash (XXH3-64, 8 bytes)
+type SourceHash = B.ByteString
 
 -- | Standard ending of fortran-src-format "mod files"
 modFileSuffix :: String
@@ -117,6 +138,7 @@ type ParamVarMap = FAD.ParameterVarMap
 
 -- | The data stored in the "mod files"
 data ModFile = ModFile { mfFilename    :: String
+                       , mfSourceHash  :: SourceHash -- ^ XXH3-64 hash of source file (8 bytes)
                        , mfStringMap   :: StringMap
                        , mfModuleMap   :: FAR.ModuleMap
                        , mfDeclMap     :: DeclMap
@@ -137,24 +159,53 @@ emptyModFiles = []
 
 -- | Starting point.
 emptyModFile :: ModFile
-emptyModFile = ModFile "" M.empty M.empty M.empty M.empty M.empty M.empty
+emptyModFile = ModFile "" B.empty M.empty M.empty M.empty M.empty M.empty M.empty
+
+-- | Convert Word64 to 8-byte ByteString (little-endian)
+word64ToBytes :: Word64 -> B.ByteString
+word64ToBytes w = B.pack
+  [ fromIntegral (w .&. 0xFF)
+  , fromIntegral ((w `shiftR` 8) .&. 0xFF)
+  , fromIntegral ((w `shiftR` 16) .&. 0xFF)
+  , fromIntegral ((w `shiftR` 24) .&. 0xFF)
+  , fromIntegral ((w `shiftR` 32) .&. 0xFF)
+  , fromIntegral ((w `shiftR` 40) .&. 0xFF)
+  , fromIntegral ((w `shiftR` 48) .&. 0xFF)
+  , fromIntegral ((w `shiftR` 56) .&. 0xFF)
+  ]
+
+-- | Compute XXH3-64 hash from file contents (strict ByteString).
+-- Use this when you've already read the file.
+computeSourceHash :: B.ByteString -> SourceHash
+computeSourceHash contents = unsafePerformIO $ do
+  hash <- BU.unsafeUseAsCStringLen contents $ \(ptr, len) ->
+    XXH.c_xxh3_64bits_withSeed ptr (fromIntegral len) 0
+  return $ word64ToBytes (fromIntegral hash)
+
+-- | Compute XXH3-64 hash of a file's contents.
+-- Convenience function when you have a filepath and haven't read the file yet.
+computeFileHash :: FilePath -> IO SourceHash
+computeFileHash path = do
+  contents <- B.readFile path
+  return $ computeSourceHash contents
 
 -- | Extracts the module map, declaration map and type analysis from
 -- an analysed and renamed ProgramFile, then inserts it into the
 -- ModFile.
-regenModFile :: forall a. (Data a) => F.ProgramFile (FA.Analysis a) -> ModFile -> ModFile
-regenModFile pf mf = mf { mfModuleMap   = extractModuleMap pf
-                        , mfDeclMap     = extractDeclMap pf
-                        , mfTypeEnv     = FAT.extractTypeEnvExtended pf
-                        , mfParamVarMap = extractParamVarMap pf
-                        -- Store only the basename for portability; the .fsmod
-                        -- file's location provides the directory context
-                        , mfFilename    = System.FilePath.takeFileName (F.pfGetFilename pf) }
+regenModFile :: forall a. (Data a) => SourceHash -> F.ProgramFile (FA.Analysis a) -> ModFile -> ModFile
+regenModFile srcHash pf mf = mf { mfSourceHash  = srcHash
+                                , mfModuleMap   = extractModuleMap pf
+                                , mfDeclMap     = extractDeclMap pf
+                                , mfTypeEnv     = FAT.extractTypeEnvExtended pf
+                                , mfParamVarMap = extractParamVarMap pf
+                                -- Store only the basename for portability; the .fsmod
+                                -- file's location provides the directory context
+                                , mfFilename    = System.FilePath.takeFileName (F.pfGetFilename pf) }
 
 -- | Generate a fresh ModFile from the module map, declaration map and
 -- type analysis of a given analysed and renamed ProgramFile.
-genModFile :: forall a. (Data a) => F.ProgramFile (FA.Analysis a) -> ModFile
-genModFile = flip regenModFile emptyModFile
+genModFile :: forall a. (Data a) => SourceHash -> F.ProgramFile (FA.Analysis a) -> ModFile
+genModFile srcHash pf = regenModFile srcHash pf emptyModFile
 
 -- | Looks up the raw "other data" that may be stored in a ModFile by
 -- applications that make use of fortran-src.
@@ -368,22 +419,64 @@ extractParamVarMap pf = M.fromList cvm
           , (F.Declarator _ _ v F.ScalarDecl _ _)       <- universeBi st  :: [F.Declarator (FA.Analysis a)]
           , Just con                                          <- [FA.constExp (F.getAnnotation v)] ]
 
--- | Status of mod-file compared to Fortran file.
-data TimestampStatus = NoSuchFile | CompileFile | ModFileExists FilePath
+-- | Status of mod-file compared to Fortran file (hash-based).
+data HashStatus = NoSuchFile | CompileFile | ModFileExists FilePath
+  deriving (Eq, Show)
+
+-- | Status of mod-file compared to Fortran file (timestamp-based, deprecated).
+data TimestampStatus = TSNoSuchFile | TSCompileFile | TSModFileExists FilePath
+  deriving (Eq, Show)
+
+-- | Check if a ModFile needs recompiling by comparing source file hash.
+-- Checks if both source and .fsmod exist, loads the .fsmod, and compares hashes.
+-- Returns whether to compile or use the existing ModFile.
+checkModFileHash :: FilePath -> IO HashStatus
+checkModFileHash path = do
+  pathExists <- doesFileExist path
+  let modPath = path -<.> modFileSuffix
+  modExists <- doesFileExist modPath
+  case (pathExists, modExists) of
+    (False, _)    -> pure NoSuchFile
+    (True, False) -> pure CompileFile
+    (True, True)  -> do
+      -- Load the modfile and check if hash matches
+      contents <- LB.readFile modPath
+      case decodeModFile contents of
+        Left _ -> pure CompileFile  -- Corrupted modfile, recompile
+        Right [] -> pure CompileFile  -- Empty modfile, recompile
+        Right (modFile:_) -> do
+          -- Check hash of source file
+          currentHash <- computeFileHash path
+          if currentHash == mfSourceHash modFile
+            then pure $ ModFileExists modPath
+            else pure CompileFile
+
+-- | Compare the source file hash to the hash stored in the ModFile.
+-- This is the preferred method for checking if a ModFile is up-to-date.
+checkSourceHash :: FilePath -> ModFile -> IO HashStatus
+checkSourceHash path modFile = do
+  pathExists <- doesFileExist path
+  if not pathExists
+    then pure NoSuchFile
+    else do
+      currentHash <- computeFileHash path
+      if currentHash == mfSourceHash modFile
+        then pure $ ModFileExists (path -<.> modFileSuffix)
+        else pure CompileFile
 
 -- | Compare the source file timestamp to the fsmod file timestamp, if
--- it exists.
+-- it exists. DEPRECATED: Use checkSourceHash instead for more reliable validation.
 checkTimestamps :: FilePath -> IO TimestampStatus
 checkTimestamps path = do
   pathExists <- doesFileExist path
   modExists <- doesFileExist $ path -<.> modFileSuffix
   case (pathExists, modExists) of
-    (False, _)    -> pure NoSuchFile
-    (True, False) -> pure CompileFile
+    (False, _)    -> pure TSNoSuchFile
+    (True, False) -> pure TSCompileFile
     (True, True)  -> do
       let modPath = path -<.> modFileSuffix
       pathModTime <- getModificationTime path
       modModTime  <- getModificationTime modPath
       if pathModTime < modModTime
-        then pure $ ModFileExists modPath
-        else pure CompileFile
+        then pure $ TSModFileExists modPath
+        else pure TSCompileFile

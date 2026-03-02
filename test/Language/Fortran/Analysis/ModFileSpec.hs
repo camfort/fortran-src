@@ -37,8 +37,9 @@ testModuleMaps = do
     let fixturePath = "test-data" </> "module"
     paths <- expandDirs [fixturePath]
     -- parse all files into mod files
-    pfs <- mapM (\p -> pParser p) paths
-    let modFiles = map genModFile pfs
+    pfs <- mapM pParser paths
+    hashes <- mapM computeFileHash paths
+    let modFiles = zipWith genModFile hashes pfs
     -- get unique name to filemap (pass the directory as localPath)
     let mmap = genUniqNameToFilenameMap fixturePath modFiles
     -- check that `constant` is declared in leaf.f90

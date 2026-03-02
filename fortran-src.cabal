@@ -1,11 +1,11 @@
 cabal-version: 1.12
 
--- This file has been generated from package.yaml by hpack version 0.39.1.
+-- This file has been generated from package.yaml by hpack version 0.38.1.
 --
 -- see: https://github.com/sol/hpack
 
 name:           fortran-src
-version:        0.16.9
+version:        0.17.0
 synopsis:       Parsers and analyses for Fortran standards 66, 77, 90, 95 and 2003 (partial).
 description:    Provides lexing, parsing, and basic analyses of Fortran code covering standards: FORTRAN 66, FORTRAN 77, Fortran 90, Fortran 95, Fortran 2003 (partial) and some legacy extensions. Includes data flow and basic block analysis, a renamer, and type analysis. For example usage, see the @<https://hackage.haskell.org/package/camfort CamFort>@ project, which uses fortran-src as its front end.
 category:       Language
@@ -27,9 +27,13 @@ extra-source-files:
     test-data/f77-include/foo.f
     test-data/f77-include/no-newline/foo.f
     test-data/module/leaf.f90
+    test-data/module/leaf.fsmod
     test-data/module/mid1.f90
+    test-data/module/mid1.fsmod
     test-data/module/mid2.f90
+    test-data/module/mid2.fsmod
     test-data/module/top.f90
+    test-data/module/top.fsmod
     test-data/rewriter/replacementsmap-columnlimit/001_foo.f
     test-data/rewriter/replacementsmap-columnlimit/001_foo.f.expected
     test-data/rewriter/replacementsmap-columnlimit/002_other.f
@@ -205,6 +209,7 @@ library
     , temporary >=1.2 && <1.4
     , text >=1.2 && <2.2
     , uniplate >=1.6 && <2
+    , xxhash-ffi ==0.3.*
   default-language: Haskell2010
   if os(windows)
     cpp-options: -DFS_DISABLE_WIN_BROKEN_TESTS
@@ -269,6 +274,7 @@ executable fortran-src
     , temporary >=1.2 && <1.4
     , text >=1.2 && <2.2
     , uniplate >=1.6 && <2
+    , xxhash-ffi ==0.3.*
   default-language: Haskell2010
   if os(windows)
     cpp-options: -DFS_DISABLE_WIN_BROKEN_TESTS
@@ -368,6 +374,7 @@ test-suite spec
     , temporary >=1.2 && <1.4
     , text >=1.2 && <2.2
     , uniplate >=1.6 && <2
+    , xxhash-ffi ==0.3.*
   default-language: Haskell2010
   if os(windows)
     cpp-options: -DFS_DISABLE_WIN_BROKEN_TESTS
