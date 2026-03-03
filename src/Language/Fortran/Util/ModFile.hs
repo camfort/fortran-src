@@ -80,6 +80,7 @@ import qualified Language.Fortran.Analysis.Types    as FAT
 import qualified Language.Fortran.Util.Position     as P
 import           Language.Fortran.Util.Files ( getDirContents )
 
+import Control.Exception (evaluate)
 import Control.Monad.State
 import Control.Monad -- required for mtl-2.3 (GHC 9.6)
 import Data.Binary (Binary, encode, decodeOrFail)
@@ -444,8 +445,11 @@ checkModFileHash path = do
     (True, False) -> pure CompileFile
     (True, True)  -> do
       -- Load the modfile and check if hash matches
-      contents <- LB.readFile modPath
-      case decodeModFile contents of
+      -- Use strict read to avoid lazy I/O file locking issues
+      contents <- BL.readFile modPath
+      !strictContents <- evaluate (BL.toStrict contents)
+      let lazyContents = BL.fromStrict strictContents
+      case decodeModFile lazyContents of
         Left _ -> pure CompileFile  -- Corrupted modfile, recompile
         Right [] -> pure CompileFile  -- Empty modfile, recompile
         Right (modFile:_) -> do
