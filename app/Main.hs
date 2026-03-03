@@ -6,6 +6,7 @@ module Main ( main ) where
 import Prelude hiding (readFile, mod)
 import qualified Data.ByteString.Char8 as B
 import qualified Data.ByteString.Lazy.Char8 as LB
+import Data.Word (Word8)
 
 import Text.PrettyPrint (render)
 
@@ -159,13 +160,15 @@ main = do
           case decodeModFile contents' of
             Left msg  -> putStrLn $ "Error: " ++ msg
             Right mfs -> forM_ mfs $ \ mf ->
-              putStrLn $ "Filename: " ++ moduleFilename mf ++
-                       "\n\nStringMap:\n" ++ showStringMap (combinedStringMap [mf]) ++
-                       "\n\nModuleMap:\n" ++ showModuleMap (combinedModuleMap [mf]) ++
-                       "\n\nDeclMap:\n" ++ showGenericMap (combinedDeclMap [mf]) ++
-                       "\n\nTypeEnv:\n" ++ showTypes (combinedTypeEnv [mf]) ++
-                       "\n\nParamVarMap:\n" ++ showGenericMap (combinedParamVarMap [mf]) ++
-                       "\n\nOther Data Labels: " ++ show (getLabelsModFileData mf)
+              let hashHex = concatMap (printf "%02x") (B.unpack (moduleSourceHash mf))
+              in putStrLn $ "Filename: " ++ moduleFilename mf ++
+                         "\nSource Hash (XXH3-64): " ++ hashHex ++
+                         "\n\nStringMap:\n" ++ showStringMap (combinedStringMap [mf]) ++
+                         "\n\nModuleMap:\n" ++ showModuleMap (combinedModuleMap [mf]) ++
+                         "\n\nDeclMap:\n" ++ showGenericMap (combinedDeclMap [mf]) ++
+                         "\n\nTypeEnv:\n" ++ showTypes (combinedTypeEnv [mf]) ++
+                         "\n\nParamVarMap:\n" ++ showGenericMap (combinedParamVarMap [mf]) ++
+                         "\n\nOther Data Labels: " ++ show (getLabelsModFileData mf)
         ShowFlows isFrom isSuper astBlockId -> do
           let pf = analyseParameterVars pvm .
                    analyseBBlocks .

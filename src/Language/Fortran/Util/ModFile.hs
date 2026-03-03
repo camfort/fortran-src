@@ -62,7 +62,7 @@ module Language.Fortran.Util.ModFile
   , encodeModFile, decodeModFile, decodeModFiles, decodeModFiles'
 
   -- * Operations
-  , moduleFilename
+  , moduleFilename, moduleSourceHash
   , StringMap, extractStringMap, combinedStringMap
   , DeclContext(..), DeclMap, extractDeclMap, combinedDeclMap
   , extractModuleMap, combinedModuleMap, localisedModuleMap, combinedTypeEnv
@@ -307,6 +307,10 @@ combinedParamVarMap = M.unions . map mfParamVarMap
 -- ModFile.
 moduleFilename :: ModFile -> String
 moduleFilename = mfFilename
+
+-- | Get the source hash from the ModFile.
+moduleSourceHash :: ModFile -> SourceHash
+moduleSourceHash = mfSourceHash
 
 --------------------------------------------------
 
