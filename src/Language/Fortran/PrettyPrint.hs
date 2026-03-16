@@ -253,46 +253,6 @@ endGen v constructName name i = indent i $ "end" <+> middle <> newline
 instance IndentablePretty [Block a] where
     pprint v bs i = foldl' (\b a -> b <> pprint v a i) empty bs
 
--- Extract list of end-labels in do loops
-nestedLabels :: Block a -> Set Integer -> Set Integer
-nestedLabels = go
-  where
-    go :: Block a -> Set Integer -> Set Integer
-    go b acc = case b of
-      BlDo _ _ _ _ _ _ body el ->
-        let mLabel = labelOf el
-            acc'   = maybe acc (`Set.insert` acc) mLabel
-        in foldr go acc' body
-               
-      BlDoWhile _ _ _ _ _ _ body el ->
-        let mLabel = labelOf el
-            acc'   = maybe acc (`Set.insert` acc) mLabel
-        in foldr go acc' body
-
-      -- other constructors unchanged
-      BlStatement{} -> acc
-      BlInterface{} -> acc
-      BlComment{}   -> acc
-
-      BlIf _ _ _ _ clauses elseBlock _ ->
-        let clauses' = NonEmpty.toList clauses
-            blocks = concatMap snd clauses' 
-            acc' = foldr go acc blocks
-        in maybe acc (foldr go acc') elseBlock
-
-      BlCase _ _ _ _ _ clauses caseDefault _ ->
-        let clauses' = concatMap snd clauses
-            acc' = foldr go acc clauses'
-        in maybe acc (foldr go acc') caseDefault
-
-      BlForall _ _ _ _ _ blocks _ -> foldr go acc blocks
-
-      BlAssociate _ _ _ _ _ blocks _ -> foldr go acc blocks
-
-labelOf :: Maybe (Expression a) -> Maybe Integer
-labelOf (Just (ExpValue _ _ (ValInteger i _))) = Just $ read i
-labelOf _ = Nothing
-
 instance IndentablePretty (Block a) where
     pprint v (BlForall _ _ mLabel mName _ body mel) i =
       labeledIndent mLabel (pprint' v mName) <> newline <>
@@ -376,6 +336,8 @@ instance IndentablePretty (Block a) where
         in case (tl, mn, el) of
           -- Labeled do with end label: print labeled continue
           (Just _, Nothing, Just _) ->
+            -- For nested loops with the same target only 
+            -- print end label for inner-most loop 
             if printEndLabel then
               indent i (pprint' v el <> " " <> "continue" <> newline)
             else
@@ -392,6 +354,8 @@ instance IndentablePretty (Block a) where
             labeledIndent mLabel
               ("do" <+> pprint' v tLabel <+> pprint' v doSpec <> newline) <>
               pprint v body nextI <>
+              -- For nested loops with the same target only 
+              -- print end label for inner-most loop 
               if isJust el && printEndLabel then
                 pprint' v el `overlay` indent i ("continue" <> newline)
               else
@@ -404,6 +368,34 @@ instance IndentablePretty (Block a) where
           if v >= Fortran90
             then indent i (pprint' v label <+> stDoc)
             else pprint' v mLabel `overlay` indent i stDoc
+
+        -- Extract list of end-labels in do loops
+        nestedLabels :: Block a -> Set Integer -> Set Integer
+        nestedLabels = go
+          where
+            go b acc = case b of
+              BlDo _ _ _ _ _ _ body' el'      -> goBody body' el' acc
+              BlDoWhile _ _ _ _ _ _ body' el' -> goBody body' el' acc
+
+              BlIf _ _ _ _ clauses elseB _ ->
+                let acc' = foldr go acc (concatMap snd (NonEmpty.toList clauses))
+                in maybe acc' (foldr go acc') elseB
+
+              BlCase _ _ _ _ _ clauses def _ ->
+                let acc' = foldr go acc (concatMap snd clauses)
+                in maybe acc' (foldr go acc') def
+
+              BlForall _ _ _ _ _ bs _    -> foldr go acc bs
+              BlAssociate _ _ _ _ _ bs _ -> foldr go acc bs
+
+              _ -> acc
+
+            goBody body' el' acc =
+              foldr go (maybe acc (`Set.insert` acc) (labelOf el')) body'
+
+        labelOf :: Maybe (Expression a) -> Maybe Integer
+        labelOf (Just (ExpValue _ _ (ValInteger i _))) = Just $ read i
+        labelOf _ = Nothing
 
     pprint v (BlDoWhile _ _ mLabel mName mTarget cond body el) i
        | v >= Fortran77Extended =
