@@ -603,6 +603,11 @@ spec =
           let expectedFile = "test-data" </> "prettyprint" </> "labeled-continue" </> "continue-bug.f.expected"
           testParseReprint Fortran90 inputFile expectedFile
 
+        it "correctly reprints F90 nested labeled do loop (nested.f)" $ do
+          let inputFile = "test-data" </> "prettyprint" </> "labeled-continue" </> "nested.f"
+          let expectedFile = "test-data" </> "prettyprint" </> "labeled-continue" </> "nested.f.expected"
+          testParseReprint Fortran90 inputFile expectedFile
+
       describe "Fortran 77" $ do
         it "correctly reprints F77 labeled continue statement (contalt.f)" $ do
           let inputFile = "test-data" </> "prettyprint" </> "labeled-continue" </> "contalt.f"
@@ -612,6 +617,11 @@ spec =
         it "correctly reprints F77 continue statement formatting (continue-bug.f)" $ do
           let inputFile = "test-data" </> "prettyprint" </> "labeled-continue" </> "continue-bug.f"
           let expectedFile = "test-data" </> "prettyprint" </> "labeled-continue" </> "continue-bug.f.f77.expected"
+          testParseReprint Fortran77 inputFile expectedFile
+        
+        it "correctly reprints F77 nested labeled do loop (nested.f)" $ do
+          let inputFile = "test-data" </> "prettyprint" </> "labeled-continue" </> "nested.f"
+          let expectedFile = "test-data" </> "prettyprint" </> "labeled-continue" </> "nested.f.f77.expected"
           testParseReprint Fortran77 inputFile expectedFile
 
 -- | Helper function to test parsing and reprinting a file
