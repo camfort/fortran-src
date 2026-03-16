@@ -6,6 +6,9 @@ module Language.Fortran.PrettyPrint where
 import Data.Maybe (isJust, isNothing, listToMaybe)
 import Data.List (foldl')
 import qualified Data.List as List
+import qualified Data.List.NonEmpty as NonEmpty
+import Data.Set (Set)
+import qualified Data.Set as Set
 
 import Prelude hiding (EQ,LT,GT,pred,exp,(<>))
 
@@ -250,6 +253,46 @@ endGen v constructName name i = indent i $ "end" <+> middle <> newline
 instance IndentablePretty [Block a] where
     pprint v bs i = foldl' (\b a -> b <> pprint v a i) empty bs
 
+-- Extract list of end-labels in do loops
+nestedLabels :: Block a -> Set Integer -> Set Integer
+nestedLabels = go
+  where
+    go :: Block a -> Set Integer -> Set Integer
+    go b acc = case b of
+      BlDo _ _ _ _ _ _ body el ->
+        let mLabel = labelOf el
+            acc'   = maybe acc (`Set.insert` acc) mLabel
+        in foldr go acc' body
+               
+      BlDoWhile _ _ _ _ _ _ body el ->
+        let mLabel = labelOf el
+            acc'   = maybe acc (`Set.insert` acc) mLabel
+        in foldr go acc' body
+
+      -- other constructors unchanged
+      BlStatement{} -> acc
+      BlInterface{} -> acc
+      BlComment{}   -> acc
+
+      BlIf _ _ _ _ clauses elseBlock _ ->
+        let clauses' = NonEmpty.toList clauses
+            blocks = concatMap snd clauses' 
+            acc' = foldr go acc blocks
+        in maybe acc (foldr go acc') elseBlock
+
+      BlCase _ _ _ _ _ clauses caseDefault _ ->
+        let clauses' = concatMap snd clauses
+            acc' = foldr go acc clauses'
+        in maybe acc (foldr go acc') caseDefault
+
+      BlForall _ _ _ _ _ blocks _ -> foldr go acc blocks
+
+      BlAssociate _ _ _ _ _ blocks _ -> foldr go acc blocks
+
+labelOf :: Maybe (Expression a) -> Maybe Integer
+labelOf (Just (ExpValue _ _ (ValInteger i _))) = Just $ read i
+labelOf _ = Nothing
+
 instance IndentablePretty (Block a) where
     pprint v (BlForall _ _ mLabel mName _ body mel) i =
       labeledIndent mLabel (pprint' v mName) <> newline <>
@@ -328,22 +371,31 @@ instance IndentablePretty (Block a) where
           (pprint' v mn <?> colon <+>
           "do" <+> pprint' v tl <+> pprint' v doSpec <> newline) <>
         pprint v body nextI <>
-        case (tl, mn, el) of
+        let nls = foldr nestedLabels Set.empty body
+            printEndLabel = not $ maybe True (`Set.member` nls) (labelOf el)
+        in case (tl, mn, el) of
           -- Labeled do with end label: print labeled continue
           (Just _, Nothing, Just _) ->
-            indent i (pprint' v el <> " " <> "continue" <> newline)
+            if printEndLabel then
+              indent i (pprint' v el <> " " <> "continue" <> newline)
+            else
+              empty
           -- Named do or unlabeled do: print end do
           _ -> labeledIndent el ("end do" <+> pprint' v mn <> newline)
 
       | otherwise =
         case tl of
           Just tLabel ->
+            let nls = foldr nestedLabels Set.empty body
+                printEndLabel = not $ maybe True (`Set.member` nls) (labelOf el)
+            in
             labeledIndent mLabel
               ("do" <+> pprint' v tLabel <+> pprint' v doSpec <> newline) <>
               pprint v body nextI <>
-              if isJust el -- If there is an end label, show a labelled continue
-                then pprint' v el `overlay` indent i ("continue" <> newline)
-                else empty
+              if isJust el && printEndLabel then
+                pprint' v el `overlay` indent i ("continue" <> newline)
+              else
+                  empty
           Nothing ->
             prettyError "Fortran 77 and earlier versions only have labeled DO blocks"
       where
