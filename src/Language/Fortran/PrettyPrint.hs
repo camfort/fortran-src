@@ -325,6 +325,10 @@ instance IndentablePretty (Block a) where
         abstract | v >= Fortran2003 && abstractp = "abstract "
                  | otherwise = empty
 
+    -- Up to Fortran77, nested labeled do-loops can be closed by the
+    -- same labeled statement. In that case, it does not matter which
+    -- loop prints the `continue` statement, as long as there is only
+    -- one closing statement with a particular label in the end
     pprint v (BlDo _ _ mLabel mn tl doSpec body el) i
       | v >= Fortran77Extended =
         labeledIndent mLabel
