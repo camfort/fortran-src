@@ -1,0 +1,12 @@
+      PROGRAM TEST
+      IMPLICIT NONE
+      PARAMETER (MAXLAY=20)
+      DIMENSION A(MAXLAY), B(MAXLAY), C(MAXLAY)
+      INTEGER NLAY
+      OPEN(UNIT=10)
+      READ(10, *) NLAY
+      DO 100 I = 1, NLAY
+         READ(10, *) A(I), B(I), C(I)
+  100 CONTINUE
+      CLOSE(10)
+      END

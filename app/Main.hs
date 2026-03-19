@@ -138,7 +138,7 @@ main = do
       case actionOpt of
         Lex | version `elem` [ Fortran66, Fortran77, Fortran77Extended, Fortran77Legacy ] ->
           print $ Parser.collectTokens Fixed.lexer' $ initParseStateFixed "<unknown>" version contents
-        Lex | version `elem` [Fortran90, Fortran2003, Fortran2008] ->
+        Lex | version `elem` [Fortran90, Fortran90Legacy, Fortran2003, Fortran2008] ->
           print $ Parser.collectTokens Free.lexer'  $ initParseStateFree "<unknown>" version contents
         Lex        -> ioError $ userError $ usageInfo programName options
         Parse      -> pp parsedPF

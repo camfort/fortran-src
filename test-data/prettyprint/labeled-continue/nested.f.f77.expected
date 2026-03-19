@@ -1,0 +1,9 @@
+      program nested
+      integer i, j, sum
+      sum = 0
+      do 100 i = 1, 5
+        do 100 j = 1, 5
+          sum = (sum + 1)
+100     continue
+      print *, 'SUM = ', sum
+      end

@@ -6,6 +6,9 @@ module Language.Fortran.PrettyPrint where
 import Data.Maybe (isJust, isNothing, listToMaybe)
 import Data.List (foldl')
 import qualified Data.List as List
+import qualified Data.List.NonEmpty as NonEmpty
+import Data.Set (Set)
+import qualified Data.Set as Set
 
 import Prelude hiding (EQ,LT,GT,pred,exp,(<>))
 
@@ -322,21 +325,45 @@ instance IndentablePretty (Block a) where
         abstract | v >= Fortran2003 && abstractp = "abstract "
                  | otherwise = empty
 
+    -- Up to Fortran77, nested labeled do-loops can be closed by the
+    -- same labeled statement. In that case, it does not matter which
+    -- loop prints the `continue` statement, as long as there is only
+    -- one closing statement with a particular label in the end
     pprint v (BlDo _ _ mLabel mn tl doSpec body el) i
       | v >= Fortran77Extended =
         labeledIndent mLabel
           (pprint' v mn <?> colon <+>
           "do" <+> pprint' v tl <+> pprint' v doSpec <> newline) <>
         pprint v body nextI <>
-        if isJust tl && isNothing mn
-          then empty
-          else labeledIndent el ("end do" <+> pprint' v mn <> newline)
+        let nls = foldr nestedLabels Set.empty body
+            printEndLabel = not $ maybe True (`Set.member` nls) (labelOf el)
+        in case (tl, mn, el) of
+          -- Labeled do with end label: print labeled continue
+          (Just _, Nothing, Just _) ->
+            -- For nested loops with the same target only 
+            -- print end label for inner-most loop 
+            if printEndLabel then
+              indent i (pprint' v el <> " " <> "continue" <> newline)
+            else
+              empty
+          -- Named do or unlabeled do: print end do
+          _ -> labeledIndent el ("end do" <+> pprint' v mn <> newline)
+
       | otherwise =
         case tl of
           Just tLabel ->
+            let nls = foldr nestedLabels Set.empty body
+                printEndLabel = not $ maybe True (`Set.member` nls) (labelOf el)
+            in
             labeledIndent mLabel
               ("do" <+> pprint' v tLabel <+> pprint' v doSpec <> newline) <>
-            pprint v body nextI
+              pprint v body nextI <>
+              -- For nested loops with the same target only 
+              -- print end label for inner-most loop 
+              if isJust el && printEndLabel then
+                pprint' v el `overlay` indent i ("continue" <> newline)
+              else
+                  empty
           Nothing ->
             prettyError "Fortran 77 and earlier versions only have labeled DO blocks"
       where
@@ -345,6 +372,34 @@ instance IndentablePretty (Block a) where
           if v >= Fortran90
             then indent i (pprint' v label <+> stDoc)
             else pprint' v mLabel `overlay` indent i stDoc
+
+        -- Extract list of end-labels in do loops
+        nestedLabels :: Block a -> Set Integer -> Set Integer
+        nestedLabels = go
+          where
+            go b acc = case b of
+              BlDo _ _ _ _ _ _ body' el'      -> goBody body' el' acc
+              BlDoWhile _ _ _ _ _ _ body' el' -> goBody body' el' acc
+
+              BlIf _ _ _ _ clauses elseB _ ->
+                let acc' = foldr go acc (concatMap snd (NonEmpty.toList clauses))
+                in maybe acc' (foldr go acc') elseB
+
+              BlCase _ _ _ _ _ clauses def _ ->
+                let acc' = foldr go acc (concatMap snd clauses)
+                in maybe acc' (foldr go acc') def
+
+              BlForall _ _ _ _ _ bs _    -> foldr go acc bs
+              BlAssociate _ _ _ _ _ bs _ -> foldr go acc bs
+
+              _ -> acc
+
+            goBody body' el' acc =
+              foldr go (maybe acc (`Set.insert` acc) (labelOf el')) body'
+
+        labelOf :: Maybe (Expression a) -> Maybe Integer
+        labelOf (Just (ExpValue _ _ (ValInteger i _))) = Just $ read i
+        labelOf _ = Nothing
 
     pprint v (BlDoWhile _ _ mLabel mName mTarget cond body el) i
        | v >= Fortran77Extended =

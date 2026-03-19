@@ -61,6 +61,16 @@ extra-source-files:
     test-data/rewriter/replacementsmap-simple/005_unicode.f
     test-data/rewriter/replacementsmap-simple/005_unicode.f.expected
     test-data/rewriter/temp-failure/fail.f
+    test-data/prettyprint/labeled-continue/contalt.f
+    test-data/prettyprint/labeled-continue/contalt.f.expected
+    test-data/prettyprint/labeled-continue/contalt.f.f77.expected
+    test-data/prettyprint/labeled-continue/continue-bug.f
+    test-data/prettyprint/labeled-continue/continue-bug.f.expected
+    test-data/prettyprint/labeled-continue/continue-bug.f.f77.expected
+    test-data/prettyprint/labeled-continue/nested.f
+    test-data/prettyprint/labeled-continue/nested.f.expected
+    test-data/prettyprint/labeled-continue/nested.f.f77.expected
+
 
 source-repository head
   type: git
