@@ -1,5 +1,5 @@
 name: fortran-src
-version: '0.16.9'
+version: '0.17.0'
 synopsis: Parsers and analyses for Fortran standards 66, 77, 90, 95 and 2003 (partial).
 description: >-
   Provides lexing, parsing, and basic analyses of Fortran code covering
@@ -98,6 +98,7 @@ dependencies:
 - temporary >=1.2 && <1.4
 - either ^>=5.0.1.1
 - process >= 1.2.0.0
+- xxhash-ffi >= 0.3 && < 0.4
 
 - singletons      >= 3.0 && < 3.6
 
