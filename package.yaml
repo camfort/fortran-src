@@ -77,10 +77,11 @@ default-extensions:
 # --pedantic for building (not used for stack ghci)
 ghc-options:
 - -Wall
+- -Werror=operator-whitespace
 #- -Werror # appears bad to do in distribution, can be useful for development
 
 dependencies:
-- base >=4.6 && <4.22
+- base >=4.6 && <4.23
 - mtl >=2.2 && <3
 - array >=0.5 && <0.6
 - uniplate >=1.6 && <2

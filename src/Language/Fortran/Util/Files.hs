@@ -62,7 +62,7 @@ runCPP (Just cppOpts) path   = do
                                                      newLineNo)
           where
             newLineNo = read . B.unpack . B.takeWhile isNumber . B.drop 2 $ curLine
-            linePath = B.unpack . B.takeWhile (/='"') . B.drop 1 . B.dropWhile (/='"') $ curLine
+            linePath = B.unpack . B.takeWhile (/= '"') . B.drop 1 . B.dropWhile (/= '"') $ curLine
 
   withSystemTempDirectory "fortran-src" $ \ tmpdir -> do
     let outfile = tmpdir </> "cpp.out"

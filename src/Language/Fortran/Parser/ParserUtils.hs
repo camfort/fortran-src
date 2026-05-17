@@ -38,7 +38,7 @@ exprToComplexLitPart e =
           ValReal    r mkp ->
             let r' = r { realLitSignificand = sign <> realLitSignificand r }
              in return $ ComplexPartReal a ss r' mkp
-          ValInteger i mkp -> return $ ComplexPartInt a ss (sign<>i) mkp
+          ValInteger i mkp -> return $ ComplexPartInt a ss (sign <> i) mkp
           ValVariable var  -> return $ ComplexPartNamed a ss var
           _                -> fail $ "Invalid COMPLEX literal @ " <> show ss
       _ -> fail $ "Invalid COMPLEX literal @ " <> show (getSpan e')

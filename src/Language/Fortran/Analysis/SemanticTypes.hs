@@ -60,20 +60,20 @@ type Dimensions = Dims NonEmpty (Maybe Int)
 instance Pretty SemType where
   pprint' v
     | v >= Fortran90 = \case
-      TInteger k -> "integer"<>pd k
-      TReal    k -> "real"<>pd k
-      TComplex k -> "complex"<>pd k
-      TLogical k -> "logical"<>pd k
-      TByte    k -> "byte"<>pd k
+      TInteger k -> "integer" <> pd k
+      TReal    k -> "real" <> pd k
+      TComplex k -> "complex" <> pd k
+      TLogical k -> "logical" <> pd k
+      TByte    k -> "byte" <> pd k
       TCharacter _ _ -> "character(TODO)"
       TArray st dims -> pprint' v st <> pdims v dims
       TCustom str -> pprint' v (TypeCustom str)
     | otherwise = \case
-      TInteger k -> "integer"<>ad k
-      TReal    k -> "real"<>ad k
-      TComplex k -> "complex"<>ad k
-      TLogical k -> "logical"<>ad k
-      TByte    k -> "byte"<>ad k
+      TInteger k -> "integer" <> ad k
+      TReal    k -> "real" <> ad k
+      TComplex k -> "complex" <> ad k
+      TLogical k -> "logical" <> ad k
+      TByte    k -> "byte" <> ad k
       TCharacter _ _ -> "character*TODO"
       TArray st dims -> pprint' v st <> pdims v dims
       TCustom str -> pprint' v (TypeCustom str)

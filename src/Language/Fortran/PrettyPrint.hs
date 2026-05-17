@@ -74,7 +74,7 @@ newline = char '\n'
 type Indentation = Maybe Int
 
 incIndentation :: Indentation -> Indentation
-incIndentation indentation = (+2) <$> indentation
+incIndentation indentation = (+ 2) <$> indentation
 
 indent :: Indentation -> Doc -> Doc
 indent Nothing d = d
@@ -1233,18 +1233,18 @@ reformatMixedFormInsertContinuations = go stNewline
     -- line type uncertain: consume up to non-space, then decide
     go (RefmtStNewline col) (x:xs) =
         case x of
-            ' ' -> ' ' : go (RefmtStNewline (col+1)) xs
+            ' ' -> ' ' : go (RefmtStNewline (col + 1)) xs
             '!' -> '!' : go RefmtStComment           xs
-            _   -> x   : go (RefmtStStmt    (col+1)) xs
+            _   -> x   : go (RefmtStStmt    (col + 1)) xs
 
     -- in statement: break when required
     go (RefmtStStmt col)    (x:xs)
       -- Checking if we are at column 73, since col is counted from 0!
       | col == maxCol && x == '&' = -- already a continuation in `intersection` format
-                        '&' : go (RefmtStStmt (col+1)) xs
+                        '&' : go (RefmtStStmt (col + 1)) xs
       | col == maxCol = -- making continuation
                         '&' : '\n' : go stNewline ("     &" ++ x:xs)
-      | otherwise     = x : go (RefmtStStmt (col+1)) xs
+      | otherwise     = x : go (RefmtStStmt (col + 1)) xs
 
     maxCol = 72
     stNewline = RefmtStNewline 0

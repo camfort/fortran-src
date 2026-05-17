@@ -344,7 +344,7 @@ evalFunctionCall fname args =
             pure $ MkFScalarValue $ FSVString $ Text.singleton c
           _ ->
             err $ EOpTypeError $
-                "char: expected INT(x), got "<>show (fScalarValueType v')
+                "char: expected INT(x), got " <> show (fScalarValueType v')
 
       "not"  -> do
         args' <- forceArgs 1 args
@@ -355,7 +355,7 @@ evalFunctionCall fname args =
             pure $ MkFScalarValue $ FSVInt $ fIntUOpInplace Data.Bits.complement i
           _ ->
             err $ EOpTypeError $
-                "not: expected INT(x), got "<>show (fScalarValueType v')
+                "not: expected INT(x), got " <> show (fScalarValueType v')
 
       "int"  ->
         case args of
@@ -369,7 +369,7 @@ evalFunctionCall fname args =
               FSVInt vkI -> (MkFScalarValue . FSVInt) <$> evalIntrinsicInt v vkI
               _ ->
                 err $ EOpTypeError $
-                    "int: kind argument must be INTEGER, got "<>show (fScalarValueType vk')
+                    "int: kind argument must be INTEGER, got " <> show (fScalarValueType vk')
           _ -> err $ EOpTypeError $ "int: expected 1 or 2 arguments, got >2"
 
       -- TODO all lies
@@ -384,7 +384,7 @@ evalFunctionCall fname args =
             pure $ MkFScalarValue $ FSVInt $ FInt2 $ fRealUOp truncate r
           _ ->
             err $ EOpTypeError $
-                "int: unsupported or unimplemented type: "<>show (fScalarValueType v')
+                "int: unsupported or unimplemented type: " <> show (fScalarValueType v')
 
       _      -> err $ EUnsupported $ "function call: " <> fname
 
@@ -432,7 +432,7 @@ evalIntrinsicIntXCoerce coerceToIX v = do
       FSVReal r -> pure $ fRealUOp truncate r
       _ ->
         err $ EOpTypeError $
-            "int: unsupported or unimplemented type: "<>show (fScalarValueType v')
+            "int: unsupported or unimplemented type: " <> show (fScalarValueType v')
 
 evalArg :: MonadFEvalValue m => F.Argument (FA.Analysis a) -> m FValue
 evalArg (F.Argument _ _ _ ae) =
@@ -459,7 +459,7 @@ forceArgs numArgs l =
     if   length l == numArgs
     then pure l
     else err $ EOpTypeError $
-            "expected "<>show numArgs<>" arguments; got "<>show (length l)
+            "expected " <> show numArgs <> " arguments; got " <> show (length l)
 
 evalIntrinsicIor
     :: MonadFEvalValue m => FScalarValue -> FScalarValue -> m FValue
@@ -488,7 +488,7 @@ evalIntrinsicMax = \case
                 go vNewMax vs
               _ ->
                 err $ EOpTypeError $
-                    "max: expected INT(x), got "<>show (fScalarValueType v)
+                    "max: expected INT(x), got " <> show (fScalarValueType v)
           FSVReal{} ->
             case v of
               FSVReal{} -> do
@@ -496,10 +496,10 @@ evalIntrinsicMax = \case
                 go vNewMax vs
               _ ->
                 err $ EOpTypeError $
-                    "max: expected REAL(x), got "<>show (fScalarValueType v)
+                    "max: expected REAL(x), got " <> show (fScalarValueType v)
           _ ->
             err $ EOpTypeError $
-                "max: unsupported type: "<> show (fScalarValueType vCurMax)
+                "max: unsupported type: " <> show (fScalarValueType vCurMax)
 
 -- | Evaluate a constant expression (F2018 10.1.12).
 evalConstExpr :: MonadFEvalValue m => F.Expression (FA.Analysis a) -> m FValue

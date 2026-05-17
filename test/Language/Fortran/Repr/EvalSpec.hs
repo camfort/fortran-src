@@ -20,7 +20,7 @@ spec =
     prop "integer exponentation (+ve exponent) (INTEGER(4))" $
       \base (NonNegative (expo :: Int32)) ->
         let expr = expBinary Exponentiation (expValInt base) (expValInt expo)
-         in shouldEvalTo (FSVInt (FInt4 (base^expo))) (evalExpr expr)
+         in shouldEvalTo (FSVInt (FInt4 (base ^ expo))) (evalExpr expr)
 
 shouldEvalTo :: FScalarValue -> FEvalValuePure FValue -> Expectation
 shouldEvalTo checkVal prog =

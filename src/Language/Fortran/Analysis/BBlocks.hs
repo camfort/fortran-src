@@ -699,7 +699,7 @@ genSuperBBGr bbm = SuperBBGr { superBBGrGraph = superGraph''
     superGraph'' = BBGr { bbgrGr = delNode mainEntry .
                                    insEdges [ (0, m, l) | (_, m, l) <- out superGraph' mainEntry ] .
                                    insNode (0, []) $ superGraph'
-                        , bbgrEntries = (0:) . filter (/=mainEntry) . map snd . M.toList $ entryMap
+                        , bbgrEntries = (0:) . filter (/= mainEntry) . map snd . M.toList $ entryMap
                         , bbgrExits   = (-1:) . map snd . M.toList $ exitMap }
 
 fromJustMsg :: String -> Maybe a -> a
@@ -720,7 +720,7 @@ showBBGr (BBGr gr _ _) = execWriter . forM (labNodes gr) $ \ (n, bs) -> do
   let b = "BBLOCK " ++ show n ++ " -> " ++ show (map (\ (_, m, _) -> m) $ out gr n)
   tell $ "\n\n" ++ b
   tell $ "\n" ++ replicate (length b) '-' ++ "\n"
-  tell (((++"\n") . pretty) =<< bs)
+  tell (((++ "\n") . pretty) =<< bs)
 
 -- | Show a basic block graph without the clutter
 showAnalysedBBGr :: (Out a, Show a) => BBGr (Analysis a) -> String
@@ -925,7 +925,7 @@ showDecl (Declarator _ _ e mAdims length' initial) =
            ++ maybe "" (\e' -> " = " ++ showExpr e') initial
 
 showDim :: DimensionDeclarator a -> String
-showDim (DimensionDeclarator _ _ me1 me2) = maybe "" ((++":") . showExpr) me1 ++ maybe "" showExpr me2
+showDim (DimensionDeclarator _ _ me1 me2) = maybe "" ((++ ":") . showExpr) me1 ++ maybe "" showExpr me2
 
 aIntercalate :: [a1] -> (t a2 -> [a1]) -> AList t a2 -> [a1]
 aIntercalate sep f = intercalate sep . map f . aStrip

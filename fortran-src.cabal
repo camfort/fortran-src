@@ -190,14 +190,14 @@ library
       BinaryLiterals
       ScopedTypeVariables
       TypeOperators
-  ghc-options: -Wall -fno-warn-tabs
+  ghc-options: -Wall -Werror=operator-whitespace -fno-warn-tabs
   build-tools:
       alex >=3.1
     , happy >=1.19
   build-depends:
       GenericPretty >=1.2.2 && <2
     , array ==0.5.*
-    , base >=4.6 && <4.22
+    , base >=4.6 && <4.23
     , binary >=0.8.3.0 && <0.11
     , bytestring >=0.10 && <0.13
     , containers >=0.5 && <0.7
@@ -256,11 +256,11 @@ executable fortran-src
       BinaryLiterals
       ScopedTypeVariables
       TypeOperators
-  ghc-options: -Wall -fno-warn-tabs
+  ghc-options: -Wall -Werror=operator-whitespace -fno-warn-tabs
   build-depends:
       GenericPretty >=1.2.2 && <2
     , array ==0.5.*
-    , base >=4.6 && <4.22
+    , base >=4.6 && <4.23
     , binary >=0.8.3.0 && <0.11
     , bytestring >=0.10 && <0.13
     , containers >=0.5 && <0.7
@@ -351,14 +351,14 @@ test-suite spec
       BinaryLiterals
       ScopedTypeVariables
       TypeOperators
-  ghc-options: -Wall
+  ghc-options: -Wall -Werror=operator-whitespace
   build-tool-depends:
       hspec-discover:hspec-discover
   build-depends:
       GenericPretty >=1.2.2 && <2
     , QuickCheck >=2.10 && <2.15
     , array ==0.5.*
-    , base >=4.6 && <4.22
+    , base >=4.6 && <4.23
     , binary >=0.8.3.0 && <0.11
     , bytestring >=0.10 && <0.13
     , containers >=0.5 && <0.7
