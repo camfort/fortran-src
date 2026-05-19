@@ -20,7 +20,7 @@ import Data.Map.Strict (Map)
 import System.FilePath ((</>))
 
 --------------------------------------------------------------------------------
--- Core generators
+-- Core (stateless) generators
 --------------------------------------------------------------------------------
 
 instance Arbitrary a => Arbitrary (Value a) where
@@ -67,7 +67,6 @@ instance Arbitrary a => Arbitrary (TypeSpec a) where
 
 maybeWrapper :: Gen a -> Gen (Maybe a)
 maybeWrapper gen = oneof [pure Nothing, Just <$> gen]
-
 
 nullSpan :: SrcSpan
 nullSpan = SrcSpan initPosition initPosition
@@ -133,10 +132,10 @@ genDecl = do
 genDecls :: Int -> GenM [Statement A0]
 genDecls n = replicateM n genDecl
 
--- | Top-level runner: generate a subroutine with a growing set of declarations.
---   Uses QuickCheck's 'sized' so the number of declarations scales with test size.
+-- | Generate a program unit with a growing set of declarations.
 instance Arbitrary (ProgramUnit A0) where
   arbitrary = sized $ \sz -> do
+    -- Uses QuickCheck's 'sized' so the number of declarations scales with test size.
     let numDecls = max 1 (sz `div` 5)
     (decls, env) <- runStateT (genDecls numDecls) Map.empty
     -- env is now available for generating expressions / further statements
@@ -151,8 +150,8 @@ instance Arbitrary (ProgramUnit A0) where
       printAllEnd env =
         [ BlStatement () nullSpan Nothing (StPrint () nullSpan (ExpValue () nullSpan ValStar) (fromList' () (map (\n -> ExpValue () nullSpan (ValVariable n)) (Map.keys env)))) ]
 
-
 instance ArbitraryCtxt (Statement A0) where
+  -- Bias assignments over print statements
   arbitraryCtxt = oneofCtxt (printer : replicate 3 assignment)
     where
       assignment :: GenM (Statement A0)
@@ -160,11 +159,14 @@ instance ArbitraryCtxt (Statement A0) where
         (lvar, typ) <- pickVar
         expr <- genTypedExpression typ
         pure $ StExpressionAssign () nullSpan (ExpValue () nullSpan (ValVariable lvar)) expr
+
       printer :: GenM (Statement A0)
       printer = do
-        expr <- genVarRef
+        (name, _) <- pickVar
+        let expr = ExpValue () nullSpan (ValVariable name)
         pure $ StPrint () nullSpan (ExpValue () nullSpan ValStar) (fromList' () [expr])
 
+-- Synthesise an expression of the given type
 genTypedExpression :: TypeSpec A0 -> GenM (Expression A0)
 genTypedExpression typeSpec = do
   -- For simplicity, we just generate a variable reference of the correct type.
@@ -180,6 +182,7 @@ genTypedExpression typeSpec = do
                         , genTypedValue typeSpec ]  -- In a full implementation, we would generate more complex expressions
       pure value
 
+-- Synthesise a value of the given type
 genTypedValue :: TypeSpec A0 -> GenM (Expression A0)
 genTypedValue (TypeSpec _ _ baseType _) = case baseType of
   TypeInteger -> do
@@ -192,7 +195,9 @@ genTypedValue (TypeSpec _ _ baseType _) = case baseType of
     b <- liftGen (arbitrary :: Gen Bool)
     pure $ ExpValue () nullSpan (ValLogical b Nothing) 
   TypeCharacter -> do
-    s <- liftGen (arbitrary :: Gen String)
+    n <- liftGen $ choose (0, 20)
+    --TODO: consider utf-8 because maybe this is somewhere things break in compilers
+    s <- liftGen $ vectorOf n (choose (' ', '~'))
     pure $ ExpValue () nullSpan (ValString s)
 
 instance ArbitraryCtxt a => ArbitraryCtxt [a] where
@@ -209,11 +214,6 @@ pickVar :: GenM (Name, TypeSpec A0)
 pickVar = do
   env <- get
   liftGen $ elements (Map.toList env)
-
-genVarRef :: GenM (Expression A0)
-genVarRef = do
-  (name, _) <- pickVar
-  pure $ ExpValue () nullSpan (ValVariable name)
 
 --------------------------------------------------------------------------------
 -- Demonstration / experimentation
