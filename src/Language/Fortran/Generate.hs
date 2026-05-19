@@ -35,6 +35,17 @@ instance Arbitrary a => Arbitrary (Value a) where
     , pure $ ValVariable "myVar"
     ]
 
+instance Arbitrary BaseType where
+  arbitrary = oneof
+    [ pure TypeInteger
+    , pure TypeReal
+    , pure TypeLogical
+    , pure TypeCharacter
+    ]
+
+
+
+
 -- Generate a list of 10 values and pretty print
 -- the results
 demo :: IO ()
