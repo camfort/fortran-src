@@ -91,12 +91,69 @@ type GenM a = StateT Env Gen a
 liftGen :: Gen a -> GenM a
 liftGen = lift
 
+-- | Generate a fresh variable name based on the current environment size.
+freshName :: GenM Name
+freshName = do
+  env <- get
+  pure $ "var" ++ show (Map.size env)
+
+-- | Generate one declaration statement, adding the variable to the environment.
+genDecl :: GenM (Statement A0)
+genDecl = do
+  name     <- freshName
+  baseType <- liftGen arbitrary
+  selector <- liftGen arbitrary
+  let typeSpec  = TypeSpec () nullSpan baseType selector
+      varExpr   = ExpValue () nullSpan (ValVariable name)
+      decl      = Declarator () nullSpan varExpr ScalarDecl Nothing Nothing
+      declList  = AList () nullSpan [decl]
+  modify (Map.insert name typeSpec)
+  pure $ StDeclaration () nullSpan typeSpec Nothing declList
+
+-- | Generate @n@ declarations, building up the environment as we go.
+genDecls :: Int -> GenM [Statement A0]
+genDecls n = replicateM n genDecl
+
+-- | Generate declarations for sizes 1..n, returning each batch.
+--   The environment accumulates across all batches.
+genDeclsScaled :: Int -> GenM [[Statement A0]]
+genDeclsScaled n = mapM genDecls [1..n]
+
+-- | Top-level runner: generate a subroutine with a growing set of declarations.
+--   Uses QuickCheck's 'sized' so the number of declarations scales with test size.
+genProgramUnit :: Gen (ProgramUnit A0)
+genProgramUnit = sized $ \sz -> do
+  let numDecls = max 1 (sz `div` 5)
+  (decls, env) <- runStateT (genDecls numDecls) Map.empty
+  -- env is now available for generating expressions / further statements
+  let blocks  = map (\s -> BlStatement () nullSpan Nothing s) decls
+      name    = "generated_sub"
+  pure $ PUSubroutine () nullSpan emptyPrefixSuffix name Nothing blocks Nothing
+
+genVarRef :: GenM (Expression A0)
+genVarRef = do
+  env <- get
+  (name, _) <- liftGen $ elements (Map.toList env)
+  pure $ ExpValue () nullSpan (ValVariable name)
 
 -- Generate a list of 10 values and pretty print
 -- the results
-demo :: IO ()
-demo = do
+demoVal :: IO ()
+demoVal = do
   values :: [Value ()] <- generate $ vectorOf 10 arbitrary
   let prettyValues = map (pprint' Fortran90) values
   mapM_ (putStrLn . render) prettyValues
   putStrLn $ "Generated " ++ show (length values) ++ " values."
+
+-- | Generate 10 full Fortran programs and print each one.
+demoProgram :: IO ()
+demoProgram = do
+  pus <- generate $ vectorOf 10 genProgramUnit
+  let meta = MetaInfo { miVersion = Fortran90, miFilename = "<generated>" }
+      programs = map (\pu -> ProgramFile meta [pu]) pus
+  mapM_ printOne (zip [1..] programs)
+  where
+    printOne (i, pf) = do
+      putStrLn $ "-- Program " ++ show (i :: Int) ++ " " ++ replicate 60 '-'
+      putStrLn $ pprintAndRender Fortran90 pf (Just 2)
+
