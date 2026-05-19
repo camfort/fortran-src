@@ -1,6 +1,9 @@
+{-# LANGUAGE DefaultSignatures #-}
 module Language.Fortran.Generate where
 
 import Language.Fortran.AST
+import Language.Fortran.AST.Literal
+import Language.Fortran.AST.Literal.Real
 import Test.QuickCheck
 
 import Language.Fortran.Util.Position
@@ -27,6 +30,15 @@ instance Arbitrary a => Arbitrary (Value a) where
     , ValLogical <$> arbitrary <*> pure Nothing
     , pure $ ValVariable "myVar"
     ]
+
+instance Arbitrary RealLit where
+  arbitrary = do
+    float <- arbitrary :: Gen Double
+    -- Note: This is a very rough approximation. It generates a valid REAL
+    -- literal, but it may not be exactly the same as the original float
+    --  due to formatting differences.
+    -- (Haskell's 'show' may use scientific notation- issue?)
+    return $ RealLit (show float) (Exponent ExpLetterE (show (floor (logBase 10 (abs float))) :: String))  
 
 instance Arbitrary BaseType where
   arbitrary = oneof
