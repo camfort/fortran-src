@@ -92,6 +92,27 @@ type GenM a = StateT Env Gen a
 liftGen :: Gen a -> GenM a
 liftGen = lift
 
+-- | Like 'Arbitrary' but generators run in 'GenM', giving access to the
+--   typing environment.
+--
+--   The default implementation lifts 'arbitrary', so any type with an
+--   'Arbitrary' instance gets an 'ArbitraryCtxt' instance for free:
+--
+-- > instance ArbitraryCtxt BaseType  -- uses default
+--
+--   Override for types whose generation depends on the environment:
+--
+-- > instance ArbitraryCtxt (Statement A0) where
+-- >   arbitraryCtxt = genDecl
+class ArbitraryCtxt a where
+  arbitraryCtxt :: GenM a
+  default arbitraryCtxt :: Arbitrary a => GenM a
+  arbitraryCtxt = liftGen arbitrary
+
+instance ArbitraryCtxt BaseType
+instance ArbitraryCtxt (TypeSpec A0)
+instance ArbitraryCtxt (Selector A0)
+
 -- | Generate a fresh variable name based on the current environment size.
 freshName :: GenM Name
 freshName = do
@@ -105,11 +126,12 @@ freshName = do
 -- | Generate one declaration statement, adding the variable to the environment.
 genDecl :: GenM (Statement A0)
 genDecl = do
-  name     <- freshName
-  typeSpec  <- liftGen arbitrary
+  name      <- freshName
+  typeSpec  <- arbitraryCtxt
+  initialExpr <- genTypedExpression typeSpec
   let
       varExpr   = ExpValue () nullSpan (ValVariable name)
-      decl      = Declarator () nullSpan varExpr ScalarDecl Nothing Nothing
+      decl      = Declarator () nullSpan varExpr ScalarDecl Nothing (Just initialExpr)
       declList  = AList () nullSpan [decl]
   modify (Map.insert name typeSpec)
   pure $ StDeclaration () nullSpan typeSpec Nothing declList
@@ -120,19 +142,84 @@ genDecls n = replicateM n genDecl
 
 -- | Top-level runner: generate a subroutine with a growing set of declarations.
 --   Uses QuickCheck's 'sized' so the number of declarations scales with test size.
-genProgramUnit :: Gen (ProgramUnit A0)
-genProgramUnit = sized $ \sz -> do
-  let numDecls = max 1 (sz `div` 5)
-  (decls, env) <- runStateT (genDecls numDecls) Map.empty
-  -- env is now available for generating expressions / further statements
-  let blocks  = map (\s -> BlStatement () nullSpan Nothing s) decls
-      name    = "generated_sub"
-  pure $ PUSubroutine () nullSpan emptyPrefixSuffix name Nothing blocks Nothing
+instance Arbitrary (ProgramUnit A0) where
+  arbitrary = sized $ \sz -> do
+    let numDecls = max 1 (sz `div` 5)
+    (decls, env) <- runStateT (genDecls numDecls) Map.empty
+    -- env is now available for generating expressions / further statements
+    let declBlocks  = map (\s -> BlStatement () nullSpan Nothing s) decls
+        name    = "generated"
+    statements <- evalStateT arbitraryCtxt env :: Gen [Statement A0]
+    let computeBlocks = map (\s -> BlStatement () nullSpan Nothing s) statements
+    let blocks = declBlocks ++ computeBlocks ++ (printAllEnd env)
+    pure $ PUMain () nullSpan (Just name) blocks Nothing
+    where
+      -- print out everything in the environment at the end
+      printAllEnd env =
+        [ BlStatement () nullSpan Nothing (StPrint () nullSpan (ExpValue () nullSpan ValStar) (fromList' () (map (\n -> ExpValue () nullSpan (ValVariable n)) (Map.keys env)))) ]
+
+
+instance ArbitraryCtxt (Statement A0) where
+  arbitraryCtxt = oneofCtxt (printer : replicate 3 assignment)
+    where
+      assignment :: GenM (Statement A0)
+      assignment = do
+        (lvar, typ) <- pickVar
+        expr <- genTypedExpression typ
+        pure $ StExpressionAssign () nullSpan (ExpValue () nullSpan (ValVariable lvar)) expr
+      printer :: GenM (Statement A0)
+      printer = do
+        expr <- genVarRef
+        pure $ StPrint () nullSpan (ExpValue () nullSpan ValStar) (fromList' () [expr])
+
+genTypedExpression :: TypeSpec A0 -> GenM (Expression A0)
+genTypedExpression typeSpec = do
+  -- For simplicity, we just generate a variable reference of the correct type.
+  -- In a full implementation, we would generate more complex expressions.
+  env <- get
+  let candidates = [name | (name, t) <- Map.toList env, t == typeSpec]
+  if null candidates
+    then genTypedValue typeSpec  -- No variables of the correct type, fall back to arbitrary expression
+    else do
+      name <- liftGen $ elements candidates
+      annotation <- liftGen $ arbitrary
+      value <- oneofCtxt [ pure (ExpValue annotation nullSpan $ ValVariable name)
+                        , genTypedValue typeSpec ]  -- In a full implementation, we would generate more complex expressions
+      pure value
+
+genTypedValue :: TypeSpec A0 -> GenM (Expression A0)
+genTypedValue (TypeSpec _ _ baseType _) = case baseType of
+  TypeInteger -> do
+    x <- liftGen (arbitrary :: Gen Integer)
+    pure $ ExpValue () nullSpan (ValInteger (show x) Nothing)
+  TypeReal -> do
+    x <- liftGen arbitrary
+    pure $ ExpValue () nullSpan (ValReal x Nothing)
+  TypeLogical -> do
+    b <- liftGen (arbitrary :: Gen Bool)
+    pure $ ExpValue () nullSpan (ValLogical b Nothing) 
+  TypeCharacter -> do
+    s <- liftGen (arbitrary :: Gen String)
+    pure $ ExpValue () nullSpan (ValString s)
+
+instance ArbitraryCtxt a => ArbitraryCtxt [a] where
+  arbitraryCtxt = do
+    n <- liftGen $ choose (0, 20)  -- Limit list length for simplicity
+    replicateM n arbitraryCtxt
+
+oneofCtxt :: [GenM a] -> GenM a
+oneofCtxt gens = do
+  gen <- liftGen $ elements gens
+  gen
+
+pickVar :: GenM (Name, TypeSpec A0)
+pickVar = do
+  env <- get
+  liftGen $ elements (Map.toList env)
 
 genVarRef :: GenM (Expression A0)
 genVarRef = do
-  env <- get
-  (name, _) <- liftGen $ elements (Map.toList env)
+  (name, _) <- pickVar
   pure $ ExpValue () nullSpan (ValVariable name)
 
 --------------------------------------------------------------------------------
@@ -151,7 +238,7 @@ demoVal = do
 -- | Generate 10 full Fortran programs and print each one.
 demoProgram :: IO ()
 demoProgram = do
-  pus <- generate $ vectorOf 10 genProgramUnit
+  pus <- generate $ vectorOf 10 (arbitrary :: Gen (ProgramUnit A0))
   let meta = MetaInfo { miVersion = Fortran90, miFilename = "<generated>" }
       programs = map (\pu -> ProgramFile meta [pu]) pus
   mapM_ printOne (zip [1..] programs)
