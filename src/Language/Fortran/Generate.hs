@@ -54,24 +54,16 @@ instance Arbitrary a => Arbitrary (TypeSpec a) where
   arbitrary = do
     annotation <- arbitrary
     base       <- arbitrary
-    selector   <- arbitrary
+    selector <- 
+      case base of
+        TypeReal -> do
+          -- For real types, we can optionally include a kind selector.
+          kind   :: Integer <- elements [4,8]
+          let kindExpr = ExpValue annotation nullSpan (ValInteger (show kind) Nothing)
+          return $ Just $ Selector annotation nullSpan Nothing (Just kindExpr)
+        -- No selector
+        _ -> return Nothing
     pure $ TypeSpec annotation nullSpan base selector
-
-instance Arbitrary a => Arbitrary (Selector a) where
-  arbitrary = do 
-    annotation <- arbitrary
-    -- Positive length
-    len    :: Integer <- abs <$> arbitrary
-    -- Kind, powers of two
-    kind   :: Integer <- elements [1,2,4,8]
-    -- Wrap into expressions, with a chance of being Nothing
-    let kindExpr = ExpValue annotation nullSpan (ValInteger (show kind) Nothing)
-    lenExprM   <- maybeWrapper (pure (ExpValue annotation nullSpan (ValInteger (show len) Nothing)))
-    kindExprM  <- 
-       case lenExprM of 
-         Nothing -> return $ Just kindExpr  -- If no length, always include kind (cannot have nothing for both)
-         Just{}  -> maybeWrapper (pure kindExpr)
-    pure $ Selector annotation nullSpan lenExprM kindExprM
 
 maybeWrapper :: Gen a -> Gen (Maybe a)
 maybeWrapper gen = oneof [pure Nothing, Just <$> gen]
@@ -113,7 +105,6 @@ class ArbitraryCtxt a where
 
 instance ArbitraryCtxt BaseType
 instance ArbitraryCtxt (TypeSpec A0)
-instance ArbitraryCtxt (Selector A0)
 
 -- | Generate a fresh variable name based on the current environment size.
 freshName :: GenM Name
