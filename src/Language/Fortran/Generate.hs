@@ -14,20 +14,9 @@ import Control.Monad.State
 import qualified Data.Map.Strict as Map
 import Data.Map.Strict (Map)
 
--- instance Gen SrcSpan where
---   arbitrary = do
---     start <- arbitrary
---     end   <- arbitrary
---     return $ SrcSpan start end
-
--- instance Gen Position where
---   arbitrary = do
---     absOffset <- arbitrary
---     col       <- arbitrary
---     line      <- arbitrary
---     filePath  <- arbitrary
---     pragmaOffset <- arbitrary
---     return $ Position absOffset col line filePath pragmaOffset
+--------------------------------------------------------------------------------
+-- Core generators
+--------------------------------------------------------------------------------
 
 instance Arbitrary a => Arbitrary (Value a) where
   arbitrary = oneof
@@ -97,13 +86,16 @@ freshName = do
   env <- get
   pure $ "var" ++ show (Map.size env)
 
+--------------------------------------------------------------------------------
+-- Generate typing context and declarations
+--------------------------------------------------------------------------------
+
 -- | Generate one declaration statement, adding the variable to the environment.
 genDecl :: GenM (Statement A0)
 genDecl = do
   name     <- freshName
-  baseType <- liftGen arbitrary
-  selector <- liftGen arbitrary
-  let typeSpec  = TypeSpec () nullSpan baseType selector
+  typeSpec  <- liftGen arbitrary
+  let
       varExpr   = ExpValue () nullSpan (ValVariable name)
       decl      = Declarator () nullSpan varExpr ScalarDecl Nothing Nothing
       declList  = AList () nullSpan [decl]
@@ -113,11 +105,6 @@ genDecl = do
 -- | Generate @n@ declarations, building up the environment as we go.
 genDecls :: Int -> GenM [Statement A0]
 genDecls n = replicateM n genDecl
-
--- | Generate declarations for sizes 1..n, returning each batch.
---   The environment accumulates across all batches.
-genDeclsScaled :: Int -> GenM [[Statement A0]]
-genDeclsScaled n = mapM genDecls [1..n]
 
 -- | Top-level runner: generate a subroutine with a growing set of declarations.
 --   Uses QuickCheck's 'sized' so the number of declarations scales with test size.
@@ -135,6 +122,10 @@ genVarRef = do
   env <- get
   (name, _) <- liftGen $ elements (Map.toList env)
   pure $ ExpValue () nullSpan (ValVariable name)
+
+--------------------------------------------------------------------------------
+-- Demonstration / expertimentation
+--------------------------------------------------------------------------------
 
 -- Generate a list of 10 values and pretty print
 -- the results
