@@ -13,9 +13,11 @@ import Language.Fortran.Version
 import Text.PrettyPrint
 import Text.PrettyPrint.HughesPJ hiding ((<>))
 
+import Control.Monad (forM_)
 import Control.Monad.State
 import qualified Data.Map.Strict as Map
 import Data.Map.Strict (Map)
+import System.FilePath ((</>))
 
 --------------------------------------------------------------------------------
 -- Core generators
@@ -223,7 +225,7 @@ genVarRef = do
   pure $ ExpValue () nullSpan (ValVariable name)
 
 --------------------------------------------------------------------------------
--- Demonstration / expertimentation
+-- Demonstration / experimentation
 --------------------------------------------------------------------------------
 
 -- Generate a list of 10 values and pretty print
@@ -246,4 +248,28 @@ demoProgram = do
     printOne (i, pf) = do
       putStrLn $ "-- Program " ++ show (i :: Int) ++ " " ++ replicate 60 '-'
       putStrLn $ pprintAndRender Fortran90 pf (Just 2)
+
+--------------------------------------------------------------------------------
+-- Generate programs to files
+--------------------------------------------------------------------------------
+
+-- | Generate @n@ Fortran programs and write each to @dir/<name>.f90@.
+--   Filenames are taken from the PUMain program unit name; unnamed programs
+--   are numbered @program_1.f90@, @program_2.f90@, etc.
+generatePrograms :: Int -> FilePath -> IO ()
+generatePrograms n dir = do
+  pus <- generate $ vectorOf n (resize n (arbitrary :: Gen (ProgramUnit A0)))
+  let meta = MetaInfo { miVersion = Fortran90, miFilename = "<generated>" }
+  forM_ (zip [1 :: Int ..] pus) $ \(i, pu) -> do
+    let name = "example" ++ show i
+        pu'   = updateName name pu
+        pf   = ProgramFile (meta { miFilename = name ++ ".f90" }) [pu']
+        src  = pprintAndRender Fortran90 pf (Just 2)
+        path = dir </> name ++ ".f90"
+    writeFile path src
+    putStrLn $ "Written: " ++ path
+  where
+    updateName name (PUMain a src (Just _) blocks subprog) = PUMain a src (Just name) blocks subprog
+    -- TODO: maybe want to expand this.
+    updateName name p = p
 
