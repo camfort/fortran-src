@@ -18,6 +18,7 @@ import Control.Monad.State
 import qualified Data.Map.Strict as Map
 import Data.Map.Strict (Map)
 import System.FilePath ((</>))
+import Data.List (partition)
 
 --------------------------------------------------------------------------------
 -- Core (stateless) generators
@@ -40,7 +41,8 @@ instance Arbitrary RealLit where
     -- literal, but it may not be exactly the same as the original float
     --  due to formatting differences.
     -- (Haskell's 'show' may use scientific notation- issue?)
-    return $ RealLit (show float) (Exponent ExpLetterE (show (floor (logBase 10 (abs float))) :: String))  
+    let (floatString, _) = break (== 'e') $ show float
+    return $ RealLit floatString (Exponent ExpLetterE (show (floor (logBase 10 (abs float))) :: String))
 
 instance Arbitrary BaseType where
   arbitrary = oneof
@@ -54,7 +56,7 @@ instance Arbitrary a => Arbitrary (TypeSpec a) where
   arbitrary = do
     annotation <- arbitrary
     base       <- arbitrary
-    selector <- 
+    selector <-
       case base of
         TypeReal -> do
           -- For real types, we can optionally include a kind selector.
@@ -120,7 +122,7 @@ genDecl :: GenM (Statement A0)
 genDecl = do
   name      <- freshName
   typeSpec  <- arbitraryCtxt
-  initialExpr <- genTypedExpression typeSpec
+  initialExpr <- genTypedValue typeSpec
   let
       varExpr   = ExpValue () nullSpan (ValVariable name)
       decl      = Declarator () nullSpan varExpr ScalarDecl Nothing (Just initialExpr)
@@ -193,16 +195,17 @@ genTypedValue (TypeSpec _ _ baseType _) = case baseType of
     pure $ ExpValue () nullSpan (ValReal x Nothing)
   TypeLogical -> do
     b <- liftGen (arbitrary :: Gen Bool)
-    pure $ ExpValue () nullSpan (ValLogical b Nothing) 
+    pure $ ExpValue () nullSpan (ValLogical b Nothing)
   TypeCharacter -> do
     n <- liftGen $ choose (0, 20)
     --TODO: consider utf-8 because maybe this is somewhere things break in compilers
     s <- liftGen $ vectorOf n (choose (' ', '~'))
-    pure $ ExpValue () nullSpan (ValString s)
+    let s' = concat (map (\c -> if c == '\'' then "" else if c == '\"' then "\\\"" else [c]) s)
+    pure $ ExpValue () nullSpan (ValString s')
 
 instance ArbitraryCtxt a => ArbitraryCtxt [a] where
   arbitraryCtxt = do
-    n <- liftGen $ choose (0, 20)  -- Limit list length for simplicity
+    n <- liftGen $ choose (0, 2000)  -- Limit list length for simplicity
     replicateM n arbitraryCtxt
 
 oneofCtxt :: [GenM a] -> GenM a
