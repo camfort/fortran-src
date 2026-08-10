@@ -181,7 +181,7 @@ compLabel (Just (ExpValue _ _ (ValInteger l1 _)))
 compLabel _ _ = False
 
 strip :: String -> String
-strip = dropWhile (=='0')
+strip = dropWhile (== '0')
 
 isLabeledDo :: Statement a -> Bool
 isLabeledDo s = case s of

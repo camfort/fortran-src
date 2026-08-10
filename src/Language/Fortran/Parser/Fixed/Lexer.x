@@ -326,8 +326,8 @@ doP fv ai = isPrefixOf "do" (reverse . lexemeMatch . aiLexeme $ ai) &&
         _ -> lexer $ f 0
     f !n t =
       case t of
-        TLeftPar{} -> lexer $ f (n+1)
-        TRightPar{} -> lexer $ f (n-1)
+        TLeftPar{} -> lexer $ f (n + 1)
+        TRightPar{} -> lexer $ f (n - 1)
         _ -> lexer $ f n
 
 ifP :: FortranVersion -> AlexInput -> Int -> AlexInput -> Bool
@@ -1089,7 +1089,7 @@ isCommentLine ai p
 
 takeLine :: Position -> AlexInput -> String
 takeLine p ai =
-  B.unpack . B.takeWhile (/='\n') . B.drop (fromIntegral _dropN) $ aiSourceBytes ai
+  B.unpack . B.takeWhile (/= '\n') . B.drop (fromIntegral _dropN) $ aiSourceBytes ai
   where
     _dropN = posAbsoluteOffset p
 

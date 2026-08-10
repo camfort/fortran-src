@@ -387,7 +387,7 @@ byVerInclude = \case
 readInDirs :: [String] -> String -> IO (String, B.ByteString)
 readInDirs [] f = fail $ "cannot find file: " ++ f
 readInDirs (d:ds) f = do
-  let path = d</>f
+  let path = d </> f
   b <- doesFileExist path
   if b then
     (path,) <$> B.readFile path

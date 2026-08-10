@@ -294,7 +294,7 @@ showGenericMap = unlines . map (\ (k, v) -> show k ++ " : " ++ show v) . M.toLis
 showStringMap :: StringMap -> String
 showStringMap = showGenericMap
 showModuleMap :: ModuleMap -> String
-showModuleMap = concatMap (\ (n, m) -> show n ++ ":\n" ++ (unlines . map ("  "++) . lines . showGenericMap $ m)) . M.toList
+showModuleMap = concatMap (\ (n, m) -> show n ++ ":\n" ++ (unlines . map ("  " ++) . lines . showGenericMap $ m)) . M.toList
 showTypes :: TypeEnvExtended -> String
 showTypes tenv =
   let sortedInfo = sortBy (\(_, (_, sp1, _)) (_, (_, sp2, _)) -> compare sp1 sp2) $ M.toList tenv
@@ -388,7 +388,7 @@ options =
   , Option ['C']
       ["cpp"]
       (OptArg (\ cppOpts opts -> opts {
-                  cppOptions = Just (dropWhile (=='=') $ fromMaybe "" cppOpts) }
+                  cppOptions = Just (dropWhile (== '=') $ fromMaybe "" cppOpts) }
               ) "CPP-OPTS")
       "run the C Pre Processor on the Fortran files first"
   , Option ['I']

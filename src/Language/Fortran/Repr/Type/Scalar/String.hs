@@ -31,4 +31,4 @@ data CharLen
     deriving anyclass (Binary, Out)
 
 prettyCharLen :: Natural -> String
-prettyCharLen l = "LEN="<>show l
+prettyCharLen l = "LEN=" <> show l

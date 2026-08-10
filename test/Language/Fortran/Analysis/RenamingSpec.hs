@@ -41,10 +41,10 @@ spec = do
   describe "Basic" $ do
     it "num-entries 1" $ do
       let entry = extractNameMap' ex3
-      shouldBe ( length (filter (=="f1") (elems entry))
-               , length (filter (=="a") (elems entry))
-               , length (filter (=="b") (elems entry))
-               , length (filter (=="d") (elems entry)) )
+      shouldBe ( length (filter (== "f1") (elems entry))
+               , length (filter (== "a") (elems entry))
+               , length (filter (== "b") (elems entry))
+               , length (filter (== "d") (elems entry)) )
                ( 1, 2, 2, 2 )
 
     -- Test that every symbol that is supposed to be renamed is renamed.
@@ -80,7 +80,7 @@ spec = do
 
     it "functions 1" $ do
       let entry = extractNameMap' ex3
-      length (filter (=="f1") (elems entry)) `shouldBe'` 1
+      length (filter (== "f1") (elems entry)) `shouldBe'` 1
 
   describe "Identity" $ do
     it "unrename-rename 1" $ do
@@ -107,7 +107,7 @@ spec = do
 
     it "exScope2 testing shadowing of variables" $ do
       let entry = extractNameMap' exScope2
-      length (filter (=="x") (elems entry)) `shouldBe` 2
+      length (filter (== "x") (elems entry)) `shouldBe` 2
 
     -- GitHub issue #190 https://github.com/camfort/fortran-src/issues/190
     it "doesn't generate same unique name in edge case" $ do
@@ -128,15 +128,15 @@ spec = do
   describe "Ordering" $
     it "exScope3 testing out-of-order definitions" $ do
       let entry = extractNameMap' exScope3
-      length (filter (=="f1") (elems entry)) `shouldBe` 1
-      length (filter (=="f2") (elems entry)) `shouldBe` 1
-      length (filter (=="s1") (elems entry)) `shouldBe` 1
-      length (filter (=="s2") (elems entry)) `shouldBe` 1
+      length (filter (== "f1") (elems entry)) `shouldBe` 1
+      length (filter (== "f2") (elems entry)) `shouldBe` 1
+      length (filter (== "s1") (elems entry)) `shouldBe` 1
+      length (filter (== "s2") (elems entry)) `shouldBe` 1
 
   describe "Common blocks" $
     it "common1" $ do
       let entry = extractNameMap' common1
-      length (filter (=="x") (elems entry)) `shouldBe` 2
+      length (filter (== "x") (elems entry)) `shouldBe` 2
       M.lookup "c_x_common" entry `shouldBe` Just "x"
       M.lookup "c_y_common" entry `shouldBe` Just "y"
 
