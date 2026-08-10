@@ -1,3 +1,8 @@
+### 0.17.0
+  * Add XXH3-64 source hash to mod files for reliable change detection
+    * **breaks mod file compatibility** with previous versions
+  * New C library dependency: xxHash (Haskell: `xxhash-ffi`)
+
 ### 0.16.9
   * Added support for legacy features in Fortran 90 free-form style (selected via `--fortranVersion=Fortran90Legacy`)
 

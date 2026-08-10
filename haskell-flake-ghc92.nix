@@ -12,7 +12,12 @@ pkgs: {
     singletons.source = "3.0.1"; # req because singletons-th-3.1 had bad bounds
     th-desugar.source = "1.13.1";
     th-abstraction.source = "0.4.5.0";
+    xxhash-ffi.source = "0.3";
   };
+
+  otherOverlays = [
+    (self: super: { libxxhash = pkgs.xxHash; })
+  ];
 
   # (note this is actually unused/we have to duplicate because it doesn't get
   # packed into basePackages or any key we can use... but nice to document here)

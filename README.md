@@ -95,8 +95,10 @@ the file name:
   * Unknown extensions are parsed like `*.f` files.
 
 ## Building
-You will need the GMP library plus header files: on many platforms, this will be
-via the package `libgmp-dev`.
+You will need the following C libraries plus header files:
+
+  * GMP: on many platforms, via the package `libgmp-dev`
+  * xxHash: on many platforms, via the package `libxxhash-dev`
 
 Haskell library dependencies are listed in `package.yaml`. fortran-src supports
 building with Stack or Cabal.
