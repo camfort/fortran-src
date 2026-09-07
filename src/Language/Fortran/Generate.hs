@@ -118,35 +118,44 @@ freshName = do
 --------------------------------------------------------------------------------
 
 -- | Generate one declaration statement, adding the variable to the environment.
-genDecl :: GenM (Statement A0)
-genDecl = do
+--   The flag controls whether the declaration carries an initializer
+--   (dummy arguments must not be initialised).
+genDecl :: Bool -> GenM (Statement A0)
+genDecl initialise = do
   name      <- freshName
   typeSpec  <- arbitraryCtxt
-  initialExpr <- genTypedValue typeSpec
+  initialExpr <- if initialise
+                   then Just <$> genTypedValue typeSpec
+                   else pure Nothing
   let
       varExpr   = ExpValue () nullSpan (ValVariable name)
-      decl      = Declarator () nullSpan varExpr ScalarDecl Nothing (Just initialExpr)
+      decl      = Declarator () nullSpan varExpr ScalarDecl Nothing initialExpr
       declList  = AList () nullSpan [decl]
   modify (Map.insert name typeSpec)
   pure $ StDeclaration () nullSpan typeSpec Nothing declList
 
 -- | Generate @n@ declarations, building up the environment as we go.
-genDecls :: Int -> GenM [Statement A0]
-genDecls n = replicateM n genDecl
+genDecls :: Bool -> Int -> GenM [Statement A0]
+genDecls initialise n = replicateM n (genDecl initialise)
 
 -- | Generate a program unit with a growing set of declarations.
 instance Arbitrary (ProgramUnit A0) where
   arbitrary = sized $ \sz -> do
     -- Uses QuickCheck's 'sized' so the number of declarations scales with test size.
     let numDecls = max 1 (sz `div` 5)
-    (decls, env) <- runStateT (genDecls numDecls) Map.empty
+    -- Generate some declarations
+    (decls, env) <- runStateT (genDecls True numDecls) Map.empty
     -- env is now available for generating expressions / further statements
     let declBlocks  = map (\s -> BlStatement () nullSpan Nothing s) decls
         name    = "generated"
+    -- Generate some other subroutines and functions
+    procs <- evalStateT genProcedures env
+    -- Generate main program unit statements
+    -- TODO: these need access to the `procs`
     statements <- evalStateT arbitraryCtxt env :: Gen [Statement A0]
     let computeBlocks = map (\s -> BlStatement () nullSpan Nothing s) statements
     let blocks = declBlocks ++ computeBlocks ++ (printAllEnd env)
-    pure $ PUMain () nullSpan (Just name) blocks Nothing
+    pure $ PUMain () nullSpan (Just name) blocks (Just procs)
     where
       -- print out everything in the environment at the end
       printAllEnd env =
@@ -168,16 +177,42 @@ instance ArbitraryCtxt (Statement A0) where
         let expr = ExpValue () nullSpan (ValVariable name)
         pure $ StPrint () nullSpan (ExpValue () nullSpan ValStar) (fromList' () [expr])
 
+genProcedures :: GenM [ProgramUnit A0]
+genProcedures = do
+  -- For simplicity, we generate a single procedure
+  pu <- genProcedure
+  pure [pu]
+
+-- Synthesise some procedures (subroutines or functions), which
+-- can make use of a global environment passed to it.
+genProcedure :: GenM (ProgramUnit A0)
+genProcedure = do
+  annotation <- liftGen $ arbitrary
+  sz <- liftGen getSize
+  numArgs <- liftGen $ choose (0, max 1 (sz `div` 5))
+  -- Generate the parameters in a fresh local environment (own scope),
+  -- reusing genDecls; the resulting env gives us the argument names.
+  (argDecls, localEnv) <- liftGen $ runStateT (genDecls False numArgs) Map.empty
+  let argNames  = Map.keys localEnv
+      args      = fromList' () (map (ExpValue () nullSpan . ValVariable) argNames)
+      declBlocks = map (BlStatement () nullSpan Nothing) argDecls
+  pure $ PUFunction annotation nullSpan Nothing (Nothing, Nothing)
+             "generated_subroutine" args Nothing declBlocks Nothing
+
 -- Synthesise an expression of the given type
 genTypedExpression :: TypeSpec A0 -> GenM (Expression A0)
 genTypedExpression typeSpec = do
   -- For simplicity, we just generate a variable reference of the correct type.
   -- In a full implementation, we would generate more complex expressions.
   env <- get
+  -- See if a variable can fill the hole
   let candidates = [name | (name, t) <- Map.toList env, t == typeSpec]
+  -- If not...
   if null candidates
-    then genTypedValue typeSpec  -- No variables of the correct type, fall back to arbitrary expression
+    -- No variables of the correct type, fall back to arbitrary expression
+    then genTypedValue typeSpec  
     else do
+      -- Otherwise generate extpressions from the variables
       name <- liftGen $ elements candidates
       annotation <- liftGen $ arbitrary
       value <- oneofCtxt [ pure (ExpValue annotation nullSpan $ ValVariable name)
