@@ -147,14 +147,13 @@ instance Arbitrary (ProgramUnit A0) where
     (decls, env) <- runStateT (genDecls True numDecls) Map.empty
     -- env is now available for generating expressions / further statements
     let declBlocks  = map (\s -> BlStatement () nullSpan Nothing s) decls
-        name    = "generated"
     -- Generate some other subroutines and functions
     procs <- evalStateT genProcedures env
     -- Generate main program unit statements
     -- TODO: these need access to the `procs`
-    statements <- evalStateT arbitraryCtxt env :: Gen [Statement A0]
-    let computeBlocks = map (\s -> BlStatement () nullSpan Nothing s) statements
+    computeBlocks <- evalStateT genBodyBlocks env
     let blocks = declBlocks ++ computeBlocks ++ (printAllEnd env)
+    let name = "generated"
     pure $ PUMain () nullSpan (Just name) blocks (Just procs)
     where
       -- print out everything in the environment at the end
@@ -177,27 +176,44 @@ instance ArbitraryCtxt (Statement A0) where
         let expr = ExpValue () nullSpan (ValVariable name)
         pure $ StPrint () nullSpan (ExpValue () nullSpan ValStar) (fromList' () [expr])
 
+-- | Generate the compute statements of a body as blocks, from the current
+--   environment.
+genBodyBlocks :: GenM [Block A0]
+genBodyBlocks = do
+  env <- get
+  if Map.null env
+    -- Statements need at least one variable to refer to
+    then pure []
+    else do
+      sz <- liftGen getSize
+      n <- liftGen $ choose (0, sz)
+      statements <- replicateM n (arbitraryCtxt :: GenM (Statement A0))
+      pure $ map (BlStatement () nullSpan Nothing) statements
+
 genProcedures :: GenM [ProgramUnit A0]
 genProcedures = do
-  -- For simplicity, we generate a single procedure
-  pu <- genProcedure
-  pure [pu]
+  sz <- liftGen getSize
+  numProcs <- liftGen $ choose (1, max 1 (sz `div` 5))
+  -- Number the procedures so their names are unique
+  mapM (\i -> genProcedure ("generated_subroutine" ++ show i)) [1 .. numProcs]
 
 -- Synthesise some procedures (subroutines or functions), which
 -- can make use of a global environment passed to it.
-genProcedure :: GenM (ProgramUnit A0)
-genProcedure = do
+genProcedure :: Name -> GenM (ProgramUnit A0)
+genProcedure procName = do
   annotation <- liftGen $ arbitrary
   sz <- liftGen getSize
   numArgs <- liftGen $ choose (0, max 1 (sz `div` 5))
   -- Generate the parameters in a fresh local environment (own scope),
   -- reusing genDecls; the resulting env gives us the argument names.
   (argDecls, localEnv) <- liftGen $ runStateT (genDecls False numArgs) Map.empty
+  -- Reuse the body generator
+  bodyBlocks <- liftGen $ evalStateT genBodyBlocks localEnv
   let argNames  = Map.keys localEnv
       args      = fromList' () (map (ExpValue () nullSpan . ValVariable) argNames)
       declBlocks = map (BlStatement () nullSpan Nothing) argDecls
   pure $ PUFunction annotation nullSpan Nothing (Nothing, Nothing)
-             "generated_subroutine" args Nothing declBlocks Nothing
+             procName args Nothing (declBlocks ++ bodyBlocks) Nothing
 
 -- Synthesise an expression of the given type
 genTypedExpression :: TypeSpec A0 -> GenM (Expression A0)
@@ -240,7 +256,8 @@ genTypedValue (TypeSpec _ _ baseType _) = case baseType of
 
 instance ArbitraryCtxt a => ArbitraryCtxt [a] where
   arbitraryCtxt = do
-    n <- liftGen $ choose (0, 2000)  -- Limit list length for simplicity
+    sz <- liftGen getSize
+    n <- liftGen $ choose (0, sz)
     replicateM n arbitraryCtxt
 
 oneofCtxt :: [GenM a] -> GenM a
@@ -287,7 +304,8 @@ demoProgram = do
 --   are numbered @program_1.f90@, @program_2.f90@, etc.
 generatePrograms :: Int -> FilePath -> IO ()
 generatePrograms n dir = do
-  pus <- generate $ vectorOf n (resize n (arbitrary :: Gen (ProgramUnit A0)))
+  -- Grow the size with the program index so programs get progressively bigger
+  pus <- generate $ mapM (\i -> resize i (arbitrary :: Gen (ProgramUnit A0))) [1 .. n]
   let meta = MetaInfo { miVersion = Fortran90, miFilename = "<generated>" }
   forM_ (zip [1 :: Int ..] pus) $ \(i, pu) -> do
     let name = "example" ++ show i
