@@ -12,12 +12,16 @@ import Language.Fortran.AST as LFA
 import Language.Fortran.AST.Literal.Boz
 import Language.Fortran.Version
 import Language.Fortran.PrettyPrint
+import Language.Fortran.Parser
 
 import Text.PrettyPrint hiding ((<>))
 import Text.PrettyPrint.GenericPretty
 
 import Test.Hspec
 import TestUtil
+
+import qualified Data.ByteString.Char8 as B
+import System.FilePath ((</>))
 
 checkAll :: forall a b c . (Out c, Data c, Data a, Data b)
          => (b -> Maybe c) -> (c -> Spec) -> a -> Spec
@@ -373,12 +377,12 @@ spec =
           pprint Fortran90 bl Nothing `shouldBe` text expect
 
         it "prints vanilla labeled do loop" $ do
-          let body2 = body ++ [ BlStatement () u (Just $ intGen 42) (StContinue () u) ]
+          let body2 = body
           let bl = BlDo () u Nothing Nothing (Just $ intGen 42) (Just doSpec) body2 (Just $ intGen 42)
           let expect = unlines [ "      do 42 i = 1, 9, 2"
                                , "        print *, i"
                                , "        i = (i - 1)"
-                               , "42      continue" ]
+                               , "42    continue" ]
           pprint Fortran77 bl (Just 6) `shouldBe` text expect
 
       describe "If" $ do
@@ -586,6 +590,53 @@ spec =
         let input  = "      integer, parameter :: "
                   <> "variable_id_making_line_exactly_72_chars = 1"
         reformatMixedFormInsertContinuations input `shouldBe` input
+
+    describe "File-based parse and reprint tests" $ do
+      describe "Fortran 90" $ do
+        it "correctly reprints F90 labeled continue statement (contalt.f)" $ do
+          let inputFile = "test-data" </> "prettyprint" </> "labeled-continue" </> "contalt.f"
+          let expectedFile = "test-data" </> "prettyprint" </> "labeled-continue" </> "contalt.f.expected"
+          testParseReprint Fortran90 inputFile expectedFile
+
+        it "correctly reprints F90 continue statement formatting (continue-bug.f)" $ do
+          let inputFile = "test-data" </> "prettyprint" </> "labeled-continue" </> "continue-bug.f"
+          let expectedFile = "test-data" </> "prettyprint" </> "labeled-continue" </> "continue-bug.f.expected"
+          testParseReprint Fortran90 inputFile expectedFile
+
+        it "correctly reprints F90 nested labeled do loop (nested.f)" $ do
+          let inputFile = "test-data" </> "prettyprint" </> "labeled-continue" </> "nested.f"
+          let expectedFile = "test-data" </> "prettyprint" </> "labeled-continue" </> "nested.f.expected"
+          testParseReprint Fortran90 inputFile expectedFile
+
+      describe "Fortran 77" $ do
+        it "correctly reprints F77 labeled continue statement (contalt.f)" $ do
+          let inputFile = "test-data" </> "prettyprint" </> "labeled-continue" </> "contalt.f"
+          let expectedFile = "test-data" </> "prettyprint" </> "labeled-continue" </> "contalt.f.f77.expected"
+          testParseReprint Fortran77 inputFile expectedFile
+
+        it "correctly reprints F77 continue statement formatting (continue-bug.f)" $ do
+          let inputFile = "test-data" </> "prettyprint" </> "labeled-continue" </> "continue-bug.f"
+          let expectedFile = "test-data" </> "prettyprint" </> "labeled-continue" </> "continue-bug.f.f77.expected"
+          testParseReprint Fortran77 inputFile expectedFile
+        
+        it "correctly reprints F77 nested labeled do loop (nested.f)" $ do
+          let inputFile = "test-data" </> "prettyprint" </> "labeled-continue" </> "nested.f"
+          let expectedFile = "test-data" </> "prettyprint" </> "labeled-continue" </> "nested.f.f77.expected"
+          testParseReprint Fortran77 inputFile expectedFile
+
+-- | Helper function to test parsing and reprinting a file
+testParseReprint :: FortranVersion -> FilePath -> FilePath -> IO ()
+testParseReprint version inputFile expectedFile = do
+  inputContent <- B.readFile inputFile
+  expectedContent <- B.readFile expectedFile
+  let parser = byVer version
+  case parser inputFile inputContent of
+    Left err -> expectationFailure $ "Parse error: " ++ show err
+    Right pf -> do
+      let reprinted = B.pack $ show $ pprint version pf Nothing
+      -- Normalize line endings: remove \r for cross-platform compatibility
+      let normalize = B.filter (/= '\r')
+      normalize reprinted `shouldBe` normalize expectedContent
 
 valueExpressions :: Expression () -> Maybe (Expression ())
 valueExpressions e@ExpValue{} = Just e

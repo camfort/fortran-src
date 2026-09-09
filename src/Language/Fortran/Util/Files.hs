@@ -12,7 +12,7 @@ import qualified Data.Text.Encoding         as T
 import qualified Data.Text.Encoding.Error   as T
 import qualified Data.ByteString.Char8      as B
 import           System.Directory (listDirectory, canonicalizePath,
-                                   doesDirectoryExist, getDirectoryContents)
+                                   doesDirectoryExist, getDirectoryContents, doesFileExist)
 import           System.FilePath  ((</>), takeExtension)
 import           System.IO.Temp   (withSystemTempDirectory)
 import           System.Process   (callProcess)
@@ -62,7 +62,7 @@ runCPP (Just cppOpts) path   = do
                                                      newLineNo)
           where
             newLineNo = read . B.unpack . B.takeWhile isNumber . B.drop 2 $ curLine
-            linePath = B.unpack . B.takeWhile (/='"') . B.drop 1 . B.dropWhile (/='"') $ curLine
+            linePath = B.unpack . B.takeWhile (/= '"') . B.drop 1 . B.dropWhile (/= '"') $ curLine
 
   withSystemTempDirectory "fortran-src" $ \ tmpdir -> do
     let outfile = tmpdir </> "cpp.out"

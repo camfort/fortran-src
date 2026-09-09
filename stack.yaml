@@ -1,4 +1,4 @@
-resolver: lts-20.01
+resolver: lts-23.27
 packages:
-- '.'
+  - '.'
 save-hackage-creds: false

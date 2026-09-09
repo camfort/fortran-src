@@ -1,4 +1,15 @@
-### 0.16.5 [in preparation]
+### 0.16.9
+  * Added support for legacy features in Fortran 90 free-form style (selected via `--fortranVersion=Fortran90Legacy`)
+
+### 0.16.8
+  * Package build support up to GHC 9.12
+  * Fixed pretty printing of array semantic types
+
+### 0.16.7
+  * Added mention of Fortran 2003 version support in the help message
+  * Improved parsing of `allocate` statements
+
+### 0.16.5
   * Small fix to Fortran 2003 parsing around `procedure` statements.
 
 ### 0.16.4 (Feb 07, 2025)

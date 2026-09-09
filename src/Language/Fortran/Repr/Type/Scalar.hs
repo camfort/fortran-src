@@ -27,8 +27,8 @@ prettyScalarType = \case
   FSTReal    k -> prettyKinded k "REAL"
   FSTComplex k -> prettyKinded (FTComplexWrapper k) "COMPLEX"
   FSTLogical k -> prettyKinded k "LOGICAL"
-  FSTString  l -> "CHARACTER("<>prettyCharLen l<>")"
-  FSTCustom  t -> "TYPE("<>t<>")"
+  FSTString  l -> "CHARACTER(" <> prettyCharLen l <> ")"
+  FSTCustom  t -> "TYPE(" <> t <> ")"
 
 fScalarTypeKind :: FScalarType -> Maybe FKindLit
 fScalarTypeKind = \case
@@ -40,4 +40,4 @@ fScalarTypeKind = \case
   FSTCustom  t -> Nothing
 
 prettyKinded :: FKind a => a -> String -> String
-prettyKinded k name = name<>"("<>show (printFKind k)<>")"
+prettyKinded k name = name <> "(" <> show (printFKind k) <> ")"

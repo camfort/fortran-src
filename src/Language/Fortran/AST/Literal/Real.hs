@@ -77,8 +77,8 @@ parseRealLit r =
     -- | Ensure that the given decimal string is in form @x.y@.
     normalizeSignificand str = case span (/= '.') str of
                                  ([], d)  -> '0':d   --    .456
-                                 (i, ".") -> i<>".0" -- 123.
-                                 (i, "")  -> i<>".0" -- 123
+                                 (i, ".") -> i <> ".0" -- 123.
+                                 (i, "")  -> i <> ".0" -- 123
                                  _        -> str     -- 123.456
     parseExponent "" = Exponent { exponentLetter = ExpLetterE, exponentNum = "0" }
     parseExponent (l:str) =

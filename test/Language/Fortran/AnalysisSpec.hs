@@ -33,7 +33,7 @@ programAnal1LhsExprs =
   , ExpSubscript () u (ExpValue () u (ValVariable "a")) (AList () u [ ixSinGen 5 ]) ]
 
 programAnal1 :: String
-programAnal1 = unlines $ map (replicate 6 ' '++) [
+programAnal1 = unlines $ map (replicate 6 ' ' ++) [
       "program anal1"
     , "integer a, f"
     , "dimension a(10)"

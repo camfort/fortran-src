@@ -1,0 +1,12 @@
+program test
+implicit none
+parameter (maxlay = 20)
+dimension :: a(maxlay), b(maxlay), c(maxlay)
+integer :: nlay
+open (unit=10)
+read (10, *) nlay
+do 100 i = 1, nlay
+read (10, *) a(i), b(i), c(i)
+100 continue
+close (10)
+end program test

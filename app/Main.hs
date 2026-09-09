@@ -52,7 +52,7 @@ programName :: String
 programName = "fortran-src"
 
 showVersion :: String
-showVersion = "0.16.5"
+showVersion = "0.16.9"
 
 main :: IO ()
 main = do
@@ -139,7 +139,7 @@ main = do
       case actionOpt of
         Lex | version `elem` [ Fortran66, Fortran77, Fortran77Extended, Fortran77Legacy ] ->
           print $ Parser.collectTokens Fixed.lexer' $ initParseStateFixed "<unknown>" version contents
-        Lex | version `elem` [Fortran90, Fortran2003, Fortran2008] ->
+        Lex | version `elem` [Fortran90, Fortran90Legacy, Fortran2003, Fortran2008] ->
           print $ Parser.collectTokens Free.lexer'  $ initParseStateFree "<unknown>" version contents
         Lex        -> ioError $ userError $ usageInfo programName options
         Parse      -> pp parsedPF
@@ -301,7 +301,7 @@ showGenericMap = unlines . map (\ (k, v) -> show k ++ " : " ++ show v) . M.toLis
 showStringMap :: StringMap -> String
 showStringMap = showGenericMap
 showModuleMap :: ModuleMap -> String
-showModuleMap = concatMap (\ (n, m) -> show n ++ ":\n" ++ (unlines . map ("  "++) . lines . showGenericMap $ m)) . M.toList
+showModuleMap = concatMap (\ (n, m) -> show n ++ ":\n" ++ (unlines . map ("  " ++) . lines . showGenericMap $ m)) . M.toList
 showTypes :: TypeEnvExtended -> String
 showTypes tenv =
   let sortedInfo = sortBy (\(_, (_, sp1, _)) (_, (_, sp2, _)) -> compare sp1 sp2) $ M.toList tenv
@@ -355,7 +355,7 @@ options =
   , Option ['v','F']
       ["fortranVersion"]
       (ReqArg (\v opts -> opts { fortranVersion = selectFortranVersion v }) "VERSION")
-      "Fortran version to use, format: Fortran[66/77/77Legacy/77Extended/90]"
+      "Fortran version to use, format: Fortran[66/77/77Legacy/77Extended/90/90Legacy/2003]"
   , Option ['a']
       ["action"]
       (ReqArg (\a opts -> opts { action = read a }) "ACTION")
@@ -395,7 +395,7 @@ options =
   , Option ['C']
       ["cpp"]
       (OptArg (\ cppOpts opts -> opts {
-                  cppOptions = Just (dropWhile (=='=') $ fromMaybe "" cppOpts) }
+                  cppOptions = Just (dropWhile (== '=') $ fromMaybe "" cppOpts) }
               ) "CPP-OPTS")
       "run the C Pre Processor on the Fortran files first"
   , Option ['I']

@@ -24,6 +24,7 @@ data FortranVersion = Fortran66
                     | Fortran77Extended -- ^ F77 with some extensions
                     | Fortran77Legacy   -- ^ F77 with most extensions
                     | Fortran90
+                    | Fortran90Legacy -- ^ F90 with legacy extensions
                     | Fortran95
                     | Fortran2003
                     | Fortran2008
@@ -35,6 +36,7 @@ instance Show FortranVersion where
   show Fortran77Extended = "Fortran 77 Extended"
   show Fortran77Legacy   = "Fortran 77 Legacy"
   show Fortran90         = "Fortran 90"
+  show Fortran90Legacy   = "Fortran 90 Legacy"
   show Fortran95         = "Fortran 95"
   show Fortran2003       = "Fortran 2003"
   show Fortran2008       = "Fortran 2008"
@@ -48,6 +50,7 @@ fortranVersionAliases = [ ("66" , Fortran66)
                         , ("77l", Fortran77Legacy)
                         , ("77" , Fortran77)
                         , ("90" , Fortran90)
+                        , ("90l", Fortran90Legacy)
                         , ("95" , Fortran95)
                         , ("03" , Fortran2003)
                         , ("08" , Fortran2008) ]
