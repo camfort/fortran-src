@@ -122,13 +122,13 @@ instance ArbitraryInCtxt (TypeSpec A0)
 freshName :: VarType -> GenM Name
 freshName varType = do
   env <- get
-  let number = 
+  let number =
           case varType of
                Var -> Map.size (localVariables env)
                Sub -> Map.size (subroutines env)
                Fun -> Map.size (functions env)
   return $ show varType ++ show number
-   
+
 --------------------------------------------------------------------------------
 -- Generate typing context and declarations
 --------------------------------------------------------------------------------
@@ -159,7 +159,7 @@ instance Arbitrary (ProgramUnit A0) where
   arbitrary = sized $ \sz -> do
     -- Generate some other subroutines and functions
     (procs, env) <- runStateT genProcedures emptyEnv
-    
+
     -- Generate some top-level declarations for the main program
     -- Uses QuickCheck's 'sized' so the number of declarations scales with test size.
     let numDecls = max 1 (sz `div` 5)
@@ -244,7 +244,7 @@ genProcedure = do
      modify (\env -> env { localVariables = Map.empty } )
      argDecls <- genDecls False numArgs
      let argTypes = map fst argDecls
-  
+
      -- Generate parameters and declaration statements for the parameter
      env <- get
      let argNames   = Map.keys (localVariables env)
@@ -288,6 +288,7 @@ genTypedExpression typeSpec = do
           expression :: GenM (Expression A0)
           expression = genTypedValue typeSpec
 
+
           variable :: GenM (Expression A0)
           variable = do
                env <- get
@@ -296,33 +297,34 @@ genTypedExpression typeSpec = do
                -- If not...
                if null candidates
                  -- No variables of the correct type, fall back to arbitrary expression
-                 then genTypedValue typeSpec  
+                 then genTypedValue typeSpec
                  else do
                    -- Otherwise generate expressions from the variables
                    name <- liftGen $ elements candidates
                    annotation <- liftGen $ arbitrary
-                   value <- oneofCtxt [ pure (ExpValue annotation nullSpan $ ValVariable name)
+                   oneofCtxt [ pure (ExpValue annotation nullSpan $ ValVariable name)
                                      , genTypedValue typeSpec ]  -- In a full implementation, we would generate more complex expressions
-                   pure value
 
 -- Synthesise a value of the given type
 genTypedValue :: TypeSpec A0 -> GenM (Expression A0)
 genTypedValue (TypeSpec _ _ baseType _) = case baseType of
-  TypeInteger -> do
-    x <- liftGen (arbitrary :: Gen Integer)
-    pure $ ExpValue () nullSpan (ValInteger (show x) Nothing)
-  TypeReal -> do
-    x <- liftGen arbitrary
-    pure $ ExpValue () nullSpan (ValReal x Nothing)
-  TypeLogical -> do
-    b <- liftGen (arbitrary :: Gen Bool)
-    pure $ ExpValue () nullSpan (ValLogical b Nothing)
-  TypeCharacter -> do
-    n <- liftGen $ choose (0, 20)
-    --TODO: consider utf-8 because maybe this is somewhere things break in compilers
-    s <- liftGen $ vectorOf n (choose (' ', '~'))
-    let s' = concat (map (\c -> if c == '\'' then "" else if c == '\"' then "\\\"" else [c]) s)
-    pure $ ExpValue () nullSpan (ValString s')
+     TypeInteger -> do
+          x <- liftGen (arbitrary :: Gen Integer)
+          pure $ ExpValue () nullSpan (ValInteger (show x) Nothing)
+     TypeReal -> do
+          x <- liftGen arbitrary
+          pure $ ExpValue () nullSpan (ValReal x Nothing)
+     TypeLogical -> do
+          b <- liftGen (arbitrary :: Gen Bool)
+          pure $ ExpValue () nullSpan (ValLogical b Nothing)
+     TypeCharacter -> do
+          n <- liftGen $ choose (0, 20)
+          --TODO: consider utf-8 because maybe this is somewhere things break in compilers
+          s <- liftGen $ vectorOf n (choose (' ', '~'))
+          let s' = concat (map (\c -> if c == '\'' then "" else if c == '\"' then "\\\"" else [c]) s)
+          pure $ ExpValue () nullSpan (ValString s')
+     _ -> error "Cannot generate"
+
 
 instance ArbitraryInCtxt a => ArbitraryInCtxt [a] where
   arbitraryInCtxt = do
