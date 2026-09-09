@@ -1340,7 +1340,7 @@ instance Out a => Out (NonEmpty a)
 -- in the third expression.
 substitute :: Expression a -> Name -> Expression a -> Expression a
 substitute e x body = case body of
-  ExpValue a s (ValVariable v) | v == x -> e
+  ExpValue _ _ (ValVariable v) | v == x -> e
   ExpValue a s v -> ExpValue a s v
   ExpBinary a s op lhs rhs ->
     ExpBinary a s op (substitute e x lhs) (substitute e x rhs)
