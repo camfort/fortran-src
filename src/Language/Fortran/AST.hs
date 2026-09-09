@@ -98,6 +98,7 @@ module Language.Fortran.AST
   , executableStatement
   , executableStatementBlock
   , setInitialisation
+  , substitute
 
   -- ** Assorted getters & setters
   , pfSetFilename
@@ -1334,3 +1335,41 @@ instance NFData ModuleNature
 instance NFData Intent
 
 instance Out a => Out (NonEmpty a)
+
+-- Computes `[e/x]`, i.e., substitutes expression `e` for all occurrences of variable `x`
+-- in the third expression.
+substitute :: Expression a -> Name -> Expression a -> Expression a
+substitute e x body = case body of
+  ExpValue a s (ValVariable v) | v == x -> e
+  ExpValue a s v -> ExpValue a s v
+  ExpBinary a s op lhs rhs ->
+    ExpBinary a s op (substitute e x lhs) (substitute e x rhs)
+  ExpUnary a s op inner ->
+    ExpUnary a s op (substitute e x inner)
+  ExpSubscript a s base indices ->
+    ExpSubscript a s (substitute e x base) (aMap (substituteIndex e x) indices)
+  ExpDataRef a s base field ->
+    ExpDataRef a s (substitute e x base) (substitute e x field)
+  ExpFunctionCall a s fun args ->
+    ExpFunctionCall a s (substitute e x fun) (aMap (substituteArg e x) args)
+  ExpImpliedDo a s exprs spec ->
+    ExpImpliedDo a s (aMap (substitute e x) exprs) spec
+  ExpInitialisation a s exprs ->
+    ExpInitialisation a s (aMap (substitute e x) exprs)
+  ExpReturnSpec a s expr ->
+    ExpReturnSpec a s (substitute e x expr)
+  where
+    substituteIndex :: Expression a -> Name -> Index a -> Index a
+    substituteIndex e' x' idx = case idx of
+      IxSingle a s name inner -> IxSingle a s name (substitute e' x' inner)
+      IxRange a s lo hi stride ->
+        IxRange a s (fmap (substitute e' x') lo) (fmap (substitute e' x') hi) (fmap (substitute e' x') stride)
+
+    substituteArg :: Expression a -> Name -> Argument a -> Argument a
+    substituteArg e' x' (Argument a s name argExpr) =
+      Argument a s name (substituteArgExpr e' x' argExpr)
+
+    substituteArgExpr :: Expression a -> Name -> ArgumentExpression a -> ArgumentExpression a
+    substituteArgExpr e' x' argExpr = case argExpr of
+      ArgExpr expr -> ArgExpr (substitute e' x' expr)
+      ArgExprVar a s name -> ArgExprVar a s name

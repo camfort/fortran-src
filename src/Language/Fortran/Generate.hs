@@ -1,4 +1,5 @@
 {-# LANGUAGE DefaultSignatures #-}
+{-# OPTIONS_GHC -Wno-orphans #-}
 module Language.Fortran.Generate where
 
 import Language.Fortran.AST
@@ -163,17 +164,18 @@ instance Arbitrary (ProgramUnit A0) where
     -- Generate some top-level declarations for the main program
     -- Uses QuickCheck's 'sized' so the number of declarations scales with test size.
     let numDecls = max 1 (sz `div` 5)
-    (decls, env) <- runStateT (genDecls True numDecls) env
+    (decls, env') <- runStateT (genDecls True numDecls) env
     let declBlocks  = map (\(_, s) -> BlStatement () nullSpan Nothing s) decls
     -- Generate main program unit's statements
     topLevelBlocks <- evalStateT genBodyBlocks env
-    let blocks = declBlocks ++ topLevelBlocks ++ (printAllEnd env)
+    let blocks = declBlocks ++ topLevelBlocks ++ printAllEnd env'
     let name = "generated"
     pure $ PUMain () nullSpan (Just name) blocks (Just procs)
     where
       -- print out everything in the environment at the end
       printAllEnd env =
-        [ BlStatement () nullSpan Nothing (StPrint () nullSpan (ExpValue () nullSpan ValStar) (fromList' () (map (\n -> ExpValue () nullSpan (ValVariable n)) (Map.keys (localVariables env))))) ]
+        [ BlStatement () nullSpan Nothing (StPrint () nullSpan (ExpValue () nullSpan ValStar) 
+            (fromList' () (map (\n -> ExpValue () nullSpan (ValVariable n)) (Map.keys (localVariables env))))) ]
 
 instance ArbitraryInCtxt (Statement A0) where
   -- Pick 
@@ -281,12 +283,27 @@ genProcedure = do
 genTypedExpression :: TypeSpec A0 -> GenM (Expression A0)
 genTypedExpression typeSpec = do
      -- Choose a strategy: variable, value, or expression
-     oneofCtxt [variable, genTypedValue typeSpec]
+     oneofCtxt [variable, expression, genTypedValue typeSpec]
 
      where
-          -- TODO: fancier stuff here
           expression :: GenM (Expression A0)
-          expression = genTypedValue typeSpec
+          expression = do
+               -- Pick a function from the context
+               env <- get
+               (fun, (param_types, return_type)) <- liftGen $ oneof (map pure (Map.toList $ functions env))
+               -- Then.. make a fresh variable
+               temp_var <- freshName Var
+               -- add to local environment a binding of temp_var with the return type
+               modify (\env -> env { localVariables = Map.insert temp_var return_type (localVariables env) })
+               -- Generate something for the goal using this 
+               t1 <- genTypedExpression typeSpec
+               -- Generate the arguments
+               argument_exprs <- mapM genTypedExpression param_types 
+               -- Performance a syntactic substitution of temp_var for an function application of
+               -- `fun` with the `arguments`
+               let arguments = fromList () (map (Argument () nullSpan Nothing . ArgExpr) argument_exprs)
+               let fun_call = ExpFunctionCall () nullSpan (ExpValue () nullSpan (ValVariable fun)) arguments
+               return $ substitute fun_call temp_var t1
 
 
           variable :: GenM (Expression A0)
