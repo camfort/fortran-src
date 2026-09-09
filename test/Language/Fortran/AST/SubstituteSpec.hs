@@ -5,6 +5,9 @@ import Language.Fortran.AST
 import Language.Fortran.AST.AList
 import Language.Fortran.Util.Position
 
+nullSpan :: SrcSpan
+nullSpan = SrcSpan initPosition initPosition
+
 spec :: Spec
 spec = do
   describe "substitute" $ do
