@@ -2,6 +2,8 @@
 {-# OPTIONS_GHC -Wno-orphans #-}
 module Language.Fortran.Generate where
 
+import Prelude hiding (EQ, GT, LT)
+
 import Language.Fortran.AST
 import Language.Fortran.AST.Literal
 import Language.Fortran.AST.Literal.Real
@@ -14,7 +16,7 @@ import Language.Fortran.Version
 import Text.PrettyPrint
 import Text.PrettyPrint.HughesPJ hiding ((<>))
 
-import Control.Monad (forM_)
+import Control.Monad (forM_, replicateM)
 import Control.Monad.State
 import qualified Data.Map.Strict as Map
 import Data.Map.Strict (Map)
@@ -279,13 +281,55 @@ genProcedure = do
      modify (\env -> env { localVariables = localVariables env_before })
      pure pu
 
+-- | Signatures of binary operators, restricted to the base types we
+--   synthesise over (integer, real, logical): each entry gives an operator
+--   together with the base types of its left operand, right operand, and
+--   result. Compare with the type-checker's classification of the same
+--   operators in 'Language.Fortran.Analysis.Types.binaryOpType'.
+binaryOpTable :: [(BinaryOp, BaseType, BaseType, BaseType)]
+binaryOpTable =
+     -- Arithmetic: operands and result share a numeric type
+     [ (op, ty, ty, ty)
+     | op <- [Addition, Subtraction, Multiplication, Division, Exponentiation]
+     , ty <- [TypeInteger, TypeReal]
+     ] ++
+     -- Relational: numeric operands, logical result
+     [ (op, ty, ty, TypeLogical)
+     | op <- [GT, GTE, LT, LTE, EQ, NE]
+     , ty <- [TypeInteger, TypeReal]
+     ] ++
+     -- Logical: logical operands and result
+     [ (op, TypeLogical, TypeLogical, TypeLogical)
+     | op <- [Or, XOr, And, Equivalent, NotEquivalent]
+     ]
+
+-- | Signatures of unary operators, restricted the same way as 'binaryOpTable'.
+unaryOpTable :: [(UnaryOp, BaseType, BaseType)]
+unaryOpTable =
+     [ (op, ty, ty) | op <- [Plus, Minus], ty <- [TypeInteger, TypeReal] ]
+     ++ [ (Not, TypeLogical, TypeLogical) ]
+
+-- Synthesise an expression of a given base type (any kind/selector).
+genTypedExpressionOfBase :: BaseType -> GenM (Expression A0)
+genTypedExpressionOfBase base = liftGen (genTypeSpecOfBase base) >>= genTypedExpression
+
 -- Synthesise an expression of the given type
 genTypedExpression :: TypeSpec A0 -> GenM (Expression A0)
 genTypedExpression typeSpec = do
-     -- Choose a strategy: variable, value, or expression
-     oneofCtxt [variable, expression, genTypedValue typeSpec]
+     -- Choose a strategy: variable, value, function application, or operator
+     oneofCtxt [variable, expression, binaryOpExpr, unaryOpExpr, genTypedValue typeSpec]
 
      where
+          TypeSpec _ _ goalBaseType _ = typeSpec
+
+          {-
+               Synthesis based on the sequent calculus style of function application
+
+               G, x : B |- C => t2
+               G        |- A => t1
+               ------------------------------------
+               G, f : A -> B |- C => [f(t1) / x] t2
+          -}
           expression :: GenM (Expression A0)
           expression = do
                -- Pick a function from the context
