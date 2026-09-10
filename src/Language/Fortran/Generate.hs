@@ -56,19 +56,24 @@ instance Arbitrary BaseType where
     ]
 
 instance Arbitrary a => Arbitrary (TypeSpec a) where
-  arbitrary = do
-    annotation <- arbitrary
-    base       <- arbitrary
-    selector <-
-      case base of
-        TypeReal -> do
-          -- For real types, we can optionally include a kind selector.
-          kind   :: Integer <- elements [4,8]
-          let kindExpr = ExpValue annotation nullSpan (ValInteger (show kind) Nothing)
-          return $ Just $ Selector annotation nullSpan Nothing (Just kindExpr)
-        -- No selector
-        _ -> return Nothing
-    pure $ TypeSpec annotation nullSpan base selector
+  arbitrary = arbitrary >>= genTypeSpecOfBase
+
+-- | Generate a 'TypeSpec' with a specific 'BaseType' (e.g. so that an
+--   operator's operand type can be pinned to what it requires), filling in
+--   the rest (annotation, kind selector) arbitrarily.
+genTypeSpecOfBase :: Arbitrary a => BaseType -> Gen (TypeSpec a)
+genTypeSpecOfBase base = do
+  annotation <- arbitrary
+  selector <-
+    case base of
+      TypeReal -> do
+        -- For real types, we can optionally include a kind selector.
+        kind   :: Integer <- elements [4,8]
+        let kindExpr = ExpValue annotation nullSpan (ValInteger (show kind) Nothing)
+        return $ Just $ Selector annotation nullSpan Nothing (Just kindExpr)
+      -- No selector
+      _ -> return Nothing
+  pure $ TypeSpec annotation nullSpan base selector
 
 maybeWrapper :: Gen a -> Gen (Maybe a)
 maybeWrapper gen = oneof [pure Nothing, Just <$> gen]
