@@ -339,16 +339,52 @@ genTypedExpression typeSpec = do
                temp_var <- freshName Var
                -- add to local environment a binding of temp_var with the return type
                modify (\env -> env { localVariables = Map.insert temp_var return_type (localVariables env) })
-               -- Generate something for the goal using this 
+               -- Generate something for the goal using this
                t1 <- genTypedExpression typeSpec
                -- Generate the arguments
-               argument_exprs <- mapM genTypedExpression param_types 
+               argument_exprs <- mapM genTypedExpression param_types
                -- Performance a syntactic substitution of temp_var for an function application of
                -- `fun` with the `arguments`
                let arguments = fromList () (map (Argument () nullSpan Nothing . ArgExpr) argument_exprs)
                let fun_call = ExpFunctionCall () nullSpan (ExpValue () nullSpan (ValVariable fun)) arguments
                return $ substitute fun_call temp_var t1
 
+          {-
+               Same sequent calculus style rule as 'expression', but for a binary
+               operator standing in for the "function" being applied:
+
+               G, x : B |- C => t2
+               G |- A1 => t1     G |- A2 => t3
+               ------------------------------------------
+               G, op : A1 -> A2 -> B |- C => [(t1 `op` t3) / x] t2
+          -}
+          binaryOpExpr :: GenM (Expression A0)
+          binaryOpExpr =
+               case [ e | e@(_, _, _, result) <- binaryOpTable, result == goalBaseType ] of
+                    [] -> genTypedValue typeSpec
+                    candidates -> do
+                         (op, lhsBase, rhsBase, _) <- liftGen $ elements candidates
+                         temp_var <- freshName Var
+                         modify (\env -> env { localVariables = Map.insert temp_var typeSpec (localVariables env) })
+                         t1 <- genTypedExpression typeSpec
+                         lhs <- genTypedExpressionOfBase lhsBase
+                         rhs <- genTypedExpressionOfBase rhsBase
+                         let opExpr = ExpBinary () nullSpan op lhs rhs
+                         return $ substitute opExpr temp_var t1
+
+          -- As 'binaryOpExpr', but for unary operators.
+          unaryOpExpr :: GenM (Expression A0)
+          unaryOpExpr =
+               case [ e | e@(_, _, result) <- unaryOpTable, result == goalBaseType ] of
+                    [] -> genTypedValue typeSpec
+                    candidates -> do
+                         (op, argBase, _) <- liftGen $ elements candidates
+                         temp_var <- freshName Var
+                         modify (\env -> env { localVariables = Map.insert temp_var typeSpec (localVariables env) })
+                         t1 <- genTypedExpression typeSpec
+                         arg <- genTypedExpressionOfBase argBase
+                         let opExpr = ExpUnary () nullSpan op arg
+                         return $ substitute opExpr temp_var t1
 
           variable :: GenM (Expression A0)
           variable = do
