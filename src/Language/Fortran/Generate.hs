@@ -22,6 +22,7 @@ import qualified Data.Map.Strict as Map
 import Data.Map.Strict (Map)
 import System.FilePath ((</>))
 import Data.List (partition)
+import Data.Generics.Uniplate.Data (universeBi)
 
 --------------------------------------------------------------------------------
 -- Core (stateless) generators
@@ -174,7 +175,7 @@ instance Arbitrary (ProgramUnit A0) where
     (decls, env') <- runStateT (genDecls True numDecls) env
     let declBlocks  = map (\(_, s) -> BlStatement () nullSpan Nothing s) decls
     -- Generate main program unit's statements
-    topLevelBlocks <- evalStateT genBodyBlocks env
+    topLevelBlocks <- evalStateT genBodyBlocks env'
     let blocks = declBlocks ++ topLevelBlocks ++ printAllEnd env'
     let name = "generated"
     pure $ PUMain () nullSpan (Just name) blocks (Just procs)
@@ -321,8 +322,13 @@ genTypedExpressionOfBase base = liftGen (genTypeSpecOfBase base) >>= genTypedExp
 -- Synthesise an expression of the given type
 genTypedExpression :: TypeSpec A0 -> GenM (Expression A0)
 genTypedExpression typeSpec = do
-     -- Choose a strategy: variable, value, function application, or operator
-     oneofCtxt [variable, expression, binaryOpExpr, unaryOpExpr, genTypedValue typeSpec]
+     sz <- liftGen getSize
+     -- Choose a strategy: variable, value, function application, or operator.
+     -- The recursive strategies are only available while there is size left,
+     -- otherwise generation is an unbounded branching process and may not terminate.
+     if sz <= 0
+       then oneofCtxt [variable, genTypedValue typeSpec]
+       else oneofCtxt [variable, expression, binaryOpExpr, unaryOpExpr, genTypedValue typeSpec]
 
      where
           TypeSpec _ _ goalBaseType _ = typeSpec
@@ -339,20 +345,17 @@ genTypedExpression typeSpec = do
           expression = do
                -- Pick a function from the context
                env <- get
-               (fun, (param_types, return_type)) <- liftGen $ oneof (map pure (Map.toList $ functions env))
-               -- Then.. make a fresh variable
-               temp_var <- freshName Var
-               -- add to local environment a binding of temp_var with the return type
-               modify (\env -> env { localVariables = Map.insert temp_var return_type (localVariables env) })
-               -- Generate something for the goal using this
-               t1 <- genTypedExpression typeSpec
-               -- Generate the arguments
-               argument_exprs <- mapM genTypedExpression param_types
-               -- Performance a syntactic substitution of temp_var for an function application of
-               -- `fun` with the `arguments`
-               let arguments = fromList () (map (Argument () nullSpan Nothing . ArgExpr) argument_exprs)
-               let fun_call = ExpFunctionCall () nullSpan (ExpValue () nullSpan (ValVariable fun)) arguments
-               return $ substitute fun_call temp_var t1
+               if Map.null (functions env)
+                then
+                  -- try something else as we have no functions
+                    genTypedValue typeSpec
+                else do
+                  (fun, (param_types, return_type)) <- liftGen $ elements (Map.toList $ functions env)
+                  withBoundVar typeSpec return_type $ do
+                    -- Generate the arguments
+                    argument_exprs <- mapM (smaller . genTypedExpression) param_types
+                    let arguments = fromList () (map (Argument () nullSpan Nothing . ArgExpr) argument_exprs)
+                    pure $ ExpFunctionCall () nullSpan (ExpValue () nullSpan (ValVariable fun)) arguments
 
           {-
                Same sequent calculus style rule as 'expression', but for a binary
@@ -369,13 +372,10 @@ genTypedExpression typeSpec = do
                     [] -> genTypedValue typeSpec
                     candidates -> do
                          (op, lhsBase, rhsBase, _) <- liftGen $ elements candidates
-                         temp_var <- freshName Var
-                         modify (\env -> env { localVariables = Map.insert temp_var typeSpec (localVariables env) })
-                         t1 <- genTypedExpression typeSpec
-                         lhs <- genTypedExpressionOfBase lhsBase
-                         rhs <- genTypedExpressionOfBase rhsBase
-                         let opExpr = ExpBinary () nullSpan op lhs rhs
-                         return $ substitute opExpr temp_var t1
+                         withBoundVar typeSpec typeSpec $ do
+                           lhs <- smaller $ genTypedExpressionOfBase lhsBase
+                           rhs <- smaller $ genTypedExpressionOfBase rhsBase
+                           pure $ ExpBinary () nullSpan op lhs rhs
 
           -- As 'binaryOpExpr', but for unary operators.
           unaryOpExpr :: GenM (Expression A0)
@@ -384,12 +384,9 @@ genTypedExpression typeSpec = do
                     [] -> genTypedValue typeSpec
                     candidates -> do
                          (op, argBase, _) <- liftGen $ elements candidates
-                         temp_var <- freshName Var
-                         modify (\env -> env { localVariables = Map.insert temp_var typeSpec (localVariables env) })
-                         t1 <- genTypedExpression typeSpec
-                         arg <- genTypedExpressionOfBase argBase
-                         let opExpr = ExpUnary () nullSpan op arg
-                         return $ substitute opExpr temp_var t1
+                         withBoundVar typeSpec typeSpec $ do
+                           arg <- smaller $ genTypedExpressionOfBase argBase
+                           pure $ ExpUnary () nullSpan op arg
 
           variable :: GenM (Expression A0)
           variable = do
@@ -406,6 +403,32 @@ genTypedExpression typeSpec = do
                    annotation <- liftGen $ arbitrary
                    oneofCtxt [ pure (ExpValue annotation nullSpan $ ValVariable name)
                                      , genTypedValue typeSpec ]  -- In a full implementation, we would generate more complex expressions
+
+-- | Run a generator on a smaller size (used for sub-terms so that
+--   expression generation terminates).
+smaller :: GenM a -> GenM a
+smaller = mapStateT (scale (`div` 2))
+
+-- | The shared "cut" of the sequent calculus style rules: bind a fresh
+--   variable @x : tempType@, synthesise @t2@ for the goal under that binding,
+--   generate @e@ (without @x@ in scope), and return @[e / x] t2@.
+--
+--   The binding is scoped: @x@ is removed from the environment afterwards so it
+--   can never leak out as an undeclared variable. If @t2@ happens not to use
+--   @x@ then the rule would be vacuous, so when @e@ itself has the goal type we
+--   return @e@ (i.e., take @t2 = x@) rather than discarding it.
+withBoundVar :: TypeSpec A0 -> TypeSpec A0 -> GenM (Expression A0) -> GenM (Expression A0)
+withBoundVar goal tempType genE = do
+     temp_var <- freshName Var
+     before <- gets localVariables
+     modify (\env -> env { localVariables = Map.insert temp_var tempType before })
+     t2 <- smaller $ genTypedExpression goal
+     modify (\env -> env { localVariables = before })
+     e <- genE
+     let used = not $ null [ () | ExpValue _ _ (ValVariable v) <- universeBi t2 :: [Expression A0], v == temp_var ]
+     pure $ if used then substitute e temp_var t2
+            else if tempType == goal then e
+            else t2
 
 -- Synthesise a value of the given type
 genTypedValue :: TypeSpec A0 -> GenM (Expression A0)
