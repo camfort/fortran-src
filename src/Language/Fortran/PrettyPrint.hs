@@ -340,8 +340,8 @@ instance IndentablePretty (Block a) where
         in case (tl, mn, el) of
           -- Labeled do with end label: print labeled continue
           (Just _, Nothing, Just _) ->
-            -- For nested loops with the same target only 
-            -- print end label for inner-most loop 
+            -- For nested loops with the same target only
+            -- print end label for inner-most loop
             if printEndLabel then
               indent i (pprint' v el <> " " <> "continue" <> newline)
             else
@@ -358,8 +358,8 @@ instance IndentablePretty (Block a) where
             labeledIndent mLabel
               ("do" <+> pprint' v tLabel <+> pprint' v doSpec <> newline) <>
               pprint v body nextI <>
-              -- For nested loops with the same target only 
-              -- print end label for inner-most loop 
+              -- For nested loops with the same target only
+              -- print end label for inner-most loop
               if isJust el && printEndLabel then
                 pprint' v el `overlay` indent i ("continue" <> newline)
               else
@@ -441,6 +441,8 @@ instance IndentablePretty (Block a) where
 
 class Pretty t where
     pprint' :: FortranVersion -> t -> Doc
+    isAtomic :: t -> Bool
+    isAtomic _ = True
 
 instance Pretty a => Pretty (Maybe a) where
     pprint' _ Nothing  = empty
@@ -1012,14 +1014,17 @@ instance Pretty (ImpElement a) where
           Just cTo -> char cFrom <> "-" <> char cTo
 
 instance Pretty (Expression a) where
+    isAtomic (ExpValue{}) = True
+    isAtomic _ = False
+
     pprint' v (ExpValue _ _ val)  =
          pprint' v val
 
     pprint' v (ExpBinary _ _ op e1 e2) =
-        parens (pprint' v e1 <+> pprint' v op <+> pprint' v e2)
+        parens (pprintParens v e1 <+> pprint' v op <+> pprintParens v e2)
 
     pprint' v (ExpUnary _ _ op e) =
-        pprint' v op <+> pprint' v e
+        pprint' v op <+> pprintParens v e
 
     pprint' v (ExpSubscript _ _ e ixs) =
         pprint' v e <> parens (pprint' v ixs)
@@ -1254,3 +1259,9 @@ reformatMixedFormInsertContinuations = go stNewline
 -- | 'error' wrapper to make it easier to swap this out for a monad later.
 prettyError :: String -> a
 prettyError = error
+
+pprintParens :: Pretty t => FortranVersion -> t -> Doc
+pprintParens v t =
+  if isAtomic t
+    then pprint' v t
+    else parens (pprint' v t)
