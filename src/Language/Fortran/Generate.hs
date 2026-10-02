@@ -93,8 +93,8 @@ instance Arbitrary Intent where
 -- | Typing Environment for the code generator
 data Env = Env
   { localVariables :: Map Name (TypeSpec A0, Maybe Intent)
-  , functions      :: Map Name ([TypeSpec A0], TypeSpec A0)
-  , subroutines    :: Map Name [TypeSpec A0]
+  , functions      :: Map Name ([(TypeSpec A0, Intent)], TypeSpec A0)
+  , subroutines    :: Map Name [(TypeSpec A0, Intent)]
   , includeReals   :: Bool
   }
 
@@ -174,7 +174,7 @@ freshName varType = do
 --   (dummy arguments must not be initialised).
 --   @isArg@ controls whether a random 'Intent' attribute is generated
 --   (only dummy arguments carry intent; local variables do not).
-genDecl :: Bool -> Bool -> GenM (TypeSpec A0, Statement A0)
+genDecl :: Bool -> Bool -> GenM (TypeSpec A0, Maybe Intent, Statement A0)
 genDecl initialise isArg = do
   name      <- freshName Var
   typeSpec  <- arbitraryInCtxt
@@ -190,10 +190,10 @@ genDecl initialise isArg = do
       decl      = Declarator () nullSpan varExpr ScalarDecl Nothing initialExpr
       declList  = AList () nullSpan [decl]
   modify (\st -> st { localVariables = Map.insert name (typeSpec, mintent) (localVariables st) } )
-  pure (typeSpec, StDeclaration () nullSpan typeSpec attrs declList)
+  pure (typeSpec, mintent, StDeclaration () nullSpan typeSpec attrs declList)
 
 -- | Generate @n@ declarations, building up the environment as we go.
-genDecls :: Bool -> Bool -> Int -> GenM [(TypeSpec A0, Statement A0)]
+genDecls :: Bool -> Bool -> Int -> GenM [(TypeSpec A0, Maybe Intent, Statement A0)]
 genDecls initialise isArg n = replicateM n (genDecl initialise isArg)
 
 -- | Generate a program unit with a growing set of declarations.
@@ -212,7 +212,7 @@ genProgramUnit incReals = sized $ \sz -> do
     -- Uses QuickCheck's 'sized' so the number of declarations scales with test size.
     let numDecls = max 1 (sz `div` 5)
     (decls, env') <- runStateT (genDecls True False numDecls) env
-    let declBlocks  = map (\(_, s) -> BlStatement () nullSpan Nothing s) decls
+    let declBlocks  = map (\(_, _, s) -> BlStatement () nullSpan Nothing s) decls
     -- Generate main program unit's statements
     topLevelBlocks <- evalStateT genBodyBlocks env'
     let blocks = declBlocks ++ topLevelBlocks ++ printAllEnd env'
@@ -239,14 +239,17 @@ instance ArbitraryInCtxt (Statement A0) where
 
      subroutine :: GenM (Statement A0)
      subroutine = do
-          -- Pick a subroutine; fall back to assignment if none exist yet
+          -- Pick a subroutine whose Out/InOut params can all be satisfied by
+          -- a writable local variable; fall back to assignment if none exist.
           env <- get
-          if Map.null (subroutines env)
+          let viableSubs = [ sig | sig@(_, argTys) <- Map.toList (subroutines env)
+                                  , all (hasSuitableActualArg env) argTys ]
+          if null viableSubs
             then assignment
             else do
-              (subName, subArgTypes) <- liftGen $ elements (Map.toList $ subroutines env)
+              (subName, subArgTypes) <- liftGen $ elements viableSubs
               -- Generate expressions for each argument
-              argExprs <- mapM genTypedExpression subArgTypes
+              argExprs <- mapM genTypedExpressionForIntent subArgTypes
               let subExpr = ExpValue () nullSpan (ValVariable subName)
                   argList = AList () nullSpan (map (Argument () nullSpan Nothing . ArgExpr) argExprs)
               pure $ StCall () nullSpan subExpr argList
@@ -299,13 +302,14 @@ genProcedure = do
      -- Blank out local variables
      modify (\env -> env { localVariables = Map.empty } )
      argDecls <- genDecls False True numArgs
-     let argTypes = map fst argDecls
+     -- Every argument declaration carries a Just intent (isArg = True above).
+     let argTypes = [ (ts, intent) | (ts, Just intent, _) <- argDecls ]
 
      -- Generate parameters and declaration statements for the parameter
      env <- get
      let argNames   = Map.keys (localVariables env)
          args       = fromList' () (map (ExpValue () nullSpan . ValVariable) argNames)
-         declBlocks = map (\(_, s) -> BlStatement () nullSpan Nothing s) argDecls
+         declBlocks = map (\(_, _, s) -> BlStatement () nullSpan Nothing s) argDecls
 
      -- Generate the body of the procedure
      bodyBlocks <- genBodyBlocks
@@ -368,6 +372,32 @@ unaryOpTable incReals =
 genTypedExpressionOfBase :: BaseType -> GenM (Expression A0)
 genTypedExpressionOfBase base = liftGen (genTypeSpecOfBase base) >>= genTypedExpression
 
+-- | Fortran requires the actual argument for an Out/InOut dummy parameter to
+--   be a definable variable reference (the callee writes back into it), not
+--   an arbitrary expression or literal. So for those intents we must pick a
+--   variable from the *writable* locals, never fall back to a literal.
+--   'In' parameters can take any r-expression, as usual.
+genTypedExpressionForIntent :: (TypeSpec A0, Intent) -> GenM (Expression A0)
+genTypedExpressionForIntent (t, In) = genTypedExpression t
+genTypedExpressionForIntent (t, _)  = writableVariable t
+
+-- | Pick a definable (writable) local variable of the given type. The caller
+--   must already have ensured at least one such variable exists (see
+--   'hasSuitableActualArg'); used for Out/InOut actual arguments.
+writableVariable :: TypeSpec A0 -> GenM (Expression A0)
+writableVariable typeSpec = do
+  env <- get
+  let candidates = [ name | (name, ts) <- Map.toList (writableLocalVariables env), ts == typeSpec ]
+  name <- liftGen $ elements candidates
+  pure (ExpValue () nullSpan $ ValVariable name)
+
+-- | Whether the current scope has what it needs to supply an actual argument
+--   for this dummy-parameter signature: any expression for 'In', but a
+--   writable variable of the matching type for 'Out'/'InOut'.
+hasSuitableActualArg :: Env -> (TypeSpec A0, Intent) -> Bool
+hasSuitableActualArg _   (_,  In) = True
+hasSuitableActualArg env (ts, _)  = ts `elem` Map.elems (writableLocalVariables env)
+
 -- Synthesise an expression of the given type
 genTypedExpression :: TypeSpec A0 -> GenM (Expression A0)
 genTypedExpression typeSpec = do
@@ -376,8 +406,8 @@ genTypedExpression typeSpec = do
      -- The recursive strategies are only available while there is size left,
      -- otherwise generation is an unbounded branching process and may not terminate.
      if sz <= 0
-       then oneofCtxt [variable, genTypedValue typeSpec]
-       else oneofCtxt [variable, expression, binaryOpExpr, unaryOpExpr, genTypedValue typeSpec]
+       then oneofCtxt [variable typeSpec, genTypedValue typeSpec]
+       else oneofCtxt [variable typeSpec, expression, binaryOpExpr, unaryOpExpr, genTypedValue typeSpec]
 
      where
           TypeSpec _ _ goalBaseType _ = typeSpec
@@ -392,17 +422,20 @@ genTypedExpression typeSpec = do
           -}
           expression :: GenM (Expression A0)
           expression = do
-               -- Pick a function from the context
+               -- Pick a function whose Out/InOut params can all be satisfied
+               -- by a writable local variable.
                env <- get
-               if Map.null (functions env)
+               let viableFuns = [ sig | sig@(_, (param_types, _)) <- Map.toList (functions env)
+                                       , all (hasSuitableActualArg env) param_types ]
+               if null viableFuns
                 then
-                  -- try something else as we have no functions
+                  -- try something else as we have no viable functions
                     genTypedValue typeSpec
                 else do
-                  (fun, (param_types, return_type)) <- liftGen $ elements (Map.toList $ functions env)
+                  (fun, (param_types, return_type)) <- liftGen $ elements viableFuns
                   withBoundVar typeSpec return_type $ do
                     -- Generate the arguments
-                    argument_exprs <- mapM (smaller . genTypedExpression) param_types
+                    argument_exprs <- mapM (smaller . genTypedExpressionForIntent) param_types
                     let arguments = fromList () (map (Argument () nullSpan Nothing . ArgExpr) argument_exprs)
                     pure $ ExpFunctionCall () nullSpan (ExpValue () nullSpan (ValVariable fun)) arguments
 
@@ -439,20 +472,20 @@ genTypedExpression typeSpec = do
                            arg <- smaller $ genTypedExpressionOfBase argBase
                            pure $ ExpUnary () nullSpan op arg
 
-          variable :: GenM (Expression A0)
-          variable = do
-               env <- get
-               -- Only variables with In or InOut intent are valid in an r-expression
-               let candidates = [ name
-                                 | (name, ts) <- Map.toList (readableLocalVariables env)
-                                 , ts == typeSpec]
-               if null candidates
-                 then genTypedValue typeSpec
-                 else do
-                   name <- liftGen $ elements candidates
-                   annotation <- liftGen $ arbitrary
-                   oneofCtxt [ pure (ExpValue annotation nullSpan $ ValVariable name)
-                              , genTypedValue typeSpec ]
+variable :: TypeSpec A0 -> GenM (Expression A0)
+variable typeSpec = do
+      env <- get
+      -- Only variables with In or InOut intent are valid in an r-expression
+      let candidates = [ name
+                        | (name, ts) <- Map.toList (readableLocalVariables env)
+                        , ts == typeSpec]
+      if null candidates
+        then genTypedValue typeSpec
+        else do
+          name <- liftGen $ elements candidates
+          annotation <- liftGen $ arbitrary
+          oneofCtxt [ pure (ExpValue annotation nullSpan $ ValVariable name)
+                    , genTypedValue typeSpec ]
 
 -- | Run a generator on a smaller size (used for sub-terms so that
 --   expression generation terminates).
