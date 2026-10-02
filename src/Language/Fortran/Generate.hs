@@ -328,17 +328,20 @@ genProcedure = do
 --   together with the base types of its left operand, right operand, and
 --   result. Compare with the type-checker's classification of the same
 --   operators in 'Language.Fortran.Analysis.Types.binaryOpType'.
-binaryOpTable :: [(BinaryOp, BaseType, BaseType, BaseType)]
-binaryOpTable =
+numericTypes :: Bool -> [BaseType]
+numericTypes incReals = TypeInteger : [TypeReal | incReals]
+
+binaryOpTable :: Bool -> [(BinaryOp, BaseType, BaseType, BaseType)]
+binaryOpTable incReals =
      -- Arithmetic: operands and result share a numeric type
      [ (op, ty, ty, ty)
      | op <- [Addition, Subtraction, Multiplication, Division, Exponentiation]
-     , ty <- [TypeInteger, TypeReal]
+     , ty <- numericTypes incReals
      ] ++
      -- Relational: numeric operands, logical result
      [ (op, ty, ty, TypeLogical)
      | op <- [GT, GTE, LT, LTE, EQ, NE]
-     , ty <- [TypeInteger, TypeReal]
+     , ty <- numericTypes incReals
      ] ++
      -- Logical: logical operands and result
      [ (op, TypeLogical, TypeLogical, TypeLogical)
@@ -346,9 +349,9 @@ binaryOpTable =
      ]
 
 -- | Signatures of unary operators, restricted the same way as 'binaryOpTable'.
-unaryOpTable :: [(UnaryOp, BaseType, BaseType)]
-unaryOpTable =
-     [ (op, ty, ty) | op <- [Minus], ty <- [TypeInteger, TypeReal] ]
+unaryOpTable :: Bool -> [(UnaryOp, BaseType, BaseType)]
+unaryOpTable incReals =
+     [ (op, ty, ty) | op <- [Minus], ty <- numericTypes incReals ]
      ++ [ (Not, TypeLogical, TypeLogical) ]
 
 -- Synthesise an expression of a given base type (any kind/selector).
@@ -403,8 +406,9 @@ genTypedExpression typeSpec = do
                G, op : A1 -> A2 -> B |- C => [(t1 `op` t3) / x] t2
           -}
           binaryOpExpr :: GenM (Expression A0)
-          binaryOpExpr =
-               case [ e | e@(_, _, _, result) <- binaryOpTable, result == goalBaseType ] of
+          binaryOpExpr = do
+               env <- get
+               case [ e | e@(_, _, _, result) <- binaryOpTable (includeReals env), result == goalBaseType ] of
                     [] -> genTypedValue typeSpec
                     candidates -> do
                          (op, lhsBase, rhsBase, _) <- liftGen $ elements candidates
@@ -415,8 +419,9 @@ genTypedExpression typeSpec = do
 
           -- As 'binaryOpExpr', but for unary operators.
           unaryOpExpr :: GenM (Expression A0)
-          unaryOpExpr =
-               case [ e | e@(_, _, result) <- unaryOpTable, result == goalBaseType ] of
+          unaryOpExpr = do
+               env <- get
+               case [ e | e@(_, _, result) <- unaryOpTable (includeReals env), result == goalBaseType ] of
                     [] -> genTypedValue typeSpec
                     candidates -> do
                          (op, argBase, _) <- liftGen $ elements candidates
