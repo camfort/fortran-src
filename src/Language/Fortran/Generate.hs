@@ -83,23 +83,36 @@ maybeWrapper gen = oneof [pure Nothing, Just <$> gen]
 nullSpan :: SrcSpan
 nullSpan = SrcSpan initPosition initPosition
 
+instance Arbitrary Intent where
+  arbitrary = elements [In, Out, InOut]
+
 --------------------------------------------------------------------------------
 -- Stateful generation
 --------------------------------------------------------------------------------
 
 -- | Typing Environment for the code generator
 data Env = Env
-  { localVariables :: Map Name (TypeSpec A0, Intent)
+  { localVariables :: Map Name (TypeSpec A0, Maybe Intent)
   , functions      :: Map Name ([TypeSpec A0], TypeSpec A0)
   , subroutines    :: Map Name [TypeSpec A0]
   , includeReals   :: Bool
   }
 
+-- | Local variables (Nothing intent) and In/InOut arguments are readable in r-expressions.
 readableLocalVariables :: Env -> Map Name (TypeSpec A0)
-readableLocalVariables env = Map.map fst $ Map.filter (\(_, intent) -> intent == In || intent == InOut) (localVariables env)
+readableLocalVariables env = Map.map fst $ Map.filter (isReadable . snd) (localVariables env)
+  where isReadable Nothing         = True
+        isReadable (Just In)       = True
+        isReadable (Just InOut)    = True
+        isReadable _               = False
 
+-- | Local variables (Nothing intent) and Out/InOut arguments are writable as l-values.
 writableLocalVariables :: Env -> Map Name (TypeSpec A0)
-writableLocalVariables env = Map.map fst $ Map.filter (\(_, intent) -> intent == Out || intent == InOut) (localVariables env)
+writableLocalVariables env = Map.map fst $ Map.filter (isWritable . snd) (localVariables env)
+  where isWritable Nothing         = True
+        isWritable (Just Out)      = True
+        isWritable (Just InOut)    = True
+        isWritable _               = False
 
 data VarType = Var | Sub | Fun
 
@@ -156,32 +169,32 @@ freshName varType = do
 -- Generate typing context and declarations
 --------------------------------------------------------------------------------
 
-instance Arbitrary Intent where
-  arbitrary = elements [In, Out, InOut]
-
 -- | Generate one variable declaration statement, adding the variable to the environment.
---   The flag controls whether the declaration carries an initializer
+--   @initialise@ controls whether the declaration carries an initializer
 --   (dummy arguments must not be initialised).
-genDecl :: Bool -> GenM (TypeSpec A0, Statement A0)
-genDecl initialise = do
+--   @isArg@ controls whether a random 'Intent' attribute is generated
+--   (only dummy arguments carry intent; local variables do not).
+genDecl :: Bool -> Bool -> GenM (TypeSpec A0, Statement A0)
+genDecl initialise isArg = do
   name      <- freshName Var
   typeSpec  <- arbitraryInCtxt
-  initialExpr <- if initialise
+  initialExpr <- if initialise && not isArg
                    then Just <$> genTypedValue typeSpec
                    else pure Nothing
-  intent    <- liftGen $ arbitrary
-  let intentAttribute = AttrIntent () nullSpan intent
-
+  mintent   <- if isArg
+                 then Just <$> liftGen arbitrary
+                 else pure Nothing
+  let attrs = fmap (\i -> AList.fromList () [AttrIntent () nullSpan i]) mintent
   let
       varExpr   = ExpValue () nullSpan (ValVariable name)
       decl      = Declarator () nullSpan varExpr ScalarDecl Nothing initialExpr
       declList  = AList () nullSpan [decl]
-  modify (\st -> st { localVariables = Map.insert name (typeSpec, intent) (localVariables st) } )
-  pure (typeSpec, StDeclaration () nullSpan typeSpec (Just $ AList.fromList () [intentAttribute]) declList)
+  modify (\st -> st { localVariables = Map.insert name (typeSpec, mintent) (localVariables st) } )
+  pure (typeSpec, StDeclaration () nullSpan typeSpec attrs declList)
 
 -- | Generate @n@ declarations, building up the environment as we go.
-genDecls :: Bool -> Int -> GenM [(TypeSpec A0, Statement A0)]
-genDecls initialise n = replicateM n (genDecl initialise)
+genDecls :: Bool -> Bool -> Int -> GenM [(TypeSpec A0, Statement A0)]
+genDecls initialise isArg n = replicateM n (genDecl initialise isArg)
 
 -- | Generate a program unit with a growing set of declarations.
 instance Arbitrary (ProgramUnit A0) where
@@ -198,7 +211,7 @@ genProgramUnit incReals = sized $ \sz -> do
     -- Generate some top-level declarations for the main program
     -- Uses QuickCheck's 'sized' so the number of declarations scales with test size.
     let numDecls = max 1 (sz `div` 5)
-    (decls, env') <- runStateT (genDecls True numDecls) env
+    (decls, env') <- runStateT (genDecls True False numDecls) env
     let declBlocks  = map (\(_, s) -> BlStatement () nullSpan Nothing s) decls
     -- Generate main program unit's statements
     topLevelBlocks <- evalStateT genBodyBlocks env'
@@ -285,7 +298,7 @@ genProcedure = do
      env_before <- get
      -- Blank out local variables
      modify (\env -> env { localVariables = Map.empty } )
-     argDecls <- genDecls False numArgs
+     argDecls <- genDecls False True numArgs
      let argTypes = map fst argDecls
 
      -- Generate parameters and declaration statements for the parameter
@@ -458,7 +471,7 @@ withBoundVar :: TypeSpec A0 -> TypeSpec A0 -> GenM (Expression A0) -> GenM (Expr
 withBoundVar goal tempType genE = do
      temp_var <- freshName Var
      before <- gets localVariables
-     modify (\env -> env { localVariables = Map.insert temp_var (tempType, InOut) before })
+     modify (\env -> env { localVariables = Map.insert temp_var (tempType, Nothing) before })
      t2 <- smaller $ genTypedExpression goal
      modify (\env -> env { localVariables = before })
      e <- genE
