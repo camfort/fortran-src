@@ -327,7 +327,7 @@ binaryOpTable =
 -- | Signatures of unary operators, restricted the same way as 'binaryOpTable'.
 unaryOpTable :: [(UnaryOp, BaseType, BaseType)]
 unaryOpTable =
-     [ (op, ty, ty) | op <- [Plus, Minus], ty <- [TypeInteger, TypeReal] ]
+     [ (op, ty, ty) | op <- [Minus], ty <- [TypeInteger, TypeReal] ]
      ++ [ (Not, TypeLogical, TypeLogical) ]
 
 -- Synthesise an expression of a given base type (any kind/selector).
