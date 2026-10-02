@@ -218,7 +218,7 @@ main = do
       exists <- doesDirectoryExist dir
       unless exists $ ioError $ userError $
         "Output directory does not exist: " ++ dir
-      generatePrograms n dir
+      generatePrograms (not (generateNoReals opts)) n dir
     _ -> fail $ usageInfo programName options
 
 
@@ -341,10 +341,11 @@ data Options = Options
   , includeDirs     :: [String]
   , cppOptions      :: Maybe String -- ^ Nothing: no CPP; Just x: run CPP with options x.
   , useContinuationReformatter :: Bool
+  , generateNoReals :: Bool
   }
 
 initOptions :: Options
-initOptions = Options Nothing Parse Default Nothing [] Nothing False
+initOptions = Options Nothing Parse Default Nothing [] Nothing False False
 
 options :: [OptDescr (Options -> Options)]
 options =
@@ -414,6 +415,10 @@ options =
       ["generate"]
       (ReqArg (\n opts -> opts { action = Generate (read n) }) "SIZE")
       "generate SIZE example Fortran programs as .f90 files into the directory specified by -o (default: current directory)"
+  , Option []
+      ["generate-no-reals"]
+      (NoArg $ \ opts -> opts { generateNoReals = True })
+      "when generating programs, exclude real/floating-point types"
   , Option []
       ["make-mods", "make"]
       (NoArg $ \ opts -> opts { action = Make })

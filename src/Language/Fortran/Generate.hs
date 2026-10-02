@@ -49,12 +49,15 @@ instance Arbitrary RealLit where
     return $ RealLit floatString (Exponent ExpLetterE (show (floor (logBase 10 (abs float))) :: String))
 
 instance Arbitrary BaseType where
-  arbitrary = oneof
+  arbitrary = arbitraryBaseType False
+
+arbitraryBaseType :: Bool -> Gen BaseType
+arbitraryBaseType incReals = oneof $
     [ pure TypeInteger
-    , pure TypeReal
     , pure TypeLogical
     , pure TypeCharacter
     ]
+    ++ [pure TypeReal | incReals]
 
 instance Arbitrary a => Arbitrary (TypeSpec a) where
   arbitrary = arbitrary >>= genTypeSpecOfBase
@@ -91,6 +94,7 @@ data Env = Env
   { localVariables :: Map Name (TypeSpec A0)
   , functions      :: Map Name ([TypeSpec A0], TypeSpec A0)
   , subroutines    :: Map Name [TypeSpec A0]
+  , includeReals   :: Bool
   }
 
 data VarType = Var | Sub | Fun
@@ -99,6 +103,7 @@ emptyEnv :: Env
 emptyEnv = Env { localVariables = Map.empty
                , functions      = Map.empty
                , subroutines    = Map.empty
+               , includeReals   = True
                }
 
 instance Show VarType where
@@ -124,8 +129,13 @@ class ArbitraryInCtxt a where
   default arbitraryInCtxt :: Arbitrary a => GenM a
   arbitraryInCtxt = liftGen arbitrary
 
-instance ArbitraryInCtxt BaseType
-instance ArbitraryInCtxt (TypeSpec A0)
+instance ArbitraryInCtxt BaseType where
+  arbitraryInCtxt = do
+    env <- get
+    liftGen $ arbitraryBaseType (includeReals env)
+
+instance ArbitraryInCtxt (TypeSpec A0) where
+  arbitraryInCtxt = arbitraryInCtxt >>= liftGen . genTypeSpecOfBase
 
 -- | Generate a fresh variable name based on the current environment size.
 freshName :: VarType -> GenM Name
@@ -165,9 +175,15 @@ genDecls initialise n = replicateM n (genDecl initialise)
 
 -- | Generate a program unit with a growing set of declarations.
 instance Arbitrary (ProgramUnit A0) where
-  arbitrary = sized $ \sz -> do
+  arbitrary = genProgramUnit True
+
+-- | Generate a 'ProgramUnit', with 'incReals' controlling whether 'TypeReal'
+--   may appear in generated declarations and expressions.
+genProgramUnit :: Bool -> Gen (ProgramUnit A0)
+genProgramUnit incReals = sized $ \sz -> do
+    let startEnv = emptyEnv { includeReals = incReals }
     -- Generate some other subroutines and functions
-    (procs, env) <- runStateT genProcedures emptyEnv
+    (procs, env) <- runStateT genProcedures startEnv
 
     -- Generate some top-level declarations for the main program
     -- Uses QuickCheck's 'sized' so the number of declarations scales with test size.
@@ -177,12 +193,11 @@ instance Arbitrary (ProgramUnit A0) where
     -- Generate main program unit's statements
     topLevelBlocks <- evalStateT genBodyBlocks env'
     let blocks = declBlocks ++ topLevelBlocks ++ printAllEnd env'
-    let name = "generated"
-    pure $ PUMain () nullSpan (Just name) blocks (Just procs)
+    pure $ PUMain () nullSpan (Just "generated") blocks (Just procs)
     where
       -- print out everything in the environment at the end
       printAllEnd env =
-        [ BlStatement () nullSpan Nothing (StPrint () nullSpan (ExpValue () nullSpan ValStar) 
+        [ BlStatement () nullSpan Nothing (StPrint () nullSpan (ExpValue () nullSpan ValStar)
             (fromList' () (map (\n -> ExpValue () nullSpan (ValVariable n)) (Map.keys (localVariables env))))) ]
 
 instance ArbitraryInCtxt (Statement A0) where
@@ -501,10 +516,11 @@ demoProgram = do
 -- | Generate @n@ Fortran programs and write each to @dir/<name>.f90@.
 --   Filenames are taken from the PUMain program unit name; unnamed programs
 --   are numbered @program_1.f90@, @program_2.f90@, etc.
-generatePrograms :: Int -> FilePath -> IO ()
-generatePrograms n dir = do
+--   When @incReals@ is 'False', 'TypeReal' is excluded from all generated types.
+generatePrograms :: Bool -> Int -> FilePath -> IO ()
+generatePrograms incReals n dir = do
   -- Grow the size with the program index so programs get progressively bigger
-  pus <- generate $ mapM (\i -> resize i (arbitrary :: Gen (ProgramUnit A0))) [1 .. n]
+  pus <- generate $ mapM (\i -> resize i (genProgramUnit incReals)) [1 .. n]
   let meta = MetaInfo { miVersion = Fortran90, miFilename = "<generated>" }
   forM_ (zip [1 :: Int ..] pus) $ \(i, pu) -> do
     let name = "example" ++ show i
