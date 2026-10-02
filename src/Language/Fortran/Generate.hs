@@ -6,6 +6,7 @@ import Prelude hiding (EQ, GT, LT)
 
 import Language.Fortran.AST
 import Language.Fortran.AST.Literal
+import qualified Language.Fortran.AST.AList as AList
 import Language.Fortran.AST.Literal.Real
 import Test.QuickCheck hiding (Fun)
 
@@ -91,11 +92,17 @@ nullSpan = SrcSpan initPosition initPosition
 
 -- | Typing Environment for the code generator
 data Env = Env
-  { localVariables :: Map Name (TypeSpec A0)
+  { localVariables :: Map Name (TypeSpec A0, Intent)
   , functions      :: Map Name ([TypeSpec A0], TypeSpec A0)
   , subroutines    :: Map Name [TypeSpec A0]
   , includeReals   :: Bool
   }
+
+readableLocalVariables :: Env -> Map Name (TypeSpec A0)
+readableLocalVariables env = Map.map fst $ Map.filter (\(_, intent) -> intent == In || intent == InOut) (localVariables env)
+
+writableLocalVariables :: Env -> Map Name (TypeSpec A0)
+writableLocalVariables env = Map.map fst $ Map.filter (\(_, intent) -> intent == Out || intent == InOut) (localVariables env)
 
 data VarType = Var | Sub | Fun
 
@@ -152,6 +159,9 @@ freshName varType = do
 -- Generate typing context and declarations
 --------------------------------------------------------------------------------
 
+instance Arbitrary Intent where
+  arbitrary = elements [In, Out, InOut]
+
 -- | Generate one variable declaration statement, adding the variable to the environment.
 --   The flag controls whether the declaration carries an initializer
 --   (dummy arguments must not be initialised).
@@ -162,12 +172,15 @@ genDecl initialise = do
   initialExpr <- if initialise
                    then Just <$> genTypedValue typeSpec
                    else pure Nothing
+  intent    <- liftGen $ arbitrary
+  let intentAttribute = AttrIntent () nullSpan intent
+
   let
       varExpr   = ExpValue () nullSpan (ValVariable name)
       decl      = Declarator () nullSpan varExpr ScalarDecl Nothing initialExpr
       declList  = AList () nullSpan [decl]
-  modify (\st -> st { localVariables = Map.insert name typeSpec (localVariables st) } )
-  pure (typeSpec, StDeclaration () nullSpan typeSpec Nothing declList)
+  modify (\st -> st { localVariables = Map.insert name (typeSpec, intent) (localVariables st) } )
+  pure (typeSpec, StDeclaration () nullSpan typeSpec (Just $ AList.fromList () [intentAttribute]) declList)
 
 -- | Generate @n@ declarations, building up the environment as we go.
 genDecls :: Bool -> Int -> GenM [(TypeSpec A0, Statement A0)]
@@ -206,7 +219,11 @@ instance ArbitraryInCtxt (Statement A0) where
     where
      assignment :: GenM (Statement A0)
      assignment = do
-          (lvar, typ) <- pickVar
+      env <- get
+      if null (writableLocalVariables env)
+        then arbitraryInCtxt
+        else do
+          (lvar, typ) <- pickVar writableLocalVariables
           expr <- genTypedExpression typ
           pure $ StExpressionAssign () nullSpan (ExpValue () nullSpan (ValVariable lvar)) expr
 
@@ -226,9 +243,13 @@ instance ArbitraryInCtxt (Statement A0) where
 
      printer :: GenM (Statement A0)
      printer = do
-       (name, _) <- pickVar
-       let expr = ExpValue () nullSpan (ValVariable name)
-       pure $ StPrint () nullSpan (ExpValue () nullSpan ValStar) (fromList' () [expr])
+       env <- get
+       if Map.null (readableLocalVariables env)
+         then assignment
+         else do
+           (name, _) <- pickVar readableLocalVariables
+           let expr = ExpValue () nullSpan (ValVariable name)
+           pure $ StPrint () nullSpan (ExpValue () nullSpan ValStar) (fromList' () [expr])
 
 -- | Generate the statements of a body as blocks
 genBodyBlocks :: GenM [Block A0]
@@ -406,18 +427,17 @@ genTypedExpression typeSpec = do
           variable :: GenM (Expression A0)
           variable = do
                env <- get
-               -- See if a variable can fill the hole
-               let candidates = [name | (name, t) <- Map.toList (localVariables env), t == typeSpec]
-               -- If not...
+               -- Only variables with In or InOut intent are valid in an r-expression
+               let candidates = [ name
+                                 | (name, ts) <- Map.toList (readableLocalVariables env)
+                                 , ts == typeSpec]
                if null candidates
-                 -- No variables of the correct type, fall back to arbitrary expression
                  then genTypedValue typeSpec
                  else do
-                   -- Otherwise generate expressions from the variables
                    name <- liftGen $ elements candidates
                    annotation <- liftGen $ arbitrary
                    oneofCtxt [ pure (ExpValue annotation nullSpan $ ValVariable name)
-                                     , genTypedValue typeSpec ]  -- In a full implementation, we would generate more complex expressions
+                              , genTypedValue typeSpec ]
 
 -- | Run a generator on a smaller size (used for sub-terms so that
 --   expression generation terminates).
@@ -436,7 +456,7 @@ withBoundVar :: TypeSpec A0 -> TypeSpec A0 -> GenM (Expression A0) -> GenM (Expr
 withBoundVar goal tempType genE = do
      temp_var <- freshName Var
      before <- gets localVariables
-     modify (\env -> env { localVariables = Map.insert temp_var tempType before })
+     modify (\env -> env { localVariables = Map.insert temp_var (tempType, InOut) before })
      t2 <- smaller $ genTypedExpression goal
      modify (\env -> env { localVariables = before })
      e <- genE
@@ -479,10 +499,10 @@ oneofCtxt gens = do
   gen <- liftGen $ elements gens
   gen
 
-pickVar :: GenM (Name, TypeSpec A0)
-pickVar = do
+pickVar :: (Env -> Map Name (TypeSpec A0)) -> GenM (Name, TypeSpec A0)
+pickVar ability = do
   env <- get
-  liftGen $ elements (Map.toList $ localVariables env)
+  liftGen $ elements (Map.toList $ ability env)
 
 --------------------------------------------------------------------------------
 -- Demonstration / experimentation
