@@ -5,7 +5,6 @@ module Language.Fortran.Generate where
 import Prelude hiding (EQ, GT, LT)
 
 import Language.Fortran.AST
-import Language.Fortran.AST.Literal
 import qualified Language.Fortran.AST.AList as AList
 import Language.Fortran.AST.Literal.Real
 import Test.QuickCheck hiding (Fun)
@@ -15,14 +14,12 @@ import Language.Fortran.PrettyPrint
 import Language.Fortran.Version
 
 import Text.PrettyPrint
-import Text.PrettyPrint.HughesPJ hiding ((<>))
 
 import Control.Monad (forM_, replicateM)
 import Control.Monad.State
 import qualified Data.Map.Strict as Map
 import Data.Map.Strict (Map)
 import System.FilePath ((</>))
-import Data.List (partition)
 import Data.Generics.Uniplate.Data (universeBi)
 
 --------------------------------------------------------------------------------
@@ -41,13 +38,13 @@ instance Arbitrary a => Arbitrary (Value a) where
 
 instance Arbitrary RealLit where
   arbitrary = do
-    float <- arbitrary :: Gen Double
+    floatLit <- arbitrary :: Gen Double
     -- Note: This is a very rough approximation. It generates a valid REAL
     -- literal, but it may not be exactly the same as the original float
     --  due to formatting differences.
     -- (Haskell's 'show' may use scientific notation- issue?)
-    let (floatString, _) = break (== 'e') $ show float
-    return $ RealLit floatString (Exponent ExpLetterE (show (floor (logBase 10 (abs float))) :: String))
+    let (floatString, _) = break (== 'e') $ show floatLit
+    return $ RealLit floatString (Exponent ExpLetterE (show (floor (logBase 10 (abs floatLit))) :: String))
 
 instance Arbitrary BaseType where
   arbitrary = arbitraryBaseType False
