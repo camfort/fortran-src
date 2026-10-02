@@ -443,10 +443,12 @@ genTypedValue (TypeSpec _ _ baseType _) = case baseType of
           b <- liftGen (arbitrary :: Gen Bool)
           pure $ ExpValue () nullSpan (ValLogical b Nothing)
      TypeCharacter -> do
-          n <- liftGen $ choose (0, 20)
+          -- OLD STUFF for strings
+          -- n <- liftGen $ choose (0, 20)
           --TODO: consider utf-8 because maybe this is somewhere things break in compilers
-          s <- liftGen $ vectorOf n (choose (' ', '~'))
-          let s' = concat (map (\c -> if c == '\'' then "" else if c == '\"' then "\\\"" else [c]) s)
+          --s <- liftGen $ vectorOf n (choose (' ', '~'))
+          s <- liftGen $ choose (' ', '~')
+          let s' = concat (map (\c -> if c == '\'' then "" else if c == '\"' then "\\\"" else [c]) [s])
           pure $ ExpValue () nullSpan (ValString s')
      _ -> error "Cannot generate"
 
