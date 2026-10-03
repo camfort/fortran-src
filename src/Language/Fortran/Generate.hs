@@ -174,7 +174,11 @@ freshName varType = do
 --   (dummy arguments must not be initialised).
 --   @isArg@ controls whether a random 'Intent' attribute is generated
 --   (only dummy arguments carry intent; local variables do not).
-genDecl :: Bool -> Bool -> GenM (TypeSpec A0, Maybe Intent, Statement A0)
+-- | Also returns the declared variable's 'Name': callers that need to
+--   preserve declaration order (e.g. building a dummy-argument list) must
+--   not recover names via 'Map.keys' on 'localVariables', since that sorts
+--   lexicographically ("var10" < "var2") rather than by declaration order.
+genDecl :: Bool -> Bool -> GenM (Name, TypeSpec A0, Maybe Intent, Statement A0)
 genDecl initialise isArg = do
   name      <- freshName Var
   typeSpec  <- arbitraryInCtxt
@@ -190,10 +194,10 @@ genDecl initialise isArg = do
       decl      = Declarator () nullSpan varExpr ScalarDecl Nothing initialExpr
       declList  = AList () nullSpan [decl]
   modify (\st -> st { localVariables = Map.insert name (typeSpec, mintent) (localVariables st) } )
-  pure (typeSpec, mintent, StDeclaration () nullSpan typeSpec attrs declList)
+  pure (name, typeSpec, mintent, StDeclaration () nullSpan typeSpec attrs declList)
 
 -- | Generate @n@ declarations, building up the environment as we go.
-genDecls :: Bool -> Bool -> Int -> GenM [(TypeSpec A0, Maybe Intent, Statement A0)]
+genDecls :: Bool -> Bool -> Int -> GenM [(Name, TypeSpec A0, Maybe Intent, Statement A0)]
 genDecls initialise isArg n = replicateM n (genDecl initialise isArg)
 
 -- | Generate a program unit with a growing set of declarations.
@@ -212,7 +216,7 @@ genProgramUnit incReals = sized $ \sz -> do
     -- Uses QuickCheck's 'sized' so the number of declarations scales with test size.
     let numDecls = max 1 (sz `div` 5)
     (decls, env') <- runStateT (genDecls True False numDecls) env
-    let declBlocks  = map (\(_, _, s) -> BlStatement () nullSpan Nothing s) decls
+    let declBlocks  = map (\(_, _, _, s) -> BlStatement () nullSpan Nothing s) decls
     -- Generate main program unit's statements
     topLevelBlocks <- evalStateT genBodyBlocks env'
     let blocks = declBlocks ++ topLevelBlocks ++ printAllEnd env'
@@ -303,13 +307,16 @@ genProcedure = do
      modify (\env -> env { localVariables = Map.empty } )
      argDecls <- genDecls False True numArgs
      -- Every argument declaration carries a Just intent (isArg = True above).
-     let argTypes = [ (ts, intent) | (ts, Just intent, _) <- argDecls ]
+     let argTypes = [ (ts, intent) | (_, ts, Just intent, _) <- argDecls ]
 
-     -- Generate parameters and declaration statements for the parameter
-     env <- get
-     let argNames   = Map.keys (localVariables env)
+     -- Generate parameters and declaration statements for the parameter.
+     -- Names must stay in declaration order (matching argTypes above) since
+     -- actual arguments are matched positionally; Map.keys would instead
+     -- sort lexicographically ("var10" before "var2"), misaligning the
+     -- dummy-argument list against the types used to generate call sites.
+     let argNames   = [ n | (n, _, _, _) <- argDecls ]
          args       = fromList' () (map (ExpValue () nullSpan . ValVariable) argNames)
-         declBlocks = map (\(_, _, s) -> BlStatement () nullSpan Nothing s) argDecls
+         declBlocks = map (\(_, _, _, s) -> BlStatement () nullSpan Nothing s) argDecls
 
      -- Generate the body of the procedure
      bodyBlocks <- genBodyBlocks
@@ -371,6 +378,51 @@ unaryOpTable incReals =
 -- Synthesise an expression of a given base type (any kind/selector).
 genTypedExpressionOfBase :: BaseType -> GenM (Expression A0)
 genTypedExpressionOfBase base = liftGen (genTypeSpecOfBase base) >>= genTypedExpression
+
+-- | Generate the right-hand operand of a binary operator, avoiding programs
+-- that might commonly be rejected by compilers when doing constant propoagation
+-- i.e., division by zero, and avoiding overflow due to large exponents
+genRhsOperand :: BinaryOp -> BaseType -> GenM (Expression A0)
+genRhsOperand Division       base = liftGen (genTypeSpecOfBase base) >>= genNonZeroValue
+genRhsOperand Exponentiation base = liftGen (genTypeSpecOfBase base) >>= genSmallNonNegValue
+genRhsOperand _               base = genTypedExpressionOfBase base
+
+-- | Generate the left-hand operand of a binary operator. Only
+--   'Exponentiation' needs special treatment: its base must also be a
+--   small, atomic literal (not a recursively-generated expression), because
+--   otherwise two exponentiations can nest (e.g. @(base ** e1) ** e2@) and
+--   compound their magnitudes past INTEGER(4) range even when each
+--   individual exponent is small. Keeping the base a bounded literal (like
+--   the exponent) also keeps it immune to 'withBoundVar''s substitution.
+genLhsOperand :: BinaryOp -> BaseType -> GenM (Expression A0)
+genLhsOperand Exponentiation base = liftGen (genTypeSpecOfBase base) >>= genSmallBaseValue
+genLhsOperand _              base = genTypedExpressionOfBase base
+
+-- | A small-magnitude literal (for an 'Exponentiation' base): combined with
+--   the bounded exponent from 'genSmallNonNegValue', the largest possible
+--   magnitude (10^4) stays far clear of the INTEGER(4) range.
+genSmallBaseValue :: TypeSpec A0 -> GenM (Expression A0)
+genSmallBaseValue (TypeSpec _ _ TypeInteger _) = do
+  x <- liftGen $ choose (-10, 10 :: Integer)
+  pure $ ExpValue () nullSpan (ValInteger (show x) Nothing)
+genSmallBaseValue ts = genTypedValue ts
+
+-- | A literal guaranteed not to be zero (for a 'Division' divisor).
+genNonZeroValue :: TypeSpec A0 -> GenM (Expression A0)
+genNonZeroValue (TypeSpec _ _ TypeInteger _) = do
+  x <- liftGen $ (arbitrary :: Gen Integer) `suchThat` (/= 0)
+  pure $ ExpValue () nullSpan (ValInteger (show x) Nothing)
+genNonZeroValue ts = genTypedValue ts
+
+-- | A small, non-negative literal (for an 'Exponentiation' exponent): keeps
+--   fully-literal exponentiations within INTEGER(4) range, and (since the
+--   base can independently be a literal 0) avoids "0 ** negative", which is
+--   itself a division by zero.
+genSmallNonNegValue :: TypeSpec A0 -> GenM (Expression A0)
+genSmallNonNegValue (TypeSpec _ _ TypeInteger _) = do
+  x <- liftGen $ choose (0, 4 :: Integer)
+  pure $ ExpValue () nullSpan (ValInteger (show x) Nothing)
+genSmallNonNegValue ts = genTypedValue ts
 
 -- | Fortran requires the actual argument for an Out/InOut dummy parameter to
 --   be a definable variable reference (the callee writes back into it), not
@@ -456,8 +508,8 @@ genTypedExpression typeSpec = do
                     candidates -> do
                          (op, lhsBase, rhsBase, _) <- liftGen $ elements candidates
                          withBoundVar typeSpec typeSpec $ do
-                           lhs <- smaller $ genTypedExpressionOfBase lhsBase
-                           rhs <- smaller $ genTypedExpressionOfBase rhsBase
+                           lhs <- smaller $ genLhsOperand op lhsBase
+                           rhs <- smaller $ genRhsOperand op rhsBase
                            pure $ ExpBinary () nullSpan op lhs rhs
 
           -- As 'binaryOpExpr', but for unary operators.
@@ -504,7 +556,14 @@ withBoundVar :: TypeSpec A0 -> TypeSpec A0 -> GenM (Expression A0) -> GenM (Expr
 withBoundVar goal tempType genE = do
      temp_var <- freshName Var
      before <- gets localVariables
-     modify (\env -> env { localVariables = Map.insert temp_var (tempType, Nothing) before })
+     -- temp_var stands in for the result of 'genE', an arbitrary expression
+     -- (e.g. a function call), not necessarily a variable. It must be marked
+     -- read-only (In): if it were writable it could be picked as the actual
+     -- argument for an Out/InOut dummy parameter while generating t2, and
+     -- substituting 'e' in afterwards would then plug a non-variable
+     -- expression into a slot that Fortran requires to be a definable
+     -- variable reference.
+     modify (\env -> env { localVariables = Map.insert temp_var (tempType, Just In) before })
      t2 <- smaller $ genTypedExpression goal
      modify (\env -> env { localVariables = before })
      e <- genE
@@ -594,7 +653,10 @@ generatePrograms incReals n dir = do
     let name = "example" ++ show i
         pu'   = updateName name pu
         pf   = ProgramFile (meta { miFilename = name ++ ".f90" }) [pu']
-        src  = pprintAndRender Fortran90 pf (Just 2)
+        -- Deeply-nested generated expressions can produce lines longer than
+        -- Fortran's fixed line-length limit; split them with continuations
+        -- so gfortran doesn't reject them as truncated/malformed.
+        src  = reformatMixedFormInsertContinuations $ pprintAndRender Fortran90 pf (Just 2)
         path = dir </> name ++ ".f90"
     writeFile path src
     putStrLn $ "Written: " ++ path
