@@ -1014,6 +1014,9 @@ instance Pretty (ImpElement a) where
           Just cTo -> char cFrom <> "-" <> char cTo
 
 instance Pretty (Expression a) where
+    -- A negative numeric literal is not atomic (needs parents)
+    isAtomic (ExpValue _ _ (ValInteger i _)) = not (head i == '-')
+    isAtomic (ExpValue _ _ (ValReal rl _))   = not (head (realLitSignificand rl) == '-')
     isAtomic (ExpValue{}) = True
     isAtomic _ = False
 
