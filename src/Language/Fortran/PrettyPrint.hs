@@ -1245,9 +1245,15 @@ reformatMixedFormInsertContinuations = go stNewline
     -- in statement: break when required
     go (RefmtStStmt col)    (x:xs)
       -- Checking if we are at column 73, since col is counted from 0!
-      | col == maxCol && x == '&' = -- already a continuation in `intersection` format
+      -- Use >= rather than ==: if a content character (e.g. a '&' inside a
+      -- character literal) happens to land exactly on maxCol, the first
+      -- branch below passes it through without resetting col, so col can
+      -- overshoot maxCol. With a strict '==' the second branch would then
+      -- never match again for the rest of the line, producing an unbounded
+      -- line; '>=' keeps triggering a break every time the budget is spent.
+      | col >= maxCol && x == '&' = -- already a continuation in `intersection` format
                         '&' : go (RefmtStStmt (col + 1)) xs
-      | col == maxCol = -- making continuation
+      | col >= maxCol = -- making continuation
                         '&' : '\n' : go stNewline ("     &" ++ x:xs)
       | otherwise     = x : go (RefmtStStmt (col + 1)) xs
 
