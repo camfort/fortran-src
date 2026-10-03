@@ -224,7 +224,7 @@ genProgramUnit incReals = sized $ \sz -> do
     where
       -- print out everything in the environment at the end
       printAllEnd env =
-        [ BlStatement () nullSpan Nothing (StPrint () nullSpan (ExpValue () nullSpan ValStar)
+        [ BlStatement () nullSpan Nothing (StWrite () nullSpan (fromList () [ControlPair () nullSpan Nothing (ExpValue () nullSpan ValStar)])
             (fromList' () (map (\n -> ExpValue () nullSpan (ValVariable n)) (Map.keys (localVariables env))))) ]
 
 instance ArbitraryInCtxt (Statement A0) where
