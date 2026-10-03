@@ -1020,6 +1020,7 @@ instance Pretty (Expression a) where
     isAtomic (ExpValue{}) = True
     isAtomic _ = False
 
+    pprint' :: FortranVersion -> Expression a -> Doc
     pprint' v (ExpValue _ _ val)  =
          pprint' v val
 
