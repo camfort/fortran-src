@@ -1182,7 +1182,14 @@ instance Pretty BinaryOp where
     pprint' v EQ  = if v <= Fortran77Extended then ".eq." else "=="
     pprint' v NE  = if v <= Fortran77Extended then ".ne." else "/="
     pprint' _ Or  = ".or."
-    pprint' _ XOr = ".xor."
+    -- '.xor.' was never standardized (it's a widely-supported legacy
+    -- extension, rejected under e.g. '-std=f2018'). '.neqv.' is the
+    -- standard spelling of the same boolean function (true iff the
+    -- operands differ), so we always print XOr that way, regardless of
+    -- which spelling the source used -- matching NotEquivalent's gate.
+    pprint' v XOr
+      | v >= Fortran77 = ".neqv."
+      | otherwise = tooOld v ".NEQV. operator" Fortran77
     pprint' _ And = ".and."
     pprint' v Equivalent
       | v >= Fortran77 = ".eqv."
