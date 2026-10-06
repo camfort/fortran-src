@@ -411,7 +411,7 @@ binaryOpTable :: Bool -> [(BinaryOp, BaseType, BaseType, BaseType)]
 binaryOpTable incReals =
      -- Arithmetic: operands and result share a numeric type
      [ (op, ty, ty, ty)
-     | op <- [Addition, Subtraction, Multiplication, Division, Exponentiation]
+     | op <- [Addition, Subtraction, Multiplication, Division] -- Exponentiation
      , ty <- numericTypes incReals
      ] ++
      -- Relational: numeric operands, logical result
