@@ -218,7 +218,7 @@ main = do
       exists <- doesDirectoryExist dir
       unless exists $ ioError $ userError $
         "Output directory does not exist: " ++ dir
-      generatePrograms (not (generateNoReals opts)) n dir
+      generatePrograms (not (generateNoReals opts)) (generateFlight opts) n dir
     _ -> fail $ usageInfo programName options
 
 
@@ -342,10 +342,11 @@ data Options = Options
   , cppOptions      :: Maybe String -- ^ Nothing: no CPP; Just x: run CPP with options x.
   , useContinuationReformatter :: Bool
   , generateNoReals :: Bool
+  , generateFlight  :: Bool
   }
 
 initOptions :: Options
-initOptions = Options Nothing Parse Default Nothing [] Nothing False False
+initOptions = Options Nothing Parse Default Nothing [] Nothing False False False
 
 options :: [OptDescr (Options -> Options)]
 options =
@@ -419,6 +420,10 @@ options =
       ["generate-no-reals"]
       (NoArg $ \ opts -> opts { generateNoReals = True })
       "when generating programs, exclude real/floating-point types"
+  , Option []
+      ["generate-flight"]
+      (NoArg $ \ opts -> opts { generateFlight = True })
+      "when generating programs, bind intermediate results to temporary variables instead of nesting them"
   , Option []
       ["make-mods", "make"]
       (NoArg $ \ opts -> opts { action = Make })

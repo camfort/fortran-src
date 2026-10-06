@@ -20,7 +20,7 @@ import Control.Monad.State
 import qualified Data.Map.Strict as Map
 import Data.Map.Strict (Map)
 import System.FilePath ((</>))
-import Data.Generics.Uniplate.Data (universeBi)
+import Data.Generics.Uniplate.Data (universeBi, transformBi)
 
 --------------------------------------------------------------------------------
 -- Core (stateless) generators
@@ -96,6 +96,12 @@ data Env = Env
   , functions      :: Map Name ([(TypeSpec A0, Intent)], TypeSpec A0)
   , subroutines    :: Map Name [(TypeSpec A0, Intent)]
   , includeReals   :: Bool
+  -- | Discharge 'withBoundVar' via intermediate definitions, not substitution.
+  , flight         :: Bool
+  -- | Intermediate definitions awaiting placement (newest first): assignments
+  --   go before the current statement, declarations to the enclosing unit.
+  , pendingStmts   :: [Statement A0]
+  , pendingDecls   :: [Statement A0]
   }
 
 -- | Local variables (Nothing intent) and In/InOut arguments are readable in r-expressions.
@@ -121,6 +127,9 @@ emptyEnv = Env { localVariables = Map.empty
                , functions      = Map.empty
                , subroutines    = Map.empty
                , includeReals   = True
+               , flight         = False
+               , pendingStmts   = []
+               , pendingDecls   = []
                }
 
 instance Show VarType where
@@ -134,6 +143,41 @@ type GenM a = StateT Env Gen a
 -- | Lift a plain 'Gen' action into 'GenM'.
 liftGen :: Gen a -> GenM a
 liftGen = lift
+
+statementToBlock :: Statement A0 -> Block A0
+statementToBlock = BlStatement () nullSpan Nothing
+
+-- | Build @write (*, *) e1, e2, ...@ for the given expressions.
+mkWrite :: [Expression A0] -> Statement A0
+mkWrite exprs = StWrite () nullSpan
+  (fromList () [ ControlPair () nullSpan Nothing (ExpValue () nullSpan ValStar)   -- unit
+               , ControlPair () nullSpan Nothing (ExpValue () nullSpan ValStar) ]) -- format
+  (fromList' () exprs)
+
+emitStmt :: Statement A0 -> GenM ()
+emitStmt s = modify (\env -> env { pendingStmts = s : pendingStmts env })
+
+emitDecl :: Statement A0 -> GenM ()
+emitDecl d = modify (\env -> env { pendingDecls = d : pendingDecls env })
+
+-- | Run a generator, also returning (in order) the intermediate assignments it
+--   emitted, which must be placed before whatever it produced.
+collectingStmts :: GenM a -> GenM ([Statement A0], a)
+collectingStmts = collecting pendingStmts (\env s -> env { pendingStmts = s })
+
+-- | As 'collectingStmts', for declarations to hoist into the enclosing unit.
+collectingDecls :: GenM a -> GenM ([Statement A0], a)
+collectingDecls = collecting pendingDecls (\env d -> env { pendingDecls = d })
+
+collecting :: (Env -> [Statement A0]) -> (Env -> [Statement A0] -> Env)
+           -> GenM a -> GenM ([Statement A0], a)
+collecting getField setField gen = do
+  saved <- gets getField
+  modify (`setField` [])
+  x <- gen
+  emitted <- gets getField
+  modify (`setField` saved)
+  pure (reverse emitted, x)
 
 -- | Like 'Arbitrary' but generators run in 'GenM', giving access to the
 --   typing environment.
@@ -154,16 +198,19 @@ instance ArbitraryInCtxt BaseType where
 instance ArbitraryInCtxt (TypeSpec A0) where
   arbitraryInCtxt = arbitraryInCtxt >>= liftGen . genTypeSpecOfBase
 
--- | Generate a fresh variable name based on the current environment size.
+-- | Generate a fresh name, numbered from the current environment size. Names
+--   can be non-contiguous (a substitution placeholder is removed while call
+--   bindings made after it stay), so skip any that are already taken.
 freshName :: VarType -> GenM Name
 freshName varType = do
   env <- get
-  let number =
+  let (start, taken) =
           case varType of
-               Var -> Map.size (localVariables env)
-               Sub -> Map.size (subroutines env)
-               Fun -> Map.size (functions env)
-  return $ show varType ++ show number
+               Var -> (Map.size (localVariables env), (`Map.member` localVariables env))
+               Sub -> (Map.size (subroutines env),    (`Map.member` subroutines env))
+               Fun -> (Map.size (functions env),      (`Map.member` functions env))
+      name k = show varType ++ show k
+  return $ name (until (not . taken . name) (+ 1) start)
 
 --------------------------------------------------------------------------------
 -- Generate typing context and declarations
@@ -172,8 +219,7 @@ freshName varType = do
 -- | Generate one variable declaration statement, adding the variable to the environment.
 --   @initialise@ controls whether the declaration carries an initializer
 --   (dummy arguments must not be initialised).
---   @isArg@ controls whether a random 'Intent' attribute is generated
---   (only dummy arguments carry intent; local variables do not).
+--   @isArg@ controls whether this is an argument so needs intent generated
 -- | Also returns the declared variable's 'Name': callers that need to
 --   preserve declaration order (e.g. building a dummy-argument list) must
 --   not recover names via 'Map.keys' on 'localVariables', since that sorts
@@ -202,13 +248,14 @@ genDecls initialise isArg n = replicateM n (genDecl initialise isArg)
 
 -- | Generate a program unit with a growing set of declarations.
 instance Arbitrary (ProgramUnit A0) where
-  arbitrary = genProgramUnit True
+  arbitrary = genProgramUnit True False
 
 -- | Generate a 'ProgramUnit', with 'incReals' controlling whether 'TypeReal'
---   may appear in generated declarations and expressions.
-genProgramUnit :: Bool -> Gen (ProgramUnit A0)
-genProgramUnit incReals = sized $ \sz -> do
-    let startEnv = emptyEnv { includeReals = incReals }
+--   may appear in generated declarations and expressions, and 'flightMode' whether
+--   intermediate results become definitions rather than being substituted.
+genProgramUnit :: Bool -> Bool -> Gen (ProgramUnit A0)
+genProgramUnit incReals flightMode = sized $ \sz -> do
+    let startEnv = emptyEnv { includeReals = incReals, flight = flightMode }
     -- Generate some other subroutines and functions
     (procs, env) <- runStateT genProcedures startEnv
 
@@ -217,17 +264,15 @@ genProgramUnit incReals = sized $ \sz -> do
     let numDecls = max 1 (sz `div` 5)
     (decls, env') <- runStateT (genDecls True False numDecls) env
     let declBlocks  = map (\(_, _, _, s) -> BlStatement () nullSpan Nothing s) decls
-    -- Generate main program unit's statements
-    topLevelBlocks <- evalStateT genBodyBlocks env'
-    let blocks = declBlocks ++ topLevelBlocks ++ printAllEnd env'
+    -- Generate main program unit's statements; any intermediate definitions'
+    -- declarations are hoisted ahead of the executable part.
+    (tempDecls, topLevelBlocks) <- evalStateT (collectingDecls genBodyBlocks) env'
+    let blocks = declBlocks ++ map statementToBlock tempDecls ++ topLevelBlocks ++ printAllEnd env'
     pure $ PUMain () nullSpan (Just "generated") blocks (Just procs)
     where
       -- print out everything in the environment at the end
       printAllEnd env =
-        [ BlStatement () nullSpan Nothing (StWrite () nullSpan
-            (fromList () [ ControlPair () nullSpan Nothing (ExpValue () nullSpan ValStar)   -- unit
-                         , ControlPair () nullSpan Nothing (ExpValue () nullSpan ValStar) ]) -- format
-            (fromList' () (map (\n -> ExpValue () nullSpan (ValVariable n)) (Map.keys (localVariables env))))) ]
+        [ statementToBlock $ mkWrite (map (ExpValue () nullSpan . ValVariable) (Map.keys (localVariables env))) ]
 
 instance ArbitraryInCtxt (Statement A0) where
   -- Pick 
@@ -268,7 +313,7 @@ instance ArbitraryInCtxt (Statement A0) where
          else do
            (name, _) <- pickVar readableLocalVariables
            let expr = ExpValue () nullSpan (ValVariable name)
-           pure $ StPrint () nullSpan (ExpValue () nullSpan ValStar) (fromList' () [expr])
+           pure $ mkWrite [expr]
 
 -- | Generate the statements of a body as blocks
 genBodyBlocks :: GenM [Block A0]
@@ -280,8 +325,14 @@ genBodyBlocks = do
        else do
          sz <- liftGen getSize
          n <- liftGen $ choose (0, sz)
-         statements <- replicateM n (arbitraryInCtxt :: GenM (Statement A0))
-         pure $ map (BlStatement () nullSpan Nothing) statements
+         statements <- concat <$> replicateM n genStatement
+         pure $ map statementToBlock statements
+
+-- | Generate one statement, preceded by any intermediate assignments it needs.
+genStatement :: GenM [Statement A0]
+genStatement = do
+  (pre, s) <- collectingStmts arbitraryInCtxt
+  pure (pre ++ [s])
 
 -- Generate a list of procedures (subroutines or functions)
 genProcedures :: GenM [ProgramUnit A0]
@@ -320,27 +371,29 @@ genProcedure = do
          args       = fromList' () (map (ExpValue () nullSpan . ValVariable) argNames)
          declBlocks = map (\(_, _, _, s) -> BlStatement () nullSpan Nothing s) argDecls
 
-     -- Generate the body of the procedure
-     bodyBlocks <- genBodyBlocks
+     -- Generate the body (and, for a function, the return value), collecting
+     -- declarations of any intermediate definitions made along the way.
+     (tempDecls, (bodyBlocks, mReturnType)) <- collectingDecls $ do
+       body <- genBodyBlocks
+       if isSubroutine
+         then pure (body, Nothing)
+         else do
+           returnType <- liftGen (arbitrary :: Gen (TypeSpec A0))
+           (pre, returnValue) <- collectingStmts (genTypedExpression returnType)
+           -- Functions return by assigning to their own name
+           let ret = StExpressionAssign () nullSpan (ExpValue () nullSpan (ValVariable name)) returnValue
+           pure (body ++ map statementToBlock (pre ++ [ret]), Just returnType)
+     let specBlocks = declBlocks ++ map statementToBlock tempDecls
 
      -- Produce the final procedure AST node, updating the type environment
-     pu <- if isSubroutine
-       then do
+     pu <- case mReturnType of
+       Nothing -> do
           modify (\env -> env { subroutines = Map.insert name argTypes (subroutines env) })
-          pure $ PUSubroutine annotation nullSpan (Nothing, Nothing) name args (declBlocks ++ bodyBlocks) Nothing
-       else do
-
-         -- Decide what the return result will be for a function
-         returnType <- liftGen (arbitrary :: Gen (TypeSpec A0))
-         returnValue <- genTypedExpression returnType
-         -- Functions return by assigning to their own name
-         let returnBlock = BlStatement () nullSpan Nothing
-               (StExpressionAssign () nullSpan (ExpValue () nullSpan (ValVariable name)) returnValue)
-
+          pure $ PUSubroutine annotation nullSpan (Nothing, Nothing) name args (specBlocks ++ bodyBlocks) Nothing
+       Just returnType -> do
          modify (\env -> env { functions = Map.insert name (argTypes, returnType) (functions env) })
-
          pure $ PUFunction annotation nullSpan (Just returnType) (Nothing, Nothing)
-             name args Nothing (declBlocks ++ bodyBlocks ++ [returnBlock]) Nothing
+             name args Nothing (specBlocks ++ bodyBlocks) Nothing
 
      -- Restore the caller's local variables so procedure locals don't leak
      modify (\env -> env { localVariables = localVariables env_before })
@@ -509,7 +562,7 @@ genTypedExpression typeSpec = do
                     [] -> genTypedValue typeSpec
                     candidates -> do
                          (op, lhsBase, rhsBase, _) <- liftGen $ elements candidates
-                         withBoundVar typeSpec typeSpec $ do
+                         boundBySubstitution typeSpec typeSpec $ do
                            lhs <- smaller $ genLhsOperand op lhsBase
                            rhs <- smaller $ genRhsOperand op rhsBase
                            pure $ ExpBinary () nullSpan op lhs rhs
@@ -522,7 +575,7 @@ genTypedExpression typeSpec = do
                     [] -> genTypedValue typeSpec
                     candidates -> do
                          (op, argBase, _) <- liftGen $ elements candidates
-                         withBoundVar typeSpec typeSpec $ do
+                         boundBySubstitution typeSpec typeSpec $ do
                            arg <- smaller $ genTypedExpressionOfBase argBase
                            pure $ ExpUnary () nullSpan op arg
 
@@ -547,32 +600,65 @@ smaller :: GenM a -> GenM a
 smaller = mapStateT (scale (`div` 2))
 
 -- | The shared "cut" of the sequent calculus style rules: bind a fresh
---   variable @x : tempType@, synthesise @t2@ for the goal under that binding,
---   generate @e@ (without @x@ in scope), and return @[e / x] t2@.
---
---   The binding is scoped: @x@ is removed from the environment afterwards so it
---   can never leak out as an undeclared variable. If @t2@ happens not to use
---   @x@ then the rule would be vacuous, so when @e@ itself has the goal type we
---   return @e@ (i.e., take @t2 = x@) rather than discarding it.
+--   variable @x : tempType@ to the result @e@ of @genE@, and synthesise @t2@
+--   for the goal with @x@ in scope. Operators always discharge @x@ by
+--   substitution; function calls do too, except in 'flight' mode, where they
+--   always get an intermediate definition (so calls never appear nested).
 withBoundVar :: TypeSpec A0 -> TypeSpec A0 -> GenM (Expression A0) -> GenM (Expression A0)
 withBoundVar goal tempType genE = do
-     temp_var <- freshName Var
-     before <- gets localVariables
-     -- temp_var stands in for the result of 'genE', an arbitrary expression
-     -- (e.g. a function call), not necessarily a variable. It must be marked
-     -- read-only (In): if it were writable it could be picked as the actual
-     -- argument for an Out/InOut dummy parameter while generating t2, and
-     -- substituting 'e' in afterwards would then plug a non-variable
-     -- expression into a slot that Fortran requires to be a definable
-     -- variable reference.
-     modify (\env -> env { localVariables = Map.insert temp_var (tempType, Just In) before })
-     t2 <- smaller $ genTypedExpression goal
-     modify (\env -> env { localVariables = before })
+     inFlight <- gets flight
+     if inFlight then boundByDefinition goal tempType genE
+             else boundBySubstitution goal tempType genE
+
+mentions :: Name -> Expression A0 -> Bool
+mentions v t = not $ null [ () | ExpValue _ _ (ValVariable v') <- universeBi t :: [Expression A0], v' == v ]
+
+-- | Discharge by an intermediate definition: emit @x = e@ (declaring @x@ in
+--   the enclosing unit) and return @t2@. @e@ is generated first, since its
+--   assignment precedes @t2@. @x@ is a real variable, so it stays in scope
+--   (also keeping 'freshName' unique) and carries no intent restriction.
+boundByDefinition :: TypeSpec A0 -> TypeSpec A0 -> GenM (Expression A0) -> GenM (Expression A0)
+boundByDefinition goal tempType genE = do
      e <- genE
-     let used = not $ null [ () | ExpValue _ _ (ValVariable v) <- universeBi t2 :: [Expression A0], v == temp_var ]
-     pure $ if used then substitute e temp_var t2
+     temp_var <- freshName Var
+     let ref  = ExpValue () nullSpan (ValVariable temp_var)
+         decl = Declarator () nullSpan ref ScalarDecl Nothing Nothing
+     emitDecl $ StDeclaration () nullSpan tempType Nothing (AList () nullSpan [decl])
+     emitStmt $ StExpressionAssign () nullSpan ref e
+     modify (\env -> env { localVariables = Map.insert temp_var (tempType, Nothing) (localVariables env) })
+     t2 <- smaller $ genTypedExpression goal
+     -- As below: if t2 ignores x but x already has the goal type, use x.
+     pure $ if not (mentions temp_var t2) && tempType == goal then ref else t2
+
+-- | Discharge by substitution: return @[e / x] t2@. The binding is scoped: @x@
+--   is removed afterwards so it can never leak out as an undeclared variable.
+--   If @t2@ doesn't use @x@ the rule is vacuous, so when @e@ has the goal type
+--   we return @e@ instead.
+--
+--   In flight mode, generating @t2@ may emit call bindings that mention @x@,
+--   so we substitute in those too. @e@ is generated first so that anything it
+--   emits (and which may thus appear after substitution) is defined earlier.
+boundBySubstitution :: TypeSpec A0 -> TypeSpec A0 -> GenM (Expression A0) -> GenM (Expression A0)
+boundBySubstitution goal tempType genE = do
+     e <- genE
+     temp_var <- freshName Var
+     -- temp_var stands in for 'e', which need not be a variable, so it is
+     -- read-only (In): otherwise it could be picked as the actual argument
+     -- for an Out/InOut dummy parameter, which must be a definable variable.
+     modify (\env -> env { localVariables = Map.insert temp_var (tempType, Just In) (localVariables env) })
+     (emitted, t2) <- collectingStmts (smaller $ genTypedExpression goal)
+     -- Remove only x: call bindings made while generating t2 stay in scope.
+     modify (\env -> env { localVariables = Map.delete temp_var (localVariables env) })
+     mapM_ (emitStmt . substituteInStmt e temp_var) emitted
+     pure $ if mentions temp_var t2 then substitute e temp_var t2
             else if tempType == goal then e
             else t2
+
+substituteInStmt :: Expression A0 -> Name -> Statement A0 -> Statement A0
+substituteInStmt e x = transformBi sub
+  where sub :: Expression A0 -> Expression A0
+        sub (ExpValue _ _ (ValVariable v)) | v == x = e
+        sub other = other
 
 -- Synthesise a value of the given type
 genTypedValue :: TypeSpec A0 -> GenM (Expression A0)
@@ -646,10 +732,11 @@ demoProgram = do
 --   Filenames are taken from the PUMain program unit name; unnamed programs
 --   are numbered @program_1.f90@, @program_2.f90@, etc.
 --   When @incReals@ is 'False', 'TypeReal' is excluded from all generated types.
-generatePrograms :: Bool -> Int -> FilePath -> IO ()
-generatePrograms incReals n dir = do
+--   When @flightMode@ is 'True', intermediate results become separate definitions.
+generatePrograms :: Bool -> Bool -> Int -> FilePath -> IO ()
+generatePrograms incReals flightMode n dir = do
   -- Grow the size with the program index so programs get progressively bigger
-  pus <- generate $ mapM (\i -> resize i (genProgramUnit incReals)) [1 .. n]
+  pus <- generate $ mapM (\i -> resize i (genProgramUnit incReals flightMode)) [1 .. n]
   let meta = MetaInfo { miVersion = Fortran90, miFilename = "<generated>" }
   forM_ (zip [1 :: Int ..] pus) $ \(i, pu) -> do
     let name = "example" ++ show i
