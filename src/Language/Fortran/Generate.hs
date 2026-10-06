@@ -148,11 +148,11 @@ statementToBlock :: Statement A0 -> Block A0
 statementToBlock = BlStatement () nullSpan Nothing
 
 -- | Build @write (*, *) e1, e2, ...@ for the given expressions.
-mkWrite :: [Expression A0] -> Statement A0
+mkWrite :: Expression A0 -> Statement A0
 mkWrite exprs = StWrite () nullSpan
   (fromList () [ ControlPair () nullSpan Nothing (ExpValue () nullSpan ValStar)   -- unit
                , ControlPair () nullSpan Nothing (ExpValue () nullSpan ValStar) ]) -- format
-  (fromList' () exprs)
+  (fromList' () [exprs])
 
 emitStmt :: Statement A0 -> GenM ()
 emitStmt s = modify (\env -> env { pendingStmts = s : pendingStmts env })
@@ -272,7 +272,7 @@ genProgramUnit incReals flightMode = sized $ \sz -> do
     where
       -- print out everything in the environment at the end
       printAllEnd env =
-        [ statementToBlock $ mkWrite (map (ExpValue () nullSpan . ValVariable) (Map.keys (localVariables env))) ]
+        map (statementToBlock . mkWrite) (map (ExpValue () nullSpan . ValVariable) (Map.keys (localVariables env)))
 
 instance ArbitraryInCtxt (Statement A0) where
   -- Pick 
@@ -313,7 +313,7 @@ instance ArbitraryInCtxt (Statement A0) where
          else do
            (name, _) <- pickVar readableLocalVariables
            let expr = ExpValue () nullSpan (ValVariable name)
-           pure $ mkWrite [expr]
+           pure $ mkWrite expr
 
 -- | Generate the statements of a body as blocks
 genBodyBlocks :: GenM [Block A0]
