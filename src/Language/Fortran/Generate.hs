@@ -678,7 +678,7 @@ genTypedValue (TypeSpec _ _ baseType _) = case baseType of
           --TODO: consider utf-8 because maybe this is somewhere things break in compilers
           --s <- liftGen $ vectorOf n (choose (' ', '~'))
           s <- liftGen $ choose (' ', '~')
-          let s' = concat (map (\c -> if c == '\'' then "" else if c == '\"' then "\\\"" else [c]) [s])
+          let s' = concat (map (\c -> if c == '\'' then "\\" else if c == '\"' then "\\\"" else [c]) [s])
           pure $ ExpValue () nullSpan (ValString s')
      _ -> error "Cannot generate"
 
