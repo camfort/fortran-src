@@ -420,22 +420,30 @@ genLoop = do
       doSpec = DoSpecification () nullSpan doInit end Nothing
   pure $ BlDo () nullSpan Nothing Nothing Nothing (Just doSpec) loopBody Nothing
 
+-- | The largest gap allowed between a loop's start and end bound (see
+--   'genSafeLoopBounds'), i.e. the largest possible trip count minus one.
+maxLoopSpan :: Integer
+maxLoopSpan = 10
+
 -- | Synthesise a (start, end) bound pair for a counted DO loop (implicit
 --   step of 1) such that the loop is guaranteed to run for a small, finite
---   number of iterations -- independently-generated bounds can otherwise
---   land arbitrarily far apart (e.g. a very negative start with a very
---   positive end), making the loop take effectively forever to run even
---   though it's technically well-founded. Picks between three strategies:
+--   number of iterations, at most 'maxLoopSpan' apart -- independently-
+--   generated bounds can otherwise land arbitrarily far apart (e.g. a very
+--   negative start with a very positive end), making the loop take
+--   effectively forever to run even though it's technically well-founded.
+--   Picks between three strategies:
 --
 --     1. Two integer literals, chosen so the second is strictly greater
---        than the first.
+--        than the first, and no more than 'maxLoopSpan' above it.
 --     2. A literal '1' start, paired with a synthesised upper bound wrapped
---        in 'abs', so it can't end up negative or zero relative to the
---        start (an empty, zero-trip range).
+--        in 'abs' (so it can't end up negative) and then reduced modulo
+--        'maxLoopSpan', so it can't end up negative or further than
+--        'maxLoopSpan' from the start.
 --     3. A synthesised lower bound wrapped in 'abs', paired with that same
---        bound plus a small positive literal constant as the upper bound --
---        this fixes the trip count to exactly that constant regardless of
---        the lower bound's own magnitude.
+--        bound plus a small positive literal constant (at most
+--        'maxLoopSpan') as the upper bound -- this fixes the trip count to
+--        exactly that constant regardless of the lower bound's own
+--        magnitude.
 genSafeLoopBounds :: GenM (Expression A0, Expression A0)
 genSafeLoopBounds = oneofCtxt [literalBounds, absUpperBound, absLowerBoundPlusConst]
   where
