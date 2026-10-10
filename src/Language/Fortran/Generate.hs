@@ -385,19 +385,41 @@ genConditional = do
 -- Generate a loop
 genLoop :: GenM (Block A0)
 genLoop = do
+  let integerTy = TypeSpec () nullSpan TypeInteger Nothing
   -- find a loop index variable (integer) and if there isn't one, generate a new
   -- declaration for one (into the declaration environment)
-  undefined
-  -- generate start and end expressions
-  undefined
+  loopVar <- do
+    env <- get
+    let candidates = [ name | (name, ts) <- Map.toList (writableLocalVariables env), ts == integerTy ]
+    case candidates of
+      (_:_) -> liftGen (elements candidates)
+      []    -> do
+        name <- freshName Var
+        let ref  = ExpValue () nullSpan (ValVariable name)
+            decl = Declarator () nullSpan ref ScalarDecl Nothing Nothing
+        emitDecl $ StDeclaration () nullSpan integerTy Nothing (AList () nullSpan [decl])
+        modify (\e -> e { localVariables = Map.insert name (integerTy, Nothing) (localVariables e) })
+        pure name
+  -- Fortran forbids redefining a DO loop's control variable anywhere in its
+  -- scope, including its own start/end bound expressions (evaluated once at
+  -- loop entry) as well as its body. So mark it read-only before generating
+  -- any of those, and restore its original entry (whatever it was before --
+  -- freshly declared, or an existing local/argument) once done.
+  original <- gets ((Map.! loopVar) . localVariables)
+  modify (\env -> env { localVariables = Map.insert loopVar (integerTy, Just In) (localVariables env) })
+  start <- genTypedExpression integerTy
+  end   <- genTypedExpression integerTy
   -- generate loop body, shrinking body depth
   loopBody <- smaller $ do
     modify (\env -> env { bodyDepth = bodyDepth env + 1 })
     blocks <- genBodyBlocks
     modify (\env -> env { bodyDepth = bodyDepth env - 1 })
     pure blocks
+  modify (\env -> env { localVariables = Map.insert loopVar original (localVariables env) })
   -- make into a do block
-  undefined
+  let doInit = StExpressionAssign () nullSpan (ExpValue () nullSpan (ValVariable loopVar)) start
+      doSpec = DoSpecification () nullSpan doInit end Nothing
+  pure $ BlDo () nullSpan Nothing Nothing Nothing (Just doSpec) loopBody Nothing
 
 -- Generate a list of procedures (subroutines or functions)
 genProcedures :: GenM [ProgramUnit A0]
