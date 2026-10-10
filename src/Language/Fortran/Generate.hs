@@ -103,7 +103,18 @@ data Env = Env
   --   go before the current statement, declarations to the enclosing unit.
   , pendingStmts   :: [Statement A0]
   , pendingDecls   :: [Statement A0]
+  -- | Current nesting depth of conditional (and future block-level) bodies.
+  --   Bounds recursion by depth, not just by QuickCheck's size: 'smaller'
+  --   halves the size budget per level, but the number of items a body
+  --   generates is still up to that (unshrunk-in-count) budget, so without
+  --   a depth cap, nested conditionals branch instead of terminating.
+  , bodyDepth      :: Int
   }
+
+-- | Below this nesting depth, a body item may be a conditional; at or past
+--   it, only plain statements are generated.
+maxBodyDepth :: Int
+maxBodyDepth = 3
 
 -- | Local variables (Nothing intent) and In/InOut arguments are readable in r-expressions.
 readableLocalVariables :: Env -> Map Name (TypeSpec A0)
@@ -131,6 +142,7 @@ emptyEnv = Env { localVariables = Map.empty
                , flight         = False
                , pendingStmts   = []
                , pendingDecls   = []
+               , bodyDepth      = 0
                }
 
 instance Show VarType where
@@ -326,15 +338,22 @@ genBodyBlocks = do
        then pure []
        else do
          sz <- liftGen getSize
-         n <- liftGen $ choose (0, sz)
+         -- Cap nested conditional to a small constant regardless of 'sz'
+         let upperBound = if bodyDepth env == 0 then sz else min sz 3
+         n <- liftGen $ choose (0, upperBound)
          concat <$> replicateM n genBodyItem
 
 -- | One item of a statement body. A conditional isn't itself a 'Statement'
 --   (it's a 'Block', since its branches hold nested blocks), so this picks
 --   between a plain statement and a block-level construct, both producing
---   '[Block A0]'.
+--   '[Block A0]'. Conditionals are only offered below 'maxBodyDepth', since
+--   each one recurses into a full nested body (see 'genConditional').
 genBodyItem :: GenM [Block A0]
-genBodyItem = oneofCtxt [ genStatementBlocks, pure <$> genConditional ]
+genBodyItem = do
+  depth <- gets bodyDepth
+  if depth >= maxBodyDepth
+    then genStatementBlocks
+    else oneofCtxt [ genStatementBlocks, pure <$> genLoop, pure <$> genConditional ]
 
 -- | Generate one statement, preceded by any intermediate assignments it
 --   needs, each wrapped as a 'Block'.
@@ -344,14 +363,41 @@ genStatementBlocks = do
   pure $ map statementToBlock (pre ++ [s])
 
 -- | STUB: synthesise an @if (cond) then ... end if@ block, with a single
---   branch and no @else@. Still to do: else/else-if clauses, and a size
---   limit on nesting depth (currently only 'smaller' on the body).
+--   branch and no @else@. Still to do: else/else-if clauses.
+--
+--   The @then@ body is generated one 'bodyDepth' deeper, which
+--   'genBodyItem' uses to stop offering further conditionals past
+--   'maxBodyDepth' -- without that, nesting would be bounded only by
+--   QuickCheck's size (halved per level by 'smaller'), while the number of
+--   items generated per level is not, so nested conditionals would branch
+--   rather than terminate.
 genConditional :: GenM (Block A0)
 genConditional = do
   logicalTy  <- liftGen (genTypeSpecOfBase TypeLogical)
   cond       <- genTypedExpression logicalTy
-  thenBlocks <- smaller genBodyBlocks
+  thenBlocks <- smaller $ do
+    modify (\env -> env { bodyDepth = bodyDepth env + 1 })
+    blocks <- genBodyBlocks
+    modify (\env -> env { bodyDepth = bodyDepth env - 1 })
+    pure blocks
   pure $ BlIf () nullSpan Nothing Nothing ((cond, thenBlocks) :| []) Nothing Nothing
+
+-- Generate a loop
+genLoop :: GenM (Block A0)
+genLoop = do
+  -- find a loop index variable (integer) and if there isn't one, generate a new
+  -- declaration for one (into the declaration environment)
+  undefined
+  -- generate start and end expressions
+  undefined
+  -- generate loop body, shrinking body depth
+  loopBody <- smaller $ do
+    modify (\env -> env { bodyDepth = bodyDepth env + 1 })
+    blocks <- genBodyBlocks
+    modify (\env -> env { bodyDepth = bodyDepth env - 1 })
+    pure blocks
+  -- make into a do block
+  undefined
 
 -- Generate a list of procedures (subroutines or functions)
 genProcedures :: GenM [ProgramUnit A0]
