@@ -268,9 +268,10 @@ genProgramUnit incReals flightMode = sized $ \sz -> do
     -- Generate main program unit's statements; any intermediate definitions'
     -- declarations are hoisted ahead of the executable part.
     (tempDecls, topLevelBlocks) <- evalStateT (collectingDecls genBodyBlocks) env'
-    let blocks = declBlocks ++ map statementToBlock tempDecls ++ topLevelBlocks ++ printAllEnd env'
+    let blocks = implicitBlock : declBlocks ++ map statementToBlock tempDecls ++ topLevelBlocks ++ printAllEnd env'
     pure $ PUMain () nullSpan (Just "generated") blocks (Just procs)
     where
+      implicitBlock = statementToBlock $ StImplicit () nullSpan Nothing
       -- print out everything in the environment at the end
       printAllEnd env =
         map (statementToBlock . mkWrite) (map (ExpValue () nullSpan . ValVariable) (Map.keys (localVariables env)))
