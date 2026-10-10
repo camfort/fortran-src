@@ -444,25 +444,34 @@ genSafeLoopBounds = oneofCtxt [literalBounds, absUpperBound, absLowerBoundPlusCo
     mkIntLit :: Integer -> Expression A0
     mkIntLit x = ExpValue () nullSpan (ValInteger (show x) Nothing)
 
+    mkIntrinsicCall :: Name -> [Expression A0] -> Expression A0
+    mkIntrinsicCall fun args = ExpFunctionCall () nullSpan (ExpValue () nullSpan (ValVariable fun))
+                (fromList () (map (Argument () nullSpan Nothing . ArgExpr) args))
+
     mkAbs :: Expression A0 -> Expression A0
-    mkAbs e = ExpFunctionCall () nullSpan (ExpValue () nullSpan (ValVariable "abs"))
-                (fromList () [Argument () nullSpan Nothing (ArgExpr e)])
+    mkAbs e = mkIntrinsicCall "abs" [e]
+
+    -- | @e@ reduced into @[0, m - 1]@, via Fortran's 'mod' intrinsic
+    --   (non-negative here since 'e' itself is already non-negative).
+    mkModBelow :: Expression A0 -> Integer -> Expression A0
+    mkModBelow e m = mkIntrinsicCall "mod" [e, mkIntLit m]
 
     literalBounds :: GenM (Expression A0, Expression A0)
     literalBounds = do
       lo <- liftGen $ choose (-1000, 1000 :: Integer)
-      hi <- liftGen $ choose (lo + 1, lo + 1000)
+      hi <- liftGen $ choose (lo + 1, lo + maxLoopSpan)
       pure (mkIntLit lo, mkIntLit hi)
 
     absUpperBound :: GenM (Expression A0, Expression A0)
     absUpperBound = do
       upper <- smaller $ genTypedExpression integerTy
-      pure (mkIntLit 1, mkAbs upper)
+      let boundedUpper = ExpBinary () nullSpan Addition (mkIntLit 1) (mkModBelow (mkAbs upper) maxLoopSpan)
+      pure (mkIntLit 1, boundedUpper)
 
     absLowerBoundPlusConst :: GenM (Expression A0, Expression A0)
     absLowerBoundPlusConst = do
       lower <- smaller $ genTypedExpression integerTy
-      k <- liftGen $ choose (1, 1000 :: Integer)
+      k <- liftGen $ choose (1, maxLoopSpan)
       let loExpr = mkAbs lower
           hiExpr = ExpBinary () nullSpan Addition loExpr (mkIntLit k)
       pure (loExpr, hiExpr)
