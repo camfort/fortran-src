@@ -282,9 +282,9 @@ instance IndentablePretty (Block a) where
         displayIfPred =
             pprint' v mName <?> colon <+> displayPred "if" ifPred
         displayPred str pred =
-            indent i str <+> parens (pprint' v pred) <+> "then"
+            str <+> parens (pprint' v pred) <+> "then"
         displayElseIf (pred, block) =
-            displayClause (displayPred "else if" pred) block
+            displayClause (indent i (displayPred "else if" pred)) block
         displayElse block =
             displayClause (indent i "else") block
         displayClause = printIndentedBlockWithPre v i
