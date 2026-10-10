@@ -19,6 +19,7 @@ import Control.Monad (forM_, replicateM)
 import Control.Monad.State
 import qualified Data.Map.Strict as Map
 import Data.Map.Strict (Map)
+import Data.List.NonEmpty (NonEmpty(..))
 import System.FilePath ((</>))
 import Data.Generics.Uniplate.Data (universeBi, transformBi)
 
@@ -325,14 +326,31 @@ genBodyBlocks = do
        else do
          sz <- liftGen getSize
          n <- liftGen $ choose (0, sz)
-         statements <- concat <$> replicateM n genStatement
-         pure $ map statementToBlock statements
+         concat <$> replicateM n genBodyItem
 
--- | Generate one statement, preceded by any intermediate assignments it needs.
-genStatement :: GenM [Statement A0]
-genStatement = do
+-- | One item of a statement body. A conditional isn't itself a 'Statement'
+--   (it's a 'Block', since its branches hold nested blocks), so this picks
+--   between a plain statement and a block-level construct, both producing
+--   '[Block A0]'.
+genBodyItem :: GenM [Block A0]
+genBodyItem = oneofCtxt [ genStatementBlocks, pure <$> genConditional ]
+
+-- | Generate one statement, preceded by any intermediate assignments it
+--   needs, each wrapped as a 'Block'.
+genStatementBlocks :: GenM [Block A0]
+genStatementBlocks = do
   (pre, s) <- collectingStmts arbitraryInCtxt
-  pure (pre ++ [s])
+  pure $ map statementToBlock (pre ++ [s])
+
+-- | STUB: synthesise an @if (cond) then ... end if@ block, with a single
+--   branch and no @else@. Still to do: else/else-if clauses, and a size
+--   limit on nesting depth (currently only 'smaller' on the body).
+genConditional :: GenM (Block A0)
+genConditional = do
+  logicalTy  <- liftGen (genTypeSpecOfBase TypeLogical)
+  cond       <- genTypedExpression logicalTy
+  thenBlocks <- smaller genBodyBlocks
+  pure $ BlIf () nullSpan Nothing Nothing ((cond, thenBlocks) :| []) Nothing Nothing
 
 -- Generate a list of procedures (subroutines or functions)
 genProcedures :: GenM [ProgramUnit A0]
@@ -678,6 +696,7 @@ genTypedValue (TypeSpec _ _ baseType _) = case baseType of
           --TODO: consider utf-8 because maybe this is somewhere things break in compilers
           --s <- liftGen $ vectorOf n (choose (' ', '~'))
           s <- liftGen $ choose (' ', '~')
+          --- todo: improve
           let s' = concat (map (\c -> if c == '\'' then "\\" else if c == '\"' then "\\\"" else [c]) [s])
           pure $ ExpValue () nullSpan (ValString s')
      _ -> error "Cannot generate"
