@@ -407,8 +407,7 @@ genLoop = do
   -- freshly declared, or an existing local/argument) once done.
   original <- gets ((Map.! loopVar) . localVariables)
   modify (\env -> env { localVariables = Map.insert loopVar (integerTy, Just In) (localVariables env) })
-  start <- genTypedExpression integerTy
-  end   <- genTypedExpression integerTy
+  (start, end) <- genSafeLoopBounds
   -- generate loop body, shrinking body depth
   loopBody <- smaller $ do
     modify (\env -> env { bodyDepth = bodyDepth env + 1 })
@@ -420,6 +419,53 @@ genLoop = do
   let doInit = StExpressionAssign () nullSpan (ExpValue () nullSpan (ValVariable loopVar)) start
       doSpec = DoSpecification () nullSpan doInit end Nothing
   pure $ BlDo () nullSpan Nothing Nothing Nothing (Just doSpec) loopBody Nothing
+
+-- | Synthesise a (start, end) bound pair for a counted DO loop (implicit
+--   step of 1) such that the loop is guaranteed to run for a small, finite
+--   number of iterations -- independently-generated bounds can otherwise
+--   land arbitrarily far apart (e.g. a very negative start with a very
+--   positive end), making the loop take effectively forever to run even
+--   though it's technically well-founded. Picks between three strategies:
+--
+--     1. Two integer literals, chosen so the second is strictly greater
+--        than the first.
+--     2. A literal '1' start, paired with a synthesised upper bound wrapped
+--        in 'abs', so it can't end up negative or zero relative to the
+--        start (an empty, zero-trip range).
+--     3. A synthesised lower bound wrapped in 'abs', paired with that same
+--        bound plus a small positive literal constant as the upper bound --
+--        this fixes the trip count to exactly that constant regardless of
+--        the lower bound's own magnitude.
+genSafeLoopBounds :: GenM (Expression A0, Expression A0)
+genSafeLoopBounds = oneofCtxt [literalBounds, absUpperBound, absLowerBoundPlusConst]
+  where
+    integerTy = TypeSpec () nullSpan TypeInteger Nothing
+
+    mkIntLit :: Integer -> Expression A0
+    mkIntLit x = ExpValue () nullSpan (ValInteger (show x) Nothing)
+
+    mkAbs :: Expression A0 -> Expression A0
+    mkAbs e = ExpFunctionCall () nullSpan (ExpValue () nullSpan (ValVariable "abs"))
+                (fromList () [Argument () nullSpan Nothing (ArgExpr e)])
+
+    literalBounds :: GenM (Expression A0, Expression A0)
+    literalBounds = do
+      lo <- liftGen $ choose (-1000, 1000 :: Integer)
+      hi <- liftGen $ choose (lo + 1, lo + 1000)
+      pure (mkIntLit lo, mkIntLit hi)
+
+    absUpperBound :: GenM (Expression A0, Expression A0)
+    absUpperBound = do
+      upper <- smaller $ genTypedExpression integerTy
+      pure (mkIntLit 1, mkAbs upper)
+
+    absLowerBoundPlusConst :: GenM (Expression A0, Expression A0)
+    absLowerBoundPlusConst = do
+      lower <- smaller $ genTypedExpression integerTy
+      k <- liftGen $ choose (1, 1000 :: Integer)
+      let loExpr = mkAbs lower
+          hiExpr = ExpBinary () nullSpan Addition loExpr (mkIntLit k)
+      pure (loExpr, hiExpr)
 
 -- Generate a list of procedures (subroutines or functions)
 genProcedures :: GenM [ProgramUnit A0]
