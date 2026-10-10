@@ -46,6 +46,7 @@ import Language.Fortran.Analysis.Renaming
 import qualified Language.Fortran.Parser as Parser
 import qualified Language.Fortran.Parser.Fixed.Lexer as Fixed
 import qualified Language.Fortran.Parser.Free.Lexer  as Free
+import Language.Fortran.Generate (generatePrograms)
 
 programName :: String
 programName = "fortran-src"
@@ -212,6 +213,12 @@ main = do
                            | otherwise    = B.replicate (maxLen - B.length line + 1) ' ' <> "!" <> nodeStr
                 B.putStrLn $ line <> suffix
         _ -> fail $ usageInfo programName options
+    (_, Generate n) -> do
+      let dir = fromMaybe "." (outputFile opts)
+      exists <- doesDirectoryExist dir
+      unless exists $ ioError $ userError $
+        "Output directory does not exist: " ++ dir
+      generatePrograms (not (generateNoReals opts)) (generateFlight opts) n dir
     _ -> fail $ usageInfo programName options
 
 
@@ -312,7 +319,7 @@ printTypeErrors = putStrLn . showTypeErrors
 data Action
   = Lex | Parse | Typecheck | Rename | BBlocks | SuperGraph | Reprint | DumpModFile | Compile
   | ShowFlows Bool Bool Int | ShowBlocks (Maybe Int) | ShowMakeGraph | ShowMakeList | Make
-  | ShowMyVersion
+  | ShowMyVersion | Generate Int
   deriving Eq
 
 instance Read Action where
@@ -334,10 +341,12 @@ data Options = Options
   , includeDirs     :: [String]
   , cppOptions      :: Maybe String -- ^ Nothing: no CPP; Just x: run CPP with options x.
   , useContinuationReformatter :: Bool
+  , generateNoReals :: Bool
+  , generateFlight  :: Bool
   }
 
 initOptions :: Options
-initOptions = Options Nothing Parse Default Nothing [] Nothing False
+initOptions = Options Nothing Parse Default Nothing [] Nothing False False False
 
 options :: [OptDescr (Options -> Options)]
 options =
@@ -401,8 +410,20 @@ options =
       "build an .fsmod file from the input"
   , Option ['o']
       ["output-file"]
-      (ReqArg (\ f opts -> opts { outputFile = Just f }) "FILE")
-      "name of output file (e.g. name of generated fsmod file)"
+      (ReqArg (\ f opts -> opts { outputFile = Just f }) "FILE/DIR")
+      "name of output file (e.g. name of generated fsmod file); for --generate, specifies the output directory"
+  , Option []
+      ["generate"]
+      (ReqArg (\n opts -> opts { action = Generate (read n) }) "SIZE")
+      "generate SIZE example Fortran programs as .f90 files into the directory specified by -o (default: current directory)"
+  , Option []
+      ["generate-no-reals"]
+      (NoArg $ \ opts -> opts { generateNoReals = True })
+      "when generating programs, exclude real/floating-point types"
+  , Option []
+      ["generate-flight"]
+      (NoArg $ \ opts -> opts { generateFlight = True })
+      "when generating programs, bind intermediate results to temporary variables instead of nesting them"
   , Option []
       ["make-mods", "make"]
       (NoArg $ \ opts -> opts { action = Make })
