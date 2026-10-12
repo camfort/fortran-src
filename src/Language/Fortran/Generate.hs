@@ -432,12 +432,19 @@ genBodyBlocks = do
 --   between a plain statement and a block-level construct, both producing
 --   '[Block A0]'. Conditionals are only offered below 'maxBodyDepth', since
 --   each one recurses into a full nested body (see 'genConditional').
+--
+--   Loops get far fewer slots than the other choices: a loop's body is
+--   itself a full 'genBodyBlocks' that can recurse into further nested
+--   loops, and loop-heavy subroutines get called repeatedly from several
+--   places, so loop nesting and loop frequency both multiply together
+--   fast. At equal weight, generated programs routinely ended up with
+--   millions of total iterations and took far too long to run.
 genBodyItem :: GenM [Block A0]
 genBodyItem = do
   depth <- gets bodyDepth
   if depth >= maxBodyDepth
     then genStatementBlocks
-    else oneofCtxt [ genStatementBlocks, pure <$> genLoop, pure <$> genConditional ]
+    else oneofCtxt (replicate 6 genStatementBlocks ++ [pure <$> genLoop] ++ replicate 2 (pure <$> genConditional))
 
 -- | Generate one statement, preceded by any intermediate assignments it
 --   needs, each wrapped as a 'Block'.
@@ -519,9 +526,13 @@ mkIntLit :: Integer -> Expression A0
 mkIntLit x = ExpValue () nullSpan (ValInteger (show x) Nothing)
 
 -- | The gap between a loop's start and end bound (see 'genSafeLoopBounds'),
---   i.e. the trip count minus one.
+--   i.e. the trip count minus one. Kept small because loops can nest (see
+--   'maxBodyDepth') and a loop-heavy subroutine can itself be called many
+--   times, so the total iteration count is this raised to roughly the
+--   nesting depth, times the call count -- a large span here compounds
+--   fast into programs that take far too long to actually run.
 maxLoopSpan :: Integer
-maxLoopSpan = 50
+maxLoopSpan = 10
 
 -- | Synthesise a (start, end) bound pair for a counted DO loop (implicit
 --   step of 1), always of the form @(n, n + k)@ for @k@ chosen in
@@ -739,9 +750,11 @@ genTypedExpression typeSpec = do
      if sz <= 0
        then oneofCtxt [variable typeSpec, genTypedValue typeSpec]
        else do
-         -- 'abs'/'mod' are only offered for an integer goal.
+         -- 'abs'/'mod' are only offered for an integer goal, and are rare:
+         -- one slot each against many copies of the other strategies.
          let intrinsics = if goalBaseType == TypeInteger then [absExpr, modExpr] else []
-         oneofCtxt ([variable typeSpec, expression, binaryOpExpr, unaryOpExpr, genTypedValue typeSpec] ++ intrinsics)
+             common = [variable typeSpec, expression, binaryOpExpr, unaryOpExpr, genTypedValue typeSpec]
+         oneofCtxt (concatMap (replicate 6) common ++ intrinsics)
 
      where
           TypeSpec _ _ goalBaseType _ = typeSpec
