@@ -282,9 +282,9 @@ instance IndentablePretty (Block a) where
         displayIfPred =
             pprint' v mName <?> colon <+> displayPred "if" ifPred
         displayPred str pred =
-            indent i str <+> parens (pprint' v pred) <+> "then"
+            str <+> parens (pprint' v pred) <+> "then"
         displayElseIf (pred, block) =
-            displayClause (displayPred "else if" pred) block
+            displayClause (indent i (displayPred "else if" pred)) block
         displayElse block =
             displayClause (indent i "else") block
         displayClause = printIndentedBlockWithPre v i
@@ -340,8 +340,8 @@ instance IndentablePretty (Block a) where
         in case (tl, mn, el) of
           -- Labeled do with end label: print labeled continue
           (Just _, Nothing, Just _) ->
-            -- For nested loops with the same target only 
-            -- print end label for inner-most loop 
+            -- For nested loops with the same target only
+            -- print end label for inner-most loop
             if printEndLabel then
               indent i (pprint' v el <> " " <> "continue" <> newline)
             else
@@ -358,8 +358,8 @@ instance IndentablePretty (Block a) where
             labeledIndent mLabel
               ("do" <+> pprint' v tLabel <+> pprint' v doSpec <> newline) <>
               pprint v body nextI <>
-              -- For nested loops with the same target only 
-              -- print end label for inner-most loop 
+              -- For nested loops with the same target only
+              -- print end label for inner-most loop
               if isJust el && printEndLabel then
                 pprint' v el `overlay` indent i ("continue" <> newline)
               else
@@ -441,6 +441,8 @@ instance IndentablePretty (Block a) where
 
 class Pretty t where
     pprint' :: FortranVersion -> t -> Doc
+    isAtomic :: t -> Bool
+    isAtomic _ = True
 
 instance Pretty a => Pretty (Maybe a) where
     pprint' _ Nothing  = empty
@@ -1012,14 +1014,21 @@ instance Pretty (ImpElement a) where
           Just cTo -> char cFrom <> "-" <> char cTo
 
 instance Pretty (Expression a) where
+    -- A negative numeric literal is not atomic (needs parents)
+    isAtomic (ExpValue _ _ (ValInteger i _)) = not (head i == '-')
+    isAtomic (ExpValue _ _ (ValReal rl _))   = not (head (realLitSignificand rl) == '-')
+    isAtomic (ExpValue{}) = True
+    isAtomic _ = False
+
+    pprint' :: FortranVersion -> Expression a -> Doc
     pprint' v (ExpValue _ _ val)  =
          pprint' v val
 
     pprint' v (ExpBinary _ _ op e1 e2) =
-        parens (pprint' v e1 <+> pprint' v op <+> pprint' v e2)
+        parens (pprintParens v e1 <+> pprint' v op <+> pprintParens v e2)
 
     pprint' v (ExpUnary _ _ op e) =
-        pprint' v op <+> pprint' v e
+        pprint' v op <+> pprintParens v e
 
     pprint' v (ExpSubscript _ _ e ixs) =
         pprint' v e <> parens (pprint' v ixs)
@@ -1173,7 +1182,14 @@ instance Pretty BinaryOp where
     pprint' v EQ  = if v <= Fortran77Extended then ".eq." else "=="
     pprint' v NE  = if v <= Fortran77Extended then ".ne." else "/="
     pprint' _ Or  = ".or."
-    pprint' _ XOr = ".xor."
+    -- '.xor.' was never standardized (it's a widely-supported legacy
+    -- extension, rejected under e.g. '-std=f2018'). '.neqv.' is the
+    -- standard spelling of the same boolean function (true iff the
+    -- operands differ), so we always print XOr that way, regardless of
+    -- which spelling the source used -- matching NotEquivalent's gate.
+    pprint' v XOr
+      | v >= Fortran77 = ".neqv."
+      | otherwise = tooOld v ".NEQV. operator" Fortran77
     pprint' _ And = ".and."
     pprint' v Equivalent
       | v >= Fortran77 = ".eqv."
@@ -1240,9 +1256,15 @@ reformatMixedFormInsertContinuations = go stNewline
     -- in statement: break when required
     go (RefmtStStmt col)    (x:xs)
       -- Checking if we are at column 73, since col is counted from 0!
-      | col == maxCol && x == '&' = -- already a continuation in `intersection` format
+      -- Use >= rather than ==: if a content character (e.g. a '&' inside a
+      -- character literal) happens to land exactly on maxCol, the first
+      -- branch below passes it through without resetting col, so col can
+      -- overshoot maxCol. With a strict '==' the second branch would then
+      -- never match again for the rest of the line, producing an unbounded
+      -- line; '>=' keeps triggering a break every time the budget is spent.
+      | col >= maxCol && x == '&' = -- already a continuation in `intersection` format
                         '&' : go (RefmtStStmt (col + 1)) xs
-      | col == maxCol = -- making continuation
+      | col >= maxCol = -- making continuation
                         '&' : '\n' : go stNewline ("     &" ++ x:xs)
       | otherwise     = x : go (RefmtStStmt (col + 1)) xs
 
@@ -1254,3 +1276,9 @@ reformatMixedFormInsertContinuations = go stNewline
 -- | 'error' wrapper to make it easier to swap this out for a monad later.
 prettyError :: String -> a
 prettyError = error
+
+pprintParens :: Pretty t => FortranVersion -> t -> Doc
+pprintParens v t =
+  if isAtomic t
+    then pprint' v t
+    else parens (pprint' v t)
