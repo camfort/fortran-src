@@ -20,6 +20,9 @@ import Control.Monad.State
 import qualified Data.Map.Strict as Map
 import Data.Map.Strict (Map)
 import Data.List.NonEmpty (NonEmpty(..))
+import Data.Maybe (isNothing)
+import Data.Set (Set)
+import qualified Data.Set as Set
 import System.FilePath ((</>))
 import Data.Generics.Uniplate.Data (universeBi, transformBi)
 
@@ -119,6 +122,23 @@ data Env = Env
   --   conditional nested within it). 'exit'/'cycle' are only valid inside
   --   a loop, so the statement generator checks this before offering them.
   , inLoop         :: Bool
+  -- | Local variables declared as a (one-dimensional) array, with their
+  --   element type and size. A separate, additive map, same reasoning as
+  --   'pointerKinds': arrays are also kept in 'localVariables' (so
+  --   'freshName' still sees them for uniqueness), but are excluded from
+  --   'readableLocalVariables'/'writableLocalVariables' -- the existing
+  --   scalar-oriented machinery (plain assignment, actual arguments, loop
+  --   indices, ...) has no notion of "whole array" and would otherwise be
+  --   liable to treat one as an ordinary scalar of the same base type.
+  , arrayVars      :: Map Name (TypeSpec A0, Integer)
+  -- | Names currently inserted by 'boundBySubstitution' as its "cut"
+  --   placeholder, between being made readable and being resolved. Such a
+  --   name is NOT a genuine variable yet: it may still be substituted away
+  --   with an arbitrary expression (including a function call), so any
+  --   generator with a stronger guarantee to keep (e.g. 'genSimpleExpression'
+  --   promising no function calls) must not treat it as an ordinary
+  --   variable reference -- see 'simpleVariable'.
+  , cutPlaceholders :: Set Name
   }
 
 -- | A variable's POINTER/TARGET status (mutually exclusive here, though
@@ -142,7 +162,7 @@ maxBodyDepth = 3
 --   in every other respect, so aren't excluded.
 readableLocalVariables :: Env -> Map Name (TypeSpec A0)
 readableLocalVariables env =
-  Map.map fst $ Map.filterWithKey (\n (_, i) -> isReadable i && not (isPointerVar env n)) (localVariables env)
+  Map.map fst $ Map.filterWithKey (\n (_, i) -> isReadable i && not (isPointerVar env n) && not (isArrayVar env n)) (localVariables env)
   where isReadable Nothing         = True
         isReadable (Just In)       = True
         isReadable (Just InOut)    = True
@@ -151,7 +171,7 @@ readableLocalVariables env =
 -- | As 'readableLocalVariables', for variables writable as l-values.
 writableLocalVariables :: Env -> Map Name (TypeSpec A0)
 writableLocalVariables env =
-  Map.map fst $ Map.filterWithKey (\n (_, i) -> isWritable i && not (isPointerVar env n)) (localVariables env)
+  Map.map fst $ Map.filterWithKey (\n (_, i) -> isWritable i && not (isPointerVar env n) && not (isArrayVar env n)) (localVariables env)
   where isWritable Nothing         = True
         isWritable (Just Out)      = True
         isWritable (Just InOut)    = True
@@ -159,6 +179,9 @@ writableLocalVariables env =
 
 isPointerVar :: Env -> Name -> Bool
 isPointerVar env n = Map.lookup n (pointerKinds env) == Just IsPointer
+
+isArrayVar :: Env -> Name -> Bool
+isArrayVar env n = Map.member n (arrayVars env)
 
 data VarType = Var | Sub | Fun
 
@@ -173,6 +196,8 @@ emptyEnv = Env { localVariables = Map.empty
                , bodyDepth      = 0
                , pointerKinds   = Map.empty
                , inLoop         = False
+               , arrayVars      = Map.empty
+               , cutPlaceholders = Set.empty
                }
 
 instance Show VarType where
@@ -282,10 +307,21 @@ genDecl initialise isArg = do
                    else liftGen $ frequency [ (3, pure (Just IsPointer))
                                              , (3, pure (Just IsTarget))
                                              , (18, pure Nothing) ]
+  -- Likewise, arrays are only rolled for ordinary locals (not args, not
+  -- pointer/target -- array dummy arguments need a shape to match the
+  -- caller's, and array pointers need a deferred-shape spec, both beyond
+  -- what this first pass covers), and only half the time.
+  arraySize <- if isArg || pointerKind /= Nothing
+                 then pure Nothing
+                 else liftGen $ frequency [ (1, Just <$> choose (1, 20))
+                                           , (1, pure Nothing) ]
   -- A pointer can't take a plain '= value' initializer (it would need
   -- '=> target' instead, which this generator doesn't synthesise at
-  -- declaration time), so one is never given an initial value here.
-  initialExpr <- if initialise && not isArg && pointerKind /= Just IsPointer
+  -- declaration time), so one is never given an initial value here. Nor
+  -- can an array (it would need an array constructor, e.g. '= [1, 2, 3]',
+  -- which this generator also doesn't synthesise), so its elements start
+  -- undefined; 'arrayRead' is a known gap until/unless that's added.
+  initialExpr <- if initialise && not isArg && pointerKind /= Just IsPointer && isNothing arraySize
                    then Just <$> genTypedValue typeSpec
                    else pure Nothing
   let attrList = case (mintent, pointerKind) of
@@ -294,13 +330,17 @@ genDecl initialise isArg = do
                    (_, Just IsTarget)  -> Just [AttrTarget () nullSpan]
                    _                   -> Nothing
       attrs = AList.fromList () <$> attrList
+      declType = case arraySize of
+                   Just size -> ArrayDecl (AList.fromList () [DimensionDeclarator () nullSpan Nothing (Just (mkIntLit size))])
+                   Nothing   -> ScalarDecl
   let
       varExpr   = ExpValue () nullSpan (ValVariable name)
-      decl      = Declarator () nullSpan varExpr ScalarDecl Nothing initialExpr
+      decl      = Declarator () nullSpan varExpr declType Nothing initialExpr
       declList  = AList () nullSpan [decl]
   modify (\st -> st
     { localVariables = Map.insert name (typeSpec, mintent) (localVariables st)
     , pointerKinds   = maybe id (Map.insert name) pointerKind (pointerKinds st)
+    , arrayVars      = maybe id (\size -> Map.insert name (typeSpec, size)) arraySize (arrayVars st)
     })
   pure (name, typeSpec, mintent, StDeclaration () nullSpan typeSpec attrs declList)
 
@@ -345,16 +385,33 @@ instance ArbitraryInCtxt (Statement A0) where
     inside <- gets inLoop
     -- 'exit'/'cycle' are only valid inside a loop,
     let loopOnly = if inside then [exitOrCycle] else []
-    oneofCtxt ([printer] 
+    oneofCtxt ([printer]
             ++ loopOnly
             ++ (replicate 2 pointerAssociate)
             ++ (replicate 2 subroutine)
+            ++ (replicate 2 arrayWrite)
             ++ (replicate 3 assignment))
     where
      -- Never targets a named loop (we don't generate those), so it always
      -- applies to the innermost enclosing 'do'.
      exitOrCycle :: GenM (Statement A0)
      exitOrCycle = liftGen $ elements [StExit () nullSpan Nothing, StCycle () nullSpan Nothing]
+
+     -- Write to an array element at a bounded-literal index (see
+     -- 'genArrayIndex'): @arr(idx) = e@. Falls back to 'assignment' if no
+     -- array exists.
+     arrayWrite :: GenM (Statement A0)
+     arrayWrite = do
+       env <- get
+       case Map.toList (arrayVars env) of
+         [] -> assignment
+         candidates -> do
+           (name, (elemTy, size)) <- liftGen (elements candidates)
+           idx  <- genArrayIndex size
+           expr <- genTypedExpression elemTy
+           let lhs = ExpSubscript () nullSpan (ExpValue () nullSpan (ValVariable name))
+                       (AList () nullSpan [IxSingle () nullSpan Nothing idx])
+           pure $ StExpressionAssign () nullSpan lhs expr
 
      -- Associate a pointer with a same-typed target: @p => t@. Already
      -- rare by construction (both a POINTER and a compatibly-typed TARGET
@@ -714,6 +771,96 @@ genSmallNonNegValue (TypeSpec _ _ TypeInteger _) = do
   pure $ ExpValue () nullSpan (ValInteger (show x) Nothing)
 genSmallNonNegValue ts = genTypedValue ts
 
+-- | A restricted expression grammar with no function calls anywhere in it
+--   (neither user-defined nor intrinsic): @lit | var | op1 e | e1 op2 e2@,
+--   recursively. Used for array indices (see 'arrayRead'/'arrayWrite').
+--
+--   This can't be built by reusing 'binaryOpExpr'/'unaryOpExpr' with a
+--   restricted operand generator the way 'genRhsOperand' narrows a single
+--   operand: those two go through 'boundBySubstitution', whose "cut"
+--   mechanism generates a second, independent expression via the *full*
+--   unrestricted grammar and splices the first one into it, so a call
+--   could still end up wrapped around our restricted part. This generator
+--   is fully self-contained instead -- it never calls 'genTypedExpression'
+--   anywhere in its recursion, directly or otherwise. For the same reason
+--   it uses 'simpleVariable' rather than the shared 'variable': the latter
+--   can legitimately pick a live 'boundBySubstitution' cut placeholder
+--   (it's a perfectly ordinary readable variable as far as it's
+--   concerned), and that placeholder can later be substituted away with
+--   an arbitrary expression -- including a function call -- reintroducing
+--   exactly what this generator exists to rule out.
+genSimpleExpression :: TypeSpec A0 -> GenM (Expression A0)
+genSimpleExpression typeSpec = do
+  sz <- liftGen getSize
+  if sz <= 0
+    then oneofCtxt [simpleVariable typeSpec, genTypedValue typeSpec]
+    else oneofCtxt [simpleVariable typeSpec, genTypedValue typeSpec, simpleBinaryOpExpr, simpleUnaryOpExpr]
+  where
+    TypeSpec _ _ goalBaseType _ = typeSpec
+
+    simpleBinaryOpExpr :: GenM (Expression A0)
+    simpleBinaryOpExpr = do
+      env <- get
+      case [ e | e@(_, _, _, result) <- binaryOpTable (includeReals env), result == goalBaseType ] of
+        [] -> genTypedValue typeSpec
+        candidates -> do
+          (op, lhsBase, rhsBase, _) <- liftGen $ elements candidates
+          lhs <- smaller $ genSimpleLhsOperand op lhsBase
+          rhs <- smaller $ genSimpleRhsOperand op rhsBase
+          pure $ ExpBinary () nullSpan op lhs rhs
+
+    simpleUnaryOpExpr :: GenM (Expression A0)
+    simpleUnaryOpExpr = do
+      env <- get
+      case [ e | e@(_, _, result) <- unaryOpTable (includeReals env), result == goalBaseType ] of
+        [] -> genTypedValue typeSpec
+        candidates -> do
+          (op, argBase, _) <- liftGen $ elements candidates
+          arg <- smaller $ genSimpleExpressionOfBase argBase
+          pure $ ExpUnary () nullSpan op arg
+
+genSimpleExpressionOfBase :: BaseType -> GenM (Expression A0)
+genSimpleExpressionOfBase base = liftGen (genTypeSpecOfBase base) >>= genSimpleExpression
+
+-- | A literal index guaranteed within an array's declared bounds
+--   (@[1, size]@, since 'genDecl' always declares arrays with an implicit
+--   lower bound of 1). Deliberately not 'genSimpleExpression': Fortran has
+--   no non-function-call way to clamp an arbitrary expression into range
+--   (only the @mod@/@abs@ intrinsics, off the table for an index), and we
+--   don't track value ranges for ordinary variables, so a literal is the
+--   only way to *guarantee* an in-bounds access rather than just make one
+--   likely.
+genArrayIndex :: Integer -> GenM (Expression A0)
+genArrayIndex size = mkIntLit <$> liftGen (choose (1, size))
+
+-- | As 'variable', but excluding any live 'boundBySubstitution' cut
+--   placeholder (see 'genSimpleExpression').
+simpleVariable :: TypeSpec A0 -> GenM (Expression A0)
+simpleVariable typeSpec = do
+  env <- get
+  let candidates = [ name
+                    | (name, ts) <- Map.toList (readableLocalVariables env)
+                    , ts == typeSpec
+                    , not (Set.member name (cutPlaceholders env)) ]
+  if null candidates
+    then genTypedValue typeSpec
+    else do
+      name <- liftGen $ elements candidates
+      pure (ExpValue () nullSpan $ ValVariable name)
+
+-- | As 'genRhsOperand', but falling back to 'genSimpleExpressionOfBase'
+--   instead of the full grammar.
+genSimpleRhsOperand :: BinaryOp -> BaseType -> GenM (Expression A0)
+genSimpleRhsOperand Division       base = liftGen (genTypeSpecOfBase base) >>= genNonZeroValue
+genSimpleRhsOperand Exponentiation base = liftGen (genTypeSpecOfBase base) >>= genSmallNonNegValue
+genSimpleRhsOperand _               base = genSimpleExpressionOfBase base
+
+-- | As 'genLhsOperand', but falling back to 'genSimpleExpressionOfBase'
+--   instead of the full grammar.
+genSimpleLhsOperand :: BinaryOp -> BaseType -> GenM (Expression A0)
+genSimpleLhsOperand Exponentiation base = liftGen (genTypeSpecOfBase base) >>= genSmallBaseValue
+genSimpleLhsOperand _              base = genSimpleExpressionOfBase base
+
 -- | Fortran requires the actual argument for an Out/InOut dummy parameter to
 --   be a definable variable reference (the callee writes back into it), not
 --   an arbitrary expression or literal. So for those intents we must pick a
@@ -753,11 +900,27 @@ genTypedExpression typeSpec = do
          -- 'abs'/'mod' are only offered for an integer goal, and are rare:
          -- one slot each against many copies of the other strategies.
          let intrinsics = if goalBaseType == TypeInteger then [absExpr, modExpr] else []
-             common = [variable typeSpec, expression, binaryOpExpr, unaryOpExpr, genTypedValue typeSpec]
+             common = [variable typeSpec, expression, binaryOpExpr, unaryOpExpr, genTypedValue typeSpec, arrayRead]
          oneofCtxt (concatMap (replicate 6) common ++ intrinsics)
 
      where
           TypeSpec _ _ goalBaseType _ = typeSpec
+
+          -- | Read an array element at a simple (no-function-call) index:
+          --   @arr(idx)@. Falls back to a literal if no array of the goal
+          --   element type is in scope. The index is a bounded literal,
+          --   not the richer 'genSimpleExpression' -- see 'genArrayIndex'.
+          arrayRead :: GenM (Expression A0)
+          arrayRead = do
+            env <- get
+            let candidates = [ (name, size) | (name, (ts, size)) <- Map.toList (arrayVars env), ts == typeSpec ]
+            if null candidates
+              then genTypedValue typeSpec
+              else do
+                (name, size) <- liftGen (elements candidates)
+                idx <- genArrayIndex size
+                pure $ ExpSubscript () nullSpan (ExpValue () nullSpan (ValVariable name))
+                         (AList () nullSpan [IxSingle () nullSpan Nothing idx])
 
           -- | @abs(e)@ for a synthesised integer @e@. Goes through
           --   'withBoundVar' (as 'expression' does for a user-defined call)
@@ -909,10 +1072,12 @@ boundBySubstitution goal tempType genE = do
      -- temp_var stands in for 'e', which need not be a variable, so it is
      -- read-only (In): otherwise it could be picked as the actual argument
      -- for an Out/InOut dummy parameter, which must be a definable variable.
-     modify (\env -> env { localVariables = Map.insert temp_var (tempType, Just In) (localVariables env) })
+     modify (\env -> env { localVariables = Map.insert temp_var (tempType, Just In) (localVariables env)
+                         , cutPlaceholders = Set.insert temp_var (cutPlaceholders env) })
      (emitted, t2) <- collectingStmts (smaller $ genTypedExpression goal)
      -- Remove only x: call bindings made while generating t2 stay in scope.
-     modify (\env -> env { localVariables = Map.delete temp_var (localVariables env) })
+     modify (\env -> env { localVariables = Map.delete temp_var (localVariables env)
+                         , cutPlaceholders = Set.delete temp_var (cutPlaceholders env) })
      mapM_ (emitStmt . substituteInStmt e temp_var) emitted
      pure $ if mentions temp_var t2 then substitute e temp_var t2
             else if tempType == goal then e
