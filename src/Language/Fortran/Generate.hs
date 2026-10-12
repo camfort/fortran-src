@@ -109,28 +109,52 @@ data Env = Env
   --   generates is still up to that (unshrunk-in-count) budget, so without
   --   a depth cap, nested conditionals branch instead of terminating.
   , bodyDepth      :: Int
+  -- | Local variables declared with the POINTER or TARGET attribute.
+  --   A separate, additive map (rather than extending 'localVariables'
+  --   itself) so this rare feature doesn't touch the many existing sites
+  --   that pattern-match the @(TypeSpec A0, Maybe Intent)@ shape. Absence
+  --   from this map (the common case) means neither attribute.
+  , pointerKinds   :: Map Name PointerKind
   }
+
+-- | A variable's POINTER/TARGET status (mutually exclusive here, though
+--   Fortran permits both attributes together -- not generated, to keep
+--   association straightforward: a pointer only ever targets a 'IsTarget'
+--   variable).
+data PointerKind = IsPointer | IsTarget
+  deriving (Eq, Show)
 
 -- | Below this nesting depth, a body item may be a conditional; at or past
 --   it, only plain statements are generated.
 maxBodyDepth :: Int
 maxBodyDepth = 3
 
--- | Local variables (Nothing intent) and In/InOut arguments are readable in r-expressions.
+-- | Local variables (Nothing intent) and In/InOut arguments are readable in
+--   r-expressions. Excludes POINTER variables: this generator never tracks
+--   whether a pointer has been associated yet, so the only way to avoid
+--   ever synthesising a disassociated-pointer dereference is to not read
+--   (or write) through one via ordinary statements at all -- its only use
+--   is as the target of 'pointerAssociate'. TARGET variables are ordinary
+--   in every other respect, so aren't excluded.
 readableLocalVariables :: Env -> Map Name (TypeSpec A0)
-readableLocalVariables env = Map.map fst $ Map.filter (isReadable . snd) (localVariables env)
+readableLocalVariables env =
+  Map.map fst $ Map.filterWithKey (\n (_, i) -> isReadable i && not (isPointerVar env n)) (localVariables env)
   where isReadable Nothing         = True
         isReadable (Just In)       = True
         isReadable (Just InOut)    = True
         isReadable _               = False
 
--- | Local variables (Nothing intent) and Out/InOut arguments are writable as l-values.
+-- | As 'readableLocalVariables', for variables writable as l-values.
 writableLocalVariables :: Env -> Map Name (TypeSpec A0)
-writableLocalVariables env = Map.map fst $ Map.filter (isWritable . snd) (localVariables env)
+writableLocalVariables env =
+  Map.map fst $ Map.filterWithKey (\n (_, i) -> isWritable i && not (isPointerVar env n)) (localVariables env)
   where isWritable Nothing         = True
         isWritable (Just Out)      = True
         isWritable (Just InOut)    = True
         isWritable _               = False
+
+isPointerVar :: Env -> Name -> Bool
+isPointerVar env n = Map.lookup n (pointerKinds env) == Just IsPointer
 
 data VarType = Var | Sub | Fun
 
@@ -143,6 +167,7 @@ emptyEnv = Env { localVariables = Map.empty
                , pendingStmts   = []
                , pendingDecls   = []
                , bodyDepth      = 0
+               , pointerKinds   = Map.empty
                }
 
 instance Show VarType where
@@ -241,18 +266,37 @@ genDecl :: Bool -> Bool -> GenM (Name, TypeSpec A0, Maybe Intent, Statement A0)
 genDecl initialise isArg = do
   name      <- freshName Var
   typeSpec  <- arbitraryInCtxt
-  initialExpr <- if initialise && not isArg
-                   then Just <$> genTypedValue typeSpec
-                   else pure Nothing
   mintent   <- if isArg
                  then Just <$> liftGen arbitrary
                  else pure Nothing
-  let attrs = fmap (\i -> AList.fromList () [AttrIntent () nullSpan i]) mintent
+  -- Dummy arguments are never given POINTER/TARGET here, to avoid
+  -- interacting with the intent machinery above; keeps this rare feature
+  -- to ordinary locals, where it's rolled independently and infrequently.
+  pointerKind <- if isArg
+                   then pure Nothing
+                   else liftGen $ frequency [ (1, pure (Just IsPointer))
+                                             , (1, pure (Just IsTarget))
+                                             , (18, pure Nothing) ]
+  -- A pointer can't take a plain '= value' initializer (it would need
+  -- '=> target' instead, which this generator doesn't synthesise at
+  -- declaration time), so one is never given an initial value here.
+  initialExpr <- if initialise && not isArg && pointerKind /= Just IsPointer
+                   then Just <$> genTypedValue typeSpec
+                   else pure Nothing
+  let attrList = case (mintent, pointerKind) of
+                   (Just i, _)         -> Just [AttrIntent () nullSpan i]
+                   (_, Just IsPointer) -> Just [AttrPointer () nullSpan]
+                   (_, Just IsTarget)  -> Just [AttrTarget () nullSpan]
+                   _                   -> Nothing
+      attrs = AList.fromList () <$> attrList
   let
       varExpr   = ExpValue () nullSpan (ValVariable name)
       decl      = Declarator () nullSpan varExpr ScalarDecl Nothing initialExpr
       declList  = AList () nullSpan [decl]
-  modify (\st -> st { localVariables = Map.insert name (typeSpec, mintent) (localVariables st) } )
+  modify (\st -> st
+    { localVariables = Map.insert name (typeSpec, mintent) (localVariables st)
+    , pointerKinds   = maybe id (Map.insert name) pointerKind (pointerKinds st)
+    })
   pure (name, typeSpec, mintent, StDeclaration () nullSpan typeSpec attrs declList)
 
 -- | Generate @n@ declarations, building up the environment as we go.
@@ -284,14 +328,36 @@ genProgramUnit incReals flightMode = sized $ \sz -> do
     pure $ PUMain () nullSpan (Just "generated") blocks (Just procs)
     where
       implicitBlock = statementToBlock $ StImplicit () nullSpan Nothing
-      -- print out everything in the environment at the end
+      -- print out everything in the environment at the end; readable
+      -- (rather than all local vars) so a possibly-disassociated pointer
+      -- is never dumped
       printAllEnd env =
-        map (statementToBlock . mkWrite) (map (ExpValue () nullSpan . ValVariable) (Map.keys (localVariables env)))
+        map (statementToBlock . mkWrite) (map (ExpValue () nullSpan . ValVariable) (Map.keys (readableLocalVariables env)))
 
 instance ArbitraryInCtxt (Statement A0) where
-  -- Pick 
-  arbitraryInCtxt = oneofCtxt ([printer] ++ replicate 2 subroutine ++ replicate 3 assignment)
+  -- Pick
+  arbitraryInCtxt = oneofCtxt ([printer, pointerAssociate] ++ replicate 2 subroutine ++ replicate 3 assignment)
     where
+     -- Associate a pointer with a same-typed target: @p => t@. Already
+     -- rare by construction (both a POINTER and a compatibly-typed TARGET
+     -- variable must exist in scope, and each is itself a ~1-in-20 roll
+     -- per declaration -- see 'genDecl'); falls back to 'assignment' like
+     -- the other statement kinds do when their precondition isn't met.
+     pointerAssociate :: GenM (Statement A0)
+     pointerAssociate = do
+       env <- get
+       let typeOf n = fst <$> Map.lookup n (localVariables env)
+           namesOf k = [ n | (n, k') <- Map.toList (pointerKinds env), k' == k ]
+           pointers  = [ (n, ts) | n <- namesOf IsPointer, Just ts <- [typeOf n] ]
+           targets   = [ (n, ts) | n <- namesOf IsTarget,  Just ts <- [typeOf n] ]
+           compatible = [ (p, t) | (p, pt) <- pointers, (t, tt) <- targets, pt == tt ]
+       case compatible of
+         [] -> assignment
+         _  -> do
+           (p, t) <- liftGen (elements compatible)
+           pure $ StPointerAssign () nullSpan
+             (ExpValue () nullSpan (ValVariable p)) (ExpValue () nullSpan (ValVariable t))
+
      assignment :: GenM (Statement A0)
      assignment = do
       env <- get
@@ -385,7 +451,6 @@ genConditional = do
 -- Generate a loop
 genLoop :: GenM (Block A0)
 genLoop = do
-  let integerTy = TypeSpec () nullSpan TypeInteger Nothing
   -- find a loop index variable (integer) and if there isn't one, generate a new
   -- declaration for one (into the declaration environment)
   loopVar <- do
@@ -420,69 +485,45 @@ genLoop = do
       doSpec = DoSpecification () nullSpan doInit end Nothing
   pure $ BlDo () nullSpan Nothing Nothing Nothing (Just doSpec) loopBody Nothing
 
--- | The largest gap allowed between a loop's start and end bound (see
---   'genSafeLoopBounds'), i.e. the largest possible trip count minus one.
+-- | Build a call to the named intrinsic (syntactically identical to an
+--   ordinary function call, since Fortran doesn't distinguish them).
+mkIntrinsicCall :: Name -> [Expression A0] -> Expression A0
+mkIntrinsicCall fun args = ExpFunctionCall () nullSpan (ExpValue () nullSpan (ValVariable fun))
+            (fromList () (map (Argument () nullSpan Nothing . ArgExpr) args))
+
+integerTy :: TypeSpec A0
+integerTy = TypeSpec () nullSpan TypeInteger Nothing
+
+mkIntLit :: Integer -> Expression A0
+mkIntLit x = ExpValue () nullSpan (ValInteger (show x) Nothing)
+
+-- | The gap between a loop's start and end bound (see 'genSafeLoopBounds'),
+--   i.e. the trip count minus one.
 maxLoopSpan :: Integer
-maxLoopSpan = 10
+maxLoopSpan = 50
 
 -- | Synthesise a (start, end) bound pair for a counted DO loop (implicit
---   step of 1) such that the loop is guaranteed to run for a small, finite
---   number of iterations, at most 'maxLoopSpan' apart -- independently-
---   generated bounds can otherwise land arbitrarily far apart (e.g. a very
---   negative start with a very positive end), making the loop take
---   effectively forever to run even though it's technically well-founded.
---   Picks between three strategies:
+--   step of 1), always of the form @(n, n + k)@ for @k@ chosen in
+--   @[0, maxLoopSpan]@ independently each time -- so the loop is
+--   guaranteed to run a small, bounded number of iterations (at most
+--   'maxLoopSpan' + 1), regardless of what @n@ itself evaluates to: unlike
+--   an earlier version of this function, there's nothing to clamp, so it
+--   doesn't need 'abs'/'mod' to stay safe.
 --
---     1. Two integer literals, chosen so the second is strictly greater
---        than the first, and no more than 'maxLoopSpan' above it.
---     2. A literal '1' start, paired with a synthesised upper bound wrapped
---        in 'abs' (so it can't end up negative) and then reduced modulo
---        'maxLoopSpan', so it can't end up negative or further than
---        'maxLoopSpan' from the start.
---     3. A synthesised lower bound wrapped in 'abs', paired with that same
---        bound plus a small positive literal constant (at most
---        'maxLoopSpan') as the upper bound -- this fixes the trip count to
---        exactly that constant regardless of the lower bound's own
---        magnitude.
+--   Picks @n@ as either a literal integer, or a synthesised expression.
 genSafeLoopBounds :: GenM (Expression A0, Expression A0)
-genSafeLoopBounds = oneofCtxt [literalBounds, absUpperBound, absLowerBoundPlusConst]
+genSafeLoopBounds = oneofCtxt [literalStart, exprStart]
   where
-    integerTy = TypeSpec () nullSpan TypeInteger Nothing
+    boundsFrom :: Expression A0 -> GenM (Expression A0, Expression A0)
+    boundsFrom n = do
+      k <- liftGen $ choose (0, maxLoopSpan)
+      pure (n, ExpBinary () nullSpan Addition n (mkIntLit k))
 
-    mkIntLit :: Integer -> Expression A0
-    mkIntLit x = ExpValue () nullSpan (ValInteger (show x) Nothing)
+    literalStart :: GenM (Expression A0, Expression A0)
+    literalStart = liftGen (choose (-50, 50 :: Integer)) >>= boundsFrom . mkIntLit
 
-    mkIntrinsicCall :: Name -> [Expression A0] -> Expression A0
-    mkIntrinsicCall fun args = ExpFunctionCall () nullSpan (ExpValue () nullSpan (ValVariable fun))
-                (fromList () (map (Argument () nullSpan Nothing . ArgExpr) args))
-
-    mkAbs :: Expression A0 -> Expression A0
-    mkAbs e = mkIntrinsicCall "abs" [e]
-
-    -- | @e@ reduced into @[0, m - 1]@, via Fortran's 'mod' intrinsic
-    --   (non-negative here since 'e' itself is already non-negative).
-    mkModBelow :: Expression A0 -> Integer -> Expression A0
-    mkModBelow e m = mkIntrinsicCall "mod" [e, mkIntLit m]
-
-    literalBounds :: GenM (Expression A0, Expression A0)
-    literalBounds = do
-      lo <- liftGen $ choose (-1000, 1000 :: Integer)
-      hi <- liftGen $ choose (lo + 1, lo + maxLoopSpan)
-      pure (mkIntLit lo, mkIntLit hi)
-
-    absUpperBound :: GenM (Expression A0, Expression A0)
-    absUpperBound = do
-      upper <- smaller $ genTypedExpression integerTy
-      let boundedUpper = ExpBinary () nullSpan Addition (mkIntLit 1) (mkModBelow (mkAbs upper) maxLoopSpan)
-      pure (mkIntLit 1, boundedUpper)
-
-    absLowerBoundPlusConst :: GenM (Expression A0, Expression A0)
-    absLowerBoundPlusConst = do
-      lower <- smaller $ genTypedExpression integerTy
-      k <- liftGen $ choose (1, maxLoopSpan)
-      let loExpr = mkAbs lower
-          hiExpr = ExpBinary () nullSpan Addition loExpr (mkIntLit k)
-      pure (loExpr, hiExpr)
+    exprStart :: GenM (Expression A0, Expression A0)
+    exprStart = smaller (genTypedExpression integerTy) >>= boundsFrom
 
 -- Generate a list of procedures (subroutines or functions)
 genProcedures :: GenM [ProgramUnit A0]
@@ -664,10 +705,37 @@ genTypedExpression typeSpec = do
      -- otherwise generation is an unbounded branching process and may not terminate.
      if sz <= 0
        then oneofCtxt [variable typeSpec, genTypedValue typeSpec]
-       else oneofCtxt [variable typeSpec, expression, binaryOpExpr, unaryOpExpr, genTypedValue typeSpec]
+       else do
+         -- 'abs'/'mod' are only offered for an integer goal.
+         let intrinsics = if goalBaseType == TypeInteger then [absExpr, modExpr] else []
+         oneofCtxt ([variable typeSpec, expression, binaryOpExpr, unaryOpExpr, genTypedValue typeSpec] ++ intrinsics)
 
      where
           TypeSpec _ _ goalBaseType _ = typeSpec
+
+          -- | @abs(e)@ for a synthesised integer @e@. Goes through
+          --   'withBoundVar' (as 'expression' does for a user-defined call)
+          --   rather than 'boundBySubstitution' directly: in flight mode
+          --   that binds the call to its own variable rather than
+          --   substituting it inline, so two intrinsic calls can never end
+          --   up nested in flight mode specifically -- which is the only
+          --   mode we want that guarantee in (substitution mode permits
+          --   nesting generally, for every kind of call, so it's allowed
+          --   to here too).
+          absExpr :: GenM (Expression A0)
+          absExpr = withBoundVar typeSpec typeSpec $ do
+            arg <- smaller $ genTypedExpressionOfBase TypeInteger
+            pure $ mkIntrinsicCall "abs" [arg]
+
+          -- | @mod(e, k)@ for a synthesised integer @e@ and a literal
+          --   non-zero @k@ (never a variable or a further expression, same
+          --   as a 'Division' divisor -- see 'genRhsOperand' -- since
+          --   'mod' by zero is just as invalid as division by zero).
+          modExpr :: GenM (Expression A0)
+          modExpr = withBoundVar typeSpec typeSpec $ do
+            dividend <- smaller $ genTypedExpressionOfBase TypeInteger
+            divisor  <- genNonZeroValue integerTy
+            pure $ mkIntrinsicCall "mod" [dividend, divisor]
 
           {-
                Synthesis based on the sequent calculus style of function application
