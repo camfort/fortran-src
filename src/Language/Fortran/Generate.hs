@@ -115,6 +115,10 @@ data Env = Env
   --   that pattern-match the @(TypeSpec A0, Maybe Intent)@ shape. Absence
   --   from this map (the common case) means neither attribute.
   , pointerKinds   :: Map Name PointerKind
+  -- | True while generating the body of a DO loop (including inside any
+  --   conditional nested within it). 'exit'/'cycle' are only valid inside
+  --   a loop, so the statement generator checks this before offering them.
+  , inLoop         :: Bool
   }
 
 -- | A variable's POINTER/TARGET status (mutually exclusive here, though
@@ -168,6 +172,7 @@ emptyEnv = Env { localVariables = Map.empty
                , pendingDecls   = []
                , bodyDepth      = 0
                , pointerKinds   = Map.empty
+               , inLoop         = False
                }
 
 instance Show VarType where
@@ -274,8 +279,8 @@ genDecl initialise isArg = do
   -- to ordinary locals, where it's rolled independently and infrequently.
   pointerKind <- if isArg
                    then pure Nothing
-                   else liftGen $ frequency [ (1, pure (Just IsPointer))
-                                             , (1, pure (Just IsTarget))
+                   else liftGen $ frequency [ (3, pure (Just IsPointer))
+                                             , (3, pure (Just IsTarget))
                                              , (18, pure Nothing) ]
   -- A pointer can't take a plain '= value' initializer (it would need
   -- '=> target' instead, which this generator doesn't synthesise at
@@ -336,8 +341,21 @@ genProgramUnit incReals flightMode = sized $ \sz -> do
 
 instance ArbitraryInCtxt (Statement A0) where
   -- Pick
-  arbitraryInCtxt = oneofCtxt ([printer, pointerAssociate] ++ replicate 2 subroutine ++ replicate 3 assignment)
+  arbitraryInCtxt = do
+    inside <- gets inLoop
+    -- 'exit'/'cycle' are only valid inside a loop,
+    let loopOnly = if inside then [exitOrCycle] else []
+    oneofCtxt ([printer] 
+            ++ loopOnly
+            ++ (replicate 2 pointerAssociate)
+            ++ (replicate 2 subroutine)
+            ++ (replicate 3 assignment))
     where
+     -- Never targets a named loop (we don't generate those), so it always
+     -- applies to the innermost enclosing 'do'.
+     exitOrCycle :: GenM (Statement A0)
+     exitOrCycle = liftGen $ elements [StExit () nullSpan Nothing, StCycle () nullSpan Nothing]
+
      -- Associate a pointer with a same-typed target: @p => t@. Already
      -- rare by construction (both a POINTER and a compatibly-typed TARGET
      -- variable must exist in scope, and each is itself a ~1-in-20 roll
@@ -473,11 +491,14 @@ genLoop = do
   original <- gets ((Map.! loopVar) . localVariables)
   modify (\env -> env { localVariables = Map.insert loopVar (integerTy, Just In) (localVariables env) })
   (start, end) <- genSafeLoopBounds
-  -- generate loop body, shrinking body depth
+  -- generate loop body, shrinking body depth; 'inLoop' is restored to
+  -- whatever it was before (not hardcoded to False), so unwinding from an
+  -- inner loop back into an outer one's body still counts as "in a loop"
   loopBody <- smaller $ do
-    modify (\env -> env { bodyDepth = bodyDepth env + 1 })
+    wasInLoop <- gets inLoop
+    modify (\env -> env { bodyDepth = bodyDepth env + 1, inLoop = True })
     blocks <- genBodyBlocks
-    modify (\env -> env { bodyDepth = bodyDepth env - 1 })
+    modify (\env -> env { bodyDepth = bodyDepth env - 1, inLoop = wasInLoop })
     pure blocks
   modify (\env -> env { localVariables = Map.insert loopVar original (localVariables env) })
   -- make into a do block
@@ -510,9 +531,10 @@ maxLoopSpan = 50
 --   an earlier version of this function, there's nothing to clamp, so it
 --   doesn't need 'abs'/'mod' to stay safe.
 --
---   Picks @n@ as either a literal integer, or a synthesised expression.
+--   Picks @n@ as either a literal integer, or a plain variable reference
+--   (never a general expression, to keep @n@ itself small/simple).
 genSafeLoopBounds :: GenM (Expression A0, Expression A0)
-genSafeLoopBounds = oneofCtxt [literalStart, exprStart]
+genSafeLoopBounds = oneofCtxt [literalStart, varStart]
   where
     boundsFrom :: Expression A0 -> GenM (Expression A0, Expression A0)
     boundsFrom n = do
@@ -522,8 +544,19 @@ genSafeLoopBounds = oneofCtxt [literalStart, exprStart]
     literalStart :: GenM (Expression A0, Expression A0)
     literalStart = liftGen (choose (-50, 50 :: Integer)) >>= boundsFrom . mkIntLit
 
-    exprStart :: GenM (Expression A0, Expression A0)
-    exprStart = smaller (genTypedExpression integerTy) >>= boundsFrom
+    -- | A plain variable reference as the start bound -- not a general
+    -- synthesised expression, which could itself contain arbitrarily
+    -- large sub-terms and so undermine the point of bounding the span.
+    -- Falls back to 'literalStart' if no readable integer variable exists.
+    varStart :: GenM (Expression A0, Expression A0)
+    varStart = do
+      env <- get
+      let candidates = [ name | (name, ts) <- Map.toList (readableLocalVariables env), ts == integerTy ]
+      case candidates of
+        [] -> literalStart
+        _  -> do
+          name <- liftGen (elements candidates)
+          boundsFrom (ExpValue () nullSpan (ValVariable name))
 
 -- Generate a list of procedures (subroutines or functions)
 genProcedures :: GenM [ProgramUnit A0]
